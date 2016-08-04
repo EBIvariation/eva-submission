@@ -4,8 +4,14 @@ import org.slf4j.LoggerFactory;
 
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+import org.springframework.core.env.PropertiesPropertySource;
+import org.springframework.core.env.StandardEnvironment;
 import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.PollableChannel;
+
+import java.util.LinkedHashMap;
+import java.util.Properties;
 
 /**
  * Created by tom on 04/08/16.
@@ -14,21 +20,43 @@ public class ENASequenceReportDL {
 
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(ENASequenceReportDL.class);
 
-    public static void main(String[] args) {
-        ConfigurableApplicationContext ctx =
-                new ClassPathXmlApplicationContext("ena-inbound-config.xml");
 
-        PollableChannel ftpChannel = ctx.getBean("ftpChannel", PollableChannel.class);
+    public static void main(String[] args) {
+        ConfigurableApplicationContext ctx = new ClassPathXmlApplicationContext(
+                new String[] { "ena-inbound-config.xml" },
+                false);
+
+        PollableChannel ftpChannel = createNewChannel(ctx, "GCA_000001405.10");
 
         Message<?> message1 = ftpChannel.receive(2000);
-        Message<?> message2 = ftpChannel.receive(2000);
-        Message<?> message3 = ftpChannel.receive(1000);
 
         LOGGER.info(String.format("Received first file message: %s.", message1));
-        LOGGER.info(String.format("Received second file message: %s.", message2));
-        LOGGER.info(String.format("Received nothing else: %s.", message3));
 
         ctx.close();
+    }
+
+    private static PollableChannel createNewChannel(ConfigurableApplicationContext ctx, String accession) {
+        ctx = new ClassPathXmlApplicationContext(
+                new String[] { "ena-inbound-config.xml" },
+                false);
+        setEnvironmentForAccession(ctx, accession);
+        ctx.refresh();
+        PollableChannel channel = ctx.getBean("ftpChannel", PollableChannel.class);
+        return channel;
+    }
+
+    private static void setEnvironmentForAccession(ConfigurableApplicationContext ctx, String accession) {
+        StandardEnvironment env = new StandardEnvironment();
+        Properties props = new Properties();
+        // populate properties for customer
+        props.setProperty("remote.directory", "/pub/databases/ena/assembly/GCA_000/GCA_000001/");
+        props.setProperty("filename.pattern", String.format("%s_sequence_report.txt", accession));
+
+
+        PropertiesPropertySource pps = new PropertiesPropertySource("ftpprops", props);
+//        env.getPropertySources().addLast(pps);
+        env.getPropertySources().addFirst(pps);
+        ctx.setEnvironment(env);
     }
 
 }

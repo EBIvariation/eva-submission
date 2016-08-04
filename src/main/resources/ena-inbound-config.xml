@@ -13,7 +13,7 @@
 
     <bean id="ftpClientFactory" class="org.springframework.integration.ftp.session.DefaultFtpSessionFactory">
         <property name="host" value="${host}"/>
-        <property name="port" value="${availableServerPort}"/>
+        <!--<property name="port" value="${availableServerPort}"/>-->
         <property name="username" value="${userid}"/>
         <property name="password" value="${password}"/>
     </bean>
@@ -21,10 +21,10 @@
     <int-ftp:inbound-channel-adapter id="ftpInbound"
                                      channel="ftpChannel"
                                      session-factory="ftpClientFactory"
-                                     filename-pattern="*.txt"
+                                     filename-pattern="${filename.pattern}"
                                      auto-create-local-directory="true"
                                      delete-remote-files="false"
-                                     remote-directory="/pub/databases/ena/assembly/GCA_000/GCA_000001/"
+                                     remote-directory="${remote.directory}"
                                      local-directory="/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound">
         <int:poller fixed-rate="1000"/>
     </int-ftp:inbound-channel-adapter>
