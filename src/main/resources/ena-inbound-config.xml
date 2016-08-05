@@ -4,32 +4,79 @@
        xmlns:int="http://www.springframework.org/schema/integration"
        xmlns:int-ftp="http://www.springframework.org/schema/integration/ftp"
        xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:int-stream="http://www.springframework.org/schema/integration/stream"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
 		http://www.springframework.org/schema/integration http://www.springframework.org/schema/integration/spring-integration.xsd
 		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
-		http://www.springframework.org/schema/integration/ftp http://www.springframework.org/schema/integration/ftp/spring-integration-ftp.xsd">
+		http://www.springframework.org/schema/integration/ftp http://www.springframework.org/schema/integration/ftp/spring-integration-ftp.xsd
+        http://www.springframework.org/schema/integration/stream http://www.springframework.org/schema/integration/stream/spring-integration-stream.xsd">
 
     <context:property-placeholder location="classpath:user.properties"/>
 
-    <bean id="ftpClientFactory" class="org.springframework.integration.ftp.session.DefaultFtpSessionFactory">
+    <!--<import resource="classpath:connection-config.xml"/>-->
+
+    <int:gateway id="gw" service-interface="embl.ebi.variation.eva.ToFtpFlowGateway"
+                 default-request-channel="inbound"/>
+
+    <bean id="ftpClientFactory"
+          class="org.springframework.integration.ftp.session.DefaultFtpSessionFactory">
         <property name="host" value="${host}"/>
         <!--<property name="port" value="${availableServerPort}"/>-->
         <property name="username" value="${userid}"/>
         <property name="password" value="${password}"/>
     </bean>
+    
+    <int-ftp:outbound-gateway id="lsSequenceReports"
+                              session-factory="ftpClientFactory"
+                              request-channel="inbound"
+                              command="ls"
+                              command-options="-1 -R"
+                              expression="payload"
+                              remote-directory="/pub/databases/ena/assembly/"
+                              reply-channel="toSplitter"
+    />
 
-    <int-ftp:inbound-channel-adapter id="ftpInbound"
-                                     channel="ftpChannel"
-                                     session-factory="ftpClientFactory"
-                                     filename-pattern="${filename.pattern}"
-                                     auto-create-local-directory="true"
-                                     delete-remote-files="false"
-                                     remote-directory="${remote.directory}"
-                                     local-directory="/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound">
-        <int:poller fixed-rate="1000"/>
-    </int-ftp:inbound-channel-adapter>
-
-    <int:channel id="ftpChannel">
-        <int:queue/>
+    <int:channel id="toSplitter">
+        <int:interceptors>
+            <int:wire-tap channel="logger"/>
+        </int:interceptors>
     </int:channel>
+
+    <int:logging-channel-adapter id="logger" log-full-message="true"/>
+
+    <!--<int-stream:stdout-channel-adapter channel="toSplitter" append-newline="true"/>-->
+
+    <int:splitter id="splitter" input-channel="toSplitter" output-channel="toGet"/>
+
+    <int:channel id="toGet"/>
+
+    <int-stream:stdout-channel-adapter channel="toGet" append-newline="true"/>
+
+    <int:channel id="toFilter">
+        <!--<int:interceptors>-->
+            <!--<int:wire-tap channel="logger"/>-->
+        <!--</int:interceptors>-->
+    </int:channel>
+
+    <!--<int:logging-channel-adapter id="logger" log-full-message="true"/>-->
+
+    <int:filter expression="payload matches ''" input-channel="toFilter" output-channel="filteredChannel"/>
+
+    <int:channel id="filteredChannel"/>
+
+
+    <!--<int-ftp:inbound-channel-adapter id="ftpInbound"-->
+                                     <!--channel="ftpChannel"-->
+                                     <!--session-factory="ftpClientFactory"-->
+                                     <!--filename-pattern="${filename.pattern}"-->
+                                     <!--auto-create-local-directory="true"-->
+                                     <!--delete-remote-files="false"-->
+                                     <!--remote-directory="${remote.directory}"-->
+                                     <!--local-directory="/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound">-->
+        <!--<int:poller fixed-rate="1000"/>-->
+    <!--</int-ftp:inbound-channel-adapter>-->
+
+    <!--<int:channel id="ftpChannel">-->
+        <!--<int:queue/>-->
+    <!--</int:channel>-->
 </beans>

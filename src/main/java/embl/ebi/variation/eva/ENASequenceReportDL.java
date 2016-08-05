@@ -11,6 +11,7 @@ import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.PollableChannel;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Properties;
 
 /**
@@ -26,19 +27,40 @@ public class ENASequenceReportDL {
                 new String[] { "ena-inbound-config.xml" },
                 false);
 
-        PollableChannel ftpChannel = createNewChannel(ctx, "GCA_000001405.10");
+        ctx.refresh();
 
-        Message<?> message1 = ftpChannel.receive(2000);
+//        ConfigurableApplicationContext ctx = new ClassPathXmlApplicationContext(
+//                "classpath:ena-inbound-config.xml");
 
-        LOGGER.info(String.format("Received first file message: %s.", message1));
+        final ToFtpFlowGateway toFtpFlow = ctx.getBean(ToFtpFlowGateway.class);
+
+        toFtpFlow.lsFilesRecursive("/pub/databases/ena/assembly/");
+//
+//        for (String fileName : lsResults){
+//            System.out.println(String.format("FILENAME: %s", fileName));
+//        }
+
+
+
+
+
+
+
+        ///////
+
+//        PollableChannel ftpChannel = createNewChannel(ctx, "GCA_000001405.10");
+//
+//        Message<?> message1 = ftpChannel.receive(2000);
+//
+//        LOGGER.info(String.format("Received first file message: %s.", message1));
 
         ctx.close();
     }
 
     private static PollableChannel createNewChannel(ConfigurableApplicationContext ctx, String accession) {
-        ctx = new ClassPathXmlApplicationContext(
-                new String[] { "ena-inbound-config.xml" },
-                false);
+//        ctx = new ClassPathXmlApplicationContext(
+//                new String[] { "ena-inbound-config.xml" },
+//                false);
         setEnvironmentForAccession(ctx, accession);
         ctx.refresh();
         PollableChannel channel = ctx.getBean("ftpChannel", PollableChannel.class);
