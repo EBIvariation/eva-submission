@@ -11,6 +11,9 @@ import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.PollableChannel;
 import org.springframework.messaging.support.GenericMessage;
 
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Properties;
@@ -24,14 +27,20 @@ public class ENASequenceReportDL {
 
 
     public static void main(String[] args) {
+
+        Properties properties = loadProperties();
+
         ConfigurableApplicationContext ctx = new ClassPathXmlApplicationContext(
                 new String[] { "ena-inbound-config.xml" },
                 false);
 
+        setEnvironmentForAccession(ctx, "GCA_000001405.10");
+
         ctx.refresh();
 
         MessageChannel inputChannel = ctx.getBean("inputChannel", MessageChannel.class);
-        inputChannel.send(new GenericMessage<String>("pub/databases/ena/assembly/"));
+        inputChannel.send(new GenericMessage<String>(properties.getProperty("sequenceReportDirectory")));
+
 
 //        PollableChannel filteredChannel = ctx.getBean("filteredChannel", PollableChannel.class);
 //        LOGGER.info("======>>>>> OUPUT FROM FILTER: " + filteredChannel.receive().getPayload());
@@ -52,28 +61,23 @@ public class ENASequenceReportDL {
         ctx.close();
     }
 
-    private static PollableChannel createNewChannel(ConfigurableApplicationContext ctx, String accession) {
-//        ctx = new ClassPathXmlApplicationContext(
-//                new String[] { "ena-inbound-config.xml" },
-//                false);
-        setEnvironmentForAccession(ctx, accession);
-        ctx.refresh();
-        PollableChannel channel = ctx.getBean("ftpChannel", PollableChannel.class);
-        return channel;
-    }
-
     private static void setEnvironmentForAccession(ConfigurableApplicationContext ctx, String accession) {
         StandardEnvironment env = new StandardEnvironment();
         Properties props = new Properties();
-        // populate properties for customer
-        props.setProperty("remote.directory", "/pub/databases/ena/assembly/GCA_000/GCA_000001/");
-        props.setProperty("filename.pattern", String.format("%s_sequence_report.txt", accession));
-
-
+        props.setProperty("assembly.accession", accession);
         PropertiesPropertySource pps = new PropertiesPropertySource("ftpprops", props);
-//        env.getPropertySources().addLast(pps);
         env.getPropertySources().addFirst(pps);
         ctx.setEnvironment(env);
+    }
+
+    private static Properties loadProperties(){
+        Properties prop = new Properties();
+        try {
+            prop.load(ENASequenceReportDL.class.getClassLoader().getResourceAsStream("user.properties"));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return prop;
     }
 
 }

@@ -15,6 +15,7 @@
 
     <!--<import resource="classpath:connection-config.xml"/>-->
 
+    <!--Client factory to create connection to ftp-->
     <bean id="ftpClientFactory"
           class="org.springframework.integration.ftp.session.DefaultFtpSessionFactory">
         <property name="host" value="${host}"/>
@@ -23,10 +24,10 @@
         <property name="password" value="${password}"/>
     </bean>
 
-
-
+    <!--Channel to receive input, at the moment the input is to the directory-->
     <int:channel id="inputChannel"/>
-    
+
+    <!--Recursively lists files from directory given in inputChannel-->
     <int-ftp:outbound-gateway id="lsSequenceReports"
                               session-factory="ftpClientFactory"
                               request-channel="inputChannel"
@@ -35,15 +36,19 @@
                               expression="payload"
                               reply-channel="toSplitter"/>
 
+    <!--Result is sent to splitter-->
     <int:channel id="toSplitter"/>
 
+    <!--Splitter splits ls results into individual files-->
     <int:splitter id="splitter" input-channel="toSplitter" output-channel="toFilter"/>
 
     <int:channel id="toFilter"/>
 
-    <int:filter expression="payload.matches('[\w\/]*GCA_000300955.1_sequence_report.txt')" input-channel="toFilter"
+    <!--Filter finds sequence report file-->
+    <int:filter expression="payload.matches('[\w\/]*${assembly.accession}_sequence_report.txt')" input-channel="toFilter"
                 output-channel="filteredChannel"/>
 
+    <!--Transforms message from filter. Uses payload (filename) and directory path from header. Outputs absolute remote file path-->
     <int:transformer ref="sequenceReportPathTransformer" method="transform" input-channel="filteredChannel"
                      output-channel="transformedChannel"/>
     <bean id="sequenceReportPathTransformer" class="embl.ebi.variation.eva.SequenceReportPathTransformer"/>
@@ -52,12 +57,14 @@
 
     <!--<int-stream:stdout-channel-adapter append-newline="true" channel="transformedChannel"/>-->
 
+    <!--Gets the sequence report file-->
     <int-ftp:outbound-gateway session-factory="ftpClientFactory"
                               request-channel="transformedChannel"
                               command="get"
                               expression="payload"
                               local-directory="/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound"
                               reply-channel="nullChannel"
+                              auto-create-local-directory="true"
     />
 
 
