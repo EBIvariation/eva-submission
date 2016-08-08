@@ -15,9 +15,6 @@
 
     <!--<import resource="classpath:connection-config.xml"/>-->
 
-    <int:gateway id="gw" service-interface="embl.ebi.variation.eva.ToFtpFlowGateway"
-                 default-request-channel="inbound"/>
-
     <bean id="ftpClientFactory"
           class="org.springframework.integration.ftp.session.DefaultFtpSessionFactory">
         <property name="host" value="${host}"/>
@@ -25,10 +22,12 @@
         <property name="username" value="${userid}"/>
         <property name="password" value="${password}"/>
     </bean>
+
+    <int:channel id="inputChannel"/>
     
     <int-ftp:outbound-gateway id="lsSequenceReports"
                               session-factory="ftpClientFactory"
-                              request-channel="inbound"
+                              request-channel="inputChannel"
                               command="ls"
                               command-options="-1 -R"
                               expression="payload"
@@ -44,25 +43,25 @@
 
     <int:logging-channel-adapter id="logger" log-full-message="true"/>
 
-    <!--<int-stream:stdout-channel-adapter channel="toSplitter" append-newline="true"/>-->
+    <int-stream:stdout-channel-adapter channel="toSplitter" append-newline="true"/>
 
-    <int:splitter id="splitter" input-channel="toSplitter" output-channel="toGet"/>
+    <!--<int:splitter id="splitter" input-channel="toSplitter" output-channel="toGet"/>-->
 
-    <int:channel id="toGet"/>
+    <!--<int:channel id="toGet"/>-->
 
-    <int-stream:stdout-channel-adapter channel="toGet" append-newline="true"/>
+    <!--<int-stream:stdout-channel-adapter channel="toGet" append-newline="true"/>-->
 
-    <int:channel id="toFilter">
-        <!--<int:interceptors>-->
-            <!--<int:wire-tap channel="logger"/>-->
-        <!--</int:interceptors>-->
-    </int:channel>
+    <!--<int:channel id="toFilter">-->
+        <!--&lt;!&ndash;<int:interceptors>&ndash;&gt;-->
+            <!--&lt;!&ndash;<int:wire-tap channel="logger"/>&ndash;&gt;-->
+        <!--&lt;!&ndash;</int:interceptors>&ndash;&gt;-->
+    <!--</int:channel>-->
 
-    <!--<int:logging-channel-adapter id="logger" log-full-message="true"/>-->
+    <!--&lt;!&ndash;<int:logging-channel-adapter id="logger" log-full-message="true"/>&ndash;&gt;-->
 
-    <int:filter expression="payload matches ''" input-channel="toFilter" output-channel="filteredChannel"/>
+    <!--<int:filter expression="payload matches ''" input-channel="toFilter" output-channel="filteredChannel"/>-->
 
-    <int:channel id="filteredChannel"/>
+    <!--<int:channel id="filteredChannel"/>-->
 
 
     <!--<int-ftp:inbound-channel-adapter id="ftpInbound"-->

@@ -9,6 +9,7 @@ import org.springframework.core.env.StandardEnvironment;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.PollableChannel;
+import org.springframework.messaging.support.GenericMessage;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,12 +30,15 @@ public class ENASequenceReportDL {
 
         ctx.refresh();
 
+        MessageChannel inputChannel = ctx.getBean("inputChannel", MessageChannel.class);
+        inputChannel.send(new GenericMessage<String>("pub/databases/ena/assembly/"));
+
 //        ConfigurableApplicationContext ctx = new ClassPathXmlApplicationContext(
 //                "classpath:ena-inbound-config.xml");
 
-        final ToFtpFlowGateway toFtpFlow = ctx.getBean(ToFtpFlowGateway.class);
+//        final ToFtpFlowGateway toFtpFlow = ctx.getBean(ToFtpFlowGateway.class);
 
-        toFtpFlow.lsFilesRecursive("/pub/databases/ena/assembly/");
+//        toFtpFlow.lsFilesRecursive("/pub/databases/ena/assembly/");
 //
 //        for (String fileName : lsResults){
 //            System.out.println(String.format("FILENAME: %s", fileName));
