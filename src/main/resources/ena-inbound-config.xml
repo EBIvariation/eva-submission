@@ -23,6 +23,8 @@
         <property name="password" value="${password}"/>
     </bean>
 
+
+
     <int:channel id="inputChannel"/>
     
     <int-ftp:outbound-gateway id="lsSequenceReports"
@@ -31,34 +33,31 @@
                               command="ls"
                               command-options="-1 -R"
                               expression="payload"
-                              reply-channel="toSplitter"
-    />
+                              reply-channel="toSplitter"/>
 
     <int:channel id="toSplitter"/>
 
     <int:splitter id="splitter" input-channel="toSplitter" output-channel="toFilter"/>
 
-    <!--<int:splitter id="splitter" input-channel="toSplitter" output-channel="toFilter" ref="stringSplitterBean"-->
-                  <!--method="splitOnCommaSpace"/>-->
-    <!--<bean id="stringSplitterBean" class="embl.ebi.variation.eva.StringSplitter"/>-->
-
     <int:channel id="toFilter"/>
 
-    <!--<int:logging-channel-adapter id="logger" log-full-message="true"/>-->
-
-
-    <int:filter expression="payload.equals('GCA_000300955.1_sequence_report.txt') AND headers.get()" input-channel="toFilter"
+    <int:filter expression="payload.equals('GCA_000300955.1_sequence_report.txt')" input-channel="toFilter"
                 output-channel="filteredChannel"/>
 
-    <int:channel id="filteredChannel"/>
+    <int:transformer ref="sequenceReportPathTransformer" method="transform" input-channel="filteredChannel"
+                     output-channel="transformedChannel"/>
+    <bean id="sequenceReportPathTransformer" class="embl.ebi.variation.eva.SequenceReportPathTransformer"/>
 
-    <int-stream:stdout-channel-adapter channel="filteredChannel" append-newline="true"/>
+    <int:channel id="transformedChannel"/>
 
+    <!--<int-stream:stdout-channel-adapter append-newline="true" channel="transformedChannel"/>-->
 
-
-
-
-
+    <int-ftp:outbound-gateway session-factory="ftpClientFactory"
+                              request-channel="transformedChannel"
+                              command="get"
+                              expression="payload"
+                              local-directory="/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound"
+    />
 
 
 
