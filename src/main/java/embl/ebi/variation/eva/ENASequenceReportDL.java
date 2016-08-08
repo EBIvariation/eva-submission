@@ -31,7 +31,7 @@ public class ENASequenceReportDL {
         ctx.refresh();
 
         MessageChannel inputChannel = ctx.getBean("inputChannel", MessageChannel.class);
-        inputChannel.send(new GenericMessage<String>("pub/databases/ena/assembly/GCA_000/GCA_000300/"));
+        inputChannel.send(new GenericMessage<String>("pub/databases/ena/assembly/"));
 
 //        PollableChannel filteredChannel = ctx.getBean("filteredChannel", PollableChannel.class);
 //        LOGGER.info("======>>>>> OUPUT FROM FILTER: " + filteredChannel.receive().getPayload());

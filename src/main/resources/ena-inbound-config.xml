@@ -41,7 +41,7 @@
 
     <int:channel id="toFilter"/>
 
-    <int:filter expression="payload.equals('GCA_000300955.1_sequence_report.txt')" input-channel="toFilter"
+    <int:filter expression="payload.matches('[\w\/]*GCA_000300955.1_sequence_report.txt')" input-channel="toFilter"
                 output-channel="filteredChannel"/>
 
     <int:transformer ref="sequenceReportPathTransformer" method="transform" input-channel="filteredChannel"
@@ -57,6 +57,7 @@
                               command="get"
                               expression="payload"
                               local-directory="/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound"
+                              reply-channel="nullChannel"
     />
 
 
