@@ -31,22 +31,13 @@ public class ENASequenceReportDL {
         ctx.refresh();
 
         MessageChannel inputChannel = ctx.getBean("inputChannel", MessageChannel.class);
-        inputChannel.send(new GenericMessage<String>("pub/databases/ena/assembly/"));
+        inputChannel.send(new GenericMessage<String>("pub/databases/ena/assembly/GCA_000/GCA_000300/"));
+
+//        PollableChannel filteredChannel = ctx.getBean("filteredChannel", PollableChannel.class);
+//        LOGGER.info("======>>>>> OUPUT FROM FILTER: " + filteredChannel.receive().getPayload());
 
 //        ConfigurableApplicationContext ctx = new ClassPathXmlApplicationContext(
 //                "classpath:ena-inbound-config.xml");
-
-//        final ToFtpFlowGateway toFtpFlow = ctx.getBean(ToFtpFlowGateway.class);
-
-//        toFtpFlow.lsFilesRecursive("/pub/databases/ena/assembly/");
-//
-//        for (String fileName : lsResults){
-//            System.out.println(String.format("FILENAME: %s", fileName));
-//        }
-
-
-
-
 
 
 
