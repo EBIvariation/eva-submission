@@ -11,21 +11,6 @@
 		http://www.springframework.org/schema/integration/ftp http://www.springframework.org/schema/integration/ftp/spring-integration-ftp.xsd
         http://www.springframework.org/schema/integration/stream http://www.springframework.org/schema/integration/stream/spring-integration-stream.xsd">
 
-    <context:property-placeholder location="classpath:user.properties"/>
-
-    <!--<import resource="classpath:connection-config.xml"/>-->
-
-    <!--Client factory to create connection to ftp-->
-    <bean id="ftpClientFactory"
-          class="org.springframework.integration.ftp.session.DefaultFtpSessionFactory">
-        <property name="host" value="${host}"/>
-        <!--<property name="port" value="${availableServerPort}"/>-->
-        <property name="username" value="${userid}"/>
-        <property name="password" value="${password}"/>
-    </bean>
-
-    <!--<int-stream:stdout-channel-adapter append-newline="true" channel="transformedChannel"/>-->
-
     <!--Channel to receive input, at the moment the input is to the directory-->
     <int:channel id="inputChannel"/>
 

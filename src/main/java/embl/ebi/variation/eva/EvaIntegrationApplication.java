@@ -15,7 +15,7 @@ public class EvaIntegrationApplication {
 	public static void main(String[] args) {
 
 		ConfigurableApplicationContext ctx = new ClassPathXmlApplicationContext(
-				new String[] {"eva-integration-config.xml"},
+				new String[] {"download-seq-report-config.xml", "connection-config.xml"},
 				false);
 
 		Properties properties = loadProperties();
@@ -27,8 +27,11 @@ public class EvaIntegrationApplication {
         setupEnvironment(ctx, assemblyAccession);
 
         if(!f.exists()) {
-            ENASequenceReportDL.downloadSequenceReport(ctx, assemblyAccession,
+            String downloadedFilePath = ENASequenceReportDL.downloadSequenceReport(ctx, assemblyAccession,
                     properties.getProperty("remoteSequenceReportDirectory"));
+            if (f.toPath() != Paths.get(downloadedFilePath)){
+                System.out.println("File paths do not match");
+            }
         }else{
             System.out.println("FILE EXISTS");
         }
@@ -38,7 +41,7 @@ public class EvaIntegrationApplication {
 	private static Properties loadProperties(){
 		Properties prop = new Properties();
 		try {
-			prop.load(ENASequenceReportDL.class.getClassLoader().getResourceAsStream("user.properties"));
+			prop.load(ENASequenceReportDL.class.getClassLoader().getResourceAsStream("application.properties"));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
