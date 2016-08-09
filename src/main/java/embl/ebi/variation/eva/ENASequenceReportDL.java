@@ -34,23 +34,6 @@ public class ENASequenceReportDL {
 
 //        assertTrue(outputChannel.receive().getPayload());
 
-
-//        PollableChannel filteredChannel = ctx.getBean("filteredChannel", PollableChannel.class);
-//        LOGGER.info("======>>>>> OUPUT FROM FILTER: " + filteredChannel.receive().getPayload());
-
-//        ConfigurableApplicationContext ctx = new ClassPathXmlApplicationContext(
-//                "classpath:eva-integration-config.xml");
-
-
-
-        ///////
-
-//        PollableChannel ftpChannel = createNewChannel(ctx, "GCA_000001405.10");
-//
-//        Message<?> message1 = ftpChannel.receive(2000);
-//
-//        LOGGER.info(String.format("Received first file message: %s.", message1));
-
         ctx.close();
     }
 

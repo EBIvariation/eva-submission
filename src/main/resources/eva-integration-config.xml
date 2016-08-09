@@ -24,6 +24,8 @@
         <property name="password" value="${password}"/>
     </bean>
 
+    <!--<int-stream:stdout-channel-adapter append-newline="true" channel="transformedChannel"/>-->
+
     <!--Channel to receive input, at the moment the input is to the directory-->
     <int:channel id="inputChannel"/>
 
@@ -34,59 +36,33 @@
                               command="ls"
                               command-options="-1 -R"
                               expression="payload"
-                              reply-channel="toSplitter"/>
+                              reply-channel="intoChainChannel"
+    />
 
-    <!--Result is sent to splitter-->
-    <int:channel id="toSplitter"/>
+    <int:channel id="outOfChainChannel"/>
 
-    <!--Splitter splits ls results into individual files-->
-    <int:splitter id="splitter" input-channel="toSplitter" output-channel="toFilter"/>
-
-    <int:channel id="toFilter"/>
-
-    <!--Filter finds sequence report file-->
-    <int:filter expression="payload.matches('[\w\/]*${assembly.accession}_sequence_report.txt')" input-channel="toFilter"
-                output-channel="filteredChannel"/>
-
-    <!--Transforms message from filter. Uses payload (filename) and directory path from header. Outputs absolute remote file path-->
-    <int:transformer ref="sequenceReportPathTransformer" method="transform" input-channel="filteredChannel"
-                     output-channel="transformedChannel"/>
     <bean id="sequenceReportPathTransformer" class="embl.ebi.variation.eva.SequenceReportPathTransformer"/>
+    
+    <int:chain input-channel="intoChainChannel" output-channel="outOfChainChannel">
+        <!--Splitter splits ls results into individual files-->
+        <int:splitter id="splitter"/>
+        <!--Filter finds sequence report file-->
+        <int:filter expression="payload.matches('[\w\/]*${assembly.accession}_sequence_report.txt')"/>
+        <!--Transforms message from filter. Uses payload (filename) and directory path from header. Outputs absolute remote file path-->
+        <int:transformer ref="sequenceReportPathTransformer" method="transform"/>
+    </int:chain>
 
-    <int:channel id="transformedChannel"/>
-
-    <!--<int-stream:stdout-channel-adapter append-newline="true" channel="transformedChannel"/>-->
+    <int:channel id="outputChannel">
+        <int:queue capacity="1"/>
+    </int:channel>
 
     <!--Gets the sequence report file-->
     <int-ftp:outbound-gateway session-factory="ftpClientFactory"
-                              request-channel="transformedChannel"
+                              request-channel="outOfChainChannel"
                               command="get"
                               expression="payload"
                               local-directory="/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound"
                               reply-channel="outputChannel"
                               auto-create-local-directory="true"
     />
-
-    <int:channel id="outputChannel">
-        <int:queue capacity="1"/>
-    </int:channel>
-
-
-
-
-
-    <!--<int-ftp:inbound-channel-adapter id="ftpInbound"-->
-                                     <!--channel="ftpChannel"-->
-                                     <!--session-factory="ftpClientFactory"-->
-                                     <!--filename-pattern="${filename.pattern}"-->
-                                     <!--auto-create-local-directory="true"-->
-                                     <!--delete-remote-files="false"-->
-                                     <!--remote-directory="${remote.directory}"-->
-                                     <!--local-directory="/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound">-->
-        <!--<int:poller fixed-rate="1000"/>-->
-    <!--</int-ftp:inbound-channel-adapter>-->
-
-    <!--<int:channel id="ftpChannel">-->
-        <!--<int:queue/>-->
-    <!--</int:channel>-->
 </beans>
