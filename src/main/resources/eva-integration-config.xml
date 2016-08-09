@@ -63,9 +63,13 @@
                               command="get"
                               expression="payload"
                               local-directory="/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound"
-                              reply-channel="nullChannel"
+                              reply-channel="outputChannel"
                               auto-create-local-directory="true"
     />
+
+    <int:channel id="outputChannel">
+        <int:queue capacity="1"/>
+    </int:channel>
 
 
 
