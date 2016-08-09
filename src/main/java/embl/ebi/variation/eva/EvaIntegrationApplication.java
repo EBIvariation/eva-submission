@@ -1,11 +1,13 @@
 package embl.ebi.variation.eva;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+import org.springframework.core.env.PropertiesPropertySource;
+import org.springframework.core.env.StandardEnvironment;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.Properties;
 
 public class EvaIntegrationApplication {
@@ -18,8 +20,18 @@ public class EvaIntegrationApplication {
 
 		Properties properties = loadProperties();
 
-		ENASequenceReportDL.downloadSequenceReport(ctx, "GCA_000001405.10",
-				properties.getProperty("sequenceReportDirectory"));
+        String assemblyAccession = "GCA_000001405.10";
+        String localAssemblyDirectoryRoot = "/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound";
+        File f = Paths.get(localAssemblyDirectoryRoot, assemblyAccession + "_sequence_report.txt").toFile();
+
+        setupEnvironment(ctx, assemblyAccession);
+
+        if(!f.exists()) {
+            ENASequenceReportDL.downloadSequenceReport(ctx, assemblyAccession,
+                    properties.getProperty("remoteSequenceReportDirectory"));
+        }else{
+            System.out.println("FILE EXISTS");
+        }
 	}
 
 
@@ -32,4 +44,17 @@ public class EvaIntegrationApplication {
 		}
 		return prop;
 	}
+
+
+    private static void setupEnvironment(ConfigurableApplicationContext ctx, String accession) {
+        StandardEnvironment env = new StandardEnvironment();
+        Properties props = new Properties();
+
+        props.setProperty("assembly.accession", accession);
+
+        PropertiesPropertySource pps = new PropertiesPropertySource("ftpprops", props);
+        env.getPropertySources().addFirst(pps);
+        ctx.setEnvironment(env);
+        ctx.refresh();
+    }
 }

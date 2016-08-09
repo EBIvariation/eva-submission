@@ -1,7 +1,5 @@
 package embl.ebi.variation.eva;
 
-import static org.junit.Assert.assertTrue;
-
 import org.slf4j.LoggerFactory;
 
 import org.springframework.context.ConfigurableApplicationContext;
@@ -24,26 +22,11 @@ public class ENASequenceReportDL {
 
     public static void downloadSequenceReport(ConfigurableApplicationContext ctx, String assemblyAccession, String sequenceReportDirectory) {
 
-        setEnvironmentForAccession(ctx, assemblyAccession);
-
-        ctx.refresh();
-
         MessageChannel inputChannel = ctx.getBean("inputChannel", MessageChannel.class);
         PollableChannel outputChannel = ctx.getBean("outputChannel", PollableChannel.class);
         inputChannel.send(new GenericMessage<String>(sequenceReportDirectory));
 
-//        assertTrue(outputChannel.receive().getPayload());
-
-        ctx.close();
-    }
-
-    private static void setEnvironmentForAccession(ConfigurableApplicationContext ctx, String accession) {
-        StandardEnvironment env = new StandardEnvironment();
-        Properties props = new Properties();
-        props.setProperty("assembly.accession", accession);
-        PropertiesPropertySource pps = new PropertiesPropertySource("ftpprops", props);
-        env.getPropertySources().addFirst(pps);
-        ctx.setEnvironment(env);
+        System.out.println("OUTPUT CHANNEL OUTPUT: " + outputChannel.receive().getPayload());
     }
 
 }
