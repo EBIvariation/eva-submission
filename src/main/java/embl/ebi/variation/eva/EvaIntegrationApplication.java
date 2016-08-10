@@ -27,11 +27,8 @@ public class EvaIntegrationApplication {
         setupEnvironment(ctx, assemblyAccession);
 
         if(!f.exists()) {
-            String downloadedFilePath = ENASequenceReportDL.downloadSequenceReport(ctx, assemblyAccession,
+            ENASequenceReportDL.downloadSequenceReport(ctx, assemblyAccession,
                     properties.getProperty("remoteSequenceReportDirectory"));
-            if (f.toPath() != Paths.get(downloadedFilePath)){
-                System.out.println("File paths do not match");
-            }
         }else{
             System.out.println("FILE EXISTS");
         }

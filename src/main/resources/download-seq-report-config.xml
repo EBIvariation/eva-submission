@@ -37,9 +37,7 @@
         <int:transformer ref="sequenceReportPathTransformer" method="transform"/>
     </int:chain>
 
-    <int:channel id="channelOutSeqReportDl">
-        <int:queue capacity="1"/>
-    </int:channel>
+    <int:channel id="channelOutSeqReportDl"/>
 
     <!--Gets the sequence report file-->
     <int-ftp:outbound-gateway session-factory="ftpClientFactory"

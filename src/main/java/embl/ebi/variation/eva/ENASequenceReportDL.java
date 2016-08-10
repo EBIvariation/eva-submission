@@ -15,15 +15,10 @@ public class ENASequenceReportDL {
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(ENASequenceReportDL.class);
 
 
-    public static String downloadSequenceReport(ConfigurableApplicationContext ctx, String assemblyAccession, String sequenceReportDirectory) {
+    public static void downloadSequenceReport(ConfigurableApplicationContext ctx, String assemblyAccession, String sequenceReportDirectory) {
 
         MessageChannel inputChannel = ctx.getBean("channelIntoSeqReportDl", MessageChannel.class);
-        PollableChannel outputChannel = ctx.getBean("channelOutSeqReportDl", PollableChannel.class);
         inputChannel.send(new GenericMessage<String>(sequenceReportDirectory));
-
-        System.out.println("OUTPUT CHANNEL OUTPUT: " + outputChannel.receive().getPayload());
-
-        return (String) outputChannel.receive().getPayload();
     }
 
 }
