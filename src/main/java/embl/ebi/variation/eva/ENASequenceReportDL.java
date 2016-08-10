@@ -17,8 +17,8 @@ public class ENASequenceReportDL {
 
     public static String downloadSequenceReport(ConfigurableApplicationContext ctx, String assemblyAccession, String sequenceReportDirectory) {
 
-        MessageChannel inputChannel = ctx.getBean("inputChannel", MessageChannel.class);
-        PollableChannel outputChannel = ctx.getBean("outputChannel", PollableChannel.class);
+        MessageChannel inputChannel = ctx.getBean("channelIntoSeqReportDl", MessageChannel.class);
+        PollableChannel outputChannel = ctx.getBean("channelOutSeqReportDl", PollableChannel.class);
         inputChannel.send(new GenericMessage<String>(sequenceReportDirectory));
 
         System.out.println("OUTPUT CHANNEL OUTPUT: " + outputChannel.receive().getPayload());

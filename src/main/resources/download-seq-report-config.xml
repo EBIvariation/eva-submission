@@ -12,23 +12,23 @@
         http://www.springframework.org/schema/integration/stream http://www.springframework.org/schema/integration/stream/spring-integration-stream.xsd">
 
     <!--Channel to receive input, at the moment the input is to the directory-->
-    <int:channel id="inputChannel"/>
+    <int:channel id="channelIntoSeqReportDl"/>
 
     <!--Recursively lists files from directory given in inputChannel-->
     <int-ftp:outbound-gateway id="lsSequenceReports"
                               session-factory="ftpClientFactory"
-                              request-channel="inputChannel"
+                              request-channel="channelIntoSeqReportDl"
                               command="ls"
                               command-options="-1 -R"
                               expression="payload"
-                              reply-channel="intoChainChannel"
+                              reply-channel="channelIntoSeqRepDlChain"
     />
 
-    <int:channel id="outOfChainChannel"/>
+    <int:channel id="channelOutSeqRepDlChain"/>
 
     <bean id="sequenceReportPathTransformer" class="embl.ebi.variation.eva.SequenceReportPathTransformer"/>
     
-    <int:chain input-channel="intoChainChannel" output-channel="outOfChainChannel">
+    <int:chain input-channel="channelIntoSeqRepDlChain" output-channel="channelOutSeqRepDlChain">
         <!--Splitter splits ls results into individual files-->
         <int:splitter id="splitter"/>
         <!--Filter finds sequence report file-->
@@ -37,17 +37,17 @@
         <int:transformer ref="sequenceReportPathTransformer" method="transform"/>
     </int:chain>
 
-    <int:channel id="outputChannel">
+    <int:channel id="channelOutSeqReportDl">
         <int:queue capacity="1"/>
     </int:channel>
 
     <!--Gets the sequence report file-->
     <int-ftp:outbound-gateway session-factory="ftpClientFactory"
-                              request-channel="outOfChainChannel"
+                              request-channel="channelOutSeqRepDlChain"
                               command="get"
                               expression="payload"
                               local-directory="/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound"
-                              reply-channel="outputChannel"
+                              reply-channel="channelOutSeqReportDl"
                               auto-create-local-directory="true"
     />
 
