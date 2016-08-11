@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:int="http://www.springframework.org/schema/integration"
+       xmlns:int-stream="http://www.springframework.org/schema/integration/stream"
+       xmlns:int-http="http://www.springframework.org/schema/integration/http"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/integration http://www.springframework.org/schema/integration/spring-integration.xsd
+		http://www.springframework.org/schema/integration/stream http://www.springframework.org/schema/integration/stream/spring-integration-stream.xsd
+		http://www.springframework.org/schema/integration/http http://www.springframework.org/schema/integration/http/spring-integration-http.xsd">
+
+    <int:channel id="channelIntoDownloadFastaENA"/>
+    <int:channel id="channelOutGetChromAccsSplit"/>
+
+    <bean id="processSequenceReport" class="embl.ebi.variation.eva.sequence_report_processing.ProcessSequenceReport"/>
+
+    <int:chain input-channel="channelIntoDownloadFastaENA" output-channel="channelOutGetChromAccsSplit">
+        <int:transformer ref="processSequenceReport" method="getChromosomeAccessions"/>
+        <int:splitter />
+    </int:chain>
+
+    <int-stream:stdout-channel-adapter channel="channelOutGetChromAccsSplit" append-newline="true"/>
+
+    <!--<int-http:outbound-gateway-->
+            <!--request-channel="channelOutGetChromAccs"-->
+            <!--url=""-->
+            <!--http-method="GET"-->
+            <!--expected-response-type="java.lang.String"/>-->
+
+</beans>

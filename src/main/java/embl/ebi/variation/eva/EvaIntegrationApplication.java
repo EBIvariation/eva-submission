@@ -18,7 +18,7 @@ public class EvaIntegrationApplication {
 	public static void main(String[] args) {
 
 		ConfigurableApplicationContext ctx = new ClassPathXmlApplicationContext(
-				new String[] {"download-seq-report-config.xml", "get-chrom-accs-config.xml", "connection-config.xml"},
+				new String[] {"download-seq-report-config.xml", "download-fasta-ena.xml", "connection-config.xml"},
 				false);
 
 		Properties properties = loadProperties();
@@ -32,7 +32,7 @@ public class EvaIntegrationApplication {
         if(!sequenceReportFile.exists()) {
             ENASequenceReportDL.downloadSequenceReport(ctx, properties.getProperty("remoteSequenceReportDirectory"));
         } else {
-            MessageChannel channelIntoGetChromAccs = ctx.getBean("channelIntoGetChromAccs", MessageChannel.class);
+            MessageChannel channelIntoGetChromAccs = ctx.getBean("channelIntoDownloadFastaENA", MessageChannel.class);
             channelIntoGetChromAccs.send(new GenericMessage<File>(sequenceReportFile));
         }
 	}

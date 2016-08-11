@@ -43,7 +43,7 @@
                               command="get"
                               expression="payload"
                               local-directory="/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound"
-                              reply-channel="channelIntoGetChromAccs"
+                              reply-channel="channelIntoDownloadFastaENA"
                               auto-create-local-directory="true"
     />
 
