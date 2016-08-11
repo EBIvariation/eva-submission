@@ -5,6 +5,8 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.core.env.PropertiesPropertySource;
 import org.springframework.core.env.StandardEnvironment;
+import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.support.GenericMessage;
 
 import java.io.File;
 import java.io.IOException;
@@ -16,21 +18,22 @@ public class EvaIntegrationApplication {
 	public static void main(String[] args) {
 
 		ConfigurableApplicationContext ctx = new ClassPathXmlApplicationContext(
-				new String[] {"download-seq-report-config.xml", "connection-config.xml"},
+				new String[] {"download-seq-report-config.xml", "get-chrom-accs-config.xml", "connection-config.xml"},
 				false);
 
 		Properties properties = loadProperties();
 
         String assemblyAccession = "GCA_000001405.10";
         String localAssemblyDirectoryRoot = "/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound";
-        File f = Paths.get(localAssemblyDirectoryRoot, assemblyAccession + "_sequence_report.txt").toFile();
+        File sequenceReportFile = Paths.get(localAssemblyDirectoryRoot, assemblyAccession + "_sequence_report.txt").toFile();
 
         setupEnvironment(ctx, assemblyAccession);
 
-        if(!f.exists()) {
+        if(!sequenceReportFile.exists()) {
             ENASequenceReportDL.downloadSequenceReport(ctx, properties.getProperty("remoteSequenceReportDirectory"));
-        }else{
-            System.out.println("FILE EXISTS");
+        } else {
+            MessageChannel channelIntoGetChromAccs = ctx.getBean("channelIntoGetChromAccs", MessageChannel.class);
+            channelIntoGetChromAccs.send(new GenericMessage<File>(sequenceReportFile));
         }
 	}
 

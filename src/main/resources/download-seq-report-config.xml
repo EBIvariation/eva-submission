@@ -37,15 +37,13 @@
         <int:transformer ref="sequenceReportPathTransformer" method="transform"/>
     </int:chain>
 
-    <int:channel id="channelOutSeqReportDl"/>
-
     <!--Gets the sequence report file-->
     <int-ftp:outbound-gateway session-factory="ftpClientFactory"
                               request-channel="channelOutSeqRepDlChain"
                               command="get"
                               expression="payload"
                               local-directory="/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound"
-                              reply-channel="channelOutSeqReportDl"
+                              reply-channel="channelIntoGetChromAccs"
                               auto-create-local-directory="true"
     />
 

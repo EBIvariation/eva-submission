@@ -45,7 +45,6 @@ public class ProcessSequenceReportTest {
 
         Assert.assertThat(chromosomeAccessions, IsIterableContainingInAnyOrder.containsInAnyOrder(testChromosomeAccessions));
 
-
     }
 
 }
