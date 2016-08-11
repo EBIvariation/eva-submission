@@ -1,5 +1,6 @@
 package embl.ebi.variation.eva;
 
+import embl.ebi.variation.eva.sequence_report_download.ENASequenceReportDL;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.core.env.PropertiesPropertySource;
@@ -27,8 +28,7 @@ public class EvaIntegrationApplication {
         setupEnvironment(ctx, assemblyAccession);
 
         if(!f.exists()) {
-            ENASequenceReportDL.downloadSequenceReport(ctx, assemblyAccession,
-                    properties.getProperty("remoteSequenceReportDirectory"));
+            ENASequenceReportDL.downloadSequenceReport(ctx, properties.getProperty("remoteSequenceReportDirectory"));
         }else{
             System.out.println("FILE EXISTS");
         }

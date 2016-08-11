@@ -1,4 +1,4 @@
-package embl.ebi.variation.eva;
+package embl.ebi.variation.eva.sequence_report_download;
 
 import org.springframework.messaging.Message;
 

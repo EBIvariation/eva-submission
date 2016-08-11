@@ -7,6 +7,8 @@
 
     <int:channel id="channelIntoGetChrom"/>
 
+    <bean id="processSequenceReport" class="embl.ebi.variation.eva.sequence_report_processing.ProcessSequenceReport"/>
+    <int:transformer input-channel="channelIntoGetChrom" ref="processSequenceReport" method="transform"/>
 
 
 

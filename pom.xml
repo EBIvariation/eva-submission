@@ -61,8 +61,16 @@
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
 			<version>4.12</version>
-			<!--<scope>test</scope>-->
+			<scope>test</scope>
 		</dependency>
+
+		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-csv -->
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-csv</artifactId>
+			<version>1.4</version>
+		</dependency>
+
 
 
 	</dependencies>

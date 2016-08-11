@@ -26,7 +26,7 @@
 
     <int:channel id="channelOutSeqRepDlChain"/>
 
-    <bean id="sequenceReportPathTransformer" class="embl.ebi.variation.eva.SequenceReportPathTransformer"/>
+    <bean id="sequenceReportPathTransformer" class="embl.ebi.variation.eva.sequence_report_download.SequenceReportPathTransformer"/>
     
     <int:chain input-channel="channelIntoSeqRepDlChain" output-channel="channelOutSeqRepDlChain">
         <!--Splitter splits ls results into individual files-->
