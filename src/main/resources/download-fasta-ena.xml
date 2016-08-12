@@ -45,6 +45,7 @@
                                reply-channel="nullChannel"
 
     >
+        <!--http://stackoverflow.com/questions/16351668/compression-and-decompression-of-string-data-in-java-->
     </int-file:outbound-gateway>
 
 </beans>
