@@ -23,22 +23,28 @@
         <int:splitter />
     </int:chain>
 
-    <int-stream:stdout-channel-adapter channel="channelOutGetChromAccsSplit" append-newline="true"/>
+    <!--<int-stream:stdout-channel-adapter channel="channelOutGetChromAccsSplit" append-newline="true"/>-->
 
-    <int:channel id="enaFastaReply"/>
+    <int:channel id="enaFastaReply">
+        <!--<int:queue capacity="3"/>-->
+    </int:channel>
 
     <int-http:outbound-gateway
             request-channel="channelOutGetChromAccsSplit"
             reply-channel="enaFastaReply"
-            url="https://www.ebi.ac.uk/ena/data/view/CM000663.2&amp;display=fasta"
+            url="https://www.ebi.ac.uk/ena/data/view/{chromAcc}&amp;display=fasta"
             http-method="GET"
-            expected-response-type="java.lang.String"
-    />
+            expected-response-type="java.lang.String">
+        <int-http:uri-variable name="chromAcc" expression="payload"/>
+    </int-http:outbound-gateway>
 
     <int-file:outbound-gateway request-channel="enaFastaReply"
                                directory="/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound"
                                mode="APPEND"
                                filename-generator-expression="@environment.getProperty('assembly.accession')+'.fasta'"
-    />
+                               reply-channel="nullChannel"
+
+    >
+    </int-file:outbound-gateway>
 
 </beans>
