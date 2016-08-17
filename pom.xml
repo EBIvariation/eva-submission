@@ -68,6 +68,11 @@
 			<version>4.12</version>
 			<scope>test</scope>
 		</dependency>
+        <dependency>
+            <groupId>org.opencb.datastore</groupId>
+            <artifactId>datastore-core</artifactId>
+            <version>0.3.2</version>
+        </dependency>
 
 		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-csv -->
 		<dependency>
@@ -78,7 +83,7 @@
 
 
 
-	</dependencies>
+    </dependencies>
 
 	<build>
 		<plugins>
