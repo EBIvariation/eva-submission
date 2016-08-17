@@ -7,11 +7,11 @@
     <context:property-placeholder location="classpath:application.properties"/>
 
 
-    <bean id="ftpClientFactory" class="org.springframework.integration.ftp.session.DefaultFtpSessionFactory">
-        <property name="host" value="${host}"/>
-        <property name="port" value="${availableServerPort}"/>
-        <property name="username" value="${userid}"/>
-        <property name="password" value="${password}"/>
-    </bean>
+    <!--<bean id="ftpClientFactory" class="org.springframework.integration.ftp.session.DefaultFtpSessionFactory">-->
+        <!--<property name="host" value="${host}"/>-->
+        <!--<property name="port" value="${availableServerPort}"/>-->
+        <!--<property name="username" value="${userid}"/>-->
+        <!--<property name="password" value="${password}"/>-->
+    <!--</bean>-->
 
 </beans>

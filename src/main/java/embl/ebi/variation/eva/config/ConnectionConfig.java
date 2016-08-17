@@ -1,6 +1,7 @@
 package embl.ebi.variation.eva.config;
 
 import org.opencb.datastore.core.ObjectMap;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,10 +14,11 @@ import org.springframework.integration.ftp.session.DefaultFtpSessionFactory;
  */
 @Configuration
 @EnableIntegration
-@Import({EVAIntegrationArgs.class})
+@Import({EvaIntegrationArgsConfig.class})
 public class ConnectionConfig {
 
-    private ObjectMap enaFtpOptions = new EVAIntegrationArgs().getEnaFtpOptions();
+    @Autowired
+    private ObjectMap enaFtpOptions;
 
     @Bean
     public DefaultFtpSessionFactory enaFtpSessionFactory(){

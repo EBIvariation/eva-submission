@@ -1,10 +1,13 @@
 package embl.ebi.variation.eva;
 
-import embl.ebi.variation.eva.sequence_report_download.ENASequenceReportDL;
+import embl.ebi.variation.eva.sequence_report_download.ENASequenceReportDownload;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.core.env.PropertiesPropertySource;
 import org.springframework.core.env.StandardEnvironment;
+import org.springframework.integration.annotation.IntegrationComponentScan;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.support.GenericMessage;
 
@@ -13,13 +16,14 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Properties;
 
+@SpringBootApplication
+@IntegrationComponentScan
 public class EvaIntegrationApplication {
+
 
 	public static void main(String[] args) {
 
-		ConfigurableApplicationContext ctx = new ClassPathXmlApplicationContext(
-				new String[] {"download-seq-report-config.xml", "download-fasta-ena.xml", "connection-config.xml"},
-				false);
+        ConfigurableApplicationContext ctx = SpringApplication.run(EvaIntegrationApplication.class, args);
 
 		Properties properties = loadProperties();
 
@@ -27,21 +31,17 @@ public class EvaIntegrationApplication {
         String localAssemblyDirectoryRoot = "/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound";
         File sequenceReportFile = Paths.get(localAssemblyDirectoryRoot, assemblyAccession + "_sequence_report.txt").toFile();
 
-        setupEnvironment(ctx, assemblyAccession);
+//        setupEnvironment(ctx, assemblyAccession);
 
-        if(!sequenceReportFile.exists()) {
-            ENASequenceReportDL.downloadSequenceReport(ctx, properties.getProperty("remoteSequenceReportDirectory"));
-        } else {
-            MessageChannel channelIntoGetChromAccs = ctx.getBean("channelIntoDownloadFastaENA", MessageChannel.class);
-            channelIntoGetChromAccs.send(new GenericMessage<File>(sequenceReportFile));
-        }
+        ENASequenceReportDownload.ENAFtpLs enaFtpLs = ctx.getBean(ENASequenceReportDownload.ENAFtpLs.class);
+        enaFtpLs.lsEnaFtp("pub/databases/ena/assembly/");
 	}
 
 
 	private static Properties loadProperties(){
 		Properties prop = new Properties();
 		try {
-			prop.load(ENASequenceReportDL.class.getClassLoader().getResourceAsStream("application.properties"));
+			prop.load(ENASequenceReportDownload.class.getClassLoader().getResourceAsStream("application.properties"));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

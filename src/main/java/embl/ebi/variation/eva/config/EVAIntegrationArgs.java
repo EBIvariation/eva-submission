@@ -36,4 +36,9 @@ public class EVAIntegrationArgs {
         return enaFtpOptions;
     }
 
+    public void loadArgs() {
+        logger.info("Load args");
+        loadEnaFtpOptions();
+    }
+
 }

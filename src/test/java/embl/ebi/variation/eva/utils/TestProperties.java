@@ -1,6 +1,6 @@
 package embl.ebi.variation.eva.utils;
 
-import embl.ebi.variation.eva.sequence_report_download.ENASequenceReportDL;
+import embl.ebi.variation.eva.sequence_report_download.ENASequenceReportDownload;
 import embl.ebi.variation.eva.sequence_report_processing.ProcessSequenceReport;
 import org.apache.log4j.Logger;
 
@@ -20,7 +20,7 @@ public class TestProperties {
 
         properties = new Properties();
         try {
-            properties.load(ENASequenceReportDL.class.getClassLoader().getResourceAsStream("test.properties"));
+            properties.load(ENASequenceReportDownload.class.getClassLoader().getResourceAsStream("test.properties"));
         } catch (IOException e) {
             logger.error(e.getMessage());
             e.printStackTrace();

@@ -1,10 +1,12 @@
 package embl.ebi.variation.eva.sequence_report_download;
 
 import org.springframework.messaging.Message;
+import org.springframework.stereotype.Component;
 
 /**
  * Created by tom on 08/08/16.
  */
+@Component
 public class SequenceReportPathTransformer {
 
     public String transform(Message message){
