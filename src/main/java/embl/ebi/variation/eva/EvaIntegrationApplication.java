@@ -1,6 +1,8 @@
 package embl.ebi.variation.eva;
 
+import embl.ebi.variation.eva.fasta_download.ENAFastaDownload;
 import embl.ebi.variation.eva.sequence_report_download.ENASequenceReportDownload;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -33,8 +35,15 @@ public class EvaIntegrationApplication {
 
 //        setupEnvironment(ctx, assemblyAccession);
 
-        ENASequenceReportDownload.ENAFtpLs enaFtpLs = ctx.getBean(ENASequenceReportDownload.ENAFtpLs.class);
-        enaFtpLs.lsEnaFtp("pub/databases/ena/assembly/");
+
+        if (!sequenceReportFile.exists()) {
+            ENASequenceReportDownload.ENAFtpLs enaFtpLs = ctx.getBean(ENASequenceReportDownload.ENAFtpLs.class);
+            enaFtpLs.lsEnaFtp("pub/databases/ena/assembly/");
+        }
+
+        MessageChannel channelIntoDownloadFastaENA = ctx.getBean("channelIntoDownloadFastaENA", MessageChannel.class);
+        channelIntoDownloadFastaENA.send(new GenericMessage<File>(sequenceReportFile));
+
 	}
 
 

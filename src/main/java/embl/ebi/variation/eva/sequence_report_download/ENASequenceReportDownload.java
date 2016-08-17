@@ -33,6 +33,9 @@ public class ENASequenceReportDownload {
     @Autowired
     private SequenceReportPathTransformer pathTransformer;
 
+    @Autowired
+    private MessageChannel channelOutSeqRepDlChain;
+
     @MessagingGateway
     public interface ENAFtpLs {
         @Gateway(requestChannel = "ftpOutboundGatewayFlow.input")
@@ -50,7 +53,8 @@ public class ENASequenceReportDownload {
                 .filter("payload.matches('[\\w\\/]*GCA_000001405\\.10_sequence_report\\.txt')")
                 .transform(pathTransformer, "transform")
                 .handle(Ftp.outboundGateway(sessionFactory, "get", "payload")
-                        .localDirectory(new File("/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound")));
+                        .localDirectory(new File("/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound")))
+                .channel("fastaDownloadFlow.input");
     }
 
 

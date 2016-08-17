@@ -34,7 +34,7 @@ public class InfrastructureConfiguration {
 
     // DOWNLOAD FASTA FILE
 
-    @Bean
+    @Bean(name = "channelIntoDownloadFastaENA")
     public MessageChannel channelIntoDownloadFastaENA(){
         return new DirectChannel();
     }
