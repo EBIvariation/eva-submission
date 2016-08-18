@@ -1,5 +1,6 @@
 package embl.ebi.variation.eva.sequence_report_processing;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.log4j.Logger;
@@ -17,6 +18,11 @@ import java.util.List;
 public class ProcessSequenceReport {
 
     private Logger logger = Logger.getLogger(ProcessSequenceReport.class);
+
+    public String getChromosomeAccessionsString(File file){
+        List<String> chromosomeAccessionsList = this.getChromosomeAccessions(file);
+        return StringUtils.join(chromosomeAccessionsList, ",");
+    }
 
     public List<String> getChromosomeAccessions(File file){
         logger.info("Getting chromosome accessions from sequence report file: " + file);

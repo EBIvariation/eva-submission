@@ -12,6 +12,7 @@ import org.springframework.integration.dsl.IntegrationFlows;
 import org.springframework.integration.dsl.file.Files;
 import org.springframework.integration.dsl.ftp.Ftp;
 import org.springframework.integration.dsl.http.Http;
+import org.springframework.integration.dsl.support.Transformers;
 import org.springframework.integration.file.FileNameGenerator;
 import org.springframework.integration.file.support.FileExistsMode;
 import org.springframework.integration.ftp.session.DefaultFtpSessionFactory;
@@ -42,13 +43,15 @@ public class ENAFastaDownload {
         return IntegrationFlows.from("channelIntoDownloadFastaENA")
                 .transform(processSequenceReport, "getChromosomeAccessions")
                 .split()
-                .handle(Http.outboundGateway("https://www.ebi.ac.uk/ena/data/view/{payload}&amp;display=fasta")
-                        .httpMethod(HttpMethod.GET)
-                        .expectedResponseType(java.lang.String.class)
-                        .uriVariable("payload", "payload"))
+                .handle("enaFastaHttpMessageHandler", "handleMessage")
+//                .handle(Http.outboundGateway("https://www.ebi.ac.uk/ena/data/view/{payload}&amp;display=fasta")
+//                        .httpMethod(HttpMethod.GET)
+//                        .expectedResponseType(java.lang.String.class)
+//                        .uriVariable("payload", "payload"))
                 .handle(Files.outboundGateway(new File("/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound"))
                         .fileExistsMode(FileExistsMode.APPEND)
                         .fileNameGenerator(message -> "GCA_000001405.10.fasta2"))
+                .channel("nullChannel")
                 .get();
 
     }
