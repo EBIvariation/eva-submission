@@ -28,8 +28,8 @@ public class ChannelConfig {
     @Bean
     public ThreadPoolTaskExecutor taskExecutor(){
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(15);
-        executor.setMaxPoolSize(30);
+        executor.setCorePoolSize(5);
+        executor.setMaxPoolSize(10);
         return executor;
     }
 

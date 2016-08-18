@@ -40,7 +40,7 @@ public class ENAFastaDownload {
     @Bean(name = PollerMetadata.DEFAULT_POLLER)
     public PollerMetadata poller(){
         return Pollers
-                .fixedDelay(100)
+                .fixedDelay(1000)
                 .get();
     }
 

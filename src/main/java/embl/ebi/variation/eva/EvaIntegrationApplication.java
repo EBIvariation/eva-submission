@@ -44,6 +44,8 @@ public class EvaIntegrationApplication {
         MessageChannel channelIntoDownloadFastaENA = ctx.getBean("channelIntoDownloadFastaENA", MessageChannel.class);
         channelIntoDownloadFastaENA.send(new GenericMessage<File>(sequenceReportFile));
 
+        ctx.stop();
+
 	}
 
 
