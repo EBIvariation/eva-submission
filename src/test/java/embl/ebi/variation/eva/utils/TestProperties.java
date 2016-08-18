@@ -1,7 +1,7 @@
 package embl.ebi.variation.eva.utils;
 
 import embl.ebi.variation.eva.sequence_report_download.ENASequenceReportDownload;
-import embl.ebi.variation.eva.sequence_report_processing.ProcessSequenceReport;
+import embl.ebi.variation.eva.sequence_report_processing.SequenceReportProcessor;
 import org.apache.log4j.Logger;
 
 import java.io.IOException;
@@ -12,7 +12,7 @@ import java.util.Properties;
  */
 public class TestProperties {
 
-    private Logger logger = Logger.getLogger(ProcessSequenceReport.class);
+    private Logger logger = Logger.getLogger(SequenceReportProcessor.class);
 
     public Properties properties;
 

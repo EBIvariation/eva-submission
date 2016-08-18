@@ -31,22 +31,21 @@ public class InfrastructureConfiguration {
     public MessageChannel channelOutSeqRepDlChain(){
         return new DirectChannel();
     }
-
-    // DOWNLOAD FASTA FILE
-
-    @Bean(name = "channelIntoDownloadFastaENA")
-    public MessageChannel channelIntoDownloadFastaENA(){
-        return new DirectChannel();
-    }
-
-    @Bean
-    public MessageChannel channelOutGetChromAccsSplit(){
-        return new DirectChannel();
-    }
-
-    @Bean
-    public MessageChannel enaFastaReply(){
-        return new DirectChannel();
-    }
+//
+//    // DOWNLOAD FASTA FILE
+//
+//    public MessageChannel channelIntoDownloadFastaENA(){
+//        return new DirectChannel();
+//    }
+//
+//    @Bean
+//    public MessageChannel channelOutGetChromAccsSplit(){
+//        return new DirectChannel();
+//    }
+//
+//    @Bean
+//    public MessageChannel enaFastaReply(){
+//        return new DirectChannel();
+//    }
 
 }

@@ -4,8 +4,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.log4j.Logger;
-import org.springframework.context.annotation.Bean;
-import org.springframework.stereotype.Component;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -15,9 +13,9 @@ import java.util.List;
 /**
  * Created by tom on 11/08/16.
  */
-public class ProcessSequenceReport {
+public class SequenceReportProcessor {
 
-    private Logger logger = Logger.getLogger(ProcessSequenceReport.class);
+    private Logger logger = Logger.getLogger(SequenceReportProcessor.class);
 
     public String getChromosomeAccessionsString(File file){
         List<String> chromosomeAccessionsList = this.getChromosomeAccessions(file);

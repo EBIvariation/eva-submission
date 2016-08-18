@@ -14,11 +14,11 @@
     <int:channel id="channelIntoDownloadFastaENA"/>
     <int:channel id="channelOutGetChromAccsSplit"/>
 
-    <bean id="processSequenceReport" class="embl.ebi.variation.eva.sequence_report_processing.ProcessSequenceReport"/>
+    <bean id="sequenceReportProcessor" class="embl.ebi.variation.eva.sequence_report_processing.SequenceReportProcessor"/>
 
     <int:chain input-channel="channelIntoDownloadFastaENA" output-channel="channelOutGetChromAccsSplit">
         <!--Get chromosome accessions from sequence report file-->
-        <int:transformer ref="processSequenceReport" method="getChromosomeAccessions"/>
+        <int:transformer ref="sequenceReportProcessor" method="getChromosomeAccessions"/>
         <!--Split chromosome accessions into one message per accession-->
         <int:splitter />
     </int:chain>
