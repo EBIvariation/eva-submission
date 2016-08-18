@@ -1,5 +1,6 @@
-package embl.ebi.variation.eva.config;
+package embl.ebi.variation.eva.sequence_report_download;
 
+import embl.ebi.variation.eva.config.EvaIntegrationArgsConfig;
 import org.opencb.datastore.core.ObjectMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;

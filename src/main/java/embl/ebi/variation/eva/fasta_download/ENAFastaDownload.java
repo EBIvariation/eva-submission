@@ -1,24 +1,27 @@
 package embl.ebi.variation.eva.fasta_download;
 
 import embl.ebi.variation.eva.sequence_report_processing.SequenceReportProcessor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.http.HttpMethod;
-import org.springframework.integration.annotation.MessagingGateway;
-import org.springframework.integration.annotation.ServiceActivator;
-import org.springframework.integration.annotation.Splitter;
-import org.springframework.integration.annotation.Transformer;
+import org.springframework.integration.annotation.*;
 import org.springframework.integration.channel.DirectChannel;
 import org.springframework.integration.dsl.IntegrationFlow;
 import org.springframework.integration.dsl.IntegrationFlows;
+import org.springframework.integration.dsl.core.Pollers;
 import org.springframework.integration.dsl.file.Files;
 import org.springframework.integration.file.FileWritingMessageHandler;
 import org.springframework.integration.file.support.FileExistsMode;
 import org.springframework.integration.http.outbound.HttpRequestExecutingMessageHandler;
+import org.springframework.integration.scheduling.PollerMetadata;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
@@ -30,6 +33,16 @@ import java.util.List;
  */
 @Configuration
 public class ENAFastaDownload {
+
+//    @Autowired
+//    ThreadPoolTaskExecutor taskExecutor;
+//
+    @Bean(name = PollerMetadata.DEFAULT_POLLER)
+    public PollerMetadata poller(){
+        return Pollers
+                .fixedDelay(100)
+                .get();
+    }
 
     @Bean
     @ServiceActivator(inputChannel = "channelToHttpRequest")
@@ -53,6 +66,13 @@ public class ENAFastaDownload {
         return handler;
     }
 
+//    @Bean
+//    public ThreadPoolTaskExecutor taskExecutor(){
+//        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+//        executor.setCorePoolSize(5);
+//        executor.setMaxPoolSize(15);
+//        return executor;
+//    }
 
 
 
