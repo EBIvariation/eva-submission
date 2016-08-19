@@ -80,14 +80,15 @@ public class ENASequenceReportDownload {
                             .httpMethod(HttpMethod.GET)
                             .expectedResponseType(java.lang.String.class)
                             .uriVariable("payload", "payload"))
+                    .resequence(r -> r.releasePartialSequences(true)) // put fasta sequences in order
                     .channel(MessageChannels.queue(15))
                     .handle(Files.outboundGateway(new File("/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound"))
                                     .fileExistsMode(FileExistsMode.APPEND)
                                     .fileNameGenerator(message -> "GCA_000001405.10.fasta2"),
                             e -> e.poller(Pollers.fixedDelay(1000))
                     )
-                .channel("nullChannel")
-//                .handle(System.out::println)
+//                .channel("nullChannel")
+                .handle(m -> System.out.println(m.getPayload()))
                 .get();
     }
 

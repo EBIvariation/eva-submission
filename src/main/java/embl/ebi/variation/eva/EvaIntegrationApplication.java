@@ -34,7 +34,7 @@ public class EvaIntegrationApplication {
 
         String assemblyAccession = "GCA_000001405.10";
         String localAssemblyDirectoryRoot = "/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound";
-        String sequenceReportFile = Paths.get(localAssemblyDirectoryRoot, assemblyAccession + "_sequence_report.txt").toString();
+        String sequenceReportFile = Paths.get(localAssemblyDirectoryRoot, assemblyAccession + "_sequence_report_head5.txt").toString();
 
         String fastaFile = "/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound/GCA_000001405.10.fasta2";
 
