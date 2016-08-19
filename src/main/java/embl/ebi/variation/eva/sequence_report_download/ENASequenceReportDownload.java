@@ -19,6 +19,8 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
+import java.util.Collection;
+import java.util.List;
 
 /**
  * Created by tom on 04/08/16.
@@ -87,8 +89,9 @@ public class ENASequenceReportDownload {
                                     .fileNameGenerator(message -> "GCA_000001405.10.fasta2"),
                             e -> e.poller(Pollers.fixedDelay(1000))
                     )
-//                .channel("nullChannel")
-                .handle(m -> System.out.println(m.getPayload()))
+                .aggregate()
+                .<List<File>, File>transform(m -> m.get(0))
+                .handle(m -> System.out.println(m.getPayload().toString()))
                 .get();
     }
 
