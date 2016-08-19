@@ -12,10 +12,13 @@ import org.springframework.core.env.StandardEnvironment;
 import org.springframework.integration.annotation.IntegrationComponentScan;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.support.GenericMessage;
+import org.springframework.messaging.support.HeaderMapper;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 @SpringBootApplication
@@ -31,20 +34,27 @@ public class EvaIntegrationApplication {
 
         String assemblyAccession = "GCA_000001405.10";
         String localAssemblyDirectoryRoot = "/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound";
-        File sequenceReportFile = Paths.get(localAssemblyDirectoryRoot, assemblyAccession + "_sequence_report.txt").toFile();
+        String sequenceReportFile = Paths.get(localAssemblyDirectoryRoot, assemblyAccession + "_sequence_report.txt").toString();
+
+        String fastaFile = "/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound/GCA_000001405.10.fasta2";
 
 //        setupEnvironment(ctx, assemblyAccession);
 
+        Map<String, Object> headers = new HashMap<>();
+        headers.put("seqReportLocalPath", sequenceReportFile);
+        headers.put("enaFtpSeqRepDir", "pub/databases/ena/assembly/");
+        headers.put("fastaLocal", fastaFile);
+        GenericMessage message = new GenericMessage<String>(sequenceReportFile, headers);
 
-        if (!sequenceReportFile.exists()) {
-            MessageChannel channelIntoSeqReportDownload = ctx.getBean("channelIntoSeqReportDownload", MessageChannel.class);
-            channelIntoSeqReportDownload.send(new GenericMessage<String>("pub/databases/ena/assembly/"));
+        if (!new File(sequenceReportFile).exists()){
+            MessageChannel inputChannel = ctx.getBean("inputChannel", MessageChannel.class);
+            inputChannel.send(message);
+        } else if (!new File(fastaFile).exists()){
+            MessageChannel channelIntoDownloadFasta = ctx.getBean("channelIntoDownloadFasta", MessageChannel.class);
+            channelIntoDownloadFasta.send(message);
         }
 
-        MessageChannel channelIntoDownloadFastaENA = ctx.getBean("channelIntoDownloadFastaENA", MessageChannel.class);
-        channelIntoDownloadFastaENA.send(new GenericMessage<File>(sequenceReportFile));
-
-
+//        ctx.close();
 	}
 
 

@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.integration.config.EnableIntegration;
 import org.springframework.integration.ftp.session.DefaultFtpSessionFactory;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 /**
  * Created by tom on 17/08/16.
@@ -29,6 +30,14 @@ public class ConnectionConfig {
         sessionFactory.setUsername(enaFtpOptions.getString("enaFtpUserId"));
         sessionFactory.setPassword(enaFtpOptions.getString("enaFtpPassword"));
         return sessionFactory;
+    }
+
+    @Bean
+    public ThreadPoolTaskExecutor taskExecutor(){
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(5);
+        executor.setMaxPoolSize(10);
+        return executor;
     }
 
 }

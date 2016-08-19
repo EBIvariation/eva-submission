@@ -19,9 +19,17 @@ public class SequenceReportProcessor {
 
     private Logger logger = Logger.getLogger(SequenceReportProcessor.class);
 
+    public String getChromosomeAccessionsString(String file){
+        return getChromosomeAccessionsString(new File(file));
+    }
+
     public String getChromosomeAccessionsString(File file){
         List<String> chromosomeAccessionsList = this.getChromosomeAccessions(file);
         return StringUtils.join(chromosomeAccessionsList, ",");
+    }
+
+    public List<String> getChromosomeAccessions(String file){
+        return getChromosomeAccessions(new File(file));
     }
 
     public List<String> getChromosomeAccessions(File file){

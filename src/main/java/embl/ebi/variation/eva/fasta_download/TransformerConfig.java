@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * Created by tom on 18/08/16.
  */
-@Component
+//@Component
 public class TransformerConfig {
 
     private SequenceReportProcessor sequenceReportProcessor = new SequenceReportProcessor();
