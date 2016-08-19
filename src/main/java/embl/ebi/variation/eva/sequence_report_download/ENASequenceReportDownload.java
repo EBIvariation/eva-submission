@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.integration.annotation.Gateway;
 import org.springframework.integration.annotation.MessagingGateway;
 import org.springframework.integration.dsl.IntegrationFlow;
+import org.springframework.integration.dsl.IntegrationFlows;
 import org.springframework.integration.dsl.ftp.Ftp;
 import org.springframework.integration.ftp.session.DefaultFtpSessionFactory;
 import org.springframework.messaging.MessageChannel;
@@ -24,18 +25,10 @@ public class ENASequenceReportDownload {
     @Autowired
     private SequenceReportPathTransformer pathTransformer;
 
-    @Autowired
-    private MessageChannel channelOutSeqRepDlChain;
-
-    @MessagingGateway
-    public interface ENAFtpLs {
-        @Gateway(requestChannel = "ftpOutboundGatewayFlow.input")
-        void lsEnaFtp(String remoteDir);
-    }
-
     @Bean
     public IntegrationFlow ftpOutboundGatewayFlow() {
-        return f -> f
+        return IntegrationFlows
+                .from("channelIntoSeqReportDownload")
                 .handle(Ftp.outboundGateway(sessionFactory, "ls", "payload")
                         .options("-1 -R")
 //                        .regexFileNameFilter("GCA_000001405\\.10_sequence_report\\.txt")
@@ -45,7 +38,8 @@ public class ENASequenceReportDownload {
                 .transform(pathTransformer, "transform")
                 .handle(Ftp.outboundGateway(sessionFactory, "get", "payload")
                         .localDirectory(new File("/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound")))
-                .channel("fastaDownloadFlow.input");
+                .channel("channelIntoDownloadFastaENA")
+                .get();
     }
 
 

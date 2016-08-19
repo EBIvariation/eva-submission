@@ -31,14 +31,14 @@ public class EvaIntegrationApplication {
 
         String assemblyAccession = "GCA_000001405.10";
         String localAssemblyDirectoryRoot = "/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound";
-        File sequenceReportFile = Paths.get(localAssemblyDirectoryRoot, assemblyAccession + "_sequence_report_head5.txt").toFile();
+        File sequenceReportFile = Paths.get(localAssemblyDirectoryRoot, assemblyAccession + "_sequence_report.txt").toFile();
 
 //        setupEnvironment(ctx, assemblyAccession);
 
 
         if (!sequenceReportFile.exists()) {
-            ENASequenceReportDownload.ENAFtpLs enaFtpLs = ctx.getBean(ENASequenceReportDownload.ENAFtpLs.class);
-            enaFtpLs.lsEnaFtp("pub/databases/ena/assembly/");
+            MessageChannel channelIntoSeqReportDownload = ctx.getBean("channelIntoSeqReportDownload", MessageChannel.class);
+            channelIntoSeqReportDownload.send(new GenericMessage<String>("pub/databases/ena/assembly/"));
         }
 
         MessageChannel channelIntoDownloadFastaENA = ctx.getBean("channelIntoDownloadFastaENA", MessageChannel.class);
