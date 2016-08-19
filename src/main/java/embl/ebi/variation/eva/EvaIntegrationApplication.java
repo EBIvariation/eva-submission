@@ -1,11 +1,9 @@
 package embl.ebi.variation.eva;
 
-import embl.ebi.variation.eva.sequence_report_download.ENASequenceReportDownload;
+import embl.ebi.variation.eva.seqrep_fasta_dl.ENASequenceReportDownload;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.core.env.PropertiesPropertySource;
-import org.springframework.core.env.StandardEnvironment;
 import org.springframework.integration.annotation.IntegrationComponentScan;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.support.GenericMessage;

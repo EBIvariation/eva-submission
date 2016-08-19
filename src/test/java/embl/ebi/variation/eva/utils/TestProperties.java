@@ -1,7 +1,7 @@
 package embl.ebi.variation.eva.utils;
 
-import embl.ebi.variation.eva.sequence_report_download.ENASequenceReportDownload;
-import embl.ebi.variation.eva.sequence_report_download.SequenceReportProcessor;
+import embl.ebi.variation.eva.seqrep_fasta_dl.ENASequenceReportDownload;
+import embl.ebi.variation.eva.seqrep_fasta_dl.SequenceReportProcessor;
 import org.apache.log4j.Logger;
 
 import java.io.IOException;

@@ -1,4 +1,4 @@
-package embl.ebi.variation.eva.sequence_report_download;
+package embl.ebi.variation.eva.seqrep_fasta_dl;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
