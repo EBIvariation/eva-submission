@@ -31,7 +31,7 @@ public class EvaIntegrationApplication {
 
         String assemblyAccession = "GCA_000001405.10";
         String localAssemblyDirectoryRoot = "/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound";
-        File sequenceReportFile = Paths.get(localAssemblyDirectoryRoot, assemblyAccession + "_sequence_report.txt").toFile();
+        File sequenceReportFile = Paths.get(localAssemblyDirectoryRoot, assemblyAccession + "_sequence_report_head5.txt").toFile();
 
 //        setupEnvironment(ctx, assemblyAccession);
 
@@ -44,7 +44,6 @@ public class EvaIntegrationApplication {
         MessageChannel channelIntoDownloadFastaENA = ctx.getBean("channelIntoDownloadFastaENA", MessageChannel.class);
         channelIntoDownloadFastaENA.send(new GenericMessage<File>(sequenceReportFile));
 
-        ctx.stop();
 
 	}
 

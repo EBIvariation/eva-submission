@@ -1,32 +1,24 @@
 package embl.ebi.variation.eva.fasta_download;
 
 import embl.ebi.variation.eva.sequence_report_processing.SequenceReportProcessor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.task.TaskExecutor;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.http.HttpMethod;
 import org.springframework.integration.annotation.*;
-import org.springframework.integration.channel.DirectChannel;
 import org.springframework.integration.dsl.IntegrationFlow;
 import org.springframework.integration.dsl.IntegrationFlows;
 import org.springframework.integration.dsl.core.Pollers;
 import org.springframework.integration.dsl.file.Files;
+import org.springframework.integration.dsl.http.Http;
 import org.springframework.integration.file.FileWritingMessageHandler;
 import org.springframework.integration.file.support.FileExistsMode;
 import org.springframework.integration.http.outbound.HttpRequestExecutingMessageHandler;
 import org.springframework.integration.scheduling.PollerMetadata;
-import org.springframework.messaging.Message;
-import org.springframework.messaging.MessageChannel;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.util.Collections;
-import java.util.List;
 
 /**
  * Created by tom on 17/08/16.
@@ -40,7 +32,7 @@ public class ENAFastaDownload {
     @Bean(name = PollerMetadata.DEFAULT_POLLER)
     public PollerMetadata poller(){
         return Pollers
-                .fixedDelay(1000)
+                .fixedDelay(100)
                 .get();
     }
 
@@ -62,8 +54,14 @@ public class ENAFastaDownload {
         FileWritingMessageHandler handler = new FileWritingMessageHandler(new File("/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound"));
         handler.setFileExistsMode(FileExistsMode.APPEND);
         handler.setFileNameGenerator(message -> "GCA_000001405.10.fasta2");
-        handler.setOutputChannelName("nullChannel");
+        handler.setOutputChannelName("channelOutFastaDownload");
         return handler;
+    }
+
+    @Bean
+    @Aggregator(inputChannel = "channelOutFastaDownload", outputChannel = "nullchannel")
+    public FileWritingOutputAggregator fileWritingOutputAggregator(){
+        return new FileWritingOutputAggregator();
     }
 
 //    @Bean
@@ -74,24 +72,24 @@ public class ENAFastaDownload {
 //        return executor;
 //    }
 
+    @Autowired
+    public SequenceReportProcessor sequenceReportProcessor;
 
+    @Bean
+    public IntegrationFlow fastaDownloadFlow() {
+        return IntegrationFlows.from("channelIntoDownloadFastaENA")
+                .transform(sequenceReportProcessor, "getChromosomeAccessions")
+                .split()
+                .handle(Http.outboundGateway("https://www.ebi.ac.uk/ena/data/view/{payload}&amp;display=fasta")
+                        .httpMethod(HttpMethod.GET)
+                        .expectedResponseType(java.lang.String.class)
+                        .uriVariable("payload", "payload"))
+                .handle(Files.outboundGateway(new File("/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound"))
+                        .fileExistsMode(FileExistsMode.APPEND)
+                        .fileNameGenerator(message -> "GCA_000001405.10.fasta2"))
+                .channel("nullChannel")
+                .get();
 
-//    @Bean
-//    public IntegrationFlow fastaDownloadFlow() {
-//        return IntegrationFlows.from("channelIntoDownloadFastaENA")
-//                .transform(sequenceReportProcessor, "getChromosomeAccessions")
-//                .split()
-//                .handle("enaFastaHttpMessageHandler", "handleMessage")
-////                .handle(Http.outboundGateway("https://www.ebi.ac.uk/ena/data/view/{payload}&amp;display=fasta")
-////                        .httpMethod(HttpMethod.GET)
-////                        .expectedResponseType(java.lang.String.class)
-////                        .uriVariable("payload", "payload"))
-//                .handle(Files.outboundGateway(new File("/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound"))
-//                        .fileExistsMode(FileExistsMode.APPEND)
-//                        .fileNameGenerator(message -> "GCA_000001405.10.fasta2"))
-//                .channel("nullChannel")
-//                .get();
-//
-//    }
+    }
 
 }
