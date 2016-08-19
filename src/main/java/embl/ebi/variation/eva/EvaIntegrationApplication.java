@@ -1,18 +1,14 @@
 package embl.ebi.variation.eva;
 
-import embl.ebi.variation.eva.fasta_download.ENAFastaDownload;
 import embl.ebi.variation.eva.sequence_report_download.ENASequenceReportDownload;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.core.env.PropertiesPropertySource;
 import org.springframework.core.env.StandardEnvironment;
 import org.springframework.integration.annotation.IntegrationComponentScan;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.support.GenericMessage;
-import org.springframework.messaging.support.HeaderMapper;
 
 import java.io.File;
 import java.io.IOException;
@@ -67,17 +63,4 @@ public class EvaIntegrationApplication {
 		}
 		return prop;
 	}
-
-
-    private static void setupEnvironment(ConfigurableApplicationContext ctx, String accession) {
-        StandardEnvironment env = new StandardEnvironment();
-        Properties props = new Properties();
-
-        props.setProperty("assembly.accession", accession);
-
-        PropertiesPropertySource pps = new PropertiesPropertySource("ftpprops", props);
-        env.getPropertySources().addFirst(pps);
-        ctx.setEnvironment(env);
-        ctx.refresh();
-    }
 }

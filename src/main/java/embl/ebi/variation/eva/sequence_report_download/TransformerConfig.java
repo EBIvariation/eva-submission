@@ -1,13 +1,8 @@
 package embl.ebi.variation.eva.sequence_report_download;
 
-import embl.ebi.variation.eva.sequence_report_processing.SequenceReportProcessor;
-import org.springframework.integration.annotation.Transformer;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.GenericMessage;
 import org.springframework.stereotype.Component;
-
-import java.io.File;
-import java.util.List;
 
 /**
  * Created by tom on 19/08/16.

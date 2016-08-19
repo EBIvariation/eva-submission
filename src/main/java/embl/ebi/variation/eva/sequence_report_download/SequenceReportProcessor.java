@@ -1,4 +1,4 @@
-package embl.ebi.variation.eva.sequence_report_processing;
+package embl.ebi.variation.eva.sequence_report_download;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.csv.CSVFormat;

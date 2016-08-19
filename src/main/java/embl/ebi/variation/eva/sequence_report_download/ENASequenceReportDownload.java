@@ -1,6 +1,5 @@
 package embl.ebi.variation.eva.sequence_report_download;
 
-import embl.ebi.variation.eva.sequence_report_processing.SequenceReportProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpMethod;
@@ -11,15 +10,12 @@ import org.springframework.integration.dsl.core.Pollers;
 import org.springframework.integration.dsl.file.Files;
 import org.springframework.integration.dsl.ftp.Ftp;
 import org.springframework.integration.dsl.http.Http;
-import org.springframework.integration.dsl.support.Transformers;
 import org.springframework.integration.file.support.FileExistsMode;
 import org.springframework.integration.ftp.session.DefaultFtpSessionFactory;
-import org.springframework.messaging.Message;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
-import java.util.Collection;
 import java.util.List;
 
 /**
