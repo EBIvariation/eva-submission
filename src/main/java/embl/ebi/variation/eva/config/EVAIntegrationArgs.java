@@ -20,6 +20,8 @@ public class EVAIntegrationArgs {
     @Value("${ena.ftp.port:21}") private int enaFtpPort;
     @Value("${ena.ftp.host}") private String enaFtpHost;
 
+    @Value("${ena.ftp.sequence_report_path}") private String enaFtpSeqRepPath;
+
     private ObjectMap enaFtpOptions  = new ObjectMap();
 
     private void loadEnaFtpOptions(){
