@@ -1,6 +1,12 @@
 package embl.ebi.variation.eva.seqrep_fasta_dl;
 
+import embl.ebi.variation.eva.config.EvaIntegrationArgsConfig;
+import org.opencb.datastore.core.ObjectMap;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpMethod;
 import org.springframework.integration.dsl.IntegrationFlow;
@@ -12,9 +18,11 @@ import org.springframework.integration.dsl.ftp.Ftp;
 import org.springframework.integration.dsl.http.Http;
 import org.springframework.integration.file.support.FileExistsMode;
 import org.springframework.integration.ftp.session.DefaultFtpSessionFactory;
+import org.springframework.integration.jdbc.JdbcMessageStore;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 
+import javax.sql.DataSource;
 import java.io.File;
 import java.util.List;
 
@@ -23,6 +31,18 @@ import java.util.List;
  */
 @Component
 public class ENASequenceReportDownload {
+
+    @Autowired
+    private ObjectMap integrationOptions;
+
+    @Value("${assembly.accession}")
+    private String assemblyAccession;
+
+    @Value("${assembly.accession}#{integrationOptions.getString(\"sequenceReportFileSuffix\")}")
+    private String sequenceReportFileBasename;
+
+    @Value("#{integrationOptions.getString(\"enaFtpSeqRepRoot\")}")
+    private String enaFtpSeqRepRoot;
 
     @Autowired
     private RouterConfig routerConfig;
@@ -42,6 +62,9 @@ public class ENASequenceReportDownload {
     @Autowired
     private TransformerConfig transformerConfig;
 
+    @Autowired
+    private DataSource dataSource;
+
     @Bean
     public IntegrationFlow seqReportDownloadFlow() {
         return IntegrationFlows
@@ -49,15 +72,16 @@ public class ENASequenceReportDownload {
 
 //                .route(routerConfig, "seqReportRouter")
 //                    .channel("channelIntoDownloadSeqRep")
-                    .transform(transformerConfig, "changePayloadForEnaFtpSeqRepDir")
+
+                    .transform(m -> enaFtpSeqRepRoot)
                     .handle(Ftp.outboundGateway(sessionFactory, "ls", "payload")
                             .options("-1 -R")
                     )
                     .split()
-                    .filter("payload.matches('[\\w\\/]*GCA_000001405\\.10_sequence_report\\.txt')")
+                    .filter("payload.matches('[\\w\\/]*" + sequenceReportFileBasename + "')")
                     .transform(pathTransformer, "transform")
                     .handle(Ftp.outboundGateway(sessionFactory, "get", "payload")
-                            .localDirectory(new File("/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound")))
+                            .localDirectory(new File(integrationOptions.getString("localAssemblyRoot"))))
                     .channel("channelIntoDownloadFasta")
                 .get();
     }
@@ -80,9 +104,9 @@ public class ENASequenceReportDownload {
                             .uriVariable("payload", "payload"))
                     .resequence(r -> r.releasePartialSequences(true)) // put fasta sequences in order
                     .channel(MessageChannels.queue(15))
-                    .handle(Files.outboundGateway(new File("/home/tom/Job_Working_Directory/Java/eva-integration/src/main/resources/test_dl/ftpInbound"))
+                    .handle(Files.outboundGateway(new File(integrationOptions.getString("enaFtpSeqRepRoot")))
                                     .fileExistsMode(FileExistsMode.APPEND)
-                                    .fileNameGenerator(message -> "GCA_000001405.10.fasta2"),
+                                    .fileNameGenerator(message -> assemblyAccession + ".fasta2"),
                             e -> e.poller(Pollers.fixedDelay(1000))
                     )
                 .aggregate()

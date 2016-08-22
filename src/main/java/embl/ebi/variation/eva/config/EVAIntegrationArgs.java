@@ -20,27 +20,42 @@ public class EVAIntegrationArgs {
     @Value("${ena.ftp.port:21}") private int enaFtpPort;
     @Value("${ena.ftp.host}") private String enaFtpHost;
 
-    @Value("${ena.ftp.sequence_report_path}") private String enaFtpSeqRepPath;
+    @Value("${ena.ftp.sequence_report_root}") private String enaFtpSeqRepRoot;
 
-    private ObjectMap enaFtpOptions  = new ObjectMap();
+    //// sequence report file
 
-    private void loadEnaFtpOptions(){
-        enaFtpOptions.put("enaFtpUserId", enaFtpUserId);
-        enaFtpOptions.put("enaFtpPassword", enaFtpPassword);
-        enaFtpOptions.put("enaFtpPort", enaFtpPort);
-        enaFtpOptions.put("enaFtpHost", enaFtpHost);
+    @Value("${sequence_report.file.suffix}") private String sequenceReportFileSuffix;
 
-        logger.debug("Using as enaFtpOptions: {}", enaFtpOptions.entrySet().toString());
+    //// local files
+
+    @Value("${local.assembly.root}") private String localAssemblyRoot;
+
+
+    private ObjectMap integrationOptions = new ObjectMap();
+
+    private void loadIntegrationOptions(){
+        integrationOptions.put("enaFtpUserId", enaFtpUserId);
+        integrationOptions.put("enaFtpPassword", enaFtpPassword);
+        integrationOptions.put("enaFtpPort", enaFtpPort);
+        integrationOptions.put("enaFtpHost", enaFtpHost);
+        integrationOptions.put("enaFtpSeqRepRoot", enaFtpSeqRepRoot);
+
+        integrationOptions.put("sequenceReportFileSuffix", sequenceReportFileSuffix);
+
+        integrationOptions.put("localAssemblyRoot", localAssemblyRoot);
+
+
+        logger.debug("Using as integrationOptions: {}", integrationOptions.entrySet().toString());
     }
 
-    public ObjectMap getEnaFtpOptions() {
-        loadEnaFtpOptions();
-        return enaFtpOptions;
+    public ObjectMap getIntegrationOptions() {
+        loadIntegrationOptions();
+        return integrationOptions;
     }
 
     public void loadArgs() {
         logger.info("Load args");
-        loadEnaFtpOptions();
+        loadIntegrationOptions();
     }
 
 }

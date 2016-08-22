@@ -15,9 +15,9 @@ public class EvaIntegrationArgsConfig {
         return new EVAIntegrationArgs();
     }
 
-    @Bean
-    public ObjectMap evaIntegrationOptions(){
-        return evaIntegrationArgs().getEnaFtpOptions();
+    @Bean(name = "integrationOptions")
+    public ObjectMap integrationOptions(){
+        return evaIntegrationArgs().getIntegrationOptions();
     }
 
 }
