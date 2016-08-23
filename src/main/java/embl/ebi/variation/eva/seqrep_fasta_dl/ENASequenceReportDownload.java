@@ -112,8 +112,8 @@ public class ENASequenceReportDownload {
                             e -> e.poller(Pollers.fixedDelay(1000))
                     )
                 .aggregate()
-                .<List<File>, File>transform(m -> m.get(0))
-                .handle(m -> System.out.println(m.getPayload().toString()))
+                .<List<File>, String>transform(m -> m.get(0).getParent())
+                .handle(m -> System.out.println(m.getPayload()))
                 .get();
     }
 
