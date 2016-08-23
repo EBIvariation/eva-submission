@@ -19,11 +19,15 @@ import org.springframework.integration.dsl.http.Http;
 import org.springframework.integration.file.support.FileExistsMode;
 import org.springframework.integration.ftp.session.DefaultFtpSessionFactory;
 import org.springframework.integration.jdbc.JdbcMessageStore;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
+import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
 import java.io.File;
+import java.nio.file.Paths;
 import java.util.List;
 
 /**
@@ -62,9 +66,6 @@ public class ENASequenceReportDownload {
     @Autowired
     private TransformerConfig transformerConfig;
 
-    @Autowired
-    private DataSource dataSource;
-
     @Bean
     public IntegrationFlow seqReportDownloadFlow() {
         return IntegrationFlows
@@ -97,16 +98,17 @@ public class ENASequenceReportDownload {
 //                    .transform(transformerConfig, "changePayloadForSeqReportLocalPath")
                     .transform(sequenceReportProcessor, "getChromosomeAccessions")
                     .split()
+                    .enrichHeaders(s -> s.headerExpressions(h -> h
+                            .put("chromAcc", "payload")))
                     .channel(MessageChannels.executor(taskExecutor))
                     .handle(Http.outboundGateway("https://www.ebi.ac.uk/ena/data/view/{payload}&amp;display=fasta")
                             .httpMethod(HttpMethod.GET)
                             .expectedResponseType(java.lang.String.class)
                             .uriVariable("payload", "payload"))
-                    .resequence(r -> r.releasePartialSequences(true)) // put fasta sequences in order
                     .channel(MessageChannels.queue(15))
-                    .handle(Files.outboundGateway(new File(integrationOptions.getString("enaFtpSeqRepRoot")))
-                                    .fileExistsMode(FileExistsMode.APPEND)
-                                    .fileNameGenerator(message -> assemblyAccession + ".fasta2"),
+                    .handle(Files.outboundGateway(Paths.get(integrationOptions.getString("localAssemblyRoot"), assemblyAccession).toFile())
+                                    .fileExistsMode(FileExistsMode.REPLACE)
+                                    .fileNameGenerator(message -> message.getHeaders().get("chromAcc") + ".fasta"),
                             e -> e.poller(Pollers.fixedDelay(1000))
                     )
                 .aggregate()
