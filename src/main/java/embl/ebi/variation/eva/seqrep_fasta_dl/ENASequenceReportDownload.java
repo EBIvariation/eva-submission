@@ -67,23 +67,31 @@ public class ENASequenceReportDownload {
     private TransformerConfig transformerConfig;
 
     @Bean
-    public IntegrationFlow seqReportDownloadFlow() {
+    public IntegrationFlow entryFlow() {
         return IntegrationFlows
                 .from("inputChannel")
+                .<String, Boolean>route(filepath -> new File(filepath).exists(), mapping -> mapping
+                    .subFlowMapping("false", sf -> sf
+                        .channel("channelIntoSeqRepDL")) // if sequence report file doesn't exist, then download it
+                    .subFlowMapping("true", sf -> sf
+                        .channel("channelIntoDownloadFasta"))) // if sequence report file does exist then use it to download fasta
+                .get();
+    }
 
-//                .route(routerConfig, "seqReportRouter")
-//                    .channel("channelIntoDownloadSeqRep")
-
-                    .transform(m -> enaFtpSeqRepRoot)
-                    .handle(Ftp.outboundGateway(sessionFactory, "ls", "payload")
-                            .options("-1 -R")
-                    )
-                    .split()
-                    .filter("payload.matches('[\\w\\/]*" + sequenceReportFileBasename + "')")
-                    .transform(pathTransformer, "transform")
-                    .handle(Ftp.outboundGateway(sessionFactory, "get", "payload")
-                            .localDirectory(new File(integrationOptions.getString("localAssemblyRoot"))))
-                    .channel("channelIntoDownloadFasta")
+    @Bean
+    public IntegrationFlow seqReportDownloadFlow() {
+        return IntegrationFlows
+                .from("channelIntoSeqRepDL")
+                .transform(m -> enaFtpSeqRepRoot)
+                .handle(Ftp.outboundGateway(sessionFactory, "ls", "payload")
+                        .options("-1 -R")
+                )
+                .split()
+                .filter("payload.matches('[\\w\\/]*" + sequenceReportFileBasename + "')")
+                .transform(pathTransformer, "transform")
+                .handle(Ftp.outboundGateway(sessionFactory, "get", "payload")
+                        .localDirectory(new File(integrationOptions.getString("localAssemblyRoot"))))
+                .channel("channelIntoDownloadFasta")
                 .get();
     }
 
@@ -92,25 +100,21 @@ public class ENASequenceReportDownload {
     public IntegrationFlow fastaDownloadFlow() {
         return IntegrationFlows
                 .from("channelIntoDownloadFasta")
-
-////                .route(routerConfig, "fastaRouter")
-////                    .channel("channelIntoDownloadFasta")
-//                    .transform(transformerConfig, "changePayloadForSeqReportLocalPath")
-                    .transform(sequenceReportProcessor, "getChromosomeAccessions")
-                    .split()
-                    .enrichHeaders(s -> s.headerExpressions(h -> h
-                            .put("chromAcc", "payload")))
-                    .channel(MessageChannels.executor(taskExecutor))
-                    .handle(Http.outboundGateway("https://www.ebi.ac.uk/ena/data/view/{payload}&amp;display=fasta")
-                            .httpMethod(HttpMethod.GET)
-                            .expectedResponseType(java.lang.String.class)
-                            .uriVariable("payload", "payload"))
-                    .channel(MessageChannels.queue(15))
-                    .handle(Files.outboundGateway(Paths.get(integrationOptions.getString("localAssemblyRoot"), assemblyAccession).toFile())
-                                    .fileExistsMode(FileExistsMode.REPLACE)
-                                    .fileNameGenerator(message -> message.getHeaders().get("chromAcc") + ".fasta"),
-                            e -> e.poller(Pollers.fixedDelay(1000))
-                    )
+                .transform(sequenceReportProcessor, "getChromosomeAccessions")
+                .split()
+                .enrichHeaders(s -> s.headerExpressions(h -> h
+                        .put("chromAcc", "payload")))
+                .channel(MessageChannels.executor(taskExecutor))
+                .handle(Http.outboundGateway("https://www.ebi.ac.uk/ena/data/view/{payload}&amp;display=fasta")
+                        .httpMethod(HttpMethod.GET)
+                        .expectedResponseType(java.lang.String.class)
+                        .uriVariable("payload", "payload"))
+                .channel(MessageChannels.queue(15))
+                .handle(Files.outboundGateway(Paths.get(integrationOptions.getString("localAssemblyRoot"), assemblyAccession).toFile())
+                                .fileExistsMode(FileExistsMode.REPLACE)
+                                .fileNameGenerator(message -> message.getHeaders().get("chromAcc") + ".fasta"),
+                        e -> e.poller(Pollers.fixedDelay(1000))
+                )
                 .aggregate()
                 .<List<File>, String>transform(m -> m.get(0).getParent())
                 .handle(m -> System.out.println(m.getPayload()))
