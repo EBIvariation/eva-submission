@@ -1,10 +1,12 @@
-package embl.ebi.variation.eva.config;
+package embl.ebi.variation.eva.args_config;
 
 import org.opencb.datastore.core.ObjectMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+
+import java.nio.file.Paths;
 
 /**
  * Created by tom on 09/08/16.
@@ -21,6 +23,8 @@ public class EVAIntegrationArgs {
     @Value("${ena.ftp.host}") private String enaFtpHost;
 
     @Value("${ena.ftp.sequence_report_root}") private String enaFtpSeqRepRoot;
+
+    @Value("${assembly.accession}") private String assemblyAccession;
 
     //// sequence report file
 
@@ -40,10 +44,11 @@ public class EVAIntegrationArgs {
         integrationOptions.put("enaFtpHost", enaFtpHost);
         integrationOptions.put("enaFtpSeqRepRoot", enaFtpSeqRepRoot);
 
-        integrationOptions.put("sequenceReportFileSuffix", sequenceReportFileSuffix);
+        integrationOptions.put("assemblyAccession", assemblyAccession);
 
-        integrationOptions.put("localAssemblyRoot", localAssemblyRoot);
+        integrationOptions.put("sequenceReportFileBasename", assemblyAccession + sequenceReportFileSuffix);
 
+        integrationOptions.put("localAssemblyDir", Paths.get(localAssemblyRoot, assemblyAccession).toString());
 
         logger.debug("Using as integrationOptions: {}", integrationOptions.entrySet().toString());
     }

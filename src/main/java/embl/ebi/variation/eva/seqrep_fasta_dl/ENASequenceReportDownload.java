@@ -1,14 +1,12 @@
 package embl.ebi.variation.eva.seqrep_fasta_dl;
 
-import embl.ebi.variation.eva.config.EvaIntegrationArgsConfig;
 import org.opencb.datastore.core.ObjectMap;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.integration.annotation.IntegrationComponentScan;
 import org.springframework.integration.dsl.IntegrationFlow;
 import org.springframework.integration.dsl.IntegrationFlows;
 import org.springframework.integration.dsl.channel.MessageChannels;
@@ -18,78 +16,73 @@ import org.springframework.integration.dsl.ftp.Ftp;
 import org.springframework.integration.dsl.http.Http;
 import org.springframework.integration.file.support.FileExistsMode;
 import org.springframework.integration.ftp.session.DefaultFtpSessionFactory;
-import org.springframework.integration.jdbc.JdbcMessageStore;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
-import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
-import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.support.GenericMessage;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-import org.springframework.stereotype.Component;
 
-import javax.sql.DataSource;
 import java.io.File;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Created by tom on 04/08/16.
  */
-@Component
+@Configuration
+@ComponentScan
+@IntegrationComponentScan
 public class ENASequenceReportDownload {
 
     @Autowired
     private ObjectMap integrationOptions;
 
-    @Value("${assembly.accession}")
-    private String assemblyAccession;
-
-    @Value("${assembly.accession}#{integrationOptions.getString(\"sequenceReportFileSuffix\")}")
-    private String sequenceReportFileBasename;
-
-    @Value("#{integrationOptions.getString(\"enaFtpSeqRepRoot\")}")
-    private String enaFtpSeqRepRoot;
-
     @Autowired
-    private RouterConfig routerConfig;
-
-    @Autowired
-    private DefaultFtpSessionFactory sessionFactory;
-
-    @Autowired
-    private SequenceReportPathTransformer pathTransformer;
-
-    @Autowired
-    private ThreadPoolTaskExecutor taskExecutor;
+    private SeqRepPathTransformer seqRepPathTransformer;
 
     @Autowired
     private SequenceReportProcessor sequenceReportProcessor;
 
-    @Autowired
-    private TransformerConfig transformerConfig;
+
+    // FOR NOW DOWNLOAD EVERYTHING, NO CHECKING FOR FILE EXISTENCE
+
+//    @Bean
+//    public IntegrationFlow entryFlow() {
+//        return IntegrationFlows
+//                .from("inputChannel")
+//                .<String, Boolean>route(filepath -> new File(filepath).exists(), mapping -> mapping
+//                    .subFlowMapping("false", sf -> sf
+//                        .channel("channelIntoSeqRepDL")) // if sequence report file doesn't exist, then download it
+//                    .subFlowMapping("true", sf -> sf
+//                        .channel("channelIntoDownloadFasta"))) // if sequence report file does exist then use it to download fasta
+//                .get();
+//    }
 
     @Bean
-    public IntegrationFlow entryFlow() {
-        return IntegrationFlows
-                .from("inputChannel")
-                .<String, Boolean>route(filepath -> new File(filepath).exists(), mapping -> mapping
-                    .subFlowMapping("false", sf -> sf
-                        .channel("channelIntoSeqRepDL")) // if sequence report file doesn't exist, then download it
-                    .subFlowMapping("true", sf -> sf
-                        .channel("channelIntoDownloadFasta"))) // if sequence report file does exist then use it to download fasta
-                .get();
+    public Message starterMessage(){
+        Map<String, Object> headers = new HashMap<>();
+        headers.put("seqReportLocalPath", Paths.get(integrationOptions.getString("localAssemblyDir"),
+                integrationOptions.getString("assemblyAccession") + "_sequence_report.txt").toString());
+        headers.put("enaFtpSeqRepDir", integrationOptions.getString("enaFtpSeqRepRoot"));
+        headers.put("fastaLocal", Paths.get(integrationOptions.getString("localAssemblyDir"),
+                integrationOptions.getString("assemblyAccession") + ".fasta").toString());
+        GenericMessage message = new GenericMessage<String>(integrationOptions.getString("assemblyAccession"), headers);
+
+        return message;
     }
 
     @Bean
     public IntegrationFlow seqReportDownloadFlow() {
         return IntegrationFlows
-                .from("channelIntoSeqRepDL")
-                .transform(m -> enaFtpSeqRepRoot)
-                .handle(Ftp.outboundGateway(sessionFactory, "ls", "payload")
+                .from("inputChannel")
+                .transform(m -> integrationOptions.getString("enaFtpSeqRepRoot"))
+                .handle(Ftp.outboundGateway(enaFtpSessionFactory(), "ls", "payload")
                         .options("-1 -R")
                 )
                 .split()
-                .filter("payload.matches('[\\w\\/]*" + sequenceReportFileBasename + "')")
-                .transform(pathTransformer, "transform")
-                .handle(Ftp.outboundGateway(sessionFactory, "get", "payload")
+                .filter("payload.matches('[\\w\\/]*" + integrationOptions.getString("sequenceReportFileBasename") + "')")
+                .transform(seqRepPathTransformer, "transform")
+                .handle(Ftp.outboundGateway(enaFtpSessionFactory(), "get", "payload")
                         .localDirectory(new File(integrationOptions.getString("localAssemblyRoot"))))
                 .channel("channelIntoDownloadFasta")
                 .get();
@@ -104,13 +97,13 @@ public class ENASequenceReportDownload {
                 .split()
                 .enrichHeaders(s -> s.headerExpressions(h -> h
                         .put("chromAcc", "payload")))
-                .channel(MessageChannels.executor(taskExecutor))
+                .channel(MessageChannels.executor(taskExecutor()))
                 .handle(Http.outboundGateway("https://www.ebi.ac.uk/ena/data/view/{payload}&amp;display=fasta")
                         .httpMethod(HttpMethod.GET)
                         .expectedResponseType(java.lang.String.class)
                         .uriVariable("payload", "payload"))
                 .channel(MessageChannels.queue(15))
-                .handle(Files.outboundGateway(Paths.get(integrationOptions.getString("localAssemblyRoot"), assemblyAccession).toFile())
+                .handle(Files.outboundGateway(Paths.get(integrationOptions.getString("localAssemblyRoot"), integrationOptions.getString("assemblyAccession")).toFile())
                                 .fileExistsMode(FileExistsMode.REPLACE)
                                 .fileNameGenerator(message -> message.getHeaders().get("chromAcc") + ".fasta"),
                         e -> e.poller(Pollers.fixedDelay(1000))
@@ -119,6 +112,24 @@ public class ENASequenceReportDownload {
                 .<List<File>, String>transform(m -> m.get(0).getParent())
                 .handle(m -> System.out.println(m.getPayload()))
                 .get();
+    }
+
+    @Bean
+    public DefaultFtpSessionFactory enaFtpSessionFactory(){
+        DefaultFtpSessionFactory sessionFactory = new DefaultFtpSessionFactory();
+        sessionFactory.setHost(integrationOptions.getString("enaFtpHost"));
+        sessionFactory.setPort(integrationOptions.getInt("enaFtpPort"));
+        sessionFactory.setUsername(integrationOptions.getString("enaFtpUserId"));
+        sessionFactory.setPassword(integrationOptions.getString("enaFtpPassword"));
+        return sessionFactory;
+    }
+
+    @Bean
+    public ThreadPoolTaskExecutor taskExecutor(){
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(5);
+        executor.setMaxPoolSize(10);
+        return executor;
     }
 
 

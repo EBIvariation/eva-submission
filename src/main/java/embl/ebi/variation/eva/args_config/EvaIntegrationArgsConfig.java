@@ -1,4 +1,4 @@
-package embl.ebi.variation.eva.config;
+package embl.ebi.variation.eva.args_config;
 
 import org.opencb.datastore.core.ObjectMap;
 import org.springframework.context.annotation.Bean;
