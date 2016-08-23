@@ -83,7 +83,7 @@ public class ENASequenceReportDownload {
                 .filter("payload.matches('[\\w\\/]*" + integrationOptions.getString("sequenceReportFileBasename") + "')")
                 .transform(seqRepPathTransformer, "transform")
                 .handle(Ftp.outboundGateway(enaFtpSessionFactory(), "get", "payload")
-                        .localDirectory(new File(integrationOptions.getString("localAssemblyRoot"))))
+                        .localDirectory(new File(integrationOptions.getString("localAssemblyDir"))))
                 .channel("channelIntoDownloadFasta")
                 .get();
     }
@@ -103,7 +103,7 @@ public class ENASequenceReportDownload {
                         .expectedResponseType(java.lang.String.class)
                         .uriVariable("payload", "payload"))
                 .channel(MessageChannels.queue(15))
-                .handle(Files.outboundGateway(Paths.get(integrationOptions.getString("localAssemblyRoot"), integrationOptions.getString("assemblyAccession")).toFile())
+                .handle(Files.outboundGateway(new File(integrationOptions.getString("localAssemblyDir")))
                                 .fileExistsMode(FileExistsMode.REPLACE)
                                 .fileNameGenerator(message -> message.getHeaders().get("chromAcc") + ".fasta"),
                         e -> e.poller(Pollers.fixedDelay(1000))
