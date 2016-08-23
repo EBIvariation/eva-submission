@@ -25,6 +25,8 @@ public class EvaIntegrationApplication {
         MessageChannel inputChannel = ctx.getBean("inputChannel", MessageChannel.class);
         inputChannel.send(starterMessage);
 
+
+
 //        ctx.close();
 	}
 

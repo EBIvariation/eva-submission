@@ -106,7 +106,7 @@ public class ENASequenceReportDownload {
                 .handle(Files.outboundGateway(new File(integrationOptions.getString("localAssemblyDir")))
                                 .fileExistsMode(FileExistsMode.REPLACE)
                                 .fileNameGenerator(message -> message.getHeaders().get("chromAcc") + ".fasta"),
-                        e -> e.poller(Pollers.fixedDelay(1000))
+                        e -> e.poller(Pollers.fixedDelay(100))
                 )
                 .aggregate()
                 .<List<File>, String>transform(m -> m.get(0).getParent())
