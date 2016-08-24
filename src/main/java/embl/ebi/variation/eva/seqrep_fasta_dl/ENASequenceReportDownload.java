@@ -18,6 +18,7 @@ import org.springframework.integration.file.support.FileExistsMode;
 import org.springframework.integration.ftp.session.DefaultFtpSessionFactory;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.GenericMessage;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.io.File;
@@ -61,11 +62,9 @@ public class ENASequenceReportDownload {
     @Bean
     public Message starterMessage(){
         Map<String, Object> headers = new HashMap<>();
-        headers.put("seqReportLocalPath", Paths.get(integrationOptions.getString("localAssemblyDir"),
-                integrationOptions.getString("assemblyAccession") + "_sequence_report.txt").toString());
+        headers.put("seqReportLocalPath", Paths.get(integrationOptions.getString("localAssemblyDir"), integrationOptions.getString("sequenceReportFileBasename")).toString());
         headers.put("enaFtpSeqRepDir", integrationOptions.getString("enaFtpSeqRepRoot"));
-        headers.put("fastaLocal", Paths.get(integrationOptions.getString("localAssemblyDir"),
-                integrationOptions.getString("assemblyAccession") + ".fasta").toString());
+        headers.put("fastaLocal", Paths.get(integrationOptions.getString("localAssemblyDir"), integrationOptions.getString("assemblyAccession") + ".fasta").toString());
         GenericMessage message = new GenericMessage<String>(integrationOptions.getString("assemblyAccession"), headers);
 
         return message;
@@ -105,8 +104,8 @@ public class ENASequenceReportDownload {
                 .channel(MessageChannels.queue(15))
                 .handle(Files.outboundGateway(new File(integrationOptions.getString("localAssemblyDir")))
                                 .fileExistsMode(FileExistsMode.REPLACE)
-                                .fileNameGenerator(message -> message.getHeaders().get("chromAcc") + ".fasta"),
-                        e -> e.poller(Pollers.fixedDelay(100))
+                                .fileNameGenerator(message -> message.getHeaders().get("chromAcc") + ".fasta")
+                                    ,e -> e.poller(Pollers.fixedDelay(100))
                 )
                 .aggregate()
                 .<List<File>, String>transform(m -> m.get(0).getParent())
@@ -129,6 +128,7 @@ public class ENASequenceReportDownload {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(5);
         executor.setMaxPoolSize(10);
+//        executor.setWaitForTasksToCompleteOnShutdown(true);  // could this be used for shutting down?
         return executor;
     }
 

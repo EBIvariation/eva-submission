@@ -9,6 +9,7 @@ import org.springframework.integration.annotation.IntegrationComponentScan;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.support.GenericMessage;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 @SpringBootApplication
 @IntegrationComponentScan
@@ -25,7 +26,7 @@ public class EvaIntegrationApplication {
         MessageChannel inputChannel = ctx.getBean("inputChannel", MessageChannel.class);
         inputChannel.send(starterMessage);
 
-
+//        ThreadPoolTaskExecutor executor = ctx.getBean("taskExecutor", ThreadPoolTaskExecutor.class);  // Could this be used for closing context after all processing has finished?
 
 //        ctx.close();
 	}
