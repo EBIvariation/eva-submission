@@ -28,7 +28,7 @@ public class EvaIntegrationApplication {
 
 //        ThreadPoolTaskExecutor executor = ctx.getBean("taskExecutor", ThreadPoolTaskExecutor.class);  // Could this be used for closing context after all processing has finished?
 
-//        ctx.close();
+//        ctx.stop();
 	}
 
 }

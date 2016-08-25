@@ -2,6 +2,8 @@ package embl.ebi.variation.eva.seqrep_fasta_dl;
 
 import org.opencb.datastore.core.ObjectMap;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -36,6 +38,9 @@ import java.util.Map;
 public class ENASequenceReportDownload {
 
     @Autowired
+    private ConfigurableApplicationContext appContext;
+
+    @Autowired
     private ObjectMap integrationOptions;
 
     @Autowired
@@ -65,7 +70,8 @@ public class ENASequenceReportDownload {
         headers.put("seqReportLocalPath", Paths.get(integrationOptions.getString("localAssemblyDir"), integrationOptions.getString("sequenceReportFileBasename")).toString());
         headers.put("enaFtpSeqRepDir", integrationOptions.getString("enaFtpSeqRepRoot"));
         headers.put("fastaLocal", Paths.get(integrationOptions.getString("localAssemblyDir"), integrationOptions.getString("assemblyAccession") + ".fasta").toString());
-        GenericMessage message = new GenericMessage<String>(integrationOptions.getString("assemblyAccession"), headers);
+//        GenericMessage message = new GenericMessage<String>(integrationOptions.getString("assemblyAccession"), headers);
+        GenericMessage message = new GenericMessage<String>((String) headers.get("seqReportLocalPath"), headers);
 
         return message;
     }
@@ -73,7 +79,7 @@ public class ENASequenceReportDownload {
     @Bean
     public IntegrationFlow seqReportDownloadFlow() {
         return IntegrationFlows
-                .from("inputChannel")
+                .from("notachannel")
                 .transform(m -> integrationOptions.getString("enaFtpSeqRepRoot"))
                 .handle(Ftp.outboundGateway(enaFtpSessionFactory(), "ls", "payload")
                         .options("-1 -R")
@@ -91,7 +97,7 @@ public class ENASequenceReportDownload {
     @Bean
     public IntegrationFlow fastaDownloadFlow() {
         return IntegrationFlows
-                .from("channelIntoDownloadFasta")
+                .from("inputChannel")
                 .transform(sequenceReportProcessor, "getChromosomeAccessions")
                 .split()
                 .enrichHeaders(s -> s.headerExpressions(h -> h
@@ -109,7 +115,16 @@ public class ENASequenceReportDownload {
                 )
                 .aggregate()
                 .<List<File>, String>transform(m -> m.get(0).getParent())
-                .handle(m -> System.out.println(m.getPayload()))
+//                .handle(m -> System.out.println(m.getPayload()))
+                .channel("shutdownChannel")
+                .get();
+    }
+
+    @Bean
+    public IntegrationFlow shutdown() {
+        return IntegrationFlows
+                .from("shutdownChannel")
+                .handle(m -> appContext.close())
                 .get();
     }
 
