@@ -1,14 +1,11 @@
-package embl.ebi.variation.eva.seqrep_fasta_dl;
+package embl.ebi.variation.eva.fastadownload;
 
 import org.junit.Test;
 import org.springframework.messaging.support.GenericMessage;
 
 import java.nio.file.Paths;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-
-import static org.junit.Assert.*;
 
 /**
  * Created by tom on 23/08/16.

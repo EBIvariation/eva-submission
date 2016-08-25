@@ -1,4 +1,4 @@
-package embl.ebi.variation.eva.seqrep_fasta_dl;
+package embl.ebi.variation.eva.fastadownload;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.csv.CSVFormat;

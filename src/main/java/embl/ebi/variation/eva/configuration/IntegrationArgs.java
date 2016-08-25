@@ -1,4 +1,4 @@
-package embl.ebi.variation.eva.args_config;
+package embl.ebi.variation.eva.configuration;
 
 import org.opencb.datastore.core.ObjectMap;
 import org.slf4j.Logger;
@@ -12,9 +12,9 @@ import java.nio.file.Paths;
  * Created by tom on 09/08/16.
  */
 @Component
-public class EVAIntegrationArgs {
+public class IntegrationArgs {
 
-    private static final Logger logger = LoggerFactory.getLogger(EVAIntegrationArgs.class);
+    private static final Logger logger = LoggerFactory.getLogger(IntegrationArgs.class);
 
     //// ftp connection
     @Value("${ena.ftp.userid}") private String enaFtpUserId;

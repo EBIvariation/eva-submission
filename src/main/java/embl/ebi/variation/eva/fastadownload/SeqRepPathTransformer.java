@@ -1,4 +1,4 @@
-package embl.ebi.variation.eva.seqrep_fasta_dl;
+package embl.ebi.variation.eva.fastadownload;
 
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
