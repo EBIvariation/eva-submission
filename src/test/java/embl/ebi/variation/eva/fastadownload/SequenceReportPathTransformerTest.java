@@ -10,17 +10,17 @@ import java.util.Map;
 /**
  * Created by tom on 23/08/16.
  */
-public class SeqRepPathTransformerTest {
+public class SequenceReportPathTransformerTest {
     @Test
     public void transform() throws Exception {
-        SeqRepPathTransformer seqRepPathTransformer = new SeqRepPathTransformer();
+        SequenceReportPathTransformer sequenceReportPathTransformer = new SequenceReportPathTransformer();
 
         for (String remoteDirectory : this.getFileRemoteDirectories()) {
             for (String remoteFile : this.getRemoteFiles()){
                 Map<String, Object> headers = new HashMap<>();
                 headers.put("file_remoteDirectory", remoteDirectory);
                 GenericMessage message = new GenericMessage<String>(remoteFile, headers);
-                assert(seqRepPathTransformer.transform(message).equals(Paths.get(remoteDirectory, remoteFile).toString()));
+                assert(sequenceReportPathTransformer.transform(message).equals(Paths.get(remoteDirectory, remoteFile).toString()));
             }
         }
 

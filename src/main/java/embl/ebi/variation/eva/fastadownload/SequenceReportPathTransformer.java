@@ -9,7 +9,7 @@ import java.nio.file.Paths;
  * Created by tom on 23/08/16.
  */
 @Component
-public class SeqRepPathTransformer {
+public class SequenceReportPathTransformer {
 
     public String transform(Message message){
         String remoteDirectory = (String) message.getHeaders().get("file_remoteDirectory");

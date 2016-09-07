@@ -33,7 +33,7 @@ import java.util.Map;
 @Configuration
 @ComponentScan
 @IntegrationComponentScan
-public class ENASequenceReportDownload {
+public class ENAFastaDownload {
 
     @Autowired
     private ConfigurableApplicationContext appContext;
@@ -42,7 +42,7 @@ public class ENASequenceReportDownload {
     private ObjectMap integrationOptions;
 
     @Autowired
-    private SeqRepPathTransformer seqRepPathTransformer;
+    private SequenceReportPathTransformer sequenceReportPathTransformer;
 
     @Autowired
     private SequenceReportProcessor sequenceReportProcessor;
@@ -84,7 +84,7 @@ public class ENASequenceReportDownload {
                 )
                 .split()
                 .filter("payload.matches('[\\w\\/]*" + integrationOptions.getString("sequenceReportFileBasename") + "')")
-                .transform(seqRepPathTransformer, "transform")
+                .transform(sequenceReportPathTransformer, "transform")
                 .handle(Ftp.outboundGateway(enaFtpSessionFactory(), "get", "payload")
                         .localDirectory(new File(integrationOptions.getString("localAssemblyDir"))))
                 .channel("channelIntoDownloadFasta")
