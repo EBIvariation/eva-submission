@@ -15,9 +15,6 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 @IntegrationComponentScan
 public class EvaIntegrationApplication {
 
-    @Autowired
-    private static ObjectMap integrationOptions;
-
     public static void main(String[] args) {
 
         ConfigurableApplicationContext ctx = SpringApplication.run(EvaIntegrationApplication.class, args);
