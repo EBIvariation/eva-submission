@@ -19,9 +19,6 @@ public class EvaIntegrationApplication {
         MessageChannel inputChannel = ctx.getBean("inputChannel", MessageChannel.class);
         inputChannel.send(starterMessage);
 
-//        ThreadPoolTaskExecutor executor = ctx.getBean("taskExecutor", ThreadPoolTaskExecutor.class);  // Could this be used for closing context after all processing has finished?
-
-//        ctx.stop();
-	}
+    }
 
 }
