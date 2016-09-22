@@ -1,6 +1,5 @@
-package embl.ebi.variation.eva.sequence_report_processing;
+package embl.ebi.variation.eva.fastadownload;
 
-import embl.ebi.variation.eva.fastadownload.SequenceReportProcessor;
 import embl.ebi.variation.eva.utils.TestProperties;
 import org.apache.log4j.Logger;
 import org.hamcrest.collection.IsIterableContainingInAnyOrder;
