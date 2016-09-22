@@ -19,7 +19,7 @@ public class SequenceReportProcessor {
 
     private Logger logger = Logger.getLogger(SequenceReportProcessor.class);
 
-    public List<String> getChromosomeAccessions(File file){
+    public List<String> getChromosomeAccessions(File file) throws IOException {
         logger.info("Getting chromosome accessions from sequence report file: " + file);
 
         CSVParser parser = setUpCSVParser(file);
@@ -29,16 +29,10 @@ public class SequenceReportProcessor {
         return chromosomeAccessions;
     }
 
-    private CSVParser setUpCSVParser(File file){
+    private CSVParser setUpCSVParser(File file) throws IOException {
         CSVParser parser = null;
 
-        try {
-            parser = CSVParser.parse(file, StandardCharsets.UTF_8, CSVFormat.TDF);
-        } catch (IOException e) {
-            logger.error(e.getMessage());
-            e.printStackTrace();
-            System.exit(1);
-        }
+        parser = CSVParser.parse(file, StandardCharsets.UTF_8, CSVFormat.TDF);
 
         return parser;
     }
