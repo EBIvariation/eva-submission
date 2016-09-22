@@ -29,6 +29,11 @@ import java.util.Map;
 
 /**
  * Created by tom on 04/08/16.
+ *
+ * This class contains configuration, and integration flows for downloading a sequence report file from ENA's ftp directories,
+ * then using the chromosome accessions in this file to query ENA's API to download the FASTA sequences for this assembly
+ * to one file per chromosome.
+ *
  */
 @Configuration
 @ComponentScan
