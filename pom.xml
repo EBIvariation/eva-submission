@@ -41,8 +41,6 @@
 			<artifactId>spring-boot-starter-logging</artifactId>
 		</dependency>
 
-		<!--REMOVE THESE NON SPRING BOOT STARTER INTEGRATION DEPENDENCIES???-->
-
 		<dependency>
 			<groupId>org.springframework.integration</groupId>
 			<artifactId>spring-integration-http</artifactId>
