@@ -1,5 +1,6 @@
 package embl.ebi.variation.eva.fastadownload;
 
+import embl.ebi.variation.eva.configuration.IntegrationArgs;
 import org.opencb.datastore.core.ObjectMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -21,6 +22,7 @@ import org.springframework.messaging.Message;
 import org.springframework.messaging.support.GenericMessage;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
+import javax.annotation.PostConstruct;
 import java.io.File;
 import java.nio.file.Paths;
 import java.util.HashMap;
@@ -44,7 +46,13 @@ public class ENAFastaDownload {
     private ConfigurableApplicationContext appContext;
 
     @Autowired
+    private IntegrationArgs integrationArgs;
     private ObjectMap integrationOptions;
+
+    @PostConstruct
+    private void initialiseIntegrationOptions() {
+        integrationOptions = integrationArgs.getIntegrationOptions();
+    }
 
     @Autowired
     private SequenceReportPathTransformer sequenceReportPathTransformer;

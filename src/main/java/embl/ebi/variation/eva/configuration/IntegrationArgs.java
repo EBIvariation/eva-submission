@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PostConstruct;
 import java.nio.file.Paths;
 
 /**
@@ -37,6 +38,13 @@ public class IntegrationArgs {
 
     private ObjectMap integrationOptions = new ObjectMap();
 
+    @PostConstruct
+    public void loadArgs() {
+        logger.info("Load args");
+        loadIntegrationOptions();
+    }
+
+
     private void loadIntegrationOptions(){
         integrationOptions.put("enaFtpUserId", enaFtpUserId);
         integrationOptions.put("enaFtpPassword", enaFtpPassword);
@@ -56,11 +64,6 @@ public class IntegrationArgs {
     public ObjectMap getIntegrationOptions() {
         loadIntegrationOptions();
         return integrationOptions;
-    }
-
-    public void loadArgs() {
-        logger.info("Load args");
-        loadIntegrationOptions();
     }
 
 }
