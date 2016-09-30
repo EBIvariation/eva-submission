@@ -14,7 +14,7 @@ public class TestProperties {
 
     private Logger logger = Logger.getLogger(SequenceReportProcessor.class);
 
-    public Properties properties;
+    private Properties properties;
 
     public TestProperties(){
 
@@ -25,6 +25,10 @@ public class TestProperties {
             logger.error(e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    public Properties getProperties() {
+        return properties;
     }
 
 }

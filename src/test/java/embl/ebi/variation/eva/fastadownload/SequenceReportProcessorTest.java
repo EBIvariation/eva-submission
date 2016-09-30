@@ -24,7 +24,7 @@ public class SequenceReportProcessorTest {
     public void getChromosomeAccessionsTest() throws Exception {
 
         TestProperties testProperties = new TestProperties();
-        String[] testChromosomeAccessions = testProperties.properties.getProperty("seqreport.accessions").split(",");
+        String[] testChromosomeAccessions = testProperties.getProperties().getProperty("seqreport.accessions").split(",");
 
         SequenceReportProcessor sequenceReportProcessor = new SequenceReportProcessor();
         URL testSequenceReportFilePath = SequenceReportProcessorTest.class.getResource(TEST_SEQUENCE_REPORT_FILENAME);
