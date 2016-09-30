@@ -16,7 +16,7 @@ public class TestProperties {
 
     public Properties properties;
 
-    private TestProperties(){
+    public TestProperties(){
 
         properties = new Properties();
         try {
@@ -25,14 +25,6 @@ public class TestProperties {
             logger.error(e.getMessage());
             e.printStackTrace();
         }
-    }
-
-    private static class TestPropertiesHolder {
-        private static final TestProperties INSTANCE = new TestProperties();
-    }
-
-    public static TestProperties getInstance() {
-        return TestPropertiesHolder.INSTANCE;
     }
 
 }

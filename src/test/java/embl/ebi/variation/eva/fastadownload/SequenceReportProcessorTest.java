@@ -23,7 +23,7 @@ public class SequenceReportProcessorTest {
     @Test
     public void getChromosomeAccessionsTest() throws Exception {
 
-        TestProperties testProperties = TestProperties.getInstance();
+        TestProperties testProperties = new TestProperties();
         String[] testChromosomeAccessions = testProperties.properties.getProperty("seqreport.accessions").split(",");
 
         SequenceReportProcessor sequenceReportProcessor = new SequenceReportProcessor();
