@@ -32,9 +32,9 @@ import java.util.Map;
 /**
  * Created by tom on 04/08/16.
  *
- * This class contains configuration, and integration flows for downloading a sequence report file from ENA's ftp directories,
- * then using the chromosome accessions in this file to query ENA's API to download the FASTA sequences for this assembly
- * to one file per chromosome.
+ * This class contains configuration, and integration flows for downloading a sequence report file from ENA's ftp
+ * directories, then using the chromosome accessions in this file to query ENA's API to download the FASTA sequences for
+ * this assembly to one file per chromosome.
  *
  */
 @Configuration
@@ -119,7 +119,19 @@ public class ENAFastaDownload {
                 .get();
     }
 
-
+    /**
+     * This integration flow receives a message with a local path to an ENA sequence report file.
+     * The chromosome accessions are read from the file and split into multiple messages, one chromosome accession per
+     * message, with the chromosome accession as the payload.
+     * Each message's header is enriched with the chromosome accession.
+     * A task executor is used to process the chromosome accession messages in parallel.
+     * ENA's API is queried with each chromosome accession, for the FASTA formatted sequence of that chromosome.
+     * Each chromosome's FASTA string is output to a separate file.
+     * After each chromosome's FASTA file has been output, the integration flow outputs to the shutdownChannel (which
+     * shuts down the context).
+     *
+     * @return the integration flow used to download a fasta file from ENA
+     */
     @Bean
     public IntegrationFlow fastaDownloadFlow() {
         return IntegrationFlows
