@@ -50,7 +50,7 @@ public class IntegrationArgs {
         integrationOptions.put("enaFtpPassword", enaFtpPassword);
         integrationOptions.put("enaFtpPort", enaFtpPort);
         integrationOptions.put("enaFtpHost", enaFtpHost);
-        integrationOptions.put("enaFtpSeqRepRoot", enaFtpSeqRepRoot);
+        integrationOptions.put("enaFtpSequenceReportRoot", enaFtpSeqRepRoot);
 
         integrationOptions.put("assemblyAccession", assemblyAccession);
 

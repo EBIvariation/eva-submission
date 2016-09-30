@@ -78,11 +78,11 @@ public class ENAFastaDownload {
     @Bean
     public Message starterMessage(){
         Map<String, Object> headers = new HashMap<>();
-        headers.put("seqReportLocalPath", Paths.get(integrationOptions.getString("localAssemblyDir"), integrationOptions.getString("sequenceReportFileBasename")).toString());
-        headers.put("enaFtpSeqRepDir", integrationOptions.getString("enaFtpSeqRepRoot"));
+        headers.put("sequenceReportLocalPath", Paths.get(integrationOptions.getString("localAssemblyDir"), integrationOptions.getString("sequenceReportFileBasename")).toString());
+        headers.put("enaFtpSequenceReportDir", integrationOptions.getString("enaFtpSequenceReportRoot"));
         headers.put("fastaLocal", Paths.get(integrationOptions.getString("localAssemblyDir"), integrationOptions.getString("assemblyAccession") + ".fasta").toString());
 //        GenericMessage message = new GenericMessage<String>(integrationOptions.getString("assemblyAccession"), headers);
-        GenericMessage message = new GenericMessage<String>((String) headers.get("seqReportLocalPath"), headers);
+        GenericMessage message = new GenericMessage<String>((String) headers.get("sequenceReportLocalPath"), headers);
 
         return message;
     }
@@ -91,7 +91,7 @@ public class ENAFastaDownload {
     public IntegrationFlow seqReportDownloadFlow() {
         return IntegrationFlows
                 .from("notachannel")
-                .transform(m -> integrationOptions.getString("enaFtpSeqRepRoot"))
+                .transform(m -> integrationOptions.getString("enaFtpSequenceReportRoot"))
                 .handle(Ftp.outboundGateway(enaFtpSessionFactory(), "ls", "payload")
                         .options("-1 -R")
                 )
