@@ -38,13 +38,6 @@ public class IntegrationArgs {
 
     private ObjectMap integrationOptions = new ObjectMap();
 
-    @PostConstruct
-    public void loadArgs() {
-        logger.info("Load args");
-        loadIntegrationOptions();
-    }
-
-
     private void loadIntegrationOptions(){
         integrationOptions.put("enaFtpUserId", enaFtpUserId);
         integrationOptions.put("enaFtpPassword", enaFtpPassword);
@@ -63,6 +56,12 @@ public class IntegrationArgs {
 
     public ObjectMap getIntegrationOptions() {
         return integrationOptions;
+    }
+
+    @PostConstruct
+    public void loadArgs() {
+        logger.info("Load args");
+        loadIntegrationOptions();
     }
 
 }
