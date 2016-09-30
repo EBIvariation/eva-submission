@@ -27,9 +27,7 @@ public class SequenceReportProcessor {
     }
 
     private CSVParser setUpCSVParser(File file) throws IOException {
-        CSVParser parser = null;
-        parser = CSVParser.parse(file, StandardCharsets.UTF_8, CSVFormat.TDF);
-        return parser;
+        return CSVParser.parse(file, StandardCharsets.UTF_8, CSVFormat.TDF);
     }
 
     private List<String> parseChromosomeAccessions(CSVParser parser){
