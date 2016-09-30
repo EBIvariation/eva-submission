@@ -61,4 +61,8 @@ public class IntegrationArgs {
         logger.debug("Using as integrationOptions: {}", integrationOptions.entrySet().toString());
     }
 
+    public ObjectMap getIntegrationOptions() {
+        return integrationOptions;
+    }
+
 }
