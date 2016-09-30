@@ -21,29 +21,21 @@ public class SequenceReportProcessor {
 
     public List<String> getChromosomeAccessions(File file) throws IOException {
         logger.info("Getting chromosome accessions from sequence report file: " + file);
-
         CSVParser parser = setUpCSVParser(file);
-
         List<String> chromosomeAccessions = parseChromosomeAccessions(parser);
-
         return chromosomeAccessions;
     }
 
     private CSVParser setUpCSVParser(File file) throws IOException {
         CSVParser parser = null;
-
         parser = CSVParser.parse(file, StandardCharsets.UTF_8, CSVFormat.TDF);
-
         return parser;
     }
 
     private List<String> parseChromosomeAccessions(CSVParser parser){
         List<String> chromsomeAccessions = new ArrayList<String>();
-
         parser.forEach(csvRecord -> chromsomeAccessions.add(csvRecord.get(0)));
-
         chromsomeAccessions.remove(0); // remove the header element
-
         return chromsomeAccessions;
     }
 
