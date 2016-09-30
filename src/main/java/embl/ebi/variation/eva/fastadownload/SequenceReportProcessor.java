@@ -31,10 +31,10 @@ public class SequenceReportProcessor {
     }
 
     private List<String> parseChromosomeAccessions(CSVParser parser){
-        List<String> chromsomeAccessions = new ArrayList<String>();
-        parser.forEach(csvRecord -> chromsomeAccessions.add(csvRecord.get(0)));
-        chromsomeAccessions.remove(0); // remove the header element
-        return chromsomeAccessions;
+        List<String> chromosomeAccessions = new ArrayList<String>();
+        parser.forEach(csvRecord -> chromosomeAccessions.add(csvRecord.get(0)));
+        chromosomeAccessions.remove(0); // remove the header element
+        return chromosomeAccessions;
     }
 
 
