@@ -87,10 +87,25 @@ public class ENAFastaDownload {
         return message;
     }
 
+    /**
+     * This integration flow receives a message with the payload as the path to the file name to where the sequence
+     * report file from ENA will be downloaded.
+     * The message is then transformed so the message payload is the remote path for the root of ENA's sequence report
+     * directory. The reason this isn't the initial payload is because the application originally checked for the
+     * existence of the sequence report file, and FASTA files, before continuing here- but this feature has been
+     * temporarily removed.
+     * The contents of the remote directory is queried and a sequence report file with the name including the string of
+     * the assembly reference is filtered for.
+     * This file is then downloaded to the previously mentioned local directory.
+     * The integration flow then sends a message to the "channelIntoDownloadFasta" channel, with the local sequence
+     * report file path as its payload.
+     *
+     * @return the integration flow used to download a sequence report file from ENA
+     */
     @Bean
     public IntegrationFlow seqReportDownloadFlow() {
         return IntegrationFlows
-                .from("notachannel")
+                .from("inputChannel")
                 .transform(m -> integrationOptions.getString("enaFtpSequenceReportRoot"))
                 .handle(Ftp.outboundGateway(enaFtpSessionFactory(), "ls", "payload")
                         .options("-1 -R")
@@ -108,7 +123,7 @@ public class ENAFastaDownload {
     @Bean
     public IntegrationFlow fastaDownloadFlow() {
         return IntegrationFlows
-                .from("inputChannel")
+                .from("channelIntoDownloadFasta")
                 .transform(sequenceReportProcessor, "getChromosomeAccessions")
                 .split()
                 .enrichHeaders(s -> s.headerExpressions(h -> h
