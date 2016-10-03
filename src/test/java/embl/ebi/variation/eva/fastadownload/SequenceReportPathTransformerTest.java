@@ -1,6 +1,7 @@
 package embl.ebi.variation.eva.fastadownload;
 
 import org.junit.Test;
+import org.junit.Assert;
 import org.springframework.messaging.support.GenericMessage;
 
 import java.nio.file.Paths;
@@ -20,7 +21,7 @@ public class SequenceReportPathTransformerTest {
                 Map<String, Object> headers = new HashMap<>();
                 headers.put("file_remoteDirectory", remoteDirectory);
                 GenericMessage message = new GenericMessage<String>(remoteFile, headers);
-                assert(sequenceReportPathTransformer.transform(message).equals(Paths.get(remoteDirectory, remoteFile).toString()));
+                Assert.assertEquals(sequenceReportPathTransformer.transform(message), Paths.get(remoteDirectory, remoteFile).toString());
             }
         }
 
