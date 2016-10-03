@@ -153,7 +153,6 @@ public class ENAFastaDownload {
                 )
                 .aggregate()
                 .<List<File>, String>transform(m -> m.get(0).getParent())
-//                .handle(m -> System.out.println(m.getPayload()))
                 .channel("shutdownChannel")
                 .get();
     }
@@ -181,7 +180,6 @@ public class ENAFastaDownload {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(5);
         executor.setMaxPoolSize(10);
-//        executor.setWaitForTasksToCompleteOnShutdown(true);  // could this be used for shutting down?
         return executor;
     }
 
