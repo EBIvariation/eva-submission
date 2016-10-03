@@ -103,7 +103,7 @@ public class ENAFastaDownload {
      * @return the integration flow used to download a sequence report file from ENA
      */
     @Bean
-    public IntegrationFlow seqReportDownloadFlow() {
+    public IntegrationFlow sequenceReportDownloadFlow() {
         return IntegrationFlows
                 .from("inputChannel")
                 .transform(m -> integrationOptions.getString("enaFtpSequenceReportRoot"))
