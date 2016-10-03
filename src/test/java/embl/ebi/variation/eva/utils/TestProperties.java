@@ -16,15 +16,10 @@ public class TestProperties {
 
     private Properties properties;
 
-    public TestProperties(){
+    public TestProperties() throws IOException {
 
         properties = new Properties();
-        try {
-            properties.load(ENAFastaDownload.class.getClassLoader().getResourceAsStream("test.properties"));
-        } catch (IOException e) {
-            logger.error(e.getMessage());
-            e.printStackTrace();
-        }
+        properties.load(ENAFastaDownload.class.getClassLoader().getResourceAsStream("test.properties"));
     }
 
     public Properties getProperties() {
