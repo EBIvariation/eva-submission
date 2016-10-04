@@ -1,6 +1,7 @@
 package embl.ebi.variation.eva.fastadownload;
 
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.Assert;
 import org.springframework.messaging.support.GenericMessage;
@@ -22,7 +23,7 @@ public class SequenceReportPathTransformerTest {
         return new GenericMessage<String>(remoteFile, headers);
     }
 
-    @Before
+    @BeforeClass
     public void setUp() {
         sequenceReportPathTransformer = new SequenceReportPathTransformer();
     }
