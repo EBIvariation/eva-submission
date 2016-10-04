@@ -12,45 +12,89 @@ import java.util.Map;
  * Created by tom on 23/08/16.
  */
 public class SequenceReportPathTransformerTest {
-    @Test
-    public void transform() throws Exception {
-        SequenceReportPathTransformer sequenceReportPathTransformer = new SequenceReportPathTransformer();
 
-        for (String remoteDirectory : this.getFileRemoteDirectories()) {
-            for (String remoteFile : this.getRemoteFiles()){
-                Map<String, Object> headers = new HashMap<>();
-                headers.put("file_remoteDirectory", remoteDirectory);
-                GenericMessage message = new GenericMessage<String>(remoteFile, headers);
-                Assert.assertEquals(sequenceReportPathTransformer.transform(message), Paths.get(remoteDirectory, remoteFile).toString());
-            }
-        }
-
+    private static GenericMessage buildMessageHelper(String remoteDirectory, String remoteFile){
+        Map<String, Object> headers = new HashMap<>();
+        headers.put("file_remoteDirectory", remoteDirectory);
+        return new GenericMessage<String>(remoteFile, headers);
     }
 
-    private String[] getFileRemoteDirectories() {
-        String[] fileRemoteDirectories = {
-                "pub/databases/ena/assembly/GCA_000/GCA_000001/",
-                "",
-                "pub/databases/ena/assembly/GCA_000/GCA_000001/pub/databases/ena/assembly/GCA_000/GCA_000001/",
-                "////////////",
-                "pub/databases/ena/assembly/GCA_000//GCA_000001/",
+    @Test
+    public void transformTestAbsolutePath() throws Exception {
+        SequenceReportPathTransformer sequenceReportPathTransformer = new SequenceReportPathTransformer();
+
+        String fileName = "GCA_000001215.2_sequence_report.txt";
+
+        String[] absolutePaths = {
+                "/pub/databases/ena/assembly/GCA_000/GCA_000001/",
+                "/pub/databases/ena/assembly/GCA_102/GCA_000001/",
+                "/pub/databases/ena/assembly/GCA_001/GCA_99999/",
                 "/pub/databases/ena/assembly/GCA_000/GCA_000001/"
         };
 
-        return fileRemoteDirectories;
+        for (String remoteDirectory : absolutePaths) {
+            GenericMessage message = buildMessageHelper(remoteDirectory, fileName);
+            Assert.assertEquals(sequenceReportPathTransformer.transform(message), Paths.get(remoteDirectory, fileName).toString());
+        }
     }
 
-    private String[] getRemoteFiles() {
-        String[] remoteFiles = {
-                "GCA_000001215.2_sequence_report.txt",
-                "",
-                "GCA_000001215.2_sequence_report.txtGCA_000001215.2_sequence_report.txt",
-                "////////////",
-                "GCA_000001215.2",
-                "/GCA_000001215.2_sequence_report.txt"
+    @Test
+    public void transformTestRelativePath() throws Exception {
+        SequenceReportPathTransformer sequenceReportPathTransformer = new SequenceReportPathTransformer();
+
+        String fileName = "GCA_000001215.2_sequence_report.txt";
+
+        String[] relativePaths = {
+                "pub/databases/ena/assembly/GCA_000/GCA_000001/",
+                "pub/databases/ena/assembly/GCA_102/GCA_000001/",
+                "pub/databases/ena/assembly/GCA_001/GCA_99999/",
+                "pub/databases/ena/assembly/GCA_000/GCA_000001/"
         };
 
-        return remoteFiles;
+        for (String remoteDirectory : relativePaths) {
+            GenericMessage message = buildMessageHelper(remoteDirectory, fileName);
+            Assert.assertEquals(sequenceReportPathTransformer.transform(message), Paths.get(remoteDirectory, fileName).toString());
+        }
+    }
+
+    @Test
+    public void transformTestUnusualPath() throws Exception {
+        SequenceReportPathTransformer sequenceReportPathTransformer = new SequenceReportPathTransformer();
+
+        String fileName = "GCA_000001215.2_sequence_report.txt";
+
+        String[] unusualPaths = {
+                "",
+                "////////////",
+                "apath",
+                " ",
+                fileName
+        };
+
+        for (String remoteDirectory : unusualPaths) {
+            GenericMessage message = buildMessageHelper(remoteDirectory, fileName);
+            Assert.assertEquals(sequenceReportPathTransformer.transform(message), Paths.get(remoteDirectory, fileName).toString());
+        }
+    }
+
+    @Test
+    public void transformTestUnusualFilename() throws Exception {
+        SequenceReportPathTransformer sequenceReportPathTransformer = new SequenceReportPathTransformer();
+
+        String remoteDirectory = "pub/databases/ena/assembly/GCA_000/GCA_000001/";
+
+        String[] unusualFileNames = {
+                "",
+                " ",
+                ".filename",
+                "a file name",
+                remoteDirectory
+        };
+
+        for (String fileName : unusualFileNames) {
+            GenericMessage message = buildMessageHelper(remoteDirectory, fileName);
+            Assert.assertEquals(sequenceReportPathTransformer.transform(message), Paths.get(remoteDirectory, fileName).toString());
+        }
     }
 
 }
