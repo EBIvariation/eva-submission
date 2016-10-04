@@ -1,5 +1,6 @@
 package embl.ebi.variation.eva.fastadownload;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.Assert;
 import org.springframework.messaging.support.GenericMessage;
@@ -13,16 +14,21 @@ import java.util.Map;
  */
 public class SequenceReportPathTransformerTest {
 
+    private SequenceReportPathTransformer sequenceReportPathTransformer;
+
     private static GenericMessage buildMessageHelper(String remoteDirectory, String remoteFile){
         Map<String, Object> headers = new HashMap<>();
         headers.put("file_remoteDirectory", remoteDirectory);
         return new GenericMessage<String>(remoteFile, headers);
     }
 
+    @Before
+    public void setUp() {
+        sequenceReportPathTransformer = new SequenceReportPathTransformer();
+    }
+
     @Test
     public void transformTestAbsolutePath() throws Exception {
-        SequenceReportPathTransformer sequenceReportPathTransformer = new SequenceReportPathTransformer();
-
         String fileName = "GCA_000001215.2_sequence_report.txt";
 
         String[] absolutePaths = {
@@ -40,8 +46,6 @@ public class SequenceReportPathTransformerTest {
 
     @Test
     public void transformTestRelativePath() throws Exception {
-        SequenceReportPathTransformer sequenceReportPathTransformer = new SequenceReportPathTransformer();
-
         String fileName = "GCA_000001215.2_sequence_report.txt";
 
         String[] relativePaths = {
@@ -59,8 +63,6 @@ public class SequenceReportPathTransformerTest {
 
     @Test
     public void transformTestUnusualPath() throws Exception {
-        SequenceReportPathTransformer sequenceReportPathTransformer = new SequenceReportPathTransformer();
-
         String fileName = "GCA_000001215.2_sequence_report.txt";
 
         String[] unusualPaths = {
@@ -79,8 +81,6 @@ public class SequenceReportPathTransformerTest {
 
     @Test
     public void transformTestUnusualFilename() throws Exception {
-        SequenceReportPathTransformer sequenceReportPathTransformer = new SequenceReportPathTransformer();
-
         String remoteDirectory = "pub/databases/ena/assembly/GCA_000/GCA_000001/";
 
         String[] unusualFileNames = {
