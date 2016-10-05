@@ -15,7 +15,7 @@ import java.util.Map;
  */
 public class SequenceReportPathTransformerTest {
 
-    private SequenceReportPathTransformer sequenceReportPathTransformer;
+    private static SequenceReportPathTransformer sequenceReportPathTransformer;
 
     private static GenericMessage buildMessageHelper(String remoteDirectory, String remoteFile){
         Map<String, Object> headers = new HashMap<>();
@@ -24,7 +24,7 @@ public class SequenceReportPathTransformerTest {
     }
 
     @BeforeClass
-    public void setUp() {
+    public static void setUp() {
         sequenceReportPathTransformer = new SequenceReportPathTransformer();
     }
 

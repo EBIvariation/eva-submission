@@ -23,10 +23,10 @@ public class SequenceReportProcessorTest {
 
     private static final String TEST_SEQUENCE_REPORT_FILENAME = "/GCA_000001405.23_sequence_report.txt";
 
-    private List<String> chromosomeAccessions;
+    private static List<String> chromosomeAccessions;
 
     @BeforeClass
-    public void setUp() throws IOException {
+    public static void setUp() throws IOException {
         SequenceReportProcessor sequenceReportProcessor = new SequenceReportProcessor();
         URL testSequenceReportFilePath = SequenceReportProcessorTest.class.getResource(TEST_SEQUENCE_REPORT_FILENAME);
         File testSequenceReportFile = new File(testSequenceReportFilePath.getFile());
