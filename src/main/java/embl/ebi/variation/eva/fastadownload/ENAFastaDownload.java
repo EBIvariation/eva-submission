@@ -25,6 +25,8 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import javax.annotation.PostConstruct;
 import java.io.File;
 import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -87,6 +89,11 @@ public class ENAFastaDownload {
         return message;
     }
 
+    private String getLocalFileName(){
+        return integrationOptions.getString("sequenceReportFileBasename").replaceAll(".txt",
+                "_" + new SimpleDateFormat("yyyyMMdd_HHmm").format(new Date()) + ".txt");
+    }
+
     /**
      * This integration flow receives a message with the payload as the path to the file name to where the sequence
      * report file from ENA will be downloaded.
@@ -114,7 +121,9 @@ public class ENAFastaDownload {
                 .filter("payload.matches('[\\w\\/]*" + integrationOptions.getString("sequenceReportFileBasename") + "')")
                 .transform(sequenceReportPathTransformer, "transform")
                 .handle(Ftp.outboundGateway(enaFtpSessionFactory(), "get", "payload")
-                        .localDirectory(new File(integrationOptions.getString("localAssemblyDir"))))
+                        .localDirectory(new File(integrationOptions.getString("localAssemblyDir")))
+                        .localFilename(f -> getLocalFileName())
+                )
                 .channel("channelIntoDownloadFasta")
                 .get();
     }
