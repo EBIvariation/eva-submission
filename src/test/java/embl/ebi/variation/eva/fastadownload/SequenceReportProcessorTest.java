@@ -1,25 +1,19 @@
 package embl.ebi.variation.eva.fastadownload;
 
-import embl.ebi.variation.eva.utils.TestProperties;
-import org.apache.log4j.Logger;
-import org.hamcrest.collection.IsIterableContainingInAnyOrder;
-import org.junit.*;
-import org.junit.Assert;
-
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
+
+import org.junit.Assert;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
 /**
  * Created by tom on 11/08/16.
  */
 public class SequenceReportProcessorTest {
-
-    private Logger logger = Logger.getLogger(SequenceReportProcessor.class);
 
     private static final String TEST_SEQUENCE_REPORT_FILENAME = "/GCA_000001405.23_sequence_report.txt";
 

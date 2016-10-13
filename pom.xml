@@ -60,12 +60,6 @@
 		</dependency>
 		
 		<dependency>
-			<groupId>org.opencb.datastore</groupId>
-			<artifactId>datastore-core</artifactId>
-			<version>0.3.2</version>
-		</dependency>
-
-		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-csv</artifactId>
 			<version>1.4</version>

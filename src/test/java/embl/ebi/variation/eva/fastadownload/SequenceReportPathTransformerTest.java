@@ -1,6 +1,5 @@
 package embl.ebi.variation.eva.fastadownload;
 
-import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.Assert;
@@ -16,12 +15,6 @@ import java.util.Map;
 public class SequenceReportPathTransformerTest {
 
     private static SequenceReportPathTransformer sequenceReportPathTransformer;
-
-    private static GenericMessage buildMessageHelper(String remoteDirectory, String remoteFile){
-        Map<String, Object> headers = new HashMap<>();
-        headers.put("file_remoteDirectory", remoteDirectory);
-        return new GenericMessage<String>(remoteFile, headers);
-    }
 
     @BeforeClass
     public static void setUp() {
@@ -96,6 +89,12 @@ public class SequenceReportPathTransformerTest {
             GenericMessage message = buildMessageHelper(remoteDirectory, fileName);
             Assert.assertEquals(sequenceReportPathTransformer.transform(message), Paths.get(remoteDirectory, fileName).toString());
         }
+    }
+
+    private GenericMessage buildMessageHelper(String remoteDirectory, String remoteFile) {
+        Map<String, Object> headers = new HashMap<>();
+        headers.put("file_remoteDirectory", remoteDirectory);
+        return new GenericMessage<String>(remoteFile, headers);
     }
 
 }
