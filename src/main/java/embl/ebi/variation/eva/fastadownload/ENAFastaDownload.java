@@ -1,5 +1,7 @@
 package embl.ebi.variation.eva.fastadownload;
 
+import embl.ebi.variation.eva.configuration.AssemblyRetrievalProperties;
+import embl.ebi.variation.eva.configuration.EnaFtpProperties;
 import embl.ebi.variation.eva.configuration.IntegrationArgs;
 import org.opencb.datastore.core.ObjectMap;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,14 +49,20 @@ public class ENAFastaDownload {
     @Autowired
     private ConfigurableApplicationContext appContext;
 
+//    @Autowired
+//    private IntegrationArgs integrationArgs;
+//    private ObjectMap integrationOptions;
+    
     @Autowired
-    private IntegrationArgs integrationArgs;
-    private ObjectMap integrationOptions;
+    private EnaFtpProperties enaFtpProperties;
+    
+    @Autowired
+    private AssemblyRetrievalProperties assemblyRetrievalProperties;
 
-    @PostConstruct
-    private void initialiseIntegrationOptions() {
-        integrationOptions = integrationArgs.getIntegrationOptions();
-    }
+//    @PostConstruct
+//    private void initialiseIntegrationOptions() {
+//        integrationOptions = integrationArgs.getIntegrationOptions();
+//    }
 
     @Autowired
     private SequenceReportPathTransformer sequenceReportPathTransformer;
@@ -80,17 +88,23 @@ public class ENAFastaDownload {
     @Bean
     public Message starterMessage(){
         Map<String, Object> headers = new HashMap<>();
-        headers.put("sequenceReportLocalPath", Paths.get(integrationOptions.getString("localAssemblyDir"), integrationOptions.getString("sequenceReportFileBasename")).toString());
-        headers.put("enaFtpSequenceReportDir", integrationOptions.getString("enaFtpSequenceReportRoot"));
-        headers.put("fastaLocal", Paths.get(integrationOptions.getString("localAssemblyDir"), integrationOptions.getString("assemblyAccession") + ".fasta").toString());
-//        GenericMessage message = new GenericMessage<String>(integrationOptions.getString("assemblyAccession"), headers);
-        GenericMessage message = new GenericMessage<String>((String) headers.get("sequenceReportLocalPath"), headers);
-
-        return message;
+        headers.put("sequenceReportLocalPath", 
+//        		Paths.get(integrationOptions.getString("localAssemblyDir"), integrationOptions.getString("sequenceReportFileBasename")).toString());
+        		assemblyRetrievalProperties.getDownloadPath().toString());
+        headers.put("enaFtpSequenceReportDir", 
+//        		integrationOptions.getString("enaFtpSequenceReportRoot"));
+        		enaFtpProperties.getSequenceReportRoot());
+        headers.put("fastaLocal", 
+//        		Paths.get(integrationOptions.getString("localAssemblyDir"), integrationOptions.getString("assemblyAccession") + ".fasta").toString());
+        		assemblyRetrievalProperties.getFastaDownloadPath());
+        
+//        return new GenericMessage<String>(integrationOptions.getString("assemblyAccession"), headers);
+        return new GenericMessage<String>((String) headers.get("sequenceReportLocalPath"), headers);
     }
 
     private String getLocalFileName(){
-        return integrationOptions.getString("sequenceReportFileBasename").replaceAll(".txt",
+//        return integrationOptions.getString("sequenceReportFileBasename").replaceAll(".txt",
+    	return assemblyRetrievalProperties.getSequenceReportFileBasename().replaceAll(".txt",
                 "_" + new SimpleDateFormat("yyyyMMdd_HHmm").format(new Date()) + ".txt");
     }
 
@@ -113,15 +127,18 @@ public class ENAFastaDownload {
     public IntegrationFlow sequenceReportDownloadFlow() {
         return IntegrationFlows
                 .from("inputChannel")
-                .transform(m -> integrationOptions.getString("enaFtpSequenceReportRoot"))
+//                .transform(m -> integrationOptions.getString("enaFtpSequenceReportRoot"))
+                .transform(m -> enaFtpProperties.getSequenceReportRoot())
                 .handle(Ftp.outboundGateway(enaFtpSessionFactory(), "ls", "payload")
                         .options("-1 -R")
                 )
                 .split()
-                .filter("payload.matches('[\\w\\/]*" + integrationOptions.getString("sequenceReportFileBasename") + "')")
+//                .filter("payload.matches('[\\w\\/]*" + integrationOptions.getString("sequenceReportFileBasename") + "')")
+                .filter("payload.matches('[\\w\\/]*" + assemblyRetrievalProperties.getSequenceReportFileBasename() + "')")
                 .transform(sequenceReportPathTransformer, "transform")
                 .handle(Ftp.outboundGateway(enaFtpSessionFactory(), "get", "payload")
-                        .localDirectory(new File(integrationOptions.getString("localAssemblyDir")))
+//                        .localDirectory(new File(integrationOptions.getString("localAssemblyDir")))
+                        .localDirectory(new File(assemblyRetrievalProperties.getDownloadRootPath()))
                         .localFilename(f -> getLocalFileName())
                 )
                 .channel("channelIntoDownloadFasta")
@@ -155,7 +172,8 @@ public class ENAFastaDownload {
                         .expectedResponseType(java.lang.String.class)
                         .uriVariable("payload", "payload"))
                 .channel(MessageChannels.queue(15))
-                .handle(Files.outboundGateway(new File(integrationOptions.getString("localAssemblyDir")))
+//                .handle(Files.outboundGateway(new File(integrationOptions.getString("localAssemblyDir")))
+                .handle(Files.outboundGateway(new File(assemblyRetrievalProperties.getDownloadRootPath()))
                                 .fileExistsMode(FileExistsMode.REPLACE)
                                 .fileNameGenerator(message -> message.getHeaders().get("chromAcc") + ".fasta")
                                     ,e -> e.poller(Pollers.fixedDelay(100))
@@ -177,10 +195,14 @@ public class ENAFastaDownload {
     @Bean
     public DefaultFtpSessionFactory enaFtpSessionFactory(){
         DefaultFtpSessionFactory sessionFactory = new DefaultFtpSessionFactory();
-        sessionFactory.setHost(integrationOptions.getString("enaFtpHost"));
-        sessionFactory.setPort(integrationOptions.getInt("enaFtpPort"));
-        sessionFactory.setUsername(integrationOptions.getString("enaFtpUserId"));
-        sessionFactory.setPassword(integrationOptions.getString("enaFtpPassword"));
+//        sessionFactory.setHost(integrationOptions.getString("enaFtpHost"));
+//        sessionFactory.setPort(integrationOptions.getInt("enaFtpPort"));
+//        sessionFactory.setUsername(integrationOptions.getString("enaFtpUserId"));
+//        sessionFactory.setPassword(integrationOptions.getString("enaFtpPassword"));
+        sessionFactory.setHost(enaFtpProperties.getHost());
+        sessionFactory.setPort(enaFtpProperties.getPort());
+        sessionFactory.setUsername(enaFtpProperties.getUsername());
+        sessionFactory.setPassword(enaFtpProperties.getPassword());
         return sessionFactory;
     }
 

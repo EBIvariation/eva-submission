@@ -1,6 +1,5 @@
 package embl.ebi.variation.eva.fastadownload;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.log4j.Logger;

@@ -17,13 +17,13 @@ public class IntegrationArgs {
 
     private static final Logger logger = LoggerFactory.getLogger(IntegrationArgs.class);
 
-    //// ftp connection
-    @Value("${ena.ftp.userid}") private String enaFtpUserId;
-    @Value("${ena.ftp.password}") private String enaFtpPassword;
-    @Value("${ena.ftp.port:21}") private int enaFtpPort;
-    @Value("${ena.ftp.host}") private String enaFtpHost;
-
-    @Value("${ena.ftp.sequence_report_root}") private String enaFtpSeqRepRoot;
+//    //// ftp connection
+//    @Value("${ena.ftp.userid}") private String enaFtpUserId;
+//    @Value("${ena.ftp.password}") private String enaFtpPassword;
+//    @Value("${ena.ftp.port:21}") private int enaFtpPort;
+//    @Value("${ena.ftp.host}") private String enaFtpHost;
+//
+//    @Value("${ena.ftp.sequence_report_root}") private String enaFtpSeqRepRoot;
 
     @Value("${assembly.accession}") private String assemblyAccession;
 
@@ -39,11 +39,11 @@ public class IntegrationArgs {
     private ObjectMap integrationOptions = new ObjectMap();
 
     private void loadIntegrationOptions(){
-        integrationOptions.put("enaFtpUserId", enaFtpUserId);
-        integrationOptions.put("enaFtpPassword", enaFtpPassword);
-        integrationOptions.put("enaFtpPort", enaFtpPort);
-        integrationOptions.put("enaFtpHost", enaFtpHost);
-        integrationOptions.put("enaFtpSequenceReportRoot", enaFtpSeqRepRoot);
+//        integrationOptions.put("enaFtpUserId", enaFtpUserId);
+//        integrationOptions.put("enaFtpPassword", enaFtpPassword);
+//        integrationOptions.put("enaFtpPort", enaFtpPort);
+//        integrationOptions.put("enaFtpHost", enaFtpHost);
+//        integrationOptions.put("enaFtpSequenceReportRoot", enaFtpSeqRepRoot);
 
         integrationOptions.put("assemblyAccession", assemblyAccession);
 
