@@ -5,23 +5,29 @@ import java.nio.file.Paths;
 
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
+import javax.validation.constraints.Size;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 @Component
 @ConfigurationProperties(prefix = "assembly", ignoreUnknownFields = false)
-public class AssemblyRetrievalProperties {
+public class AssemblyDownloadProperties {
 
-	@NotNull
-	@Pattern(regexp="GCA\\d+[.\\d+]") // TODO check this regex is fine
+	@NotNull @Pattern(regexp="GCA_\\d+(\\.\\d+)?")
 	private String accession;
 
-	@NotNull
+	@NotNull @Size(min=1)
 	private String downloadRootPath;
 	
+	public AssemblyDownloadProperties() {}
 	
-	public String getAccession() {
+	public AssemblyDownloadProperties(String accession, String downloadRootPath) {
+            this.accession = accession;
+            this.downloadRootPath = downloadRootPath;
+        }
+	
+        public String getAccession() {
 		return accession;
 	}
 

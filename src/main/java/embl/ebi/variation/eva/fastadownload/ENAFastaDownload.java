@@ -1,11 +1,10 @@
 package embl.ebi.variation.eva.fastadownload;
 
-import embl.ebi.variation.eva.configuration.AssemblyRetrievalProperties;
+import embl.ebi.variation.eva.configuration.AssemblyDownloadProperties;
 import embl.ebi.variation.eva.configuration.EnaFtpProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.integration.annotation.IntegrationComponentScan;
@@ -38,8 +37,6 @@ import java.util.Map;
  *
  */
 @Configuration
-@ComponentScan
-@IntegrationComponentScan
 public class ENAFastaDownload {
 
     @Autowired
@@ -49,7 +46,7 @@ public class ENAFastaDownload {
     private EnaFtpProperties enaFtpProperties;
     
     @Autowired
-    private AssemblyRetrievalProperties assemblyRetrievalProperties;
+    private AssemblyDownloadProperties assemblyDownloadProperties;
 
     @Autowired
     private SequenceReportPathTransformer sequenceReportPathTransformer;
@@ -73,18 +70,18 @@ public class ENAFastaDownload {
 //    }
 
     @Bean
-    public Message starterMessage(){
+    public Message starterMessage() {
         Map<String, Object> headers = new HashMap<>();
-        headers.put("sequenceReportLocalPath", assemblyRetrievalProperties.getDownloadPath().toString());
+        headers.put("sequenceReportLocalPath", assemblyDownloadProperties.getDownloadPath().toString());
         headers.put("enaFtpSequenceReportDir", enaFtpProperties.getSequenceReportRoot());
-        headers.put("fastaLocal", assemblyRetrievalProperties.getFastaDownloadPath());
+        headers.put("fastaLocal", assemblyDownloadProperties.getFastaDownloadPath());
         
 //        return new GenericMessage<String>(integrationOptions.getString("assemblyAccession"), headers);
         return new GenericMessage<String>((String) headers.get("sequenceReportLocalPath"), headers);
     }
 
     private String getLocalFileName(){
-    	return assemblyRetrievalProperties.getSequenceReportFileBasename().replaceAll(".txt",
+    	return assemblyDownloadProperties.getSequenceReportFileBasename().replaceAll(".txt",
                 "_" + new SimpleDateFormat("yyyyMMdd_HHmm").format(new Date()) + ".txt");
     }
 
@@ -112,10 +109,10 @@ public class ENAFastaDownload {
                         .options("-1 -R")
                 )
                 .split()
-                .filter("payload.matches('[\\w\\/]*" + assemblyRetrievalProperties.getSequenceReportFileBasename() + "')")
+                .filter("payload.matches('[\\w\\/]*" + assemblyDownloadProperties.getSequenceReportFileBasename() + "')")
                 .transform(sequenceReportPathTransformer, "transform")
                 .handle(Ftp.outboundGateway(enaFtpSessionFactory(), "get", "payload")
-                        .localDirectory(new File(assemblyRetrievalProperties.getDownloadRootPath()))
+                        .localDirectory(new File(assemblyDownloadProperties.getDownloadRootPath()))
                         .localFilename(f -> getLocalFileName())
                 )
                 .channel("channelIntoDownloadFasta")
@@ -149,7 +146,7 @@ public class ENAFastaDownload {
                         .expectedResponseType(java.lang.String.class)
                         .uriVariable("payload", "payload"))
                 .channel(MessageChannels.queue(15))
-                .handle(Files.outboundGateway(new File(assemblyRetrievalProperties.getDownloadRootPath()))
+                .handle(Files.outboundGateway(new File(assemblyDownloadProperties.getDownloadRootPath()))
                                 .fileExistsMode(FileExistsMode.REPLACE)
                                 .fileNameGenerator(message -> message.getHeaders().get("chromAcc") + ".fasta")
                                     ,e -> e.poller(Pollers.fixedDelay(100))
