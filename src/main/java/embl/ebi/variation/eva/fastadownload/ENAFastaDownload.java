@@ -7,7 +7,6 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.integration.annotation.IntegrationComponentScan;
 import org.springframework.integration.dsl.IntegrationFlow;
 import org.springframework.integration.dsl.IntegrationFlows;
 import org.springframework.integration.dsl.channel.MessageChannels;
@@ -22,7 +21,6 @@ import org.springframework.messaging.support.GenericMessage;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.io.File;
-import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -81,8 +79,7 @@ public class ENAFastaDownload {
     }
 
     private String getLocalFileName(){
-    	return assemblyDownloadProperties.getSequenceReportFileBasename().replaceAll(".txt",
-                "_" + new SimpleDateFormat("yyyyMMdd_HHmm").format(new Date()) + ".txt");
+        return assemblyDownloadProperties.getSequenceReportFileBasename().replaceAll(".txt", "_" + new Date().getTime() + ".txt");
     }
 
     /**
@@ -166,7 +163,7 @@ public class ENAFastaDownload {
     }
 
     @Bean
-    public DefaultFtpSessionFactory enaFtpSessionFactory(){
+    public DefaultFtpSessionFactory enaFtpSessionFactory() {
         DefaultFtpSessionFactory sessionFactory = new DefaultFtpSessionFactory();
         sessionFactory.setHost(enaFtpProperties.getHost());
         sessionFactory.setPort(enaFtpProperties.getPort());
@@ -176,7 +173,7 @@ public class ENAFastaDownload {
     }
 
     @Bean
-    public ThreadPoolTaskExecutor taskExecutor(){
+    public ThreadPoolTaskExecutor taskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(5);
         executor.setMaxPoolSize(10);
