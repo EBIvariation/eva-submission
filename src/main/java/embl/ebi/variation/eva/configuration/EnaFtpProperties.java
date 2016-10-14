@@ -12,18 +12,27 @@ public class EnaFtpProperties {
 	@NotNull @Size(min=1)
 	private String host;
 
-	@Min(0) @Max(65535)
+	@Min(1) @Max(65535)
 	private int port;
 	
 	private String username;
 	
 	private String password;
 
-	@NotNull
+	@NotNull @Size(min=1)
 	private String sequenceReportRoot;
-
 	
-	public String getHost() {
+	public EnaFtpProperties() {}
+	
+        public EnaFtpProperties(String host, int port, String username, String password, String sequenceReportRoot) {
+            this.host = host;
+            this.port = port;
+            this.username = username;
+            this.password = password;
+            this.sequenceReportRoot = sequenceReportRoot;
+        }
+
+        public String getHost() {
 		return host;
 	}
 
