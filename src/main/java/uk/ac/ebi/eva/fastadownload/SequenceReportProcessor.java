@@ -1,4 +1,4 @@
-package embl.ebi.variation.eva.fastadownload;
+package uk.ac.ebi.eva.fastadownload;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;

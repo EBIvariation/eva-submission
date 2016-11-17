@@ -1,7 +1,7 @@
-package embl.ebi.variation.eva.fastadownload;
+package uk.ac.ebi.eva.fastadownload;
 
-import embl.ebi.variation.eva.configuration.AssemblyDownloadProperties;
-import embl.ebi.variation.eva.configuration.EnaFtpProperties;
+import uk.ac.ebi.eva.configuration.AssemblyDownloadProperties;
+import uk.ac.ebi.eva.configuration.EnaFtpProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;

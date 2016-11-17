@@ -1,4 +1,4 @@
-package embl.ebi.variation.eva.fastadownload;
+package uk.ac.ebi.eva.fastadownload;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
