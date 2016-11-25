@@ -1,4 +1,4 @@
-package embl.ebi.variation.eva.configuration;
+package uk.ac.ebi.eva.configuration;
 
 import static org.junit.Assert.*;
 

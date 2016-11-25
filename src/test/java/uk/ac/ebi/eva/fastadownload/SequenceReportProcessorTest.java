@@ -1,4 +1,4 @@
-package embl.ebi.variation.eva.fastadownload;
+package uk.ac.ebi.eva.fastadownload;
 
 import java.io.File;
 import java.io.IOException;
