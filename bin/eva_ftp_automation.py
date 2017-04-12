@@ -1,15 +1,21 @@
 #!/usr/bin/python
 
 import argparse
-import psycopg2
 import csv
+import psycopg2
+import getpass
 
 parser = argparse.ArgumentParser(description='insert the project ID as an argument')
 parser.add_argument('-p','--project_id', help='project_id to pull files from ERAPRO', required=True, dest='project_id')
+parser.add_argument('-f','--destination_of_output', help='output file from running script', required=True, dest='dest')
+parser.add_argument('-d','--database', help='database to connect to', required=True, dest='database')
+parser.add_argument('-u','--databaase_username', help='username for database connection', required=True, dest='user')
+parser.add_argument('-H','--host_of_database', help='host for database connection', required=True, dest='host')
+parser.add_argument('-P','--port_of_database', help='port for database connection', required=True, dest='port')
 args = parser.parse_args()
-pid = args.project_id
 
-conn = psycopg2.connect(database="", user="", password="", host="", port="")
+my_pwd = getpass.getpass(stream=None)
+conn = psycopg2.connect(database=(args.database), user=(args.user), password=my_pwd, host=(args.host), port=(args.port))
 cur = conn.cursor()
 
 cur.execute("""SELECT project_analysis.project_accession, analysis.analysis_accession, file.filename, file.file_md5, file.file_location
@@ -21,7 +27,7 @@ cur.execute("""SELECT project_analysis.project_accession, analysis.analysis_acce
 
 records = cur.fetchall()
 
-with (open('/nfs/production3/eva/user/gary/evapro_ftp/%s.csv' % (args.project_id,), 'w')
+with (open((args.dest), 'w')
       ) as f:
     writer = csv.writer (f, delimiter = ',')
     for row in records:
