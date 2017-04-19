@@ -27,13 +27,9 @@ conn = psycopg2.connect(database=args.database, user=args.user, password=my_pwd,
                         port=args.port)
 cur = conn.cursor()
 
-cur.execute("""SELECT project_analysis.project_accession, analysis.analysis_accession, 
-        file.filename, file.file_md5, file.file_location
-        FROM project_analysis
-        LEFT JOIN analysis on project_analysis.analysis_accession = analysis.analysis_accession
-        LEFT JOIN analysis_file on analysis.analysis_accession = analysis_file.analysis_accession
-        LEFT JOIN file on analysis_file.file_id = file.file_id
-        WHERE project_accession = %s and analysis.hidden_in_eva = 0;""", (args.project_id,))
+cur.execute("""SELECT project_accession, analysis_accession, filename, file_md5, file_location
+              FROM ftp_csv_vw
+              WHERE project_accession = %s;""", (args.project_id,))
 
 records = cur.fetchall()
 
