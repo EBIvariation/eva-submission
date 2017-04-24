@@ -11,14 +11,14 @@ parser = argparse.ArgumentParser(description='This script pulls a CSV list of fi
                                              'associated md5sum value for each file.')
 parser.add_argument('-p', '--project_id', help='project_id to pull files from ERAPRO',
                     required=True, dest='project_id')
-parser.add_argument('-f', '--outputdest', help='output file from running script', required=True,
+parser.add_argument('-o', '--output', help='output file from running script', required=True,
                     dest='dest')
 parser.add_argument('-d', '--db', help='database to connect to', required=True, dest='database')
-parser.add_argument('-u', '--dbuname', help='username for database connection', required=True,
+parser.add_argument('-u', '--user', help='username for database connection', required=True,
                     dest='user')
 parser.add_argument('-H', '--hostname', help='host for database connection', required=True,
                     dest='host')
-parser.add_argument('-P', '--dbport', help='port for database connection', required=True,
+parser.add_argument('-P', '--port', help='port for database connection', required=True,
                     dest='port')
 args = parser.parse_args()
 
@@ -28,7 +28,7 @@ conn = psycopg2.connect(database=args.database, user=args.user, password=my_pwd,
 cur = conn.cursor()
 
 cur.execute("""SELECT project_accession, analysis_accession, filename, file_md5, file_location
-              FROM ftp_csv_vw
+              FROM ftp_files_vw
               WHERE project_accession = %s;""", (args.project_id,))
 
 records = cur.fetchall()
