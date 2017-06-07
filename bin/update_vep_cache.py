@@ -8,17 +8,18 @@ import subprocess
 import shutil
 import os
 
-parser = argparse.ArgumentParser(description='This script downloads and decompresses a list of caches from ensemble '
-                                             'and ensembl genomes. The parameters are the release versions of '
-                                             'ensembl and ensembl genomes. Both are optional. '
-                                             'It is recommended to run first with an extra -t '
-                                             'to check that all files exist.')
-parser.add_argument('-e', '--ensembl-version', help='release version of the ensembl cache',
-                    dest='ensembl_version')
-parser.add_argument('-g', '--ensembl-genomes-version', help='release version of the ensembl genomes cache',
-                    dest='ensembl_genomes_version')
-parser.add_argument('-t', '--test', help='check that all the files exist in the remote ftp', action='store_true',
-                    dest='test')
+parser = argparse.ArgumentParser(description='This script downloads and decompresses a list of '
+                                             'caches from ensembl and ensembl genomes. The '
+                                             'parameters are the release versions of ensembl and '
+                                             'ensembl genomes. Both are optional. It is '
+                                             'recommended to run first with an extra -t to check '
+                                             'that all files exist.')
+parser.add_argument('-e', '--ensembl-version', dest='ensembl_version',
+                    help='release version of the ensembl variation cache')
+parser.add_argument('-g', '--ensembl-genomes-version', dest='ensembl_genomes_version',
+                    help='release version of the ensembl genomes cache')
+parser.add_argument('-t', '--test', action='store_true', dest='test',
+                    help='check that all the files exist in the remote ftp')
 args = parser.parse_args()
 
 # the ensembl link structure is like:
@@ -56,7 +57,7 @@ species_ensembl_genomes = {
 
 
 # fasta: ftp://ftp.ensembl.org/pub/release-89/fasta/bos_taurus/dna/Bos_taurus.UMD3.1.dna.toplevel.fa.gz
-def build_fasta_name(version, species_assembly):
+def build_fasta_name(species_assembly):
     return '{}.dna.toplevel.fa.gz'.format(species_assembly)
 
 
@@ -65,7 +66,7 @@ def build_fasta_path_ensembl(version, species_assembly):
     return 'pub/release-{}/fasta/{}/dna/{}'.format(
         version,
         species.lower(),
-        build_fasta_name(version, species_assembly)
+        build_fasta_name(species_assembly)
     )
 
 
@@ -104,12 +105,10 @@ def download_file(ftp, domain, path, file_name):
             raise error
 
         local_size = os.path.getsize(file_name)
-        if not local_size == remote_size:
-            raise error_perm('The sizes of remote and downloaded file ({}) do not match: {} and {}'.format(
-                file_name,
-                remote_size,
-                local_size
-            ))
+        if local_size != remote_size:
+            message = 'The sizes of remote and downloaded file ({}) do not match: {} and {}'.format(
+                file_name, remote_size, local_size)
+            raise error_perm(message)
 
 
 def build_dest_fasta_folder(version, species_assembly):
@@ -120,6 +119,7 @@ def build_dest_fasta_folder(version, species_assembly):
         assembly
     )
 
+
 def decompress_cache(version, species):
     print('Decompressing cache for ' + species)
     compressed_cache = build_cache_name(version, species)
@@ -127,11 +127,13 @@ def decompress_cache(version, species):
         cache_file.extractall()
     os.remove(compressed_cache)
 
+
 def decompress_fasta(version, species):
     print('Decompressing fasta for ' + species)
-    fasta_name = build_fasta_name(version, species)
+    fasta_name = build_fasta_name(species)
     subprocess.call(['gunzip', fasta_name])
     shutil.move(fasta_name[0:-3], build_dest_fasta_folder(version, species))
+
 
 class EnsemblDownloader:
     species_list = species_ensembl
@@ -159,7 +161,7 @@ class EnsemblDownloader:
 
     def download_fasta(self, ftp, species):
         fasta_path = build_fasta_path_ensembl(self.version, species)
-        fasta_name = build_fasta_name(self.version, species)
+        fasta_name = build_fasta_name(species)
         download_file(ftp, self.domain, fasta_path, fasta_name)
 
 
@@ -170,7 +172,7 @@ def build_fasta_path_genomes(version, division, species_assembly):
         version,
         division,
         species.lower(),
-        build_fasta_name(version, species_assembly)
+        build_fasta_name(species_assembly)
     )
 
 
@@ -205,13 +207,14 @@ class EnsemblGenomesDownloader:
 
     def download_fasta(self, ftp, division, species):
         fasta_path = build_fasta_path_genomes(self.version, division, species)
-        fasta_name = build_fasta_name(self.version, species)
+        fasta_name = build_fasta_name(species)
         download_file(ftp, self.domain, fasta_path, fasta_name)
 
     def download_cache(self, ftp, division, species):
         cache_path = build_cache_path_genomes(self.version, division, species)
         cache_name = build_cache_name(self.version, species)
         download_file(ftp, self.domain, cache_path, cache_name)
+
 
 if args.ensembl_version is None and args.ensembl_genomes_version is None:
     parser.print_help()
