@@ -60,8 +60,9 @@ species_ensembl_genomes = {
 
 
 # fasta: Bos_taurus.UMD3.1.dna.toplevel.fa.gz
-def build_fasta_name(version, species_assembly):
+def build_fasta_name(species_assembly):
     return '{}.dna.toplevel.fa.gz'.format(species_assembly)
+
 
 # cache: bos_taurus_vep_89_UMD3.1.tar.gz
 def build_cache_name(version, species_assembly):
@@ -82,20 +83,20 @@ def check_size(ftp, domain, path):
         print('ERROR: {}/{} does not exist'.format(domain, path))
         raise error
 
-def download_file(ftp, domain, path, file_name, remote_size):
-    if not args.test:
-        print('Downloading {}/{} into {}'.format(domain, path, file_name))
-        try:
-            ftp.retrbinary('RETR ' + path, open(file_name, 'wb').write)
-        except error_perm as error:
-            print('ERROR: {}/{} does not exist'.format(domain, path))
-            raise error
 
-        local_size = os.path.getsize(file_name)
-        if local_size != remote_size:
-            message = 'The sizes of remote and downloaded file ({}) do not match: {} and {}'.format(
-                file_name, remote_size, local_size)
-            raise error_perm(message)
+def download_file(ftp, domain, path, file_name, remote_size):
+    print('Downloading {}/{} into {}'.format(domain, path, file_name))
+    try:
+        ftp.retrbinary('RETR ' + path, open(file_name, 'wb').write)
+    except error_perm as error:
+        print('ERROR: {}/{} does not exist'.format(domain, path))
+        raise error
+
+    local_size = os.path.getsize(file_name)
+    if local_size != remote_size:
+        message = 'The sizes of remote and downloaded file ({}) do not match: {} and {}'.format(
+            file_name, remote_size, local_size)
+        raise error_perm(message)
 
 
 def build_dest_fasta_folder(version, species_assembly):
@@ -109,7 +110,7 @@ def build_dest_fasta_folder(version, species_assembly):
 
 def decompress_fasta(version, species):
     print('Decompressing fasta for ' + species)
-    fasta_name = build_fasta_name(version, species)
+    fasta_name = build_fasta_name(species)
     subprocess.call(['gunzip', fasta_name])
     shutil.move(fasta_name[0:-3], build_dest_fasta_folder(version, species))
 
@@ -139,7 +140,7 @@ class EnsemblGenomesFastaFile:
         )
 
     def build_name(self):
-        return build_fasta_name(self.version, self.species)
+        return build_fasta_name(self.species)
 
     def decompress(self):
         decompress_fasta(self.version, self.species)
@@ -199,7 +200,7 @@ class EnsemblFastaFile:
         )
 
     def build_name(self):
-        return build_fasta_name(self.version, self.species)
+        return build_fasta_name(self.species)
 
     def decompress(self):
         decompress_fasta(self.version, self.species)
