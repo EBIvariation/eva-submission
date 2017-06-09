@@ -7,23 +7,8 @@ import tarfile
 import subprocess
 import shutil
 import os
+import logging
 
-parser = argparse.ArgumentParser(description='This script downloads and decompresses a list of '
-                                             'caches from ensembl and ensembl genomes. The '
-                                             'parameters are the release versions of ensembl and '
-                                             'ensembl genomes. Both are optional. It is '
-                                             'recommended to run first with an extra -t to check '
-                                             'that all files exist.')
-parser.add_argument('-e', '--ensembl-version', dest='ensembl_version',
-                    help='release version of the ensembl variation cache')
-parser.add_argument('-g', '--ensembl-genomes-version', dest='ensembl_genomes_version',
-                    help='release version of the ensembl genomes cache')
-parser.add_argument('-t', '--test', action='store_true', dest='test',
-                    help='check that all the files exist in the remote ftp')
-args = parser.parse_args()
-
-if args.ensembl_version is None and args.ensembl_genomes_version is None:
-    parser.print_help()
 
 # the ensembl link structure is like:
 # fasta: ftp://ftp.ensembl.org/pub/release-89/fasta/bos_taurus/dna/Bos_taurus.UMD3.1.dna.toplevel.fa.gz
@@ -80,7 +65,7 @@ def check_size(ftp, domain, path):
         print('{} bytes is the size of {}/{}'.format(remote_size, domain, path))
         return remote_size
     except error_perm as error:
-        print('ERROR: {}/{} does not exist'.format(domain, path))
+        logging.error('{}/{} does not exist'.format(domain, path))
         raise error
 
 
@@ -89,7 +74,7 @@ def download_file(ftp, domain, path, file_name, remote_size):
     try:
         ftp.retrbinary('RETR ' + path, open(file_name, 'wb').write)
     except error_perm as error:
-        print('ERROR: {}/{} does not exist'.format(domain, path))
+        logging.error('{}/{} does not exist'.format(domain, path))
         raise error
 
     local_size = os.path.getsize(file_name)
@@ -130,16 +115,18 @@ class EnsemblGenomesFastaFile:
         self.species = species
 
     # fasta: ftp://ftp.ensemblgenomes.org/pub/release-35/plants/fasta/arabidopsis_thaliana/dna/Arabidopsis_thaliana.TAIR10.dna.toplevel.fa.gz
-    def build_path(self):
+    @property
+    def path(self):
         [species, assembly] = string.split(self.species, '.', 1)
         return 'pub/release-{}/{}/fasta/{}/dna/{}'.format(
             self.version,
             self.division,
             species.lower(),
-            self.build_name()
+            self.name
         )
 
-    def build_name(self):
+    @property
+    def name(self):
         return build_fasta_name(self.species)
 
     def decompress(self):
@@ -153,14 +140,16 @@ class EnsemblGenomesCacheFile:
         self.species = species
 
     # cache: ftp://ftp.ensemblgenomes.org/pub/release-35/plants/vep/arabidopsis_thaliana_vep_35_TAIR10.tar.gz
-    def build_path(self):
+    @property
+    def path(self):
         return 'pub/release-{}/{}/vep/{}'.format(
             self.version,
             self.division,
-            self.build_name()
+            self.name
         )
 
-    def build_name(self):
+    @property
+    def name(self):
         return build_cache_name(self.version, self.species)
 
     def decompress(self):
@@ -169,18 +158,24 @@ class EnsemblGenomesCacheFile:
 
 class EnsemblGenomesDownloader:
     species_list = species_ensembl_genomes
-    version = args.ensembl_genomes_version
     domain = 'ftp.ensemblgenomes.org'
     ftp = FTP(domain)
+
+    def __init__(self, version, test):
+        self.version = version
+        self.test = test
 
     def download_caches_and_fastas(self):
         self.ftp.login()
         for division in self.species_list:
             for species in self.species_list[division]:
                 try:
-                    download(self, EnsemblGenomesCacheFile(self.version, division, species))
-                    download(self, EnsemblGenomesFastaFile(self.version, division, species))
-                except error_perm:
+                    download(self, EnsemblGenomesCacheFile(self.version, division, species),
+                             self.test)
+                    download(self, EnsemblGenomesFastaFile(self.version, division, species),
+                             self.test)
+                except error_perm as e:
+                    logging.error(e.message)
                     pass
         self.ftp.quit()
 
@@ -191,15 +186,17 @@ class EnsemblFastaFile:
         self.species = species
 
     # fasta: ftp://ftp.ensembl.org/pub/release-89/fasta/bos_taurus/dna/Bos_taurus.UMD3.1.dna.toplevel.fa.gz
-    def build_path(self):
+    @property
+    def path(self):
         [species, assembly] = string.split(self.species, '.', 1)
         return 'pub/release-{}/fasta/{}/dna/{}'.format(
             self.version,
             species.lower(),
-            self.build_name()
+            self.name
         )
 
-    def build_name(self):
+    @property
+    def name(self):
         return build_fasta_name(self.species)
 
     def decompress(self):
@@ -212,13 +209,15 @@ class EnsemblCacheFile:
         self.species = species
 
     # cache: ftp://ftp.ensembl.org/pub/release-89/variation/VEP/bos_taurus_vep_89_UMD3.1.tar.gz
-    def build_path(self):
+    @property
+    def path(self):
         return 'pub/release-{}/variation/VEP/{}'.format(
             self.version,
-            self.build_name()
+            self.name
         )
 
-    def build_name(self):
+    @property
+    def name(self):
         return build_cache_name(self.version, self.species)
 
     def decompress(self):
@@ -227,32 +226,57 @@ class EnsemblCacheFile:
 
 class EnsemblDownloader:
     species_list = species_ensembl
-    version = args.ensembl_version
     domain = 'ftp.ensembl.org'
     ftp = FTP(domain)
+
+    def __init__(self, version, test):
+        self.version = version
+        self.test = test
 
     def download_caches_and_fastas(self):
         self.ftp.login()
         for species in self.species_list:
             try:
-                download(self, EnsemblCacheFile(self.version, species))
-                download(self, EnsemblFastaFile(self.version, species))
-            except error_perm:
+                download(self, EnsemblCacheFile(self.version, species), self.test)
+                download(self, EnsemblFastaFile(self.version, species), self.test)
+            except error_perm as e:
+                logging.error(e.message)
                 pass
         self.ftp.quit()
 
 
-def download(downloader, file_resolver):
-    path = file_resolver.build_path()
+def download(downloader, file_resolver, test):
+    path = file_resolver.path
     size = check_size(downloader.ftp, downloader.domain, path)
-    if not args.test:
-        name = file_resolver.build_name()
-        download_file(downloader.ftp, downloader.domain, path, name, size)
+    if not test:
+        download_file(downloader.ftp, downloader.domain, path, file_resolver.name, size)
         file_resolver.decompress()
 
 
-if args.ensembl_version is not None:
-    EnsemblDownloader().download_caches_and_fastas()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='This script downloads and decompresses a list of '
+                                                 'caches from Ensembl and Ensembl Genomes. The '
+                                                 'parameters are the release versions of Ensembl '
+                                                 'and Ensembl Genomes. Both are optional. It is '
+                                                 'recommended to run first with an extra -t to '
+                                                 'check that all files exist.')
 
-if args.ensembl_genomes_version is not None:
-    EnsemblGenomesDownloader().download_caches_and_fastas()
+    parser.add_argument('-e', '--ensembl-version', dest='ensembl_version',
+                        help='release version of the Ensembl variation cache')
+    parser.add_argument('-g', '--ensembl-genomes-version', dest='ensembl_genomes_version',
+                        help='release version of the Ensembl Genomes cache')
+    parser.add_argument('-t', '--test', action='store_true', dest='test',
+                        help='check that all the files exist in the remote ftp')
+    args = parser.parse_args()
+
+    if args.ensembl_version is None and args.ensembl_genomes_version is None:
+        parser.print_help()
+
+    if args.ensembl_version is not None:
+        EnsemblDownloader(args.ensembl_version, args.test).download_caches_and_fastas()
+
+    if args.ensembl_genomes_version is not None:
+        EnsemblGenomesDownloader(
+            args.ensembl_genomes_version,
+            args.test
+        ).download_caches_and_fastas()
