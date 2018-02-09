@@ -17,7 +17,7 @@ mutt -s "New VCFs for validation in FTP dropbox area" garys@ebi.ac.uk jmmut@ebi.
 
 while read line; do
   validation_folder="/nfs/production3/eva/submissions/new_files_validations/${line}.d/"
-  mkdir "$validation_folder"
+  mkdir -p "$validation_folder"
   bsub "zcat $line | /nfs/production3/eva/software/vcf-validator/version-history/vcf_validator_0.7_summary -r summary,text,database -o $validation_folder"
 done < /nfs/production3/eva/submissions/new_files_validations/files_to_validate.txt
 
