@@ -1,6 +1,7 @@
 #!/bin/bash
 
 find /nfs/ftp/private/eva-box-* -name "*vcf.gz" -newer /nfs/production3/eva/submissions/new_files_validations/last_cron_execution.txt > /nfs/production3/eva/submissions/new_files_validations/uploading.txt
+find /nfs/ftp/private/eva-box-* -name "*vcf" -newer /nfs/production3/eva/submissions/new_files_validations/last_cron_execution.txt >> /nfs/production3/eva/submissions/new_files_validations/uploading.txt
 
 touch /nfs/production3/eva/submissions/new_files_validations/files_to_validate.txt
 
@@ -26,7 +27,7 @@ fi
 while read line; do
   validation_folder="/nfs/production3/eva/submissions/new_files_validations/${line}.d/"
   mkdir -p "$validation_folder"
-  bsub "zcat $line | /nfs/production3/eva/software/vcf-validator/version-history/vcf_validator_0.7_summary -r summary,text,database -o $validation_folder"
+  bsub "zcat -f $line | /nfs/production3/eva/software/vcf-validator/version-history/vcf_validator_0.7_summary -r summary,text,database -o $validation_folder"
 done < /nfs/production3/eva/submissions/new_files_validations/files_to_validate.txt
 
 mv /nfs/production3/eva/submissions/new_files_validations/files_to_validate.txt /nfs/production3/eva/submissions/new_files_validations/files_validated_in_last_cron_execution.txt
