@@ -2,6 +2,8 @@
 
 find /nfs/ftp/private/eva-box-* -name "*vcf.gz" -newer /nfs/production3/eva/submissions/new_files_validations/last_cron_execution.txt > /nfs/production3/eva/submissions/new_files_validations/uploading.txt
 
+touch /nfs/production3/eva/submissions/new_files_validations/files_to_validate.txt
+
 while read line; do
   if grep -q "$line" /nfs/production3/eva/submissions/new_files_validations/uploading.txt; then
     # file in both files, this means it's still uploading
@@ -13,7 +15,13 @@ while read line; do
 done < /nfs/production3/eva/submissions/new_files_validations/was_uploading_in_last_cron_execution.txt
 
 
-mutt -s "New VCFs for validation in FTP dropbox area" garys@ebi.ac.uk jmmut@ebi.ac.uk < /nfs/production3/eva/submissions/new_files_validations/files_to_validate.txt
+if [ -s /nfs/production3/eva/submissions/new_files_validations/files_to_validate.txt ]; then 
+  mutt -s "New VCFs for validation in FTP dropbox area" garys@ebi.ac.uk jmmut@ebi.ac.uk < /nfs/production3/eva/submissions/new_files_validations/files_to_validate.txt
+else 
+  # file was empty, so don't send an email
+  true # noop
+fi
+
 
 while read line; do
   validation_folder="/nfs/production3/eva/submissions/new_files_validations/${line}.d/"
