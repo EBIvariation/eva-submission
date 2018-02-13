@@ -4,7 +4,7 @@
 #
 # uploading.txt: files that were modified in the last period between the previous execution of this script and this execution.
 # files_to_validate.txt: files that were uploading, but were not modified in the last period. these will be validated.
-# uploading_in_last_cron_execution.txt: files that were modified in the previous period (not the last period)
+# uploading_in_last_cron_execution.txt: files that were modified in the period before the last one.
 # files_validated_in_last_cron_execution.txt: for human checks, the validation reports should be available for these VCFs.
 # last_cron_execution.txt: empty file that is used as timestamp of the last execution of this script.
 
