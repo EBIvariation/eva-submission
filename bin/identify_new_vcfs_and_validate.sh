@@ -10,7 +10,7 @@
 
 root_folder=/nfs/production3/eva/submissions/new_files_validations
 
-find /nfs/ftp/private/eva-box-* -name "*vcf.gz" -o -name "*vcf" -newer ${root_folder}/last_cron_execution.txt > ${root_folder}/uploading.txt
+find /nfs/ftp/private/eva-box-* -name "*vcf.gz" -newer ${root_folder}/last_cron_execution.txt -o -name "*vcf" -newer ${root_folder}/last_cron_execution.txt > ${root_folder}/uploading.txt
 
 touch ${root_folder}/files_to_validate.txt
 
