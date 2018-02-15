@@ -8,6 +8,9 @@
 # files_validated_in_last_cron_execution.txt: for human checks, the validation reports should be available for these VCFs.
 # last_cron_execution.txt: empty file that is used as timestamp of the last execution of this script.
 
+# this is needed to get the PATH correctly to be able to access bsub
+source $HOME/.bashrc
+
 root_folder=/nfs/production3/eva/submissions/new_files_validations
 
 find /nfs/ftp/private/eva-box-* -name "*vcf.gz" -newer ${root_folder}/last_cron_execution.txt -o -name "*vcf" -newer ${root_folder}/last_cron_execution.txt > ${root_folder}/uploading.txt
