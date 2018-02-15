@@ -31,7 +31,8 @@ mutt -s "New VCFs ready for validation in FTP dropbox area" eva-dev@ebi.ac.uk < 
 while read line; do
   validation_folder="${root_folder}/${line}.d/"
   mkdir -p "$validation_folder"
-  bsub "zcat -f $line | /nfs/production3/eva/software/vcf-validator/version-history/vcf_validator_0.7_summary -r summary,text,database -o $validation_folder"
+  current_date=`date +%Y_%m_%d`
+  bsub -e ${validation_folder}/validation.${current_date}.err -o ${validation_folder}/validation.${current_date}.log "zcat -f $line | /nfs/production3/eva/software/vcf-validator/version-history/vcf_validator_0.7_summary -r summary,text,database -o $validation_folder" 
 done < ${root_folder}/files_to_validate.txt
 
 mv ${root_folder}/files_to_validate.txt ${root_folder}/files_validated_in_last_cron_execution.txt
