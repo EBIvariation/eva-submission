@@ -4,8 +4,9 @@ import argparse
 from collections import OrderedDict
 import sys
 
+
 exec_dir = os.path.dirname(os.path.realpath(__file__))
-num_levels_to_samples_checker = 3
+num_levels_to_samples_checker = 2
 samples_checker_dir = exec_dir + os.path.sep + os.path.sep.join([".."] * num_levels_to_samples_checker) + \
                       os.path.sep + "amp-t2d-submissions"
 sys.path.append(samples_checker_dir + os.path.sep + "xls2xml")
@@ -138,7 +139,7 @@ def main():
     file_path = args.filepath
     metadata_file = args.metadata_file
 
-    data_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    data_dir = os.path.dirname(os.path.realpath(__file__))
     xls_conf = data_dir + os.path.sep + "tests/data/EVA_xls2xml_v2.conf"
     xls_schema = data_dir + os.path.sep + "tests/data/EVA_xls2xml_v2.schema"
     xslt_filename = data_dir + os.path.sep + "tests/data/EVA_xls2xml_v2.xslt"
