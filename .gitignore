@@ -4,6 +4,9 @@ src/main/resources/test_dl/ftpInbound
 #####
 
 *.class
+*.xlsx
+*.pyc
+bin/samples_checker/venv/
 
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
@@ -62,3 +65,4 @@ com_crashlytics_export_strings.xml
 crashlytics.properties
 crashlytics-build.properties
 fabric.properties
+/.project
