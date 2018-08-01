@@ -6,8 +6,10 @@ import sys
 
 
 exec_dir = os.path.dirname(os.path.realpath(__file__))
-num_levels_to_samples_checker = 2
-samples_checker_dir = exec_dir + os.path.sep + os.path.sep.join([".."] * num_levels_to_samples_checker) + \
+num_levels_to_samples_checker_module = 2
+# This program relies on the samples_checker module from https://github.com/EBIvariation/amp-t2d-submissions/
+# Please see README for details on how to install that module
+samples_checker_dir = exec_dir + os.path.sep + os.path.sep.join([".."] * num_levels_to_samples_checker_module) + \
                       os.path.sep + "amp-t2d-submissions"
 sys.path.append(samples_checker_dir + os.path.sep + "xls2xml")
 sys.path.append(samples_checker_dir + os.path.sep + "samples_checker")
@@ -132,11 +134,11 @@ def main():
         description='Transform and output validated data from an excel file to a XML file')
     arg_parser.add_argument('--metadata-file', required=True, dest='metadata_file',
                             help='EVA Submission Metadata Excel sheet')
-    arg_parser.add_argument('--file-path', required=True, dest='filepath',
+    arg_parser.add_argument('--vcf-files-path', required=True, dest='vcf_files_path',
                             help='Path to the directory in which submitted files can be found')
 
     args = arg_parser.parse_args()
-    file_path = args.filepath
+    vcf_files_path = args.vcf_files_path
     metadata_file = args.metadata_file
 
     data_dir = os.path.dirname(os.path.realpath(__file__))
@@ -151,7 +153,7 @@ def main():
     xls2xml.convert_xls_to_xml(xls_conf, ["File_Names"], xls_schema, xslt_filename, rewritten_metadata_file, file_xml)
     xls2xml.convert_xls_to_xml(xls_conf, ["Sample_Names"], xls_schema, xslt_filename, rewritten_metadata_file,
                                sample_xml)
-    check_samples.get_sample_diff(file_path, file_xml, sample_xml, submission_type="eva")
+    check_samples.get_sample_diff(vcf_files_path, file_xml, sample_xml, submission_type="eva")
 
 
 if __name__ == "__main__":

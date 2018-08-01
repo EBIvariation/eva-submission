@@ -37,5 +37,5 @@ source venv/bin/activate
 
 After activating the virtualenv as described above, you can run the script as follows:
 ```bash
-python samples_checker/check_samples_eva.py --metadata-file /nfs/production3/eva/submissions/ELOAD_402/10_submitted/submission_files/eva/Craniosynostotic_Rabbit_Colony_Metadata.xlsx --file-path /nfs/production3/eva/submissions/ELOAD_402/10_submitted/vcf_files
+python samples_checker/check_samples_eva.py --metadata-file /nfs/production3/eva/submissions/ELOAD_402/10_submitted/submission_files/eva/Craniosynostotic_Rabbit_Colony_Metadata.xlsx --vcf-files-path /nfs/production3/eva/submissions/ELOAD_402/10_submitted/vcf_files
 ```
