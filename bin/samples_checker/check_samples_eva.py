@@ -17,7 +17,7 @@ from xls2xml import xls2xml
 from samples_checker import check_samples
 
 
-def is_cell_value_empty(cell_value):
+def cell_value_empty(cell_value):
     return cell_value == "None" or cell_value == ""
 
 
@@ -26,31 +26,35 @@ def get_sample_names(eva_sample_sheet):
     sample_names = []
     num_rows = eva_sample_sheet.max_row
     num_cols = eva_sample_sheet.max_column
+    prereg_sample_id_col_present = False
 
     for i in range(1, num_rows + 1):
         for j in range(1, num_cols + 1):
             if str(eva_sample_sheet.cell(None, i, j).value).strip().lower() == "sample name":
-                first_prereg_sample_name = str(eva_sample_sheet.cell(None, i + 1, j - 4).value).strip()
-                first_novel_sample_name = str(eva_sample_sheet.cell(None, i + 1, j).value).strip()
-                if not is_cell_value_empty(first_prereg_sample_name) and not is_cell_value_empty(
-                        first_novel_sample_name):
-                    raise Exception("ERROR: Both Novel Sample Names and Pre-registered sample names are present "
-                                    "in the Metadata sheet. Only one of these should be present!")
-                if is_cell_value_empty(first_prereg_sample_name) and is_cell_value_empty(first_novel_sample_name):
-                    raise Exception("ERROR: Either Novel Sample Names or Pre-registered sample names should be present "
-                                    "in the Metadata sheet!")
-                # Use pre-registered sample names if available
-                if not is_cell_value_empty(first_prereg_sample_name):
-                    j -= 4
+                if str(eva_sample_sheet.cell(None, i, j-4).value).strip().lower() == "sample id":
+                    prereg_sample_id_col_present = True
                 while i <= num_rows:
                     i += 1
-                    sample_name_value = str(eva_sample_sheet.cell(None, i, j).value).strip()
-                    if is_cell_value_empty(sample_name_value):
+                    # In the previous version of the template, Pre-registered sample section doesn't have Sample ID
+                    # In such cases, we can only use Sample names from the Novel sample section
+                    if not prereg_sample_id_col_present:
+                        sample_name_from_prereg_section = ""
+                    else:
+                        sample_name_from_prereg_section = str(eva_sample_sheet.cell(None, i, j - 4).value).strip()
+                    sample_name_from_novel_section = str(eva_sample_sheet.cell(None, i, j).value).strip()
+                    if not cell_value_empty(sample_name_from_prereg_section) \
+                            and not cell_value_empty(sample_name_from_novel_section):
+                        raise Exception("ERROR: Both Novel Sample Names and Pre-registered sample names are present "
+                                        "in the Metadata sheet. Only one of these should be present!")
+                    if cell_value_empty(sample_name_from_prereg_section) \
+                            and cell_value_empty(sample_name_from_novel_section):
                         continue
-                    sample_names.append(sample_name_value)
+                    sample_name = sample_name_from_novel_section if cell_value_empty(sample_name_from_prereg_section) \
+                        else sample_name_from_prereg_section
+                    sample_names.append(sample_name)
                 return sample_names
 
-    raise Exception("Could not find sample names in the sheet: Sample")
+    raise Exception("ERROR: Could not find sample names in the Sample tab!")
 
 
 # Get file names from either the Novel Sample section or the Pre-registered sample section
@@ -66,12 +70,12 @@ def get_file_names(eva_files_sheet):
                     i += 1
                     file_name = os.path.basename(str(eva_files_sheet.cell(None, i, j).value).strip())
                     file_type = str(eva_files_sheet.cell(None, i, j + 1).value).strip()
-                    if is_cell_value_empty(file_name):
+                    if cell_value_empty(file_name):
                         continue
                     file_names[file_name] = file_type
                 return file_names
 
-    raise Exception("Could not find file names in the sheet: Files")
+    raise Exception("ERROR: Could not find file names in the Files tab!")
 
 
 # Since samples_checker utility expects data in a single column with header,
