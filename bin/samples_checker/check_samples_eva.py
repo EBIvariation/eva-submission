@@ -21,6 +21,14 @@ def cell_value_empty(cell_value):
     return cell_value == "None" or cell_value == ""
 
 
+def find_cell_coords_with_text(eva_sample_sheet, num_rows, num_cols, text_to_find):
+    for i in range(1, num_rows + 1):
+        for j in range(1, num_cols + 1):
+            if str(eva_sample_sheet.cell(None, i, j).value).strip().lower() == text_to_find.lower():
+                return i, j
+    raise Exception("ERROR: Could not find cell with text '{0}' in the Sample tab!".format(text_to_find))
+
+
 # Get sample names from either the Novel Sample section or the Pre-registered sample section
 def get_sample_names(eva_sample_sheet):
     sample_names = []
@@ -28,33 +36,30 @@ def get_sample_names(eva_sample_sheet):
     num_cols = eva_sample_sheet.max_column
     prereg_sample_id_col_present = False
 
-    for i in range(1, num_rows + 1):
-        for j in range(1, num_cols + 1):
-            if str(eva_sample_sheet.cell(None, i, j).value).strip().lower() == "sample name":
-                if str(eva_sample_sheet.cell(None, i, j-4).value).strip().lower() == "sample id":
-                    prereg_sample_id_col_present = True
-                while i <= num_rows:
-                    i += 1
-                    # In the previous version of the template, Pre-registered sample section doesn't have Sample ID
-                    # In such cases, we can only use Sample names from the Novel sample section
-                    if not prereg_sample_id_col_present:
-                        sample_name_from_prereg_section = ""
-                    else:
-                        sample_name_from_prereg_section = str(eva_sample_sheet.cell(None, i, j - 4).value).strip()
-                    sample_name_from_novel_section = str(eva_sample_sheet.cell(None, i, j).value).strip()
-                    if not cell_value_empty(sample_name_from_prereg_section) \
-                            and not cell_value_empty(sample_name_from_novel_section):
-                        raise Exception("ERROR: Both Novel Sample Names and Pre-registered sample names are present "
-                                        "in the Metadata sheet. Only one of these should be present!")
-                    if cell_value_empty(sample_name_from_prereg_section) \
-                            and cell_value_empty(sample_name_from_novel_section):
-                        continue
-                    sample_name = sample_name_from_novel_section if cell_value_empty(sample_name_from_prereg_section) \
-                        else sample_name_from_prereg_section
-                    sample_names.append(sample_name)
-                return sample_names
+    i, j = find_cell_coords_with_text(eva_sample_sheet, num_rows, num_cols, "Sample Name")
 
-    raise Exception("ERROR: Could not find sample names in the Sample tab!")
+    prereg_sample_id_col_present = str(eva_sample_sheet.cell(None, i, j-4).value).strip().lower() == "sample id"
+    while i <= num_rows:
+        i += 1
+        # In the previous version of the template, Pre-registered sample section doesn't have Sample ID
+        # In such cases, we can only use Sample names from the Novel sample section
+        if not prereg_sample_id_col_present:
+            sample_name_from_prereg_section = ""
+        else:
+            sample_name_from_prereg_section = str(eva_sample_sheet.cell(None, i, j - 4).value).strip()
+
+        sample_name_from_novel_section = str(eva_sample_sheet.cell(None, i, j).value).strip()
+        if not cell_value_empty(sample_name_from_prereg_section) \
+                and not cell_value_empty(sample_name_from_novel_section):
+            raise Exception("ERROR: Both Novel Sample Names and Pre-registered sample names are present "
+                            "in the Metadata sheet. Only one of these should be present!")
+        if cell_value_empty(sample_name_from_prereg_section) \
+                and cell_value_empty(sample_name_from_novel_section):
+            continue
+        sample_name = sample_name_from_novel_section if cell_value_empty(sample_name_from_prereg_section) \
+            else sample_name_from_prereg_section
+        sample_names.append(sample_name)
+    return sample_names
 
 
 # Get file names from either the Novel Sample section or the Pre-registered sample section
@@ -157,7 +162,7 @@ def main():
     xls2xml.convert_xls_to_xml(xls_conf, ["File_Names"], xls_schema, xslt_filename, rewritten_metadata_file, file_xml)
     xls2xml.convert_xls_to_xml(xls_conf, ["Sample_Names"], xls_schema, xslt_filename, rewritten_metadata_file,
                                sample_xml)
-    check_samples.get_sample_diff(vcf_files_path, file_xml, sample_xml, submission_type="eva")
+    check_samples.get_sample_diff(vcf_files_path, file_xml, sample_xml)
 
 
 if __name__ == "__main__":
