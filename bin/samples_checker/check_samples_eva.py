@@ -68,19 +68,15 @@ def get_file_names(eva_files_sheet):
     num_rows = eva_files_sheet.max_row
     num_cols = eva_files_sheet.max_column
 
-    for i in range(1, num_rows + 1):
-        for j in range(1, num_cols + 1):
-            if str(eva_files_sheet.cell(None, i, j).value).strip().lower() == "file name":
-                while i <= num_rows:
-                    i += 1
-                    file_name = os.path.basename(str(eva_files_sheet.cell(None, i, j).value).strip())
-                    file_type = str(eva_files_sheet.cell(None, i, j + 1).value).strip()
-                    if cell_value_empty(file_name):
-                        continue
-                    file_names[file_name] = file_type
-                return file_names
-
-    raise Exception("ERROR: Could not find file names in the Files tab!")
+    i, j = find_cell_coords_with_text(eva_files_sheet, num_rows, num_cols, "File Name")
+    while i <= num_rows:
+        i += 1
+        file_name = os.path.basename(str(eva_files_sheet.cell(None, i, j).value).strip())
+        file_type = str(eva_files_sheet.cell(None, i, j + 1).value).strip()
+        if cell_value_empty(file_name):
+            continue
+        file_names[file_name] = file_type
+    return file_names
 
 
 # Since samples_checker utility expects data in a single column with header,
