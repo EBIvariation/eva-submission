@@ -4,17 +4,14 @@ import argparse
 from collections import OrderedDict
 import sys
 
-
-exec_dir = os.path.dirname(os.path.realpath(__file__))
-num_levels_to_samples_checker_module = 2
-# This program relies on the samples_checker module from https://github.com/EBIvariation/amp-t2d-submissions/
-# Please see README for details on how to install that module
-samples_checker_dir = exec_dir + os.path.sep + os.path.sep.join([".."] * num_levels_to_samples_checker_module) + \
-                      os.path.sep + "amp-t2d-submissions"
-sys.path.append(samples_checker_dir + os.path.sep + "xls2xml")
-sys.path.append(samples_checker_dir + os.path.sep + "samples_checker")
-from xls2xml import xls2xml
-from samples_checker import check_samples
+ORIGINAL_SAMPLE_SHEET = "Sample"
+ORIGINAL_FILES_SHEET = "Files"
+SAMPLE_NAME_FIELD = "Sample Name"
+SAMPLE_ID_FIELD = "Sample ID"
+FILE_NAME_FIELD = "File Name"
+FILE_TYPE_FIELD = "File Type"
+REWRITTEN_SAMPLE_NAMES_SHEET = "Sample_Names"
+REWRITTEN_FILE_NAMES_SHEET = "File_Names"
 
 
 def cell_value_empty(cell_value):
@@ -29,16 +26,18 @@ def find_cell_coords_with_text(eva_sample_sheet, num_rows, num_cols, text_to_fin
     raise Exception("ERROR: Could not find cell with text '{0}' in the Sample tab!".format(text_to_find))
 
 
-# Get sample names from either the Novel Sample section or the Pre-registered sample section
 def get_sample_names(eva_sample_sheet):
+    """
+    Get sample names from either the Novel Sample section or the Pre-registered sample section
+    """
     sample_names = []
     num_rows = eva_sample_sheet.max_row
     num_cols = eva_sample_sheet.max_column
-    prereg_sample_id_col_present = False
 
-    i, j = find_cell_coords_with_text(eva_sample_sheet, num_rows, num_cols, "Sample Name")
+    i, j = find_cell_coords_with_text(eva_sample_sheet, num_rows, num_cols, SAMPLE_NAME_FIELD)
 
-    prereg_sample_id_col_present = str(eva_sample_sheet.cell(None, i, j-4).value).strip().lower() == "sample id"
+    prereg_sample_id_col_present = \
+        str(eva_sample_sheet.cell(None, i, j - 4).value).strip().lower() == SAMPLE_ID_FIELD.lower()
     while i <= num_rows:
         i += 1
         # In the previous version of the template, Pre-registered sample section doesn't have Sample ID
@@ -62,8 +61,10 @@ def get_sample_names(eva_sample_sheet):
     return sample_names
 
 
-# Get file names from either the Novel Sample section or the Pre-registered sample section
 def get_file_names(eva_files_sheet):
+    """
+    Get file names from either the Novel Sample section or the Pre-registered sample section
+    """
     file_names = OrderedDict()
     num_rows = eva_files_sheet.max_row
     num_cols = eva_files_sheet.max_column
@@ -79,14 +80,17 @@ def get_file_names(eva_files_sheet):
     return file_names
 
 
-# Since samples_checker utility expects data in a single column with header,
-# re-write the Sample names from the Samples tab in this expected format to a separate tab "Sample_Names"
 def rewrite_samples_tab(metadata_file_copy, sample_names):
-    if "Sample_Names" not in metadata_file_copy.sheetnames:
-        sample_name_sheet = metadata_file_copy.create_sheet("Sample_Names")
+    """
+    Re-write the Sample names from the Samples tab:\n
+    Since the samples_checker utility expects data in a single column with header, re-write the sample names
+    in this expected format to a separate tab "Sample_Names"
+    """
+    if REWRITTEN_SAMPLE_NAMES_SHEET not in metadata_file_copy.sheetnames:
+        sample_name_sheet = metadata_file_copy.create_sheet(REWRITTEN_SAMPLE_NAMES_SHEET)
     else:
-        sample_name_sheet = metadata_file_copy["Sample_Names"]
-    sample_name_sheet.cell(None, 1, 1).value = "Sample Name"
+        sample_name_sheet = metadata_file_copy[REWRITTEN_SAMPLE_NAMES_SHEET]
+    sample_name_sheet.cell(None, 1, 1).value = SAMPLE_NAME_FIELD
     row_index = 2
     for sample_name in sample_names:
         sample_name_sheet.cell(None, row_index, 1).value = sample_name
@@ -94,12 +98,17 @@ def rewrite_samples_tab(metadata_file_copy, sample_names):
 
 
 def rewrite_files_tab(metadata_file_copy, file_name_types):
-    if "File_Names" not in metadata_file_copy.sheetnames:
-        file_name_sheet = metadata_file_copy.create_sheet("File_Names")
+    """
+    Re-write the File names from the Files tab:\n
+    Since the samples_checker utility expects file names and not the ELOAD FTP paths, re-write the File names
+    in this expected format to a separate tab "File_Names"
+    """
+    if REWRITTEN_FILE_NAMES_SHEET not in metadata_file_copy.sheetnames:
+        file_name_sheet = metadata_file_copy.create_sheet(REWRITTEN_FILE_NAMES_SHEET)
     else:
-        file_name_sheet = metadata_file_copy["File_Names"]
-    file_name_sheet.cell(None, 1, 1).value = "File Name"
-    file_name_sheet.cell(None, 1, 2).value = "File Type"
+        file_name_sheet = metadata_file_copy[REWRITTEN_FILE_NAMES_SHEET]
+    file_name_sheet.cell(None, 1, 1).value = FILE_NAME_FIELD
+    file_name_sheet.cell(None, 1, 2).value = FILE_TYPE_FIELD
     row_index = 2
     for file_name in file_name_types:
         file_name_sheet.cell(None, row_index, 1).value = file_name
@@ -108,19 +117,21 @@ def rewrite_files_tab(metadata_file_copy, file_name_types):
 
 
 def rewrite_samples_and_files_tab(eva_metadata_file):
+    metadata_wb = load_workbook(eva_metadata_file, data_only=True)
+
+    if ORIGINAL_SAMPLE_SHEET not in metadata_wb.sheetnames:
+        raise Exception("{0} tab could not be found in the EVA metadata sheet: {1}".format(ORIGINAL_SAMPLE_SHEET,
+                                                                                           eva_metadata_file))
+    if ORIGINAL_FILES_SHEET not in metadata_wb.sheetnames:
+        raise Exception("{0} tab could not be found in the EVA metadata sheet: {1}".format(ORIGINAL_FILES_SHEET,
+                                                                                           eva_metadata_file))
+
+    sample_names = get_sample_names(metadata_wb[ORIGINAL_SAMPLE_SHEET])
+    file_name_types = get_file_names(metadata_wb[ORIGINAL_FILES_SHEET])
+
     eva_metadata_sheet_copy = os.path.dirname(os.path.realpath(__file__)) + os.path.sep + \
                               ".".join(os.path.basename(eva_metadata_file).split(".")[:-1]) + \
                               "_with_sample_names_file_names.xlsx"
-    metadata_wb = load_workbook(eva_metadata_file, data_only=True)
-
-    if "Sample" not in metadata_wb.sheetnames:
-        raise Exception("Sample tab could not be found in the EVA metadata sheet: " + eva_metadata_file)
-    if "Files" not in metadata_wb.sheetnames:
-        raise Exception("Files tab could not be found in the EVA metadata sheet: " + eva_metadata_file)
-
-    sample_names = get_sample_names(metadata_wb['Sample'])
-    file_name_types = get_file_names(metadata_wb['Files'])
-
     metadata_wb.save(eva_metadata_sheet_copy)
     metadata_wb.close()
     metadata_wb_copy = load_workbook(eva_metadata_sheet_copy)
@@ -137,6 +148,10 @@ def rewrite_samples_and_files_tab(eva_metadata_file):
 def main():
     arg_parser = argparse.ArgumentParser(
         description='Transform and output validated data from an excel file to a XML file')
+    arg_parser.add_argument('--samples-checker-dir', required=True, dest='samples_checker_dir',
+                            help='Path to the directory with the Samples Checker module')
+    arg_parser.add_argument('--xls2xml-dir', required=True, dest='xls2xml_dir',
+                            help='Path to the directory with the xls2xml module')
     arg_parser.add_argument('--metadata-file', required=True, dest='metadata_file',
                             help='EVA Submission Metadata Excel sheet')
     arg_parser.add_argument('--vcf-files-path', required=True, dest='vcf_files_path',
@@ -146,18 +161,24 @@ def main():
     vcf_files_path = args.vcf_files_path
     metadata_file = args.metadata_file
 
+    sys.path.append(args.samples_checker_dir)
+    sys.path.append(args.xls2xml_dir)
+    from xls2xml import xls2xml
+    from samples_checker import check_samples
+
     data_dir = os.path.dirname(os.path.realpath(__file__))
-    xls_conf = data_dir + os.path.sep + "tests/data/EVA_xls2xml_v2.conf"
-    xls_schema = data_dir + os.path.sep + "tests/data/EVA_xls2xml_v2.schema"
-    xslt_filename = data_dir + os.path.sep + "tests/data/EVA_xls2xml_v2.xslt"
+    xls_conf = data_dir + os.path.sep + "conf/EVA_xls2xml_v2.conf"
+    xls_schema = data_dir + os.path.sep + "conf/EVA_xls2xml_v2.schema"
+    xslt_filename = data_dir + os.path.sep + "conf/EVA_xls2xml_v2.xslt"
 
     file_xml = os.path.splitext(metadata_file)[0] + ".file.xml"
     sample_xml = os.path.splitext(metadata_file)[0] + ".sample.xml"
 
     rewritten_metadata_file = rewrite_samples_and_files_tab(metadata_file)
-    xls2xml.convert_xls_to_xml(xls_conf, ["File_Names"], xls_schema, xslt_filename, rewritten_metadata_file, file_xml)
-    xls2xml.convert_xls_to_xml(xls_conf, ["Sample_Names"], xls_schema, xslt_filename, rewritten_metadata_file,
-                               sample_xml)
+    xls2xml.convert_xls_to_xml(xls_conf, [REWRITTEN_FILE_NAMES_SHEET], xls_schema, xslt_filename,
+                               rewritten_metadata_file, file_xml)
+    xls2xml.convert_xls_to_xml(xls_conf, [REWRITTEN_SAMPLE_NAMES_SHEET], xls_schema, xslt_filename,
+                               rewritten_metadata_file, sample_xml)
     check_samples.get_sample_diff(vcf_files_path, file_xml, sample_xml)
 
 
