@@ -38,7 +38,7 @@ def get_sample_names(eva_sample_sheet):
 
     prereg_sample_id_col_present = \
         str(eva_sample_sheet.cell(None, i, j - 4).value).strip().lower() == SAMPLE_ID_FIELD.lower()
-    while i <= num_rows:
+    while i < num_rows:
         i += 1
         # In the previous version of the template, Pre-registered sample section doesn't have Sample ID
         # In such cases, we can only use Sample names from the Novel sample section
@@ -70,7 +70,7 @@ def get_file_names(eva_files_sheet):
     num_cols = eva_files_sheet.max_column
 
     i, j = find_cell_coords_with_text(eva_files_sheet, num_rows, num_cols, "File Name")
-    while i <= num_rows:
+    while i < num_rows:
         i += 1
         file_name = os.path.basename(str(eva_files_sheet.cell(None, i, j).value).strip())
         file_type = str(eva_files_sheet.cell(None, i, j + 1).value).strip()
