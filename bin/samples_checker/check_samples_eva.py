@@ -63,7 +63,7 @@ def get_sample_names(eva_sample_sheet):
 
 def get_file_names(eva_files_sheet):
     """
-    Get file names from either the Novel Sample section or the Pre-registered sample section
+    Get file names from the Files sheet
     """
     file_names = OrderedDict()
     num_rows = eva_files_sheet.max_row
