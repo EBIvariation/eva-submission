@@ -1,0 +1,38 @@
+#!/usr/bin/env python
+import logging
+from argparse import ArgumentParser
+
+from ebi_eva_common_pyutils.logger import logging_config as log_cfg
+
+from eva_submission.eload_config import load_config
+from eva_submission.submission_in_ftp import inspect_one_user, inspect_all_users
+
+logger = log_cfg.get_logger(__name__)
+
+
+def main():
+    argparse = ArgumentParser()
+
+    argparse.add_argument('--ftp_dir', help='directory where the data is uploaded', required=False)
+    argparse.add_argument('--ftp_box', required=True, type=int, choices=range(1, 21),
+                          help='box number where the data should have been uploaded')
+    argparse.add_argument('--username', required=False, type=str,
+                          help='the name of the directory for that user.')
+    argparse.add_argument('--debug', action='store_true', default=False,
+                          help='Set the script to output logging information at debug level',)
+    args = argparse.parse_args()
+    log_cfg.add_stdout_handler()
+    if args.debug:
+        log_cfg.set_log_level(logging.DEBUG)
+
+    # Load the config_file from default location
+    load_config()
+
+    if args.username:
+        inspect_one_user(args.ftp_dir, args.ftp_box, args.username)
+    else:
+        inspect_all_users(args.ftp_dir, args.ftp_box)
+
+
+if __name__ == "__main__":
+    main()

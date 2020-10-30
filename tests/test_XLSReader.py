@@ -1,0 +1,80 @@
+import os
+from unittest import TestCase
+
+from eva_submission.xlsreader import XLSReader, EVAXLSReader
+
+
+class TestEVAXLSReader(TestCase):
+
+    metadata_file = os.path.join(os.path.dirname(__file__), 'resources', 'metadata.xlsx')
+
+    def test_get_all_rows(self):
+        reader = EVAXLSReader(self.metadata_file)
+        rows = reader._get_all_rows('Analysis')
+        assert len(rows) == 1
+        assert rows[0]['Analysis Title'] == 'Greatest analysis ever'
+
+
+class TestXLSReader(TestCase):
+
+    metadata_file = os.path.join(os.path.dirname(__file__), 'resources', 'metadata.xlsx')
+    eva_xls_reader_conf = os.path.join(os.path.dirname(__file__), 'resources', 'test_metadata_fields.yaml')
+
+    def setUp(self):
+        self.xls_reader = XLSReader(self.metadata_file, self.eva_xls_reader_conf)
+
+    def test_valid_worksheets(self):
+        worksheets = self.xls_reader.valid_worksheets()
+        assert isinstance(worksheets, list)
+        assert set(worksheets) == {'Project', 'Sample', 'Analysis'}
+
+    def test_get_valid_conf_keys(self):
+        worksheets = self.xls_reader.valid_worksheets()
+        assert isinstance(worksheets, list)
+        assert set(worksheets) == {'Project', 'Sample', 'Analysis'}
+
+    def test_set_current_conf_key(self):
+        active_worksheet = self.xls_reader.active_worksheet
+        assert active_worksheet is None
+        self.xls_reader.set_current_conf_key('Sample')
+        active_worksheet = self.xls_reader.active_worksheet
+        assert active_worksheet == 'Sample'
+        self.xls_reader.set_current_conf_key('Analysis')
+        active_worksheet = self.xls_reader.active_worksheet
+        assert active_worksheet == 'Analysis'
+
+    def test_get_current_headers(self):
+        self.xls_reader.set_current_conf_key('Sample')
+        headers = self.xls_reader.get_current_headers()
+        assert isinstance(headers, list)
+        assert headers == [
+            'Analysis Alias', 'Sample ID', 'Sample Accession', 'Sampleset Accession', 'OR',
+            'Sample Name', 'Title', 'Description', 'Unique Name Prefix', 'Subject', 'Derived From',
+            'Tax Id', 'Scientific Name', 'Common Name', 'mating_type', 'sex', 'population', 'cell_type',
+            'dev_stage', 'germline', 'tissue_lib', 'tissue_type', 'bio_material', 'culture_collection',
+            'specimen_voucher', 'collected_by', 'collection_date', 'geographic location (country and/or sea)',
+            'geographic location (region and locality)', 'host', 'identified_by', 'isolation_source', 'lat_lon',
+            'lab_host', 'environmental_sample', 'cultivar', 'ecotype', 'isolate', 'strain', 'sub_species', 'variety',
+            'sub_strain', 'cell_line', 'serotype', 'serovar', 'Novel attribute(s)'
+        ]
+        self.xls_reader.set_current_conf_key('ExceptionExpected')
+        self.assertRaises(Exception, self.xls_reader.get_current_headers)
+
+    def test_next_row(self):
+        self.xls_reader.set_current_conf_key('Sample')
+        row = self.xls_reader.next()
+        assert isinstance(row, dict)
+        assert row == {'Sample Name': 'S1', 'Title': 'Sample 1', 'row_num': 4}
+
+        self.xls_reader.set_current_conf_key('Project')
+        row = self.xls_reader.next()
+        assert isinstance(row, dict)
+        assert row == {
+            'Project Title': 'Greatest project ever',
+            'Project Alias': 'GPE',
+            'Publication(s)': None,
+            'Parent Project(s)': None,
+            'Child Project(s)': None,
+            'row_num': 2
+        }
+

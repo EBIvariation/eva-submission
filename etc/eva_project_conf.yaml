@@ -1,0 +1,112 @@
+#Configuration for defining which fields in which worksheets to be parsed in an Excel file
+#
+#At the top level, "worksheets" defines a list of worksheets (titles) to be parsed.
+#Then for each worksheet, you define which fields to be parsed from this worksheet.
+#These fields are either "required", "optional" and/or header_row. "required" fields must be found
+#in the worksheet so that this worksheet is valid. Otherwise this worksheet is not
+#valid. The field names must match those values in the header row in the worksheet.
+#
+#This is a YAML file
+
+# List of worksheets to be parsed.
+worksheets:
+  - Project
+  - Analysis
+  - Sample
+  - Files
+
+# List of field for Projects
+Project:
+  required:
+    - Project Title
+    - Project Alias
+    - Description
+    - Center
+    - Tax ID
+  optional:
+    - Publication(s)
+    - Parent Project(s)
+    - Child Project(s)
+    - Peer Project(s)
+    - Link(s)
+    - Hold Date
+    - Collaborator(s)
+    - Strain
+    - Breed
+    - Broker
+
+Analysis:
+  required:
+    - Analysis Title
+    - Analysis Alias
+    - Description
+    - Project Title
+    - Experiment Type
+    - Reference
+  optional:
+    - Platform
+    - Software
+    - Pipeline Description
+    - Imputation
+    - Phasing
+    - Centre
+    - Date
+    - Link(s)
+    - Run Accession(s)
+
+# List of fields for worksheet "Sample"
+Sample:
+
+  header_row: 3
+
+  # List of "required" fields
+  required:
+    - Sample Name
+    - Title
+  optional:
+    - Description
+    - Unique Name
+    - Prefix
+    - Subject
+    - Derived From
+    - Tax Id
+    - Scientific Name
+    - Common Name
+    - mating_type
+    - sex
+    - population
+    - cell_type
+    - dev_stage
+    - germline
+    - tissue_lib
+    - tissue_type
+    - bio_material
+    - culture_collection
+    - specimen_voucher
+    - collected_by
+    - collection_date
+    - geographic location (country and/or sea)
+    - geographic location (region and locality)
+    - host
+    - identified_by
+    - isolation_source
+    - lat_lon
+    - lab_host
+    - environmental_sample
+    - cultivar
+    - ecotype
+    - isolate
+    - strain
+    - sub_species
+    - variety
+    - sub_strain
+    - cell_line
+    - serotype
+    - serovar
+
+Files:
+  required:
+    - Analysis Alias
+    - File Name
+    - File Type
+    - MD5

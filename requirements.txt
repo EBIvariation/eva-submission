@@ -1,0 +1,5 @@
+openpyxl
+pyyaml
+cached-property
+humanize
+-e git+https://github.com/tcezard/eva-common-pyutils.git@EVA_2115_config_file#egg=ebi_eva_common_pyutils
