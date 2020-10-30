@@ -34,7 +34,7 @@ def main():
     if args.username:
         inspect_one_user(args.ftp_box, args.username)
     else:
-        inspect_all_users( args.ftp_box)
+        inspect_all_users(args.ftp_box)
 
 
 if __name__ == "__main__":
