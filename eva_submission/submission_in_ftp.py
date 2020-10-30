@@ -19,6 +19,11 @@ def inspect_all_users(ftp_box):
         box.report()
 
 
+def inspect_one_user(ftp_box, username):
+    box = FtpDepositBox(ftp_box, username)
+    box.report()
+
+
 class FtpDepositBox:
 
     def __init__(self, ftp_box, username):
