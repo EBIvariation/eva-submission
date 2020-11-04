@@ -1,3 +1,0 @@
-
-class ExecutorError(Exception):
-    pass
