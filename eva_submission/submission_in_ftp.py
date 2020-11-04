@@ -1,4 +1,5 @@
 import glob
+import operator
 import os
 from datetime import datetime
 
@@ -12,11 +13,10 @@ logger = log_cfg.get_logger(__name__)
 
 
 def inspect_all_users(ftp_box):
-    deposit_boxes = glob.glob(os.path.join(cfg['ftp_dir'], str(ftp_box), '*'))
+    deposit_boxes = glob.glob(deposit_box(ftp_box, '*'))
     for box in deposit_boxes:
         username = os.path.basename(box)
-        box = FtpDepositBox(ftp_box, username)
-        box.report()
+        inspect_one_user(ftp_box, username)
 
 
 def inspect_one_user(ftp_box, username):
@@ -73,6 +73,9 @@ class FtpDepositBox:
 
     @property
     def last_modified(self):
+        if not (self._vcf_files and self._metadata_files and self._other_files):
+            return datetime.fromtimestamp(os.stat(self.deposit_box).st_mtime)
+
         return max([t for t in [
             self.last_modified_of(self._vcf_files),
             self.last_modified_of(self._metadata_files),
@@ -88,28 +91,38 @@ class FtpDepositBox:
         return [f for f, _, _ in self._metadata_files]
 
     @property
+    def most_recent_metadata(self):
+        if self._metadata_files:
+            return [f for f, _, _ in sorted(self._metadata_files, key=operator.itemgetter(2))][-1]
+        else:
+            return None
+
+    @property
     def other_files(self):
         return [f for f, _, _ in self._other_files]
-
 
     def report(self):
         report_params = {
             'ftp_box': self.deposit_box,
-            'ftp_box_last_modified': self.last_modified,
+            'ftp_box_last_modified': self.last_modified or 'NA',
             'ftp_box_size': humanize.naturalsize(self.size),
             'number_vcf': len(self._vcf_files),
-            'vcf_last_modified': self.last_modified_of(self._vcf_files),
+            'vcf_last_modified': self.last_modified_of(self._vcf_files) or 'NA',
             'vcf_size': humanize.naturalsize(self.size_of(self._vcf_files)),
             'number_metadata': len(self._metadata_files),
-            'metadata_last_modified': self.last_modified_of(self._metadata_files)
+            'metadata_last_modified': self.last_modified_of(self._metadata_files) or 'NA'
         }
-        if self._metadata_files:
-            reader = EVAXLSReader(self.metadata_files[0])
+        if self.most_recent_metadata:
+            reader = EVAXLSReader(self.most_recent_metadata)
             report_params['project_title'] = reader.project_title
             report_params['number_analysis'] = len(reader.analysis)
+            report_params['reference genome'] = ', '.join(reader.references) or 'NA'
             report_params['number_samples'] = len(reader.samples)
+        else:
+            report_params.update(dict(((k, 'NA') for k in ['project_title', 'number_analysis', 'number_samples'])))
 
-        report = """ftp box: {ftp_box}
+        report = """#############################
+ftp box: {ftp_box}
 last modified: {ftp_box_last_modified}
 size: {ftp_box_size}
 -----
@@ -122,5 +135,6 @@ last modified: {metadata_last_modified}
 Project title: {project_title}
 Number of analysis: {number_analysis}
 Number of sample: {number_samples}
+#############################
 """
         print(report.format(**report_params))

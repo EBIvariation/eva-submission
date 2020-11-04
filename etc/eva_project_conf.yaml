@@ -54,16 +54,13 @@ Analysis:
     - Link(s)
     - Run Accession(s)
 
-# List of fields for worksheet "Sample"
 Sample:
-
   header_row: 3
-
-  # List of "required" fields
-  required:
+  # have to make all the fields optional because the user can fill in either the pre-register or the novel sample part
+  optional:
+    - Analysis Alias
     - Sample Name
     - Title
-  optional:
     - Description
     - Unique Name
     - Prefix

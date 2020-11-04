@@ -23,6 +23,7 @@ a configuration file.
 This module depends on openpyxl and pyyaml.
 """
 import os
+from collections import defaultdict
 
 from cached_property import cached_property
 from ebi_eva_common_pyutils.logger import AppLogger
@@ -68,14 +69,34 @@ class EVAXLSReader:
         return self._get_all_rows('Sample')
 
     @cached_property
+    def files(self):
+        return self._get_all_rows('Files')
+
+    @cached_property
     def project_title(self):
         return self.project.get('Project Title')
 
+    @property
     def analysis_titles(self):
         return [a.get('Analysis Title') for a in self.analysis]
 
+    @property
     def references(self):
-        return [a.get('Reference') for a in self.analysis]
+        return list(set([a.get('Reference') for a in self.analysis]))
+
+    @property
+    def samples_per_analysis(self):
+        samples_per_analysis = defaultdict(list)
+        for row in self.samples:
+            samples_per_analysis[row.get('Analysis Alias')].append(row)
+        return samples_per_analysis
+
+    @property
+    def files_per_analysis(self):
+        files_per_analysis = defaultdict(list)
+        for row in self.files:
+            files_per_analysis[row.get('Analysis Alias')].append(row)
+        return files_per_analysis
 
 
 class XLSReader(AppLogger):
@@ -173,7 +194,6 @@ class XLSReader(AppLogger):
             self.valid_worksheets()
 
         return self.valid
-
 
     def get_current_headers(self):
         """

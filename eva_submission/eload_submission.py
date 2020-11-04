@@ -46,11 +46,10 @@ class Eload:
             shutil.copyfile(vcf_file, dest)
 
         if len(box.metadata_files) != 1:
-            logger.warning('Found %s metadata file in the FTP', len(box.metadata_files))
-        for metadata_spreadsheet in box.metadata_files:
-            metadata_dir = os.path.join(self.eload_dir, directory_structure['metadata'])
-            dest = os.path.join(metadata_dir, os.path.basename(metadata_spreadsheet))
-            shutil.copyfile(metadata_spreadsheet, dest)
+            logger.warning('Found %s metadata file in the FTP. Will use the most recent one', len(box.metadata_files))
+        metadata_dir = os.path.join(self.eload_dir, directory_structure['metadata'])
+        dest = os.path.join(metadata_dir, os.path.basename(box.most_recent_metadata))
+        shutil.copyfile(box.most_recent_metadata, dest)
 
         for other_file in box.other_files:
             logger.warning('File %s will not be treated', other_file)

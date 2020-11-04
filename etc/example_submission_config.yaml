@@ -1,2 +1,7 @@
 ftp_dir: '/path/to/ftp/dir'
 eloads_dir: '/path/to/eload/dir'
+eutils_api_key: 1234556lkxflk
+
+
+genome_downloader:
+  output_directory: '/path/to/reference/sequences'

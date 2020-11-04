@@ -1,5 +1,6 @@
 import os
 from unittest import TestCase
+from unittest.mock import patch, Mock
 
 from eva_submission.eload_config import load_config
 from eva_submission.submission_in_ftp import FtpDepositBox
@@ -7,15 +8,8 @@ from eva_submission.submission_in_ftp import FtpDepositBox
 
 class TestFtpDepositBox(TestCase):
 
-    ftp_box = os.path.join(os.path.dirname(__file__), 'resources', 'ftpboxes', 'eva-box-01')
-
-    # def test_find_files_for(self):
-    #     vcf_file = os.path.join(self.ftp_box, 'upload', 'john', 'vcf_file', 'data.vcf.gz')
-    #     metadata = os.path.join(self.ftp_box, 'upload', 'john', 'metadata.xlsx')
-    #
-    #     assert find_files_for(self.ftp_box) == ([vcf_file], [], [metadata], [])
-    top_dir = os.path.dirname(os.path.dirname(__file__))
     resources_folder = os.path.join(os.path.dirname(__file__), 'resources')
+    top_dir = os.path.dirname(os.path.dirname(__file__))
 
     def setUp(self) -> None:
         config_file = os.path.join(self.resources_folder, 'submission_config.yml')
@@ -24,5 +18,28 @@ class TestFtpDepositBox(TestCase):
         os.chdir(self.top_dir)
 
     def test_report(self):
-        box = FtpDepositBox(1, 'john')
-        box.report()
+        # Mock the stat function so that it returns a consistent values
+        with patch('os.stat') as m_stat, patch('builtins.print') as mprint:
+            m_stat.return_value.st_size = 100
+            m_stat.return_value.st_mtime = 1604000000
+
+            box = FtpDepositBox(1, 'john')
+            box.report()
+            expected_report = """#############################
+ftp box: tests/resources/ftpboxes/eva-box-01/upload/john
+last modified: 2020-10-29 19:33:20
+size: 300 Bytes
+-----
+number of vcf files: 1
+last modified: 2020-10-29 19:33:20
+size: 100 Bytes
+-----
+number of metadata spreadsheet: 1
+last modified: 2020-10-29 19:33:20
+Project title: Greatest project ever
+Number of analysis: 1
+Number of sample: 100
+#############################
+"""
+        mprint.assert_called_with(expected_report)
+
