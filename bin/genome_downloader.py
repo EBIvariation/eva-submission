@@ -23,7 +23,7 @@ from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from ebi_eva_common_pyutils.assembly import NCBIAssembly
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from eva_submission.eload_config import load_config
+from eva_submission.submission_config import load_config
 
 
 logger = log_cfg.get_logger(__name__)
@@ -60,11 +60,6 @@ if __name__ == "__main__":
 
     # Load the config_file from default location
     load_config()
-
-    args = {}
-
-    # Output the logs to stderr
-    log_cfg.add_stderr_handler()
 
     try:
         main(args.assembly_accession, args.species, args.output_directory, args.clear)
