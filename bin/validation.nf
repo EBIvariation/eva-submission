@@ -8,6 +8,7 @@ def helpMessage() {
             --vcffiles            list of vcf files that are meant to be validated
             --metadata_file       spreadsheet meant to be validated
             --reference_accession source genome file used to discover variants from the file provided with --vcffile [required]
+            --executables
     """
 }
 
@@ -33,7 +34,7 @@ vcf_channel = Channel.fromPath(params.vcffiles)
 * Validate the VCF file format
 */
 
-process check_vcf_format {
+process check_vcf_valid {
 
     input:
         path vcf_file from vcf_channel
@@ -48,8 +49,6 @@ process check_vcf_format {
     vcf_validator -i $vcf_file  -r database,text -o vcf_validation
     """
 }
-
-
 
 
 /*
@@ -92,4 +91,5 @@ process check_vcf_reference {
     vcf_assembly_checker -i  -f reference_fasta -a reference_report -r summary,text,valid  -o assembly_check
     """
 }
+
 

@@ -17,6 +17,7 @@ def inspect_all_users(ftp_box):
     for box in deposit_boxes:
         username = os.path.basename(box)
         inspect_one_user(ftp_box, username)
+        print("")
 
 
 def inspect_one_user(ftp_box, username):
@@ -101,6 +102,26 @@ class FtpDepositBox:
     def other_files(self):
         return [f for f, _, _ in self._other_files]
 
+    def _report_metadata(self, metadata_file):
+        report_params = {
+            'filepath': metadata_file,
+            'metadata_last_modified': self.last_modified_of(self._metadata_files) or 'NA'
+        }
+        reader = EVAXLSReader(self.most_recent_metadata)
+        report_params['project_title'] = reader.project_title
+        report_params['number_analysis'] = len(reader.analysis)
+        report_params['reference genome'] = ', '.join(reader.references) or 'NA'
+        report_params['number_samples'] = len(reader.samples)
+
+        report_template = """metadata file path: {filepath}
+last modified: {metadata_last_modified}
+Project title: {project_title}
+Number of analysis: {number_analysis}
+Number of sample: {number_samples}
+"""
+
+        return report_template.format(**report_params)
+
     def report(self):
         report_params = {
             'ftp_box': self.deposit_box,
@@ -121,7 +142,7 @@ class FtpDepositBox:
         else:
             report_params.update(dict(((k, 'NA') for k in ['project_title', 'number_analysis', 'number_samples'])))
 
-        report = """#############################
+        report_template = """#############################
 ftp box: {ftp_box}
 last modified: {ftp_box_last_modified}
 size: {ftp_box_size}
@@ -131,10 +152,10 @@ last modified: {vcf_last_modified}
 size: {vcf_size}
 -----
 number of metadata spreadsheet: {number_metadata}
-last modified: {metadata_last_modified}
-Project title: {project_title}
-Number of analysis: {number_analysis}
-Number of sample: {number_samples}
-#############################
 """
-        print(report.format(**report_params))
+
+        print(''.join(
+            [report_template.format(**report_params)] +
+            [self._report_metadata(metadata_file) for metadata_file in self.metadata_files] +
+            ['#############################']
+        ))
