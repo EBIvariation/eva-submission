@@ -30,15 +30,7 @@ logger = log_cfg.get_logger(__name__)
 
 
 def main(assembly_accession, species_name, output_directory, clear):
-    output_directory = output_directory or cfg.query('genome_downloader', 'output_directory')
-    assembly = NCBIAssembly(assembly_accession, species_name, output_directory, eutils_api_key=cfg['eutils_api_key'])
-    assembly.download_or_construct(overwrite=clear)
-    logger.info(assembly.assembly_fasta_path)
-    logger.info(assembly.assembly_report_path)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Genome downloader assembly', add_help=False)
+    parser = argparse.ArgumentParser(description='Genome downloader assembly')
     parser.add_argument("-a", "--assembly-accession",
                         help="Assembly for which the process has to be run, e.g. GCA_000002285.2", required=True)
     parser.add_argument("-s", "--species",
@@ -49,9 +41,9 @@ if __name__ == "__main__":
                              "Will use the one defined in config file if omitted")
     parser.add_argument("-c", "--clear", help="Flag to clear existing data in FASTA file and starting from scratch",
                         action='store_true')
-    parser.add_argument('--help', action='help', help='Show this help message and exit')
     parser.add_argument('--debug', action='store_true', default=False,
-                          help='Set the script to output logging information at debug level')
+                        help='Set the script to output logging information at debug level')
+    parser.add_argument('-h', '--help', action='help', help='Show this help message and exit')
     args = parser.parse_args()
 
     log_cfg.add_stdout_handler()
@@ -62,9 +54,19 @@ if __name__ == "__main__":
     load_config()
 
     try:
-        main(args.assembly_accession, args.species, args.output_directory, args.clear)
+        output_directory = output_directory or cfg.query('genome_downloader', 'output_directory')
+        assembly = NCBIAssembly(
+            assembly_accession, species_name, output_directory,
+            eutils_api_key=cfg['eutils_api_key']
+        )
+        assembly.download_or_construct(overwrite=clear)
+        logger.info(assembly.assembly_fasta_path)
+        logger.info(assembly.assembly_report_path)
     except Exception as ex:
         logger.exception(ex)
-        sys.exit(1)
+        return 1
 
-    sys.exit(0)
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

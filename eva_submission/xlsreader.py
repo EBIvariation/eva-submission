@@ -36,11 +36,12 @@ OPTIONAL_HEADERS_KEY_NAME = 'optional'
 HEADERS_KEY_ROW = 'header_row'
 
 
-class EVAXLSReader:
+class EVAXLSReader(AppLogger):
 
     def __init__(self, metadata_file):
         conf = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc', 'eva_project_conf.yaml')
         self.reader = XLSReader(metadata_file, conf)
+        self.metadata_file=metadata_file
 
     def _get_all_rows(self, active_sheet):
         self.reader.active_worksheet = active_sheet
@@ -58,7 +59,10 @@ class EVAXLSReader:
     @cached_property
     def project(self):
         self.reader.active_worksheet = 'Project'
-        return self.reader.next()
+        try:
+            return self.reader.next()
+        except StopIteration:
+            self.error('No project was found in the spreadsheet %s', self.metadata_file)
 
     @cached_property
     def analysis(self):
@@ -74,7 +78,8 @@ class EVAXLSReader:
 
     @cached_property
     def project_title(self):
-        return self.project.get('Project Title')
+        if self.project:
+            return self.project.get('Project Title')
 
     @property
     def analysis_titles(self):

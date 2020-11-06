@@ -18,7 +18,6 @@ import logging
 import os
 import sys
 from argparse import ArgumentParser
-
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -27,6 +26,7 @@ from eva_submission.submission_config import load_config
 from eva_submission.eload_submission import Eload
 
 logger = log_cfg.get_logger(__name__)
+
 
 
 def main():
@@ -50,6 +50,12 @@ def main():
 
     eload = Eload(args.eload)
 
+    validation_config = {
+        'metadata_file': eload.eload_cfg.query('submission', 'metadata_spreadsheet'),
+        'vcf_files': eload.eload_cfg.query('submission', 'vcf_files')
+    }
+
+    eload.eload_cfg.query('submission', 'metadata_spreadsheet')
 
 
 if __name__ == "__main__":

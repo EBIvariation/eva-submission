@@ -17,7 +17,7 @@ def main():
         description='Transform and output validated data from an excel file to a XML file')
     arg_parser.add_argument('--metadata-file', required=True, dest='metadata_file',
                             help='EVA Submission Metadata Excel sheet')
-    arg_parser.add_argument('--vcf-dir', required=True, dest='vcf_files_path',
+    arg_parser.add_argument('--vcf-dir', required=True, dest='vcf_dir',
                             help='Path to the directory in which submitted files can be found')
     arg_parser.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level', )

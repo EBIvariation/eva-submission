@@ -1,10 +1,15 @@
+import glob
 from distutils.core import setup
+from os.path import join, abspath, dirname
 
 from setuptools import find_packages
 
+requirements_txt = join(abspath(dirname(__file__)), 'requirements.txt')
+requirements = [l.strip() for l in open(requirements_txt) if l and not l.startswith('#')]
+
 setup(
     name='eva_submission',
-    packages=find_packages(),
+    packages=['eva_submission'],
     version='0.0.1',
     license='Apache',
     description='EBI EVA - submission processing tools',
@@ -18,6 +23,5 @@ setup(
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 3'
     ],
-    scripts=['bin/detect_submission.py', 'bin/check_samples_eva.py', 'bin/genome_downloader.py',
-             'bin/prepare_submission.py']
+    scripts=glob.glob(join(dirname(__file__), 'bin', '*.py'))
 )
