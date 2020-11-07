@@ -3,16 +3,14 @@ import glob
 import os
 import shutil
 
-import requests
 from ebi_eva_common_pyutils.config import cfg
-from ebi_eva_common_pyutils.logger import logging_config as log_cfg
+from ebi_eva_common_pyutils.logger import AppLogger
 
-from eva_submission.eload_utils import retrieve_assembly_accession_from_ncbi
+from eva_submission.eload_utils import retrieve_assembly_accession_from_ncbi, retrieve_species_names_from_tax_id
 from eva_submission.submission_config import EloadConfig
 from eva_submission.submission_in_ftp import FtpDepositBox
 from eva_submission.xlsreader import EVAXLSReader
 
-logger = log_cfg.get_logger(__name__)
 
 directory_structure = {
     'vcf': '10_submitted/vcf_files',
@@ -26,7 +24,7 @@ directory_structure = {
 }
 
 
-class Eload:
+class Eload(AppLogger):
 
     def __init__(self, eload_number: int):
         self.eload = f'ELOAD_{eload_number}'
@@ -49,13 +47,13 @@ class Eload:
             shutil.copyfile(vcf_file, dest)
 
         if len(box.metadata_files) != 1:
-            logger.warning('Found %s metadata file in the FTP. Will use the most recent one', len(box.metadata_files))
+            self.warning('Found %s metadata file in the FTP. Will use the most recent one', len(box.metadata_files))
         metadata_dir = os.path.join(self.eload_dir, directory_structure['metadata'])
         dest = os.path.join(metadata_dir, os.path.basename(box.most_recent_metadata))
         shutil.copyfile(box.most_recent_metadata, dest)
 
         for other_file in box.other_files:
-            logger.warning('File %s will not be treated', other_file)
+            self.warning('File %s will not be treated', other_file)
 
     def add_to_submission_config(self, key, value):
         if 'submission' in self.eload_cfg:
@@ -63,6 +61,10 @@ class Eload:
         else:
             self.eload_cfg['submission'] = {key: value}
 
+    def detect_all(self):
+        self.detect_submitted_metadata()
+        self.detect_submitted_vcf()
+        self.detect_metadata_attibutes()
 
     def detect_submitted_metadata(self):
         metadata_dir = os.path.join(self.eload_dir, directory_structure['metadata'])
@@ -92,4 +94,9 @@ class Eload:
         elif reference_gca:
             self.add_to_submission_config('assembly_accession', reference_gca.pop())
         else:
-            self.error('No assembly could be resolved to genbank accession')
+            self.error('No genbank accession could be found for %s', reference_txt)
+
+        taxonomy_id = eva_metadata.project.get('Tax ID')
+        self.add_to_submission_config('taxonomy_id', taxonomy_id)
+
+        retrieve_species_names_from_tax_id(taxonomy_id)

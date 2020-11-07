@@ -1,3 +1,5 @@
+import re
+
 import requests
 
 eutils_url = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/'
@@ -21,3 +23,19 @@ def retrieve_assembly_accession_from_ncbi(assembly_txt):
                 assembly_accessions.add(assembly_info['synonym']['genbank'])
     return assembly_accessions
 
+
+def retrieve_species_names_from_tax_id(taxid):
+    payload = {'db': 'Taxonomy', 'id': taxid}
+    r = requests.get(efetch_url, params=payload)
+    match = re.search('<Rank>(.+?)</Rank>', r.text, re.MULTILINE)
+    rank = None
+    if match:
+        rank = match.group(1)
+    scientific_name = None
+    if rank in ['species', 'subspecies']:
+        match = re.search('<ScientificName>(.+?)</ScientificName>', r.text, re.MULTILINE)
+        if match:
+            scientific_name = match.group(1)
+        else:
+            print('WARNING: No species found for %s' % taxid)
+    return taxid, scientific_name

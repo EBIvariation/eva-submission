@@ -50,8 +50,7 @@ def main():
 
     eload = Eload(args.eload)
     eload.copy_from_ftp(args.ftp_box, args.username)
-    eload.detect_submitted_metadata()
-    eload.detect_submitted_vcf()
+    eload.detect_all()
 
 
 if __name__ == "__main__":
