@@ -15,7 +15,7 @@ setup(
     description='EBI EVA - submission processing tools',
     url='https://github.com/EBIVariation/eva-submission',
     keywords=['ebi', 'eva', 'python', 'submission'],
-    install_requires=['openpyxl', 'pyyaml', 'cached-property', 'humanize', 'pysam', 'ebi_eva_common_pyutils'],
+    install_requires=requirements,
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',

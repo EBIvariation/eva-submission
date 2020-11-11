@@ -119,7 +119,11 @@ class XLSReader(AppLogger):
         """
         with open(conf_filename, 'r') as conf_file:
             self.xls_conf = yaml.full_load(conf_file)
-        self.workbook = load_workbook(xls_filename, read_only=True)
+        try:
+            self.workbook = load_workbook(xls_filename, read_only=True)
+        except Exception as e:
+            self.error('Error loading %s', xls_filename)
+            raise e
         self.worksheets = None
         self._active_worksheet = None
         self.row_offset = {}

@@ -1,11 +1,12 @@
 import glob
 import operator
 import os
+import traceback
 from datetime import datetime
 
 import humanize
 from ebi_eva_common_pyutils.config import cfg
-from ebi_eva_common_pyutils.logger import logging_config as log_cfg
+from ebi_eva_common_pyutils.logger import logging_config as log_cfg, AppLogger
 
 from eva_submission.xlsreader import EVAXLSReader
 
@@ -29,7 +30,7 @@ def deposit_box(ftp_box, username):
     return os.path.join(cfg['ftp_dir'], 'eva-box-%02d' % ftp_box, 'upload', username)
 
 
-class FtpDepositBox:
+class FtpDepositBox(AppLogger):
 
     def __init__(self, ftp_box, username):
         self.box = ftp_box
@@ -56,20 +57,20 @@ class FtpDepositBox:
         return deposit_box(self.box, self.username)
 
     @staticmethod
-    def size_of(file_list):
+    def _size_of(file_list):
         return sum([s for f, s, t in file_list])
 
     @staticmethod
-    def last_modified_of(file_list):
+    def _last_modified_of(file_list):
         if file_list:
             return max([t for f, s, t in file_list])
 
     @property
     def size(self):
         return sum((
-            self.size_of(self._vcf_files),
-            self.size_of(self._metadata_files),
-            self.size_of(self._other_files)
+            self._size_of(self._vcf_files),
+            self._size_of(self._metadata_files),
+            self._size_of(self._other_files)
         ))
 
     @property
@@ -78,9 +79,9 @@ class FtpDepositBox:
             return datetime.fromtimestamp(os.stat(self.deposit_box).st_mtime)
 
         return max([t for t in [
-            self.last_modified_of(self._vcf_files),
-            self.last_modified_of(self._metadata_files),
-            self.last_modified_of(self._other_files)
+            self._last_modified_of(self._vcf_files),
+            self._last_modified_of(self._metadata_files),
+            self._last_modified_of(self._other_files)
         ] if t is not None])
 
     @property
@@ -105,18 +106,28 @@ class FtpDepositBox:
     def _report_metadata(self, metadata_file):
         report_params = {
             'filepath': metadata_file,
-            'metadata_last_modified': self.last_modified_of(self._metadata_files) or 'NA'
+            'metadata_last_modified': self._last_modified_of([
+                (f, s, t) for f, s, t in self._metadata_files if f == metadata_file
+            ]) or 'NA'
         }
-        reader = EVAXLSReader(self.most_recent_metadata)
-        report_params['project_title'] = reader.project_title
-        report_params['number_analysis'] = len(reader.analysis)
-        report_params['reference genome'] = ', '.join(reader.references) or 'NA'
-        report_params['number_samples'] = len(reader.samples)
+        try:
+            reader = EVAXLSReader(metadata_file)
+            report_params['project_title'] = reader.project_title
+            report_params['number_analysis'] = len(reader.analysis)
+            report_params['reference genome'] = ', '.join(reader.references) or 'NA'
+            report_params['number_samples'] = len(reader.samples)
+        except Exception:
+            self.error(traceback.format_exc())
+            report_params['project_title'] = 'NA'
+            report_params['number_analysis'] = 0
+            report_params['reference genome'] = 'NA'
+            report_params['number_samples'] = 0
 
         report_template = """metadata file path: {filepath}
 last modified: {metadata_last_modified}
 Project title: {project_title}
 Number of analysis: {number_analysis}
+Reference sequence: {reference genome}
 Number of sample: {number_samples}
 """
 
@@ -128,19 +139,11 @@ Number of sample: {number_samples}
             'ftp_box_last_modified': self.last_modified or 'NA',
             'ftp_box_size': humanize.naturalsize(self.size),
             'number_vcf': len(self._vcf_files),
-            'vcf_last_modified': self.last_modified_of(self._vcf_files) or 'NA',
-            'vcf_size': humanize.naturalsize(self.size_of(self._vcf_files)),
+            'vcf_last_modified': self._last_modified_of(self._vcf_files) or 'NA',
+            'vcf_size': humanize.naturalsize(self._size_of(self._vcf_files)),
             'number_metadata': len(self._metadata_files),
-            'metadata_last_modified': self.last_modified_of(self._metadata_files) or 'NA'
+            'metadata_last_modified': self._last_modified_of(self._metadata_files) or 'NA'
         }
-        if self.most_recent_metadata:
-            reader = EVAXLSReader(self.most_recent_metadata)
-            report_params['project_title'] = reader.project_title
-            report_params['number_analysis'] = len(reader.analysis)
-            report_params['reference genome'] = ', '.join(reader.references) or 'NA'
-            report_params['number_samples'] = len(reader.samples)
-        else:
-            report_params.update(dict(((k, 'NA') for k in ['project_title', 'number_analysis', 'number_samples'])))
 
         report_template = """#############################
 ftp box: {ftp_box}

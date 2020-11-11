@@ -6,7 +6,8 @@ import shutil
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 
-from eva_submission.eload_utils import retrieve_assembly_accession_from_ncbi, retrieve_species_names_from_tax_id
+from eva_submission.eload_utils import retrieve_assembly_accession_from_ncbi, retrieve_species_names_from_tax_id, \
+    get_genome_fasta_and_report
 from eva_submission.submission_config import EloadConfig
 from eva_submission.submission_in_ftp import FtpDepositBox
 from eva_submission.xlsreader import EVAXLSReader
@@ -55,7 +56,7 @@ class Eload(AppLogger):
         for other_file in box.other_files:
             self.warning('File %s will not be treated', other_file)
 
-    def add_to_submission_config(self, key, value):
+    def _add_to_submission_config(self, key, value):
         if 'submission' in self.eload_cfg:
             self.eload_cfg['submission'][key] = value
         else:
@@ -65,13 +66,14 @@ class Eload(AppLogger):
         self.detect_submitted_metadata()
         self.detect_submitted_vcf()
         self.detect_metadata_attibutes()
+        self.find_genome()
 
     def detect_submitted_metadata(self):
         metadata_dir = os.path.join(self.eload_dir, directory_structure['metadata'])
         metadata_spreadsheets = glob.glob(os.path.join(metadata_dir, '*.xlsx'))
         if len(metadata_spreadsheets) != 1:
             raise ValueError('Found %s spreadsheet in %s', len(metadata_spreadsheets), metadata_dir)
-        self.add_to_submission_config('metadata_spreadsheet', metadata_spreadsheets[0])
+        self._add_to_submission_config('metadata_spreadsheet', metadata_spreadsheets[0])
 
     def detect_submitted_vcf(self):
         vcf_dir = os.path.join(self.eload_dir, directory_structure['vcf'])
@@ -80,7 +82,7 @@ class Eload(AppLogger):
         vcf_files = uncompressed_vcf + compressed_vcf
         if len(vcf_files) < 1:
             raise FileNotFoundError('Could not locate vcf file in in %s', vcf_dir)
-        self.add_to_submission_config('vcf_files', vcf_files)
+        self._add_to_submission_config('vcf_files', vcf_files)
 
     def detect_metadata_attibutes(self):
         eva_metadata = EVAXLSReader(self.eload_cfg.query('submission', 'metadata_spreadsheet'))
@@ -92,11 +94,26 @@ class Eload(AppLogger):
         if len(reference_gca) > 1:
             self.error('Multiple assemblies per project not currently supported: %s', ', '.join(reference_gca))
         elif reference_gca:
-            self.add_to_submission_config('assembly_accession', reference_gca.pop())
+            self._add_to_submission_config('assembly_accession', reference_gca.pop())
         else:
             self.error('No genbank accession could be found for %s', reference_txt)
 
         taxonomy_id = eva_metadata.project.get('Tax ID')
-        self.add_to_submission_config('taxonomy_id', taxonomy_id)
+        if taxonomy_id and taxonomy_id.isdigit():
+            self._add_to_submission_config('taxonomy_id', taxonomy_id)
+            scientific_name = retrieve_species_names_from_tax_id(taxonomy_id)
+            self._add_to_submission_config('scientific_name', scientific_name)
+        else:
+            if taxonomy_id:
+                self.error('Taxonomy id %s is invalid:', taxonomy_id)
+            else:
+                self.error('Taxonomy id is missing:')
 
-        retrieve_species_names_from_tax_id(taxonomy_id)
+    def find_genome(self):
+        assembly_fasta_path, assembly_report_path = get_genome_fasta_and_report(
+            self.eload_cfg.query('submission', 'scientific_name'),
+            self.eload_cfg.query('submission', 'assembly_accession')
+        )
+        self._add_to_submission_config('assembly_fasta', assembly_fasta_path)
+        self._add_to_submission_config('assembly_report', assembly_report_path)
+

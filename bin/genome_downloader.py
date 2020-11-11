@@ -22,6 +22,8 @@ from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from ebi_eva_common_pyutils.assembly import NCBIAssembly
 
+from eva_submission.eload_utils import get_genome_fasta_and_report
+
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from eva_submission.submission_config import load_config
 
@@ -54,19 +56,17 @@ def main(assembly_accession, species_name, output_directory, clear):
     load_config()
 
     try:
-        output_directory = output_directory or cfg.query('genome_downloader', 'output_directory')
-        assembly = NCBIAssembly(
-            assembly_accession, species_name, output_directory,
-            eutils_api_key=cfg['eutils_api_key']
+        assembly_fasta_path, assembly_report_path = get_genome_fasta_and_report(
+            species_name, assembly_accession, output_directory, clear
         )
-        assembly.download_or_construct(overwrite=clear)
-        logger.info(assembly.assembly_fasta_path)
-        logger.info(assembly.assembly_report_path)
+        logger.info('FASTA: ' + assembly_fasta_path)
+        logger.info('REPORT: ' + assembly_report_path)
     except Exception as ex:
         logger.exception(ex)
         return 1
 
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

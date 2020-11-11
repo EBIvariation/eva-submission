@@ -48,6 +48,8 @@ def compare_names_in_files_and_samples(files, sample_rows, analysis_alias):
     has_difference = False
     sample_names_in_vcf = set()
     for file_path in files:
+        # remove trailing spaces coming from the spreadsheet
+        file_path = file_path.strip()
         sample_names_in_vcf.update(get_samples_from_vcf(file_path))
 
     sample_name_in_spreadsheet = get_sample_names(sample_rows)
@@ -64,6 +66,10 @@ def compare_names_in_files_and_samples(files, sample_rows, analysis_alias):
         has_difference = True
         logger.warning('For analysis %s Samples that appear in the Metadata sheet but not in the VCF file(s):', analysis_alias)
         logger.warning(', '.join(sorted(diff_submission_submitted_file)))
+
+    if not has_difference:
+        logger.debug('No difference found in analysis: %s\nIn spreadsheet: %s\nIn VCF files:   %s',
+                     analysis_alias, sorted(sample_name_in_spreadsheet), sorted(sample_names_in_vcf))
     return has_difference
 
 

@@ -1,6 +1,15 @@
+import os
 import re
 
 import requests
+from ebi_eva_common_pyutils.assembly import NCBIAssembly
+from ebi_eva_common_pyutils.config import cfg
+
+from ebi_eva_common_pyutils.logger import logging_config as log_cfg
+
+
+logger = log_cfg.get_logger(__name__)
+
 
 eutils_url = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/'
 esearch_url = eutils_url + 'esearch.fcgi'
@@ -37,5 +46,16 @@ def retrieve_species_names_from_tax_id(taxid):
         if match:
             scientific_name = match.group(1)
         else:
-            print('WARNING: No species found for %s' % taxid)
-    return taxid, scientific_name
+            logger.error('WARNING: No species found for %s' % taxid)
+    return scientific_name
+
+
+def get_genome_fasta_and_report(species_name, assembly_accession, output_directory, overwrite):
+    output_directory = output_directory or cfg.query('genome_downloader', 'output_directory')
+    assembly = NCBIAssembly(
+        assembly_accession, species_name, output_directory,
+        eutils_api_key=cfg['eutils_api_key']
+    )
+    if not os.path.isfile(assembly.assembly_fasta_path) or not os.path.isfile(assembly.assembly_report_path) or overwrite:
+        assembly.download_or_construct(overwrite=overwrite)
+    return assembly.assembly_fasta_path, assembly.assembly_report_path

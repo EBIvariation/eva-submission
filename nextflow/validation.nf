@@ -19,7 +19,7 @@ params.reference_fasta = null
 params.reference_report = null
 params.output_dir = null
 // executables
-params.executable =[ "vcf_assembly_checker" :  "vcf_assembly_checker", "vcf_validator": "vcf_validator"]
+params.executable =["vcf_assembly_checker": "vcf_assembly_checker", "vcf_validator": "vcf_validator"]
 // help
 params.help = null
 

@@ -18,10 +18,13 @@ import logging
 import os
 import sys
 from argparse import ArgumentParser
+
+import yaml
+from ebi_eva_common_pyutils import command_utils
+from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
-
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
+from eva_submission.samples_checker import compare_spreadsheet_and_vcf
 from eva_submission.submission_config import load_config
 from eva_submission.eload_submission import Eload
 
@@ -31,11 +34,6 @@ logger = log_cfg.get_logger(__name__)
 
 def main():
     argparse = ArgumentParser()
-
-    argparse.add_argument('--ftp_box', required=True, type=int, choices=range(1, 21),
-                          help='box number where the data should have been uploaded')
-    argparse.add_argument('--username', required=True, type=str,
-                          help='the name of the directory for that user.')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
@@ -52,10 +50,24 @@ def main():
 
     validation_config = {
         'metadata_file': eload.eload_cfg.query('submission', 'metadata_spreadsheet'),
-        'vcf_files': eload.eload_cfg.query('submission', 'vcf_files')
+        'vcf_files': eload.eload_cfg.query('submission', 'vcf_files'),
+        'reference_fasta': eload.eload_cfg.query('submission', 'assembly_fasta'),
+        'reference_report': eload.eload_cfg.query('submission', 'assembly_report'),
+        'executable':  cfg['executable']
     }
 
-    eload.eload_cfg.query('submission', 'metadata_spreadsheet')
+    # Check if the files are in the xls if not add them
+    compare_spreadsheet_and_vcf(eload.eload_cfg.query('submission', 'metadata_spreadsheet'), eload._get_dir('vcf'))
+
+    # run the validation
+    validation_confg_file = 'validation_confg_file.yaml'
+    with open(validation_confg_file, 'w') as open_file:
+        yaml.safe_dump(validation_config, open_file)
+    validation_script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'nextflow', 'validation.nf')
+    command_utils.run_command_with_output(
+        'Start Nextflow Validation process',
+        cfg['executable']['nextflow'] + ' ' + validation_script + ' -params-file ' + validation_confg_file
+    )
 
 
 if __name__ == "__main__":
