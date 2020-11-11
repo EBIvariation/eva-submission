@@ -87,7 +87,7 @@ class EVAXLSReader(AppLogger):
 
     @property
     def references(self):
-        return list(set([a.get('Reference') for a in self.analysis]))
+        return list(set([a.get('Reference') for a in self.analysis if a.get('Reference')]))
 
     @property
     def samples_per_analysis(self):

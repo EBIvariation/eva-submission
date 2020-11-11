@@ -32,10 +32,10 @@ logger = log_cfg.get_logger(__name__)
 def main():
     argparse = ArgumentParser()
 
-    argparse.add_argument('--ftp_box', required=True, type=int, choices=range(1, 21),
-                          help='box number where the data should have been uploaded')
-    argparse.add_argument('--username', required=True, type=str,
-                          help='the name of the directory for that user.')
+    argparse.add_argument('--ftp_box', required=False, type=int, choices=range(1, 21),
+                          help='box number where the data should have been uploaded. Required to copy the data from the FTP')
+    argparse.add_argument('--username', required=False, type=str,
+                          help='the name of the directory for that user. Required to copy the data from the FTP')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
@@ -49,7 +49,8 @@ def main():
     load_config()
 
     eload = Eload(args.eload)
-    eload.copy_from_ftp(args.ftp_box, args.username)
+    if args.ftp_box and args.username:
+        eload.copy_from_ftp(args.ftp_box, args.username)
     eload.detect_all()
 
 

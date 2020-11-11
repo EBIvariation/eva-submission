@@ -18,18 +18,12 @@ import logging
 import os
 import sys
 from argparse import ArgumentParser
-
-import yaml
-from ebi_eva_common_pyutils import command_utils
-from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from eva_submission.samples_checker import compare_spreadsheet_and_vcf
 from eva_submission.submission_config import load_config
-from eva_submission.eload_submission import Eload
+from eva_submission.eload_submission import EloadValidation
 
 logger = log_cfg.get_logger(__name__)
-
 
 
 def main():
@@ -46,28 +40,8 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    eload = Eload(args.eload)
-
-    validation_config = {
-        'metadata_file': eload.eload_cfg.query('submission', 'metadata_spreadsheet'),
-        'vcf_files': eload.eload_cfg.query('submission', 'vcf_files'),
-        'reference_fasta': eload.eload_cfg.query('submission', 'assembly_fasta'),
-        'reference_report': eload.eload_cfg.query('submission', 'assembly_report'),
-        'executable':  cfg['executable']
-    }
-
-    # Check if the files are in the xls if not add them
-    compare_spreadsheet_and_vcf(eload.eload_cfg.query('submission', 'metadata_spreadsheet'), eload._get_dir('vcf'))
-
-    # run the validation
-    validation_confg_file = 'validation_confg_file.yaml'
-    with open(validation_confg_file, 'w') as open_file:
-        yaml.safe_dump(validation_config, open_file)
-    validation_script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'nextflow', 'validation.nf')
-    command_utils.run_command_with_output(
-        'Start Nextflow Validation process',
-        cfg['executable']['nextflow'] + ' ' + validation_script + ' -params-file ' + validation_confg_file
-    )
+    eload = EloadValidation(args.eload)
+    eload.validate()
 
 
 if __name__ == "__main__":

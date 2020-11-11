@@ -78,9 +78,9 @@ def get_vcf_file_paths(file_rows, vcf_dir):
     return [
         os.path.join(vcf_dir, file_row.get('File Name'))
         for file_row in file_rows
-        if file_row.get('File Type') == 'vcf' or
-           file_row.get('File Name').endswith('.vcf') or
-           file_row.get('File Name').endswith('.vcf.gz')
+        if (file_row.get('File Type') and file_row.get('File Type') == 'vcf') or
+           (file_row.get('File Name') and file_row.get('File Name').endswith('.vcf')) or
+           (file_row.get('File Name') and file_row.get('File Name').endswith('.vcf.gz'))
     ]
 
     

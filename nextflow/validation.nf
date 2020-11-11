@@ -46,7 +46,7 @@ vcf_channel2 = Channel.fromPath(params.vcf_files)
 */
 
 process check_vcf_valid {
-    publishDir params.output_dir,
+    publishDir "$params.output_dir/vcf_format",
             overwrite: false,
             mode: "copy"
 
@@ -54,7 +54,8 @@ process check_vcf_valid {
         path vcf_file from vcf_channel1
 
     output:
-        path "vcf_validation*"
+        path "vcf_validation/*.vcf.errors.*.db" into vcf_validation_db
+        path "vcf_validation/*.vcf.errors.*.txt" into vcf_validation_txt
 
     validExitStatus 0,1
 
@@ -71,8 +72,8 @@ process check_vcf_valid {
 
 process check_vcf_reference {
 
-    publishDir params.output_dir,
-            overwrite: false,
+    publishDir "$params.output_dir/assembly_check",
+            overwrite: true,
             mode: "copy"
 
     input:
@@ -81,7 +82,8 @@ process check_vcf_reference {
         path "vcf_file" from vcf_channel2
 
     output:
-        path "assembly_check"
+        path "assembly_check/*valid_assembly_report*" into assembly_valid
+        path "assembly_check/*text_assembly_report*" into assembly_check_report
 
     validExitStatus 0,1
 

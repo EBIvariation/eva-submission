@@ -114,7 +114,10 @@ class FtpDepositBox(AppLogger):
             reader = EVAXLSReader(metadata_file)
             report_params['project_title'] = reader.project_title
             report_params['number_analysis'] = len(reader.analysis)
-            report_params['reference genome'] = ', '.join(reader.references) or 'NA'
+            if reader.references:
+                report_params['reference genome'] = ', '.join(reader.references)
+            else:
+                report_params['reference genome'] = 'None'
             report_params['number_samples'] = len(reader.samples)
         except Exception:
             self.error(traceback.format_exc())

@@ -50,7 +50,7 @@ def retrieve_species_names_from_tax_id(taxid):
     return scientific_name
 
 
-def get_genome_fasta_and_report(species_name, assembly_accession, output_directory, overwrite):
+def get_genome_fasta_and_report(species_name, assembly_accession, output_directory=None, overwrite=False):
     output_directory = output_directory or cfg.query('genome_downloader', 'output_directory')
     assembly = NCBIAssembly(
         assembly_accession, species_name, output_directory,
