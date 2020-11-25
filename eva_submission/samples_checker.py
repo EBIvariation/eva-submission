@@ -70,7 +70,7 @@ def compare_names_in_files_and_samples(files, sample_rows, analysis_alias):
     if not has_difference:
         logger.debug('No difference found in analysis: %s\nIn spreadsheet: %s\nIn VCF files:   %s',
                      analysis_alias, sorted(sample_name_in_spreadsheet), sorted(sample_names_in_vcf))
-    return has_difference
+    return has_difference, diff_submitted_file_submission, diff_submission_submitted_file
 
 
 def get_vcf_file_paths(file_rows, vcf_dir):
@@ -91,23 +91,28 @@ def compare_spreadsheet_and_vcf(eva_files_sheet, vcf_dir):
     eva_xls_reader = EVAXLSReader(eva_files_sheet)
     samples_per_analysis = eva_xls_reader.samples_per_analysis
     files_per_analysis = eva_xls_reader.files_per_analysis
-    has_differences = False
+    overall_differences = False
+    results_per_analysis_alias = {}
     if len(samples_per_analysis) == 1 and None in samples_per_analysis or \
        len(files_per_analysis) == 1 and None in files_per_analysis:
-        # No analysis alias available in samples or in files. Process all samples/files together
-        has_differences = compare_names_in_files_and_samples(
-            get_vcf_file_paths(eva_xls_reader.files, vcf_dir),
-            eva_xls_reader.files,
-            None
-        )
+        # No analysis alias available in samples or in files. Prepare the samples and files to be used together
+        samples_per_analysis[None] = eva_xls_reader.samples
+        files_per_analysis[None] = eva_xls_reader.files
 
-    else:
-        for analysis_alias in samples_per_analysis:
-            has_differences = has_differences or compare_names_in_files_and_samples(
-                get_vcf_file_paths(files_per_analysis[analysis_alias], vcf_dir),
-                samples_per_analysis[analysis_alias],
-                analysis_alias
-            )
-    if not has_differences:
+    for analysis_alias in samples_per_analysis:
+        has_differences, diff_submitted_file_submission, diff_submission_submitted_file = compare_names_in_files_and_samples(
+            get_vcf_file_paths(files_per_analysis[analysis_alias], vcf_dir),
+            samples_per_analysis[analysis_alias],
+            analysis_alias
+        )
+        results_per_analysis_alias[analysis_alias] = (
+            has_differences,
+            diff_submitted_file_submission,
+            diff_submission_submitted_file
+        )
+        overall_differences = overall_differences or has_differences
+    if not overall_differences:
         logger.info('No differences found between the samples in the Metadata sheet and the submitted VCF file(s)!')
     logger.info('Samples checking completed!')
+    return overall_differences, results_per_analysis_alias
+

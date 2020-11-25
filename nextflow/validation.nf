@@ -46,7 +46,7 @@ vcf_channel2 = Channel.fromPath(params.vcf_files)
 */
 
 process check_vcf_valid {
-    publishDir "$params.output_dir/vcf_format",
+    publishDir "$params.output_dir",
             overwrite: false,
             mode: "copy"
 
@@ -54,14 +54,15 @@ process check_vcf_valid {
         path vcf_file from vcf_channel1
 
     output:
-        path "vcf_validation/*.vcf.errors.*.db" into vcf_validation_db
-        path "vcf_validation/*.vcf.errors.*.txt" into vcf_validation_txt
+        path "vcf_format/*.vcf.errors.*.db" into vcf_validation_db
+        path "vcf_format/*.vcf.errors.*.txt" into vcf_validation_txt
+        path "vcf_format/*.vcf_format.log" into vcf_validation_log
 
     validExitStatus 0,1
 
     """
-    mkdir -p vcf_validation
-    $params.executable.vcf_validator -i $vcf_file  -r database,text -o vcf_validation
+    mkdir -p vcf_format
+    $params.executable.vcf_validator -i $vcf_file  -r database,text -o vcf_format > vcf_format/${vcf_file}.vcf_format.log 2>&1
     """
 }
 
@@ -72,24 +73,25 @@ process check_vcf_valid {
 
 process check_vcf_reference {
 
-    publishDir "$params.output_dir/assembly_check",
+    publishDir "$params.output_dir",
             overwrite: true,
             mode: "copy"
 
     input:
         path "reference.fa" from params.reference_fasta
         path "reference.report" from params.reference_report
-        path "vcf_file" from vcf_channel2
+        path vcf_file from vcf_channel2
 
     output:
-        path "assembly_check/*valid_assembly_report*" into assembly_valid
+        path "assembly_check/*valid_assembly_report*" into vcf_assembly_valid
         path "assembly_check/*text_assembly_report*" into assembly_check_report
+        path "assembly_check/*.assembly_check.log" into assembly_check_log
 
     validExitStatus 0,1
 
     """
     mkdir -p assembly_check
-    $params.executable.vcf_assembly_checker -i vcf_file -f reference.fa -a reference.report -r summary,text,valid  -o assembly_check
+    $params.executable.vcf_assembly_checker -i $vcf_file -f reference.fa -a reference.report -r summary,text,valid  -o assembly_check > assembly_check/${vcf_file}.assembly_check.log 2>&1
     """
 }
 

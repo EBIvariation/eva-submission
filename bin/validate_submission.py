@@ -42,6 +42,7 @@ def main():
 
     eload = EloadValidation(args.eload)
     eload.validate()
+    eload.report()
 
 
 if __name__ == "__main__":

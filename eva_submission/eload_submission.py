@@ -2,9 +2,14 @@
 import glob
 import os
 import shutil
+import string
 import subprocess
+import random
+from datetime import datetime
+from typing import List
 
 import yaml
+from cached_property import cached_property
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
@@ -131,19 +136,89 @@ class EloadPrepation(Eload):
 
 class EloadValidation(Eload):
 
+    @cached_property
+    def now(self):
+        return datetime.now()
+
+    def create_temp_output_directory(self):
+        random_string = ''.join(random.choice(string.ascii_letters) for i in range(6))
+        output_dir = os.path.join(self.eload_dir, 'nextflow_output_' + random_string)
+        os.makedirs(output_dir)
+        return output_dir
+
     def validate(self):
+        # (Re-)Initialise the config file output
+        self.eload_cfg['validation'] = {
+            'validation_date': self.now,
+            'assembly_check': {},
+            'vcf_check': {},
+            'sample_check': {}
+        }
+        self._validate_spreadsheet()
+        output_dir = self._run_validation_worklflow()
+        self._collect_validation_worklflow_results(output_dir)
+        shutil.rmtree(output_dir)
+
+    def _validate_spreadsheet(self):
+        # TODO: Check if the files are in the xls if not add them
+        overall_differences, results_per_analysis_alias = compare_spreadsheet_and_vcf(
+            eva_files_sheet=self.eload_cfg.query('submission', 'metadata_spreadsheet'),
+            vcf_dir=self._get_dir('vcf')
+        )
+        for analysis_alias in results_per_analysis_alias:
+            has_difference, diff_submitted_file_submission, diff_submission_submitted_file = results_per_analysis_alias[analysis_alias]
+
+            self.eload_cfg['validation']['sample_check']['analysis'][str(analysis_alias)] = {
+                'difference_exists': has_difference,
+                'in_VCF_not_in_metadata': diff_submitted_file_submission,
+                'in_metadata_not_in_VCF': diff_submission_submitted_file
+            }
+        self.eload_cfg['validation']['sample_check']['pass'] = not overall_differences
+
+
+    def parse_assembly_check_log(self, assembly_check_log):
+        error_list = []
+        nb_error = 0
+        match = total = None
+        with open(assembly_check_log) as open_file:
+            for line in open_file:
+                if line.startswith('[error]'):
+                    nb_error += 1
+                    if nb_error < 11:
+                        error_list.append(line.strip()[len('[error]'):])
+                elif line.startswith('[info] Number of matches:'):
+                    match, total = line.strip()[len('[info] Number of matches: '):].split('/')
+                    match = int(match)
+                    total = int(total)
+        return error_list, nb_error, match, total
+
+    def parse_vcf_check_report(self, vcf_check_report):
+        valid = True
+        error_list = []
+        warning_count = error_count = 0
+        with open(vcf_check_report) as open_file:
+            for line in open_file:
+                if 'warning' in line:
+                    warning_count = 1
+                elif line.startswith('According to the VCF specification'):
+                    if 'not' in line:
+                        valid = False
+                else:
+                    error_count += 1
+                    if error_count < 11:
+                        error_list.append(line.strip())
+        return valid, error_list, error_count, warning_count
+
+    def _run_validation_worklflow(self):
+        output_dir = self.create_temp_output_directory()
         validation_config = {
             'metadata_file': self.eload_cfg.query('submission', 'metadata_spreadsheet'),
             'vcf_files': self.eload_cfg.query('submission', 'vcf_files'),
             'reference_fasta': self.eload_cfg.query('submission', 'assembly_fasta'),
             'reference_report': self.eload_cfg.query('submission', 'assembly_report'),
-            'output_dir': self._get_dir('validation'),
+            'output_dir': output_dir,
             'executable': cfg['executable']
         }
-
-        # Check if the files are in the xls if not add them
-        compare_spreadsheet_and_vcf(self.eload_cfg.query('submission', 'metadata_spreadsheet'), self._get_dir('vcf'))
-
         # run the validation
         validation_confg_file = os.path.join(self.eload_dir, 'validation_confg_file.yaml')
         with open(validation_confg_file, 'w') as open_file:
@@ -152,13 +227,152 @@ class EloadValidation(Eload):
         try:
             command_utils.run_command_with_output(
                 'Start Nextflow Validation process',
-                cfg['executable']['nextflow'] + ' ' + validation_script + ' -params-file ' + validation_confg_file
+                ' '.join((
+                    cfg['executable']['nextflow'], validation_script,
+                    '-params-file', validation_confg_file,
+                    '-work-dir', output_dir
+                ))
             )
         except subprocess.CalledProcessError:
             self.error('Nextflow pipeline failed: results might not be complete')
+        return output_dir
 
+    def _collect_validation_worklflow_results(self, output_dir):
+        # Collect information from the output and summarise in the config
+        self.eload_cfg['validation']['vcf_check']['files'] = {}
+        total_error = 0
+        # detect output files for vcf check
+        for vcf_file in self.eload_cfg.query('submission', 'vcf_files'):
+            vcf_name = os.path.basename(vcf_file)
 
+            tmp_vcf_check_log = os.path.join(output_dir, 'vcf_format', vcf_name + '.vcf_format.log')
+            tmp_vcf_check_text_report = glob.glob(os.path.join(output_dir, 'vcf_format', vcf_name + '.*.txt'))
+            tmp_vcf_check_db_report = glob.glob(os.path.join(output_dir, 'vcf_format', vcf_name + '.*.db'))
 
+            # move the output files
+            vcf_check_log = os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_format.log')
+            os.rename(tmp_vcf_check_log, vcf_check_log)
+            vcf_check_text_report = os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_validator.txt')
+            os.rename(tmp_vcf_check_text_report, vcf_check_text_report)
+            vcf_check_db_report = os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_validator.db')
+            os.rename(tmp_vcf_check_db_report, vcf_check_db_report)
 
+            valid, error_list, error_count, warning_count = self.parse_vcf_check_report(vcf_check_text_report[0])
+            total_error += error_count
+
+            self.eload_cfg['validation']['vcf_check']['files'][vcf_name] = {
+                'error_list': error_list, 'nb_error': error_count, 'nb_warning': warning_count,
+                'vcf_check_log': vcf_check_log, 'vcf_check_text_report': vcf_check_text_report,
+                'vcf_check_db_report': vcf_check_db_report
+            }
+        self.eload_cfg['validation']['vcf_check']['pass'] = total_error == 0
+
+        # detect output files for assembly check
+        self.eload_cfg['validation']['vcf_check']['files'] = {}
+        total_error = 0
+        for vcf_file in self.eload_cfg.query('submission', 'vcf_files'):
+            vcf_name = os.path.basename(vcf_file)
+
+            tmp_assembly_check_log = os.path.join(output_dir, 'assembly_check',  vcf_name + '.assembly_check.log')
+            tmp_assembly_check_valid_vcf = glob.glob(os.path.join(output_dir, 'assembly_check', vcf_name + '.valid_assembly_report*'))
+            tmp_assembly_check_text_report = glob.glob(os.path.join(output_dir, 'assembly_check', vcf_name + 'text_assembly_report*'))
+
+            # move the output files
+            assembly_check_log = os.path.join(self._get_dir('assembly_check'), vcf_name + '.assembly_check.log')
+            os.rename(tmp_assembly_check_log, assembly_check_log)
+            assembly_check_valid_vcf = os.path.join(self._get_dir('assembly_check'), vcf_name + '.valid_assembly_report.txt')
+            os.rename(tmp_assembly_check_valid_vcf, assembly_check_valid_vcf)
+            assembly_check_text_report = os.path.join(self._get_dir('assembly_check'), vcf_name + 'text_assembly_report.txt')
+            os.rename(tmp_assembly_check_text_report, assembly_check_text_report)
+
+            error_list, nb_error, match, total = self.parse_assembly_check_log(assembly_check_log)
+            total_error += error_count
+            self.eload_cfg['validation']['assembly_check'][vcf_name] = {
+                'error_list': error_list, 'nb_error': nb_error, 'ref_match': match, 'nb_variant': total
+            }
+        self.eload_cfg['validation']['vcf_check']['pass'] = total_error == 0
+
+    def _vcf_check_report(self):
+        reports = []
+        for vcf_file in self.eload_cfg.query('validation', 'vcf_check', 'files'):
+            results = self.eload_cfg.query('validation', 'vcf_check', 'files', vcf_file)
+            report_data = {
+                'vcf_file': vcf_file,
+                'pass': 'PASS' if results.get('nb_error') == 0 else 'FAIL',
+                '10_error_list': '\n'.join(results['error_list'])
+            }
+            report_data.update(results)
+            reports.append("""  * {vcf_file}: {pass}
+    - number of error: {nb_error}
+    - number of warning: {nb_warning}
+    - first 10 errors: {10_error_list}
+""".format(**report_data))
+        return '\n'.join(reports)
+
+    def _assembly_check_report(self):
+        reports = []
+        for vcf_file in self.eload_cfg.query('validation', 'assembly_check', 'files'):
+            results = self.eload_cfg.query('validation', 'assembly_check', 'files', vcf_file)
+            report_data = {
+                'vcf_file': vcf_file,
+                'pass': 'PASS' if results.get('nb_error') == 0 else 'FAIL',
+                '10_error_list': '\n'.join(results['error_list'])
+            }
+            report_data.update(results)
+            reports.append("""  * {vcf_file}: {pass}
+    - number of error: {nb_error}
+    - match results: {ref_match}/{nb_variant}
+    - first 10 errors: {10_error_list}
+""".format(**report_data))
+        return '\n'.join(reports)
+
+    def _sample_check_report(self):
+        reports = []
+        for analysis_alias in self.eload_cfg.query('validation', 'sample_check', 'analysis'):
+            results = self.eload_cfg.query('validation', 'sample_check', 'analysis', analysis_alias)
+            report_data = {
+                'analysis_alias': analysis_alias,
+                'pass': 'FAIL' if results.get('difference_exists') else 'PASS',
+                'in_VCF_not_in_metadata': ', '.join(results['in_VCF_not_in_metadata']),
+                'in_metadata_not_in_VCF': ', '.join(results['in_metadata_not_in_VCF'])
+            }
+            reports.append("""  * {analysis_alias}: {pass}
+    - Samples that appear in the VCF but not in the Metadata sheet:: {in_VCF_not_in_metadata}
+    - Samples that appear in the Metadata sheet but not in the VCF file(s): {in_metadata_not_in_VCF}
+""".format(**report_data))
+        return '\n'.join(reports)
+
+    def report(self):
+        """Collect information from the config and write the report."""
+
+        report_data = {
+            'validation_date': self.eload_cfg.query('validation', 'validation_date'),
+            'vcf_check': 'PASS' if self.eload_cfg.query('validation', 'vcf_check', 'pass') else 'FAIL',
+            'assembly_check': 'PASS' if self.eload_cfg.query('validation', 'assembly_check', 'pass') else 'FAIL',
+            'sample_check': 'PASS' if self.eload_cfg.query('validation', 'sample_check', 'pass') else 'FAIL',
+            'vcf_check_report': self._vcf_check_report(),
+            'assembly_check_report': self._assembly_check_report(),
+            'sample_check_report': self._sample_check_report()
+        }
+
+        report = """Validation performed on {validation_date}
+VCF check: {vcf_check}
+Assembly check: {assembly_check}
+Sample names check: {sample_check}
+----------------------------------
+
+VCF check:
+{vcf_check_report}
+----------------------------------
+
+Assembly check:
+{assembly_check_report}
+----------------------------------
+
+Sample names check:
+{sample_check_report}
+----------------------------------
+"""
+        print(report.format(**report_data))
 
 
