@@ -139,6 +139,11 @@ class XLSReader(AppLogger):
 
     @active_worksheet.setter
     def active_worksheet(self, worksheet):
+        if self.worksheets is None:
+            self.valid_worksheets()
+        if worksheet not in self.worksheets:
+            raise ValueError('Worksheet ' + worksheet + ' is not valid!')
+
         self._active_worksheet = worksheet
 
     def valid_worksheets(self):
@@ -204,19 +209,6 @@ class XLSReader(AppLogger):
 
         return self.valid
 
-    def get_current_headers(self):
-        """
-        Retrieve the list of worksheets that have all the required headers
-        :return: the list of valid worksheet names in the Excel file
-        :rtype: list
-        """
-        worksheets = self.valid_worksheets()
-        current_worksheet = self.active_worksheet
-        if current_worksheet not in worksheets:
-            raise Exception('Worksheet '+current_worksheet+' is not available or not valid!')
-
-        return [x for x in self.headers[current_worksheet] if x is not None]
-
     def next(self):
         """
         Retrieve next data row
@@ -226,15 +218,9 @@ class XLSReader(AppLogger):
                 and the corresponding data as values
         :rtype: dict
         """
-        if self.worksheets is None:
-            self.valid_worksheets()
-
         worksheet = self.active_worksheet
         if worksheet is None:
             self.warning('No worksheet is specified!')
-            raise StopIteration
-        if worksheet not in self.worksheets:
-            self.warning('Worksheet ' + worksheet + ' is not valid!')
             raise StopIteration
 
         if worksheet not in self.row_offset:

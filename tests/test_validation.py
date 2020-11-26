@@ -35,7 +35,6 @@ class TestEloadValidation(TestCase):
         assert nb_error == 8
         assert nb_warning == 1
 
-
     def test_report(self):
         self.validation.report()
 

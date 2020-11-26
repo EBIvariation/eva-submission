@@ -42,7 +42,10 @@ Sample:
 
   header_row: 3
 
-  # List of "required" fields
   optional:
+    - Analysis Alias
+    - Sample ID
+    - Sample Accession
+    - Sampleset Accession
     - Sample Name
     - Title

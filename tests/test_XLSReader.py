@@ -43,28 +43,19 @@ class TestXLSReader(TestCase):
         active_worksheet = self.xls_reader.active_worksheet
         assert active_worksheet == 'Analysis'
 
-    def test_get_current_headers(self):
-        self.xls_reader.set_current_conf_key('Sample')
-        headers = self.xls_reader.get_current_headers()
-        assert isinstance(headers, list)
-        assert headers == [
-            'Analysis Alias', 'Sample ID', 'Sample Accession', 'Sampleset Accession', 'OR',
-            'Sample Name', 'Title', 'Description', 'Unique Name Prefix', 'Subject', 'Derived From',
-            'Tax Id', 'Scientific Name', 'Common Name', 'mating_type', 'sex', 'population', 'cell_type',
-            'dev_stage', 'germline', 'tissue_lib', 'tissue_type', 'bio_material', 'culture_collection',
-            'specimen_voucher', 'collected_by', 'collection_date', 'geographic location (country and/or sea)',
-            'geographic location (region and locality)', 'host', 'identified_by', 'isolation_source', 'lat_lon',
-            'lab_host', 'environmental_sample', 'cultivar', 'ecotype', 'isolate', 'strain', 'sub_species', 'variety',
-            'sub_strain', 'cell_line', 'serotype', 'serovar', 'Novel attribute(s)'
-        ]
-        self.xls_reader.set_current_conf_key('ExceptionExpected')
-        self.assertRaises(Exception, self.xls_reader.get_current_headers)
-
     def test_next_row(self):
         self.xls_reader.set_current_conf_key('Sample')
         row = self.xls_reader.next()
         assert isinstance(row, dict)
-        assert row == {'Sample Name': 'S1', 'Title': 'Sample 1', 'row_num': 4}
+        assert row == {
+            'Analysis Alias': 'GAE',
+            'Sample Accession': None,
+            'Sample ID': None,
+            'Sample Name': 'S1',
+            'Sampleset Accession': None,
+            'Title': 'Sample 1',
+            'row_num': 4
+        }
 
         self.xls_reader.set_current_conf_key('Project')
         row = self.xls_reader.next()

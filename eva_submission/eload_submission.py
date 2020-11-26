@@ -12,9 +12,10 @@ from cached_property import cached_property
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
+from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
+from ebi_eva_common_pyutils.variation.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
 
-from eva_submission.eload_utils import retrieve_assembly_accession_from_ncbi, retrieve_species_names_from_tax_id, \
-    get_genome_fasta_and_report
+from eva_submission.eload_utils import get_genome_fasta_and_report
 from eva_submission.samples_checker import compare_spreadsheet_and_vcf
 from eva_submission.submission_config import EloadConfig
 from eva_submission.submission_in_ftp import FtpDepositBox
@@ -104,7 +105,7 @@ class EloadPrepation(Eload):
         reference_gca = set()
         for analysis in eva_metadata.analysis:
             reference_txt = analysis.get('Reference')
-            reference_gca.update(retrieve_assembly_accession_from_ncbi(reference_txt))
+            reference_gca.update(retrieve_genbank_assembly_accessions_from_ncbi(reference_txt))
 
         if len(reference_gca) > 1:
             self.error('Multiple assemblies per project not currently supported: %s', ', '.join(reference_gca))
@@ -116,13 +117,13 @@ class EloadPrepation(Eload):
         taxonomy_id = eva_metadata.project.get('Tax ID')
         if taxonomy_id and (isinstance(taxonomy_id, int) or taxonomy_id.isdigit()):
             self._add_to_submission_config('taxonomy_id', int(taxonomy_id))
-            scientific_name = retrieve_species_names_from_tax_id(taxonomy_id)
+            scientific_name = get_scientific_name_from_ensembl(taxonomy_id)
             self._add_to_submission_config('scientific_name', scientific_name)
         else:
             if taxonomy_id:
                 self.error('Taxonomy id %s is invalid:', taxonomy_id)
             else:
-                self.error('Taxonomy id is missing:')
+                self.error('Taxonomy id is missing for the submission')
 
     def find_genome(self):
         assembly_fasta_path, assembly_report_path = get_genome_fasta_and_report(
@@ -162,7 +163,8 @@ class EloadValidation(Eload):
         # TODO: Check if the files are in the xls if not add them
         overall_differences, results_per_analysis_alias = compare_spreadsheet_and_vcf(
             eva_files_sheet=self.eload_cfg.query('submission', 'metadata_spreadsheet'),
-            vcf_dir=self._get_dir('vcf')
+            vcf_dir=self._get_dir('vcf'),
+            expected_vcf_files=self.eload_cfg['submission']['vcf_files']
         )
         self.eload_cfg['validation']['sample_check']['analysis'] = {}
         for analysis_alias in results_per_analysis_alias:

@@ -59,6 +59,9 @@ Sample:
   # have to make all the fields optional because the user can fill in either the pre-register or the novel sample part
   optional:
     - Analysis Alias
+    - Sample ID
+    - Sample Accession
+    - Sampleset Accession
     - Sample Name
     - Title
     - Description
