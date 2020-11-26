@@ -54,8 +54,8 @@ process check_vcf_valid {
         path vcf_file from vcf_channel1
 
     output:
-        path "vcf_format/*.vcf.errors.*.db" into vcf_validation_db
-        path "vcf_format/*.vcf.errors.*.txt" into vcf_validation_txt
+        path "vcf_format/*.errors.*.db" into vcf_validation_db
+        path "vcf_format/*.errors.*.txt" into vcf_validation_txt
         path "vcf_format/*.vcf_format.log" into vcf_validation_log
 
     validExitStatus 0,1

@@ -90,7 +90,7 @@ class XLSWriter(XLSReader):
 
 class EVAXLSWriter(AppLogger):
 
-    def __init__(self, metadata_source, metadata_dest):
+    def __init__(self, metadata_source, metadata_dest=None):
         conf = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc', 'eva_project_conf.yaml')
         self.writer = XLSWriter(metadata_source, conf)
         self.metadata_source = metadata_source

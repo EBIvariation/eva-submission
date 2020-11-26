@@ -289,14 +289,16 @@ class EloadValidation(Eload):
             assembly_check_valid_vcf = os.path.join(self._get_dir('assembly_check'), vcf_name + '.valid_assembly_report.txt')
             self.debug('Rename %s to %s', tmp_assembly_check_valid_vcf, assembly_check_valid_vcf)
             os.rename(tmp_assembly_check_valid_vcf, assembly_check_valid_vcf)
-            assembly_check_text_report = os.path.join(self._get_dir('assembly_check'), vcf_name + 'text_assembly_report.txt')
+            assembly_check_text_report = os.path.join(self._get_dir('assembly_check'), vcf_name + '.text_assembly_report.txt')
             self.debug('Rename %s to %s', tmp_assembly_check_text_report, assembly_check_text_report)
             os.rename(tmp_assembly_check_text_report, assembly_check_text_report)
 
             error_list, nb_error, match, total = self.parse_assembly_check_log(assembly_check_log)
             total_error += error_count
             self.eload_cfg['validation']['assembly_check']['files'][vcf_name] = {
-                'error_list': error_list, 'nb_error': nb_error, 'ref_match': match, 'nb_variant': total
+                'error_list': error_list, 'nb_error': nb_error, 'ref_match': match, 'nb_variant': total,
+                'assembly_check_log': assembly_check_log, 'assembly_check_valid_vcf': assembly_check_valid_vcf,
+                'assembly_check_text_report': assembly_check_text_report
             }
         self.eload_cfg['validation']['assembly_check']['pass'] = total_error == 0
 
@@ -314,6 +316,7 @@ class EloadValidation(Eload):
     - number of error: {nb_error}
     - number of warning: {nb_warning}
     - first 10 errors: {10_error_list}
+    - see report for detail: {vcf_check_text_report}
 """.format(**report_data))
         return '\n'.join(reports)
 
@@ -331,6 +334,7 @@ class EloadValidation(Eload):
     - number of error: {nb_error}
     - match results: {ref_match}/{nb_variant}
     - first 10 errors: {10_error_list}
+    - see report for detail: {assembly_check_text_report}
 """.format(**report_data))
         return '\n'.join(reports)
 

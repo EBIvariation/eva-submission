@@ -2,14 +2,9 @@ import logging
 
 import pysam
 import os
-import sys
-
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
 from eva_submission.xlswriter import EVAXLSWriter
-
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
 from eva_submission.xlsreader import EVAXLSReader
 
 
@@ -91,23 +86,25 @@ def compare_spreadsheet_and_vcf(eva_files_sheet, vcf_dir, expected_vcf_files=Non
     """
     eva_xls_reader = EVAXLSReader(eva_files_sheet)
     vcf_files = [row['File Name'] for row in eva_xls_reader.files]
-    if expected_vcf_files and sorted(vcf_files) != expected_vcf_files:
-
-        logger.warning('VCF files found in the spreadsheet does not match the ones submitted. '
-                       'Submitted VCF will be added to the spreadsheet')
-
-        analysis_alias = ''
-        if len(EVAXLSReader.analysis) > 0:
-            analysis_alias = EVAXLSReader.analysis[0].get('Analysis Alias') or ''
-        eva_xls_writer = EVAXLSWriter(eva_files_sheet)
-        eva_xls_writer.set_files([
-            {
-                'File Name': os.path.basename(vcf_file),
-                'File Type': 'vcf',
-                'Analysis Alias': analysis_alias
-            } for vcf_file in expected_vcf_files
-        ])
-        eva_xls_writer.save()
+    if expected_vcf_files:
+        expected_vcf_files = [os.path.basename(vcf_file) for vcf_file in expected_vcf_files]
+        if sorted(vcf_files) != sorted(expected_vcf_files):
+            logger.warning('VCF files found in the spreadsheet does not match the ones submitted. '
+                           'Submitted VCF will be added to the spreadsheet')
+            analysis_alias = ''
+            if len(eva_xls_reader.analysis) > 0:
+                analysis_alias = eva_xls_reader.analysis[0].get('Analysis Alias') or ''
+            eva_xls_writer = EVAXLSWriter(eva_files_sheet)
+            eva_xls_writer.set_files([
+                {
+                    'File Name': os.path.basename(vcf_file),
+                    'File Type': 'vcf',
+                    'Analysis Alias': analysis_alias,
+                    'MD5': ''  # Dummy md5 for now
+                } for vcf_file in expected_vcf_files
+            ])
+            eva_xls_writer.save()
+            eva_xls_reader = EVAXLSReader(eva_files_sheet)
 
     samples_per_analysis = eva_xls_reader.samples_per_analysis
     files_per_analysis = eva_xls_reader.files_per_analysis
