@@ -6,7 +6,6 @@ import string
 import subprocess
 import random
 from datetime import datetime
-from typing import List
 
 import yaml
 from cached_property import cached_property
@@ -165,6 +164,7 @@ class EloadValidation(Eload):
             eva_files_sheet=self.eload_cfg.query('submission', 'metadata_spreadsheet'),
             vcf_dir=self._get_dir('vcf')
         )
+        self.eload_cfg['validation']['sample_check']['analysis'] = {}
         for analysis_alias in results_per_analysis_alias:
             has_difference, diff_submitted_file_submission, diff_submission_submitted_file = results_per_analysis_alias[analysis_alias]
 
@@ -246,18 +246,21 @@ class EloadValidation(Eload):
             vcf_name = os.path.basename(vcf_file)
 
             tmp_vcf_check_log = os.path.join(output_dir, 'vcf_format', vcf_name + '.vcf_format.log')
-            tmp_vcf_check_text_report = glob.glob(os.path.join(output_dir, 'vcf_format', vcf_name + '.*.txt'))
-            tmp_vcf_check_db_report = glob.glob(os.path.join(output_dir, 'vcf_format', vcf_name + '.*.db'))
+            tmp_vcf_check_text_report = glob.glob(os.path.join(output_dir, 'vcf_format', vcf_name + '.*.txt'))[0]
+            tmp_vcf_check_db_report = glob.glob(os.path.join(output_dir, 'vcf_format', vcf_name + '.*.db'))[0]
 
             # move the output files
             vcf_check_log = os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_format.log')
+            self.debug('Rename %s to %s', tmp_vcf_check_log, vcf_check_log)
             os.rename(tmp_vcf_check_log, vcf_check_log)
             vcf_check_text_report = os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_validator.txt')
+            self.debug('Rename %s to %s', tmp_vcf_check_text_report, vcf_check_text_report)
             os.rename(tmp_vcf_check_text_report, vcf_check_text_report)
             vcf_check_db_report = os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_validator.db')
+            self.debug('Rename %s to %s', tmp_vcf_check_db_report, vcf_check_db_report)
             os.rename(tmp_vcf_check_db_report, vcf_check_db_report)
 
-            valid, error_list, error_count, warning_count = self.parse_vcf_check_report(vcf_check_text_report[0])
+            valid, error_list, error_count, warning_count = self.parse_vcf_check_report(vcf_check_text_report)
             total_error += error_count
 
             self.eload_cfg['validation']['vcf_check']['files'][vcf_name] = {
@@ -268,29 +271,32 @@ class EloadValidation(Eload):
         self.eload_cfg['validation']['vcf_check']['pass'] = total_error == 0
 
         # detect output files for assembly check
-        self.eload_cfg['validation']['vcf_check']['files'] = {}
+        self.eload_cfg['validation']['assembly_check']['files'] = {}
         total_error = 0
         for vcf_file in self.eload_cfg.query('submission', 'vcf_files'):
             vcf_name = os.path.basename(vcf_file)
 
             tmp_assembly_check_log = os.path.join(output_dir, 'assembly_check',  vcf_name + '.assembly_check.log')
-            tmp_assembly_check_valid_vcf = glob.glob(os.path.join(output_dir, 'assembly_check', vcf_name + '.valid_assembly_report*'))
-            tmp_assembly_check_text_report = glob.glob(os.path.join(output_dir, 'assembly_check', vcf_name + 'text_assembly_report*'))
+            tmp_assembly_check_valid_vcf = glob.glob(os.path.join(output_dir, 'assembly_check', vcf_name + '.valid_assembly_report*'))[0]
+            tmp_assembly_check_text_report = glob.glob(os.path.join(output_dir, 'assembly_check', vcf_name + '*text_assembly_report*'))[0]
 
             # move the output files
             assembly_check_log = os.path.join(self._get_dir('assembly_check'), vcf_name + '.assembly_check.log')
+            self.debug('Rename %s to %s', tmp_assembly_check_log, assembly_check_log)
             os.rename(tmp_assembly_check_log, assembly_check_log)
             assembly_check_valid_vcf = os.path.join(self._get_dir('assembly_check'), vcf_name + '.valid_assembly_report.txt')
+            self.debug('Rename %s to %s', tmp_assembly_check_valid_vcf, assembly_check_valid_vcf)
             os.rename(tmp_assembly_check_valid_vcf, assembly_check_valid_vcf)
             assembly_check_text_report = os.path.join(self._get_dir('assembly_check'), vcf_name + 'text_assembly_report.txt')
+            self.debug('Rename %s to %s', tmp_assembly_check_text_report, assembly_check_text_report)
             os.rename(tmp_assembly_check_text_report, assembly_check_text_report)
 
             error_list, nb_error, match, total = self.parse_assembly_check_log(assembly_check_log)
             total_error += error_count
-            self.eload_cfg['validation']['assembly_check'][vcf_name] = {
+            self.eload_cfg['validation']['assembly_check']['files'][vcf_name] = {
                 'error_list': error_list, 'nb_error': nb_error, 'ref_match': match, 'nb_variant': total
             }
-        self.eload_cfg['validation']['vcf_check']['pass'] = total_error == 0
+        self.eload_cfg['validation']['assembly_check']['pass'] = total_error == 0
 
     def _vcf_check_report(self):
         reports = []

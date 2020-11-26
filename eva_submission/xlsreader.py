@@ -167,7 +167,7 @@ class XLSReader(AppLogger):
             self.headers[title] = [cell.value if cell.value is None else cell.value.strip()
                                    for cell in worksheet[header_row]]
             required_headers = self.xls_conf[title].get(REQUIRED_HEADERS_KEY_NAME, [])
-            if set(required_headers) <= set(self.headers[title]): # issubset
+            if set(required_headers) <= set(self.headers[title]):  # issubset
                 self.worksheets.append(title)
             else:
                 self.warning('Worksheet '+title+' does not have all the required headers!')
