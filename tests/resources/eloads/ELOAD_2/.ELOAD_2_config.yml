@@ -2,6 +2,7 @@ validation:
   assembly_check:
     files:
       test.vcf:
+        assembly_check_text_report: /path/to/report
         error_list: []
         nb_error: 0
         nb_variant: 20
@@ -20,4 +21,5 @@ validation:
         error_list: []
         nb_error: 0
         nb_warning: 2
+        vcf_check_text_report: /path/to/report
     pass: true
