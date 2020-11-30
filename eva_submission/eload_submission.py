@@ -154,7 +154,7 @@ class EloadValidation(Eload):
             'sample_check': {}
         }
         self._validate_spreadsheet()
-        output_dir = self._run_validation_worklflow()
+        output_dir = self._run_validation_workflow()
         self._collect_validation_worklflow_results(output_dir)
         shutil.rmtree(output_dir)
 
@@ -210,7 +210,7 @@ class EloadValidation(Eload):
                         error_list.append(line.strip())
         return valid, error_list, error_count, warning_count
 
-    def _run_validation_worklflow(self):
+    def _run_validation_workflow(self):
         output_dir = self.create_temp_output_directory()
         validation_config = {
             'metadata_file': self.eload_cfg.query('submission', 'metadata_spreadsheet'),
