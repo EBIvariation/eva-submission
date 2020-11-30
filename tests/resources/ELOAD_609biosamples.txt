@@ -1,0 +1,31 @@
+[MSI]
+Submission Title	Characterization of a large dataset of SNPs in Larimichthys polyactis using high throughput 2b-RAD sequencing
+Submission Identifier	
+Submission Description	Single nucleotide polymorphism (SNP) characterization and genotyping of Larimichthys polyactis by using high-throughput 2b-RAD sequencing technology
+Person Last Name	first1	first2
+Person First Name	last1	last2
+Person Email	test1@gmail.com	test2@gmail.com
+Organization Name	Laboratory1	Laboratory1
+Organization Address	Changzhi Island, Zhoushan, Zhejiang 316022, PR China	Changzhi Island, Zhoushan, Zhejiang 316022, PR China
+Database Name	PRJNA592281
+Term Source Name	NCBI Taxonomy
+Term Source URI	http://www.ncbi.nlm.nih.gov/taxonomy
+
+[SCD]
+Sample Name	Sample Description	Organism	Term Source REF	Term Source ID	Characteristic[identified_by]	Characteristic[collected_by]	Characteristic[geographic location (country and/or sea)]	Characteristic[Scientific Name]	Characteristic[geographic location (region and locality)]	Characteristic[Common Name]
+LH1	yellow croaker sample 12	Larimichthys polyactis	NCBI Taxonomy	334908	first1 last1	first1 last1	China	Larimichthys polyactis	East China Sea,Liuheng, Putuo, Zhejiang	yellow croaker
+LS3	yellow croaker sample 8	Larimichthys polyactis	NCBI Taxonomy	334908	first1 last1	first1 last1	China	Larimichthys polyactis	Yellow-Bo Sea,Lüshun, Liaoning	yellow croaker
+DL3	yellow croaker sample 3	Larimichthys polyactis	NCBI Taxonomy	334908	first1 last1	first1 last1	China	Larimichthys polyactis	Yellow-Bo Sea,Dalian, Liaoning	yellow croaker
+DL2	yellow croaker sample 2	Larimichthys polyactis	NCBI Taxonomy	334908	first1 last1	first1 last1	China	Larimichthys polyactis	Yellow-Bo Sea,Dalian, Liaoning	yellow croaker
+DL1	yellow croaker sample 1	Larimichthys polyactis	NCBI Taxonomy	334908	first1 last1	first1 last1	China	Larimichthys polyactis	Yellow-Bo Sea,Dalian, Liaoning	yellow croaker
+LH3	yellow croaker sample 14	Larimichthys polyactis	NCBI Taxonomy	334908	first1 last1	first1 last1	China	Larimichthys polyactis	East China Sea,Liuheng, Putuo, Zhejiang	yellow croaker
+LS2	yellow croaker sample 7	Larimichthys polyactis	NCBI Taxonomy	334908	first1 last1	first1 last1	China	Larimichthys polyactis	Yellow-Bo Sea,Lüshun, Liaoning	yellow croaker
+DL4	yellow croaker sample 4	Larimichthys polyactis	NCBI Taxonomy	334908	first1 last1	first1 last1	China	Larimichthys polyactis	Yellow-Bo Sea,Dalian, Liaoning	yellow croaker
+LS5	yellow croaker sample 10	Larimichthys polyactis	NCBI Taxonomy	334908	first1 last1	first1 last1	China	Larimichthys polyactis	Yellow-Bo Sea,Lüshun, Liaoning	yellow croaker
+LH2	yellow croaker sample 13	Larimichthys polyactis	NCBI Taxonomy	334908	first1 last1	first1 last1	China	Larimichthys polyactis	East China Sea,Liuheng, Putuo, Zhejiang	yellow croaker
+LH4	yellow croaker sample 15	Larimichthys polyactis	NCBI Taxonomy	334908	first1 last1	first1 last1	China	Larimichthys polyactis	East China Sea,Liuheng, Putuo, Zhejiang	yellow croaker
+LH5	yellow croaker sample 16	Larimichthys polyactis	NCBI Taxonomy	334908	first1 last1	first1 last1	China	Larimichthys polyactis	East China Sea,Liuheng, Putuo, Zhejiang	yellow croaker
+LS4	yellow croaker sample 9	Larimichthys polyactis	NCBI Taxonomy	334908	first1 last1	first1 last1	China	Larimichthys polyactis	Yellow-Bo Sea,Lüshun, Liaoning	yellow croaker
+DL5	yellow croaker sample 5	Larimichthys polyactis	NCBI Taxonomy	334908	first1 last1	first1 last1	China	Larimichthys polyactis	Yellow-Bo Sea,Dalian, Liaoning	yellow croaker
+LS6	yellow croaker sample 11	Larimichthys polyactis	NCBI Taxonomy	334908	first1 last1	first1 last1	China	Larimichthys polyactis	Yellow-Bo Sea,Lüshun, Liaoning	yellow croaker
+LS1	yellow croaker sample 6	Larimichthys polyactis	NCBI Taxonomy	334908	first1 last1	first1 last1	China	Larimichthys polyactis	Yellow-Bo Sea,Lüshun, Liaoning	yellow croaker

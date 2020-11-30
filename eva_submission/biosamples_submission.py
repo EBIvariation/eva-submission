@@ -1,0 +1,356 @@
+#!/usr/bin/env python
+# Copyright 2020 EMBL - European Bioinformatics Institute
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import os
+import re
+from datetime import datetime
+from csv import DictReader, DictWriter
+
+import requests
+from cached_property import cached_property
+from ebi_eva_common_pyutils.config import cfg
+from ebi_eva_common_pyutils.logger import logging_config as log_cfg, AppLogger
+
+logger = log_cfg.get_logger(__name__)
+
+_now = datetime.now().isoformat()
+
+
+class HALNotReadyError(Exception):
+    pass
+
+
+class HALCommunicator(AppLogger):
+    """
+    This class helps navigate through REST API that uses the HAL standard.
+    """
+    acceptable_code = [200, 201]
+
+    def __init__(self, aap_url, bsd_url, username, password):
+        self.aap_url = aap_url
+        self.bsd_url = bsd_url
+        self.username = username
+        self.password = password
+
+    def _validate_response(self, response):
+        """Check that the response has an acceptable code and raise if it does not"""
+        if response.status_code not in self.acceptable_code:
+            self.error(response.request.method + ': ' + response.request.url + " with " + str(response.request.body))
+            self.error("headers: {}".format(response.request.headers))
+            self.error("<{}>: {}".format(response.status_code, response.text))
+            raise ValueError('The HTTP status code ({}) is not one of the acceptable codes ({})'.format(
+                str(response.status_code), str(self.acceptable_code))
+            )
+        return response
+
+    @cached_property
+    def token(self):
+        """Retrieve the token from the AAP REST API then cache it for further quering"""
+        response = requests.get(self.aap_url, auth=(self.username, self.password))
+        self._validate_response(response)
+        return response.text
+
+    def _req(self, method, url, **kwargs):
+        """private method that sends a request using the specified method. It adds the headers required by bsd"""
+        headers = {'Accept': 'application/hal+json', 'Authorization': 'Bearer ' + self.token}
+        if 'json' in kwargs:
+            headers['Content-Type'] = 'application/json'
+        response = requests.request(
+            method=method,
+            url=url,
+            headers=headers,
+            **kwargs
+        )
+        self._validate_response(response)
+        return response
+
+    def follows(self, query, json_obj=None, method='GET', url_template_values=None, join_url=None, **kwargs):
+        """
+        Finds a link within the json_obj using a query string or list, modify the link using the
+        url_template_values dictionary then query the link using the method and any additional keyword argument.
+        If the json_obj is not specified then it will use the root query defined by the base url.
+        """
+        all_pages = kwargs.pop('all_pages', False)
+
+        if json_obj is None:
+            json_obj = self.root
+        # Drill down into a dict using dot notation
+        _json_obj = json_obj
+        if isinstance(query, str):
+            query_list = query.split('.')
+        else:
+            query_list = query
+        for query_element in query_list:
+            if query_element in _json_obj:
+                _json_obj = _json_obj[query_element]
+            else:
+                raise KeyError('{} does not exist in json object'.format(query_element, _json_obj))
+        if not isinstance(_json_obj, str):
+            raise ValueError('The result of the query_string must be a string to use as a url')
+        url = _json_obj
+        # replace the template in the url with the value provided
+        if url_template_values:
+            for k, v in url_template_values.items():
+                url = re.sub('{(' + k + ')(:.*)?}', v, url)
+        if join_url:
+            url += '/' + join_url
+        # Now query the url
+        json_response = self._req(method, url, **kwargs).json()
+
+        # Depaginate the call if requested
+        if all_pages is True:
+            # This depagination code will iterate over all the pages available until the pages comes back  without a
+            # next page. It stores the embedded elements in the initial query's json response
+            content = json_response
+            while 'next' in content.get('_links'):
+                content = self._req(method, content.get('_links').get('next').get('href'), **kwargs).json()
+                for key in content.get('_embedded'):
+                    json_response['_embedded'][key].extend(content.get('_embedded').get(key))
+            # Remove the pagination information as it is not relevant to the depaginated response
+            if 'page' in json_response: json_response.pop('page')
+            if 'first' in json_response['_links']: json_response['_links'].pop('first')
+            if 'last' in json_response['_links']: json_response['_links'].pop('last')
+            if 'next' in json_response['_links']: json_response['_links'].pop('next')
+        return json_response
+
+    def follows_link(self, key, json_obj=None, method='GET', url_template_values=None, join_url=None, **kwargs):
+        """
+        Same function as follows but construct the query_string from a single keyword surrounded by '_links' and 'href'.
+        """
+        return self.follows(('_links', key, 'href'),
+                            json_obj=json_obj, method=method, url_template_values=url_template_values,
+                            join_url=join_url, **kwargs)
+
+    @cached_property
+    def root(self):
+        return self._req('GET', self.bsd_url).json()
+
+
+class BSDSubmitter(AppLogger):
+
+    def __init__(self, communicator, domain):
+        self.communicator = communicator
+        self.domain = domain
+
+    def validate_in_bsd(self, samples_data):
+        for sample in samples_data:
+            sample['domain'] = self.domain
+            self.communicator.follows_link('samples', join_url='validate', method='POST', json=sample)
+
+    def submit_to_bsd(self,  samples_data):
+        """
+        This function creates or updates samples in BioSamples and return a map of sample name to sample accession
+        """
+        sample_name_to_accession = {}
+        for sample in samples_data:
+            sample['domain'] = self.domain
+            if 'accession' not in sample:
+                # Create a sample
+                sample_json = self.communicator.follows_link('samples', method='POST', json=sample)
+                self.debug('Accession sample ' + sample.get('name') + ' as ' + sample_json.get('accession'))
+            else:
+                # Update a sample
+                self.debug('Update sample ' + sample.get('name') + ' with accession ' + sample.get('accession'))
+                sample_json = self.communicator.follows_link('samples', method='PUT', join_url=sample.get('accession'),
+                                                             json=sample)
+            sample_name_to_accession[sample_json.get('name')] = sample_json.get('accession')
+        return sample_name_to_accession
+
+
+sample_mapping = {
+    'Sample Name': 'name',
+    'Sample Accession': 'accession',
+    'Sample Description': 'characteristics.description',
+    'Organism': 'characteristics.organism',
+    'Sex': 'characteristics.sex',
+    'Material': 'characteristics.material',
+    'Term Source REF': None,
+    'Term Source ID': 'taxId',  # This is a bit spurious: assumes that the "Term Source REF" is always NCBI Taxonomy
+    'Scientific Name': 'scientific name',
+    'Common Name': 'common name'
+}
+
+project_mapping = {
+    'person': 'contact',
+    'Organization Name': 'Name',
+    'Organization Address': 'Address',
+    'Person Email': 'E-mail',
+    'Person First Name': 'FirstName',
+    'Person Last Name': 'LastName'
+}
+
+
+def map_key(key, mapping):
+    """
+    Retrieve the mapping associated with the provided key or returns the key if it can't
+    """
+    if key in mapping:
+        return mapping[key]
+    else:
+        return key
+
+
+def map_sample_key(key):
+    return map_key(key, sample_mapping)
+
+
+def map_project_key(key):
+    return map_key(key, project_mapping)
+
+
+def apply_mapping(bsd_data, map_key, value):
+    """
+    Set the value to the bsd_data dict in the specified key.
+    If the key starts with characteristics then it puts it in the sub dictionary and apply the characteristics text
+    format
+    """
+    if map_key and value:
+        if map_key.startswith('characteristics.'):
+            keys = map_key.split('.')
+            _bsd_data = bsd_data
+            for k in keys[:-1]:
+                if k in _bsd_data:
+                    _bsd_data = _bsd_data[k]
+                else:
+                    raise KeyError('{} does not exist in dict {}'.format(k, _bsd_data))
+                _bsd_data[keys[-1]] = [{'text': value}]
+        elif map_key:
+            bsd_data[map_key] = value
+
+
+def _group_across_fields(grouped_data, header, values_to_group):
+    """Populate the grouped_data with the values. The grouped_data variable will be changed by this function"""
+    groupname = map_project_key(header.split()[0].lower())
+    if groupname not in grouped_data:
+        grouped_data[groupname] = []
+        for i, value in enumerate(values_to_group.split('\t')):
+            grouped_data[groupname].append({map_project_key(header): value})
+    else:
+        for i, value in enumerate(values_to_group.split('\t')):
+            grouped_data[groupname][i][map_project_key(header)] = value
+
+
+def map_sample_tab_to_bsd_data(sample_tab_data, project_tab):
+    """
+    Map each column provided in the sampletab file to a key in the API's sample schema.
+    No validation is performed at this point.
+    """
+    payloads = []
+    for sample_tab in sample_tab_data:
+        bsd_sample_entry = {'characteristics': {}}
+        for header in sample_tab:
+            if header.startswith('Characteristic['):
+                # characteristic maps to characteristics
+                key = header[len('Characteristic['): -1]
+                apply_mapping(bsd_sample_entry['characteristics'], map_sample_key(key.lower()), [{'text': sample_tab[header]}])
+            else:
+                apply_mapping(bsd_sample_entry, map_sample_key(header), sample_tab[header])
+        grouped_values = {}
+        for header in project_tab:
+            # Organisation and contact can contain multiple values that are split across several fields
+            # this will group the across fields
+            groupname = map_project_key(header.split()[0].lower())
+            if groupname in ['organization', 'contact']:
+                _group_across_fields(grouped_values, header, project_tab[header])
+            else:
+                # All the other project level field are added to characteristics
+                apply_mapping(bsd_sample_entry['characteristics'], header.lower(), [{'text': project_tab[header]}])
+        # Store the grouped values
+        for groupname in grouped_values:
+            apply_mapping(bsd_sample_entry, groupname, grouped_values[groupname])
+
+        bsd_sample_entry['release'] = _now
+        payloads.append(bsd_sample_entry)
+
+    return payloads
+
+
+def parse_sample_tab(file_path):
+    msi_dict = {}
+    scd_lines = []
+    in_msi = in_scd = False
+    with open(file_path) as open_file:
+        for line in open_file:
+            if line.strip() == '[MSI]':
+                in_msi = True
+                in_scd = False
+            elif line.strip() == '[SCD]':
+                in_msi = False
+                in_scd = True
+            else:
+                if line.strip() == '':
+                    continue
+                elif in_msi:
+                    values = line.strip().split('\t')
+                    msi_dict[values[0]] = '\t'.join(values[1:])
+                elif in_scd:
+                    scd_lines.append(line.strip())
+    reader = DictReader(scd_lines, dialect='excel-tab')
+    return msi_dict, reader
+
+
+def write_sample_tab(input_path, output_path, samples_to_accessions):
+    """Read the input again and add the accessions to the sample lines in the output"""
+    with open(input_path) as open_read, open(output_path, 'w') as open_write:
+        scd_lines = []
+        in_scd = False
+        for line in open_read:
+            if line.strip() == '[SCD]':
+                in_scd = True
+                open_write.write(line)
+            elif in_scd:
+                scd_lines.append(line.strip())
+            else:
+                open_write.write(line)
+
+        reader = DictReader(scd_lines, dialect='excel-tab')
+        fieldnames = ['Sample Accession'] + reader.fieldnames
+        writer = DictWriter(open_write, fieldnames, dialect='excel-tab')
+        writer.writeheader()
+        for sample_dict in reader:
+            sample_dict['Sample Accession'] = samples_to_accessions[sample_dict['Sample Name']]
+            writer.writerow(sample_dict)
+
+
+def submit_to_bioSamples(sampletab_file):
+    communicator = HALCommunicator(cfg.query('biosamples', 'aap_url'), cfg.query('biosamples', 'bsd_url'),
+                                   cfg.query('biosamples', 'username'), cfg.query('biosamples', 'password'))
+    submitter = BSDSubmitter(communicator, cfg.query('biosamples', 'domain'))
+    logger.info('Parse ' + sampletab_file)
+    msi_dict, scd_reader = parse_sample_tab(sampletab_file)
+    sample_data = map_sample_tab_to_bsd_data(scd_reader, msi_dict)
+
+    logger.info('Validate {} sample(s) '.format(len(sample_data)))
+    submitter.validate_in_bsd(sample_data)
+    sampletab_base, ext = os.path.splitext(sampletab_file)
+    output_file = sampletab_base + '_accessioned' + ext
+    if os.path.exists(output_file):
+        logger.error('Accessioned file exist already ' + output_file)
+        logger.error('If you want to update the samples you should provide the accessioned file.')
+        logger.error('If you really want to submit the samples again delete or move the accessioned file.')
+    elif sample_data:
+        logger.info('Upload {} sample(s) '.format(len(sample_data)))
+        try:
+            submitter.submit_to_bsd(sample_data)
+        finally:
+            if 'accession' not in sample_data[0]:
+                # No accession in the input so create an output file
+                write_sample_tab(sampletab_file, output_file, submitter.sample_name_to_accession)
+    else:
+        logger.error('No Sample found in the Sample tab file: ' + sampletab_file)
+
+    return output_file
+
+
