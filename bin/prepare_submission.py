@@ -24,7 +24,7 @@ from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from eva_submission.submission_config import load_config
-from eva_submission.eload_submission import EloadPrepation
+from eva_submission.eload_submission import EloadPreparation
 
 logger = log_cfg.get_logger(__name__)
 
@@ -48,7 +48,7 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    eload = EloadPrepation(args.eload)
+    eload = EloadPreparation(args.eload)
     if args.ftp_box and args.username:
         eload.copy_from_ftp(args.ftp_box, args.username)
     eload.detect_all()

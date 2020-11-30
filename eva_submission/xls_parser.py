@@ -36,80 +36,13 @@ OPTIONAL_HEADERS_KEY_NAME = 'optional'
 HEADERS_KEY_ROW = 'header_row'
 
 
-class EVAXLSReader(AppLogger):
-
-    def __init__(self, metadata_file):
-        conf = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc', 'eva_project_conf.yaml')
-        self.reader = XLSReader(metadata_file, conf)
-        self.metadata_file=metadata_file
-
-    def _get_all_rows(self, active_sheet):
-        self.reader.active_worksheet = active_sheet
-        rows = []
-        try:
-            r = self.reader.next()
-            while r:
-                rows.append(r)
-                r = self.reader.next()
-            rows.append(r)
-        except StopIteration:
-            pass
-        return rows
-
-    @cached_property
-    def project(self):
-        self.reader.active_worksheet = 'Project'
-        try:
-            return self.reader.next()
-        except StopIteration:
-            self.error('No project was found in the spreadsheet %s', self.metadata_file)
-
-    @cached_property
-    def analysis(self):
-        return self._get_all_rows('Analysis')
-
-    @cached_property
-    def samples(self):
-        return self._get_all_rows('Sample')
-
-    @cached_property
-    def files(self):
-        return self._get_all_rows('Files')
-
-    @cached_property
-    def project_title(self):
-        if self.project:
-            return self.project.get('Project Title')
-
-    @property
-    def analysis_titles(self):
-        return [a.get('Analysis Title') for a in self.analysis]
-
-    @property
-    def references(self):
-        return list(set([a.get('Reference') for a in self.analysis if a.get('Reference')]))
-
-    @property
-    def samples_per_analysis(self):
-        samples_per_analysis = defaultdict(list)
-        for row in self.samples:
-            samples_per_analysis[row.get('Analysis Alias')].append(row)
-        return samples_per_analysis
-
-    @property
-    def files_per_analysis(self):
-        files_per_analysis = defaultdict(list)
-        for row in self.files:
-            files_per_analysis[row.get('Analysis Alias')].append(row)
-        return files_per_analysis
-
-
-class XLSReader(AppLogger):
+class XLSBaseParser(AppLogger):
     """
-    Reader for Excel file for the fields from worksheets defined in a configuration file
+    Base parser for Excel file for the fields from worksheets defined in a configuration file.
+    It implements the base functioanlity allowing to open and validate the spreadsheet
     """
 
-    def __init__(self, xls_filename, conf_filename):
+    def __init__(self, xls_filename, conf_filename, read_only=True):
         """
         Constructor
         :param xls_filename: Excel file path
@@ -120,7 +53,7 @@ class XLSReader(AppLogger):
         with open(conf_filename, 'r') as conf_file:
             self.xls_conf = yaml.full_load(conf_file)
         try:
-            self.workbook = load_workbook(xls_filename, read_only=True)
+            self.workbook = load_workbook(xls_filename, read_only=read_only)
         except Exception as e:
             self.error('Error loading %s', xls_filename)
             raise e
@@ -129,9 +62,6 @@ class XLSReader(AppLogger):
         self.row_offset = {}
         self.headers = {}
         self.valid = None
-
-    def __iter__(self):
-        return self
 
     @property
     def active_worksheet(self):
@@ -187,16 +117,6 @@ class XLSReader(AppLogger):
         """
         return self.valid_worksheets()
 
-    def set_current_conf_key(self, current_key):
-        """
-        Set the active_worksheet with value in $current_key
-        :param current_key: the name of the worksheet
-        :type current_key:  basestring
-        :return: nothing
-        :rtype: void
-        """
-        self.active_worksheet = current_key
-
     def is_valid(self):
         """
         Check that is all the worksheets contain required headers
@@ -208,6 +128,25 @@ class XLSReader(AppLogger):
             self.valid_worksheets()
 
         return self.valid
+
+
+class XLSReader(XLSBaseParser):
+    """
+    Reader for Excel file for the fields from worksheets defined in a configuration file
+    """
+
+    def __init__(self, xls_filename, conf_filename):
+        """
+        Constructor
+        :param xls_filename: Excel file path
+        :type xls_filename: basestring
+        :param conf_filename: configuration file path
+        :type conf_filename: basestring
+        """
+        super().__init__(xls_filename, conf_filename, read_only=True)
+
+    def __iter__(self):
+        return self
 
     def next(self):
         """
@@ -259,3 +198,62 @@ class XLSReader(AppLogger):
             self.row_offset[worksheet] += 1
 
         raise StopIteration
+
+
+class XLSWriter(XLSBaseParser):
+    """
+    Writer for Excel file for the fields from worksheets defined in a configuration file
+    """
+
+    def __init__(self, xls_filename, conf_filename):
+        """
+        Constructor
+        :param xls_filename: Excel file path
+        :type xls_filename: basestring
+        :param conf_filename: configuration file path
+        :type conf_filename: basestring
+        """
+        super().__init__(xls_filename, conf_filename, read_only=False)
+
+    def edit_row(self, row_data: dict, remove_when_missing_values=True):
+        worksheet = self.active_worksheet
+        if worksheet is None:
+            raise ValueError('No worksheet is specified!')
+
+        if 'row_num' not in row_data:
+            raise KeyError('No row specified in dict ' + str(row_data))
+        row_num = row_data['row_num']
+
+        required_headers = self.xls_conf[worksheet].get(REQUIRED_HEADERS_KEY_NAME, [])
+        optional_headers = self.xls_conf[worksheet].get(OPTIONAL_HEADERS_KEY_NAME, [])
+
+        for header in required_headers:
+            header_index = self.headers[worksheet].index(header)
+            if header not in row_data:
+                raise ValueError('Header {0} is required but is not provided in row {1}'.format(header, row_num))
+            self.workbook[worksheet].cell(column=header_index+1, row=row_num, value=row_data[header])
+
+        for header in optional_headers:
+            if header in self.headers[worksheet]:
+                header_index = self.headers[worksheet].index(header)
+                if header not in row_data and remove_when_missing_values:
+                    # When data is missing remove the value from the cell
+                    self.workbook[worksheet].cell(column=header_index+1, row=row_num, value='')
+                elif header in row_data:
+                    self.workbook[worksheet].cell(column=header_index+1, row=row_num, value=row_data[header])
+
+    def set_rows(self, rows):
+        """
+        Write a set of rows from the top of the spreadsheet.
+        """
+        worksheet = self.active_worksheet
+        if worksheet is None:
+            raise ValueError('No worksheet is specified!')
+
+        first_row = self.xls_conf[worksheet].get(HEADERS_KEY_ROW, 1) + 1
+        for i, row in enumerate(rows):
+            row['row_num'] = first_row + i
+            self.edit_row(row)
+
+    def save(self, filename):
+        self.workbook.save(filename)

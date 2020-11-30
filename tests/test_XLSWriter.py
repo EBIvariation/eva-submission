@@ -1,8 +1,7 @@
 import os
 from unittest import TestCase
 
-from eva_submission.xlsreader import XLSReader, EVAXLSReader
-from eva_submission.xlswriter import XLSWriter
+from eva_submission.xls_parser_eva import XLSWriter, EVAXLSReader
 
 
 class TestXLSWriter(TestCase):

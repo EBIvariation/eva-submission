@@ -19,8 +19,7 @@ from eva_submission.eload_utils import get_genome_fasta_and_report
 from eva_submission.samples_checker import compare_spreadsheet_and_vcf
 from eva_submission.submission_config import EloadConfig
 from eva_submission.submission_in_ftp import FtpDepositBox
-from eva_submission.xlsreader import EVAXLSReader
-
+from eva_submission.xls_parser_eva import EVAXLSReader
 
 directory_structure = {
     'vcf': '10_submitted/vcf_files',
@@ -55,7 +54,7 @@ class Eload(AppLogger):
             self.eload_cfg['submission'] = {key: value}
 
 
-class EloadPrepation(Eload):
+class EloadPreparation(Eload):
 
     def copy_from_ftp(self, ftp_box, username):
         box = FtpDepositBox(ftp_box, username)

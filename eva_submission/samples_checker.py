@@ -4,9 +4,7 @@ import pysam
 import os
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.xlswriter import EVAXLSWriter
-from eva_submission.xlsreader import EVAXLSReader
-
+from eva_submission.xls_parser_eva import EVAXLSWriter, EVAXLSReader
 
 logger = log_cfg.get_logger(__name__)
 

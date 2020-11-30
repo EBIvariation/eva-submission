@@ -1,7 +1,8 @@
 import os
 from unittest import TestCase
 
-from eva_submission.xlsreader import XLSReader, EVAXLSReader
+from eva_submission.xls_parser import XLSReader
+from eva_submission.xls_parser_eva import EVAXLSReader
 
 
 class TestEVAXLSReader(TestCase):
@@ -33,18 +34,8 @@ class TestXLSReader(TestCase):
         assert isinstance(worksheets, list)
         assert set(worksheets) == {'Project', 'Sample', 'Analysis'}
 
-    def test_set_current_conf_key(self):
-        active_worksheet = self.xls_reader.active_worksheet
-        assert active_worksheet is None
-        self.xls_reader.set_current_conf_key('Sample')
-        active_worksheet = self.xls_reader.active_worksheet
-        assert active_worksheet == 'Sample'
-        self.xls_reader.set_current_conf_key('Analysis')
-        active_worksheet = self.xls_reader.active_worksheet
-        assert active_worksheet == 'Analysis'
-
     def test_next_row(self):
-        self.xls_reader.set_current_conf_key('Sample')
+        self.xls_reader.active_worksheet = 'Sample'
         row = self.xls_reader.next()
         assert isinstance(row, dict)
         assert row == {
@@ -57,7 +48,7 @@ class TestXLSReader(TestCase):
             'row_num': 4
         }
 
-        self.xls_reader.set_current_conf_key('Project')
+        self.xls_reader.active_worksheet = 'Project'
         row = self.xls_reader.next()
         assert isinstance(row, dict)
         assert row == {

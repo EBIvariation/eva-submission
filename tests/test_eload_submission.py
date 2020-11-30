@@ -4,7 +4,7 @@ import shutil
 from unittest import TestCase
 
 from eva_submission.submission_config import load_config
-from eva_submission.eload_submission import EloadPrepation
+from eva_submission.eload_submission import EloadPreparation
 
 
 def touch(filepath, content=None):
@@ -22,7 +22,7 @@ class TestEload(TestCase):
         load_config(config_file)
         # Need to set the directory so that the relative path set in the config file works from the top directory
         os.chdir(self.top_dir)
-        self.eload = EloadPrepation(1)
+        self.eload = EloadPreparation(1)
 
 
     def tearDown(self) -> None:
@@ -32,7 +32,7 @@ class TestEload(TestCase):
         pass
 
     def test_copy_from_ftp(self):
-        eload = EloadPrepation(1)
+        eload = EloadPreparation(1)
         assert os.listdir(os.path.join(eload.eload_dir, '10_submitted', 'vcf_files')) == []
         assert os.listdir(os.path.join(eload.eload_dir, '10_submitted', 'metadata_file')) == []
         eload.copy_from_ftp(1, 'john')
@@ -41,7 +41,7 @@ class TestEload(TestCase):
 
     def test_detect_submitted_metadata(self):
         # create the eload
-        eload = EloadPrepation(1)
+        eload = EloadPreparation(1)
         # create the data
         vcf1 = os.path.join(eload.eload_dir, '10_submitted', 'vcf_files', 'file1.vcf')
         vcf2 = os.path.join(eload.eload_dir, '10_submitted', 'vcf_files', 'file2.vcf')
