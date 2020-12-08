@@ -1,7 +1,6 @@
+import glob
 import os
-import re
 
-import requests
 from ebi_eva_common_pyutils.assembly import NCBIAssembly
 from ebi_eva_common_pyutils.config import cfg
 
@@ -20,3 +19,11 @@ def get_genome_fasta_and_report(species_name, assembly_accession, output_directo
     if not os.path.isfile(assembly.assembly_fasta_path) or not os.path.isfile(assembly.assembly_report_path) or overwrite:
         assembly.download_or_construct(overwrite=overwrite)
     return assembly.assembly_fasta_path, assembly.assembly_report_path
+
+
+def resolve_single_file_path(file_path):
+    files = glob.glob(file_path)
+    if len(files) == 0:
+        return None
+    elif len(files) > 0:
+        return files[0]

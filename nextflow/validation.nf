@@ -87,7 +87,7 @@ process check_vcf_reference {
         path "assembly_check/*text_assembly_report*" into assembly_check_report
         path "assembly_check/*.assembly_check.log" into assembly_check_log
 
-    validExitStatus 0,1
+    validExitStatus 0,1,139
 
     """
     mkdir -p assembly_check

@@ -15,7 +15,7 @@ from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 from ebi_eva_common_pyutils.variation.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
 
-from eva_submission.eload_utils import get_genome_fasta_and_report
+from eva_submission.eload_utils import get_genome_fasta_and_report, resolve_single_file_path
 from eva_submission.samples_checker import compare_spreadsheet_and_vcf
 from eva_submission.submission_config import EloadConfig
 from eva_submission.submission_in_ftp import FtpDepositBox
@@ -107,8 +107,11 @@ class EloadPreparation(Eload):
             reference_gca.update(retrieve_genbank_assembly_accessions_from_ncbi(reference_txt))
 
         if len(reference_gca) > 1:
-            self.error('Multiple assemblies per project not currently supported: %s', ', '.join(reference_gca))
-        elif reference_gca:
+            self.warning('Multiple assemblies in project: %s', ', '.join(reference_gca))
+            self.warning('Will look for the most recent assembly.')
+            reference_gca = [sorted(reference_gca)[-1]]
+
+        if reference_gca:
             self._add_to_submission_config('assembly_accession', reference_gca.pop())
         else:
             self.error('No genbank accession could be found for %s', reference_txt)
@@ -238,6 +241,14 @@ class EloadValidation(Eload):
             self.error('Nextflow pipeline failed: results might not be complete')
         return output_dir
 
+    def _move_file(self, source, dest):
+        if source:
+            self.debug('Rename %s to %s', source, dest)
+            os.rename(source, dest)
+            return dest
+        else:
+            return None
+
     def _collect_validation_worklflow_results(self, output_dir):
         # Collect information from the output and summarise in the config
         self.eload_cfg['validation']['vcf_check']['files'] = {}
@@ -246,22 +257,33 @@ class EloadValidation(Eload):
         for vcf_file in self.eload_cfg.query('submission', 'vcf_files'):
             vcf_name = os.path.basename(vcf_file)
 
-            tmp_vcf_check_log = os.path.join(output_dir, 'vcf_format', vcf_name + '.vcf_format.log')
-            tmp_vcf_check_text_report = glob.glob(os.path.join(output_dir, 'vcf_format', vcf_name + '.*.txt'))[0]
-            tmp_vcf_check_db_report = glob.glob(os.path.join(output_dir, 'vcf_format', vcf_name + '.*.db'))[0]
+            tmp_vcf_check_log = resolve_single_file_path(
+                os.path.join(output_dir, 'vcf_format', vcf_name + '.vcf_format.log')
+            )
+            tmp_vcf_check_text_report = resolve_single_file_path(
+                os.path.join(output_dir, 'vcf_format', vcf_name + '.*.txt')
+            )
+            tmp_vcf_check_db_report = resolve_single_file_path(
+                os.path.join(output_dir, 'vcf_format', vcf_name + '.*.db')
+            )
 
             # move the output files
-            vcf_check_log = os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_format.log')
-            self.debug('Rename %s to %s', tmp_vcf_check_log, vcf_check_log)
-            os.rename(tmp_vcf_check_log, vcf_check_log)
-            vcf_check_text_report = os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_validator.txt')
-            self.debug('Rename %s to %s', tmp_vcf_check_text_report, vcf_check_text_report)
-            os.rename(tmp_vcf_check_text_report, vcf_check_text_report)
-            vcf_check_db_report = os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_validator.db')
-            self.debug('Rename %s to %s', tmp_vcf_check_db_report, vcf_check_db_report)
-            os.rename(tmp_vcf_check_db_report, vcf_check_db_report)
-
-            valid, error_list, error_count, warning_count = self.parse_vcf_check_report(vcf_check_text_report)
+            vcf_check_log = self._move_file(
+                tmp_vcf_check_log,
+                os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_format.log')
+            )
+            vcf_check_text_report = self._move_file(
+                tmp_vcf_check_text_report,
+                os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_validator.txt')
+            )
+            vcf_check_db_report = self._move_file(
+                tmp_vcf_check_db_report,
+                os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_validator.db')
+            )
+            if vcf_check_log and vcf_check_text_report and vcf_check_db_report:
+                valid, error_list, error_count, warning_count = self.parse_vcf_check_report(vcf_check_text_report)
+            else:
+                valid, error_list, error_count, warning_count = (False, ['Process failed', 1, 0])
             total_error += error_count
 
             self.eload_cfg['validation']['vcf_check']['files'][vcf_name] = {
@@ -277,23 +299,34 @@ class EloadValidation(Eload):
         for vcf_file in self.eload_cfg.query('submission', 'vcf_files'):
             vcf_name = os.path.basename(vcf_file)
 
-            tmp_assembly_check_log = os.path.join(output_dir, 'assembly_check',  vcf_name + '.assembly_check.log')
-            tmp_assembly_check_valid_vcf = glob.glob(os.path.join(output_dir, 'assembly_check', vcf_name + '.valid_assembly_report*'))[0]
-            tmp_assembly_check_text_report = glob.glob(os.path.join(output_dir, 'assembly_check', vcf_name + '*text_assembly_report*'))[0]
+            tmp_assembly_check_log = resolve_single_file_path(
+                os.path.join(output_dir, 'assembly_check',  vcf_name + '.assembly_check.log')
+            )
+            tmp_assembly_check_valid_vcf = resolve_single_file_path(
+                os.path.join(output_dir, 'assembly_check', vcf_name + '.valid_assembly_report*')
+            )
+            tmp_assembly_check_text_report = resolve_single_file_path(
+                os.path.join(output_dir, 'assembly_check', vcf_name + '*text_assembly_report*')
+            )
 
             # move the output files
-            assembly_check_log = os.path.join(self._get_dir('assembly_check'), vcf_name + '.assembly_check.log')
-            self.debug('Rename %s to %s', tmp_assembly_check_log, assembly_check_log)
-            os.rename(tmp_assembly_check_log, assembly_check_log)
-            assembly_check_valid_vcf = os.path.join(self._get_dir('assembly_check'), vcf_name + '.valid_assembly_report.txt')
-            self.debug('Rename %s to %s', tmp_assembly_check_valid_vcf, assembly_check_valid_vcf)
-            os.rename(tmp_assembly_check_valid_vcf, assembly_check_valid_vcf)
-            assembly_check_text_report = os.path.join(self._get_dir('assembly_check'), vcf_name + '.text_assembly_report.txt')
-            self.debug('Rename %s to %s', tmp_assembly_check_text_report, assembly_check_text_report)
-            os.rename(tmp_assembly_check_text_report, assembly_check_text_report)
-
-            error_list, nb_error, match, total = self.parse_assembly_check_log(assembly_check_log)
-            total_error += error_count
+            assembly_check_log = self._move_file(
+                tmp_assembly_check_log,
+                os.path.join(self._get_dir('assembly_check'), vcf_name + '.assembly_check.log')
+            )
+            assembly_check_valid_vcf = self._move_file(
+                tmp_assembly_check_valid_vcf,
+                os.path.join(self._get_dir('assembly_check'), vcf_name + '.valid_assembly_report.txt')
+            )
+            assembly_check_text_report = self._move_file(
+                tmp_assembly_check_text_report,
+                os.path.join(self._get_dir('assembly_check'), vcf_name + '.text_assembly_report.txt')
+            )
+            if assembly_check_log and assembly_check_valid_vcf and assembly_check_text_report:
+                error_list, nb_error, match, total = self.parse_assembly_check_log(assembly_check_log)
+            else:
+                error_list, nb_error, match, total = (['Process failed'], 1, 0, 0)
+            total_error += nb_error
             self.eload_cfg['validation']['assembly_check']['files'][vcf_name] = {
                 'error_list': error_list, 'nb_error': nb_error, 'ref_match': match, 'nb_variant': total,
                 'assembly_check_log': assembly_check_log, 'assembly_check_valid_vcf': assembly_check_valid_vcf,
