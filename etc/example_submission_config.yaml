@@ -1,0 +1,13 @@
+ftp_dir: '/path/to/ftp/dir'
+eloads_dir: '/path/to/eload/dir'
+eutils_api_key: 1234556lkxflk
+
+
+genome_downloader:
+  output_directory: '/path/to/reference/sequences'
+
+
+executable:
+  nextflow: /path/to/nextflow
+  vcf_assembly_checker: /path/to/vcf_assembly_checker
+  vcf_validator: /path/to/vcf_validator

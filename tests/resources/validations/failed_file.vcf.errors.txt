@@ -1,0 +1,10 @@
+Line 6: Error in ALT metadata.
+Line 7: The header line does not start with the mandatory columns: CHROM, POS, ID, REF, ALT, QUAL, FILTER and INFO.
+Line 7: A valid 'reference' entry is not listed in the meta section. (warning)
+Line 8: Format does not start with a letter/underscore followed by alphanumeric/underscore/dot characters.
+Line 9: Format does not start with a letter/underscore followed by alphanumeric/underscore/dot characters.
+Line 10: Format does not start with a letter/underscore followed by alphanumeric/underscore/dot characters.
+Line 11: Format does not start with a letter/underscore followed by alphanumeric/underscore/dot characters.
+Line 12: Format does not start with a letter/underscore followed by alphanumeric/underscore/dot characters.
+Line 13: Format does not start with a letter/underscore followed by alphanumeric/underscore/dot characters.
+According to the VCF specification, the input file is not valid

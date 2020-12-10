@@ -1,0 +1,51 @@
+#Configuration for defining which fields in which worksheets to be parsed in an Excel file
+#
+#At the top level, "worksheets" defines a list of worksheets (titles) to be parsed.
+#Then for each worksheet, you define which fields to be parsed from this worksheet.
+#These fields are either "required", "optional" and/or header_row. "required" fields must be found
+#in the worksheet so that this worksheet is valid. Otherwise this worksheet is not
+#valid. The field names must match those values in the header row in the worksheet.
+#
+#This is a YAML file
+
+# List of worksheets to be parsed.
+worksheets:
+  - Project
+  - Analysis
+  - Sample
+
+
+# List of field for Projects
+Project:
+  required:
+    - Project Title
+    - Project Alias
+
+  optional:
+    - Publication(s)
+    - Parent Project(s)
+    - Child Project(s)
+
+Analysis:
+  required:
+    - Analysis Title
+    - Analysis Alias
+    - Description
+
+  optional:
+    - Platform
+    - Software
+
+
+# List of fields for worksheet "Sample"
+Sample:
+
+  header_row: 3
+
+  optional:
+    - Analysis Alias
+    - Sample ID
+    - Sample Accession
+    - Sampleset Accession
+    - Sample Name
+    - Title
