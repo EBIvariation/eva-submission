@@ -13,18 +13,18 @@ They process the submission in a semi-automated way and record the outcome of ea
 The following script simply surveys the content of FTP boxes and returns a short text that should provide enough information to create the submission ticket.
 
 ```bash
-python detect_submission.py --ftp_box 3 --username john
+python detect_submission.py --ftp_box 3 --submitter john
 ```
 
 ### Copy relevant file to the submission folder
 
-This script can be used to grab the relevant files from the ftp_box and to copy them to the submission folder when you supply `--ftp_box` and `--username` parameters. 
+This script can be used to grab the relevant files from the ftp_box and to copy them to the submission folder when you supply `--ftp_box` and `--submitter` parameters. 
 It will also prepare the submission folder and create the directory structure  and the config file required for the rest of the execution.
 Without the above parameters, it only prepares the submission folder.
 
 
 ```bash
-python prepare_submission.py --ftp_box 3 --username john --eload 677
+python prepare_submission.py --ftp_box 3 --submitter john --eload 677
 ```
 
 or 
