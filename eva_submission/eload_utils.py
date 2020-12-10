@@ -27,3 +27,10 @@ def resolve_single_file_path(file_path):
         return None
     elif len(files) > 0:
         return files[0]
+
+
+def read_md5(md5_file):
+    with open(md5_file) as open_file:
+        md5, file_name = open_file.readline().split()
+    return md5
+

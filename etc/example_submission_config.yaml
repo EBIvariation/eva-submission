@@ -11,3 +11,11 @@ executable:
   nextflow: /path/to/nextflow
   vcf_assembly_checker: /path/to/vcf_assembly_checker
   vcf_validator: /path/to/vcf_validator
+
+
+biosamples:
+  username: 'dsp_eva_test_user'
+  password: 'dspEVAtestPwD1'
+  aap_url: 'https://explore.api.aai.ebi.ac.uk/auth'
+  bsd_url: 'https://wwwdev.ebi.ac.uk/biosamples'
+  domain: 'subs.test-team-71'

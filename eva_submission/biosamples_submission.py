@@ -23,8 +23,6 @@ from cached_property import cached_property
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg, AppLogger
 
-logger = log_cfg.get_logger(__name__)
-
 _now = datetime.now().isoformat()
 
 
@@ -143,6 +141,7 @@ class BSDSubmitter(AppLogger):
     def __init__(self, communicator, domain):
         self.communicator = communicator
         self.domain = domain
+        self.sample_name_to_accession = {}
 
     def validate_in_bsd(self, samples_data):
         for sample in samples_data:
@@ -153,7 +152,7 @@ class BSDSubmitter(AppLogger):
         """
         This function creates or updates samples in BioSamples and return a map of sample name to sample accession
         """
-        sample_name_to_accession = {}
+
         for sample in samples_data:
             sample['domain'] = self.domain
             if 'accession' not in sample:
@@ -165,192 +164,193 @@ class BSDSubmitter(AppLogger):
                 self.debug('Update sample ' + sample.get('name') + ' with accession ' + sample.get('accession'))
                 sample_json = self.communicator.follows_link('samples', method='PUT', join_url=sample.get('accession'),
                                                              json=sample)
-            sample_name_to_accession[sample_json.get('name')] = sample_json.get('accession')
-        return sample_name_to_accession
+            self.sample_name_to_accession[sample_json.get('name')] = sample_json.get('accession')
 
 
-sample_mapping = {
-    'Sample Name': 'name',
-    'Sample Accession': 'accession',
-    'Sample Description': 'characteristics.description',
-    'Organism': 'characteristics.organism',
-    'Sex': 'characteristics.sex',
-    'Material': 'characteristics.material',
-    'Term Source REF': None,
-    'Term Source ID': 'taxId',  # This is a bit spurious: assumes that the "Term Source REF" is always NCBI Taxonomy
-    'Scientific Name': 'scientific name',
-    'Common Name': 'common name'
-}
+class SampleTabSubmitter(AppLogger):
 
-project_mapping = {
-    'person': 'contact',
-    'Organization Name': 'Name',
-    'Organization Address': 'Address',
-    'Person Email': 'E-mail',
-    'Person First Name': 'FirstName',
-    'Person Last Name': 'LastName'
-}
+    sample_mapping = {
+        'Sample Name': 'name',
+        'Sample Accession': 'accession',
+        'Sample Description': 'characteristics.description',
+        'Organism': 'characteristics.organism',
+        'Sex': 'characteristics.sex',
+        'Material': 'characteristics.material',
+        'Term Source REF': None,
+        'Term Source ID': 'taxId',  # This is a bit spurious: assumes that the "Term Source REF" is always NCBI Taxonomy
+        'Scientific Name': 'scientific name',
+        'Common Name': 'common name'
+    }
 
+    project_mapping = {
+        'person': 'contact',
+        'Organization Name': 'Name',
+        'Organization Address': 'Address',
+        'Person Email': 'E-mail',
+        'Person First Name': 'FirstName',
+        'Person Last Name': 'LastName'
+    }
 
-def map_key(key, mapping):
-    """
-    Retrieve the mapping associated with the provided key or returns the key if it can't
-    """
-    if key in mapping:
-        return mapping[key]
-    else:
-        return key
+    def __init__(self, sampletab_file):
+        self.sampletab_file = sampletab_file
+        sampletab_base, ext = os.path.splitext(self.sampletab_file)
+        self.accessioned_sampletab_file = sampletab_base + '_accessioned' + ext
 
+        communicator = HALCommunicator(cfg.query('biosamples', 'aap_url'), cfg.query('biosamples', 'bsd_url'),
+                                       cfg.query('biosamples', 'username'), cfg.query('biosamples', 'password'))
+        self.submitter = BSDSubmitter(communicator, cfg.query('biosamples', 'domain'))
 
-def map_sample_key(key):
-    return map_key(key, sample_mapping)
+    @staticmethod
+    def map_key(key, mapping):
+        """
+        Retrieve the mapping associated with the provided key or returns the key if it can't
+        """
+        if key in mapping:
+            return mapping[key]
+        else:
+            return key
 
+    def map_sample_key(self, key):
+        return self.map_key(key, self.sample_mapping)
 
-def map_project_key(key):
-    return map_key(key, project_mapping)
+    def map_project_key(self, key):
+        return self.map_key(key, self.project_mapping)
 
+    @staticmethod
+    def apply_mapping(bsd_data, map_key, value):
+        """
+        Set the value to the bsd_data dict in the specified key.
+        If the key starts with characteristics then it puts it in the sub dictionary and apply the characteristics text
+        format
+        """
+        if map_key and value:
+            if map_key.startswith('characteristics.'):
+                keys = map_key.split('.')
+                _bsd_data = bsd_data
+                for k in keys[:-1]:
+                    if k in _bsd_data:
+                        _bsd_data = _bsd_data[k]
+                    else:
+                        raise KeyError('{} does not exist in dict {}'.format(k, _bsd_data))
+                    _bsd_data[keys[-1]] = [{'text': value}]
+            elif map_key:
+                bsd_data[map_key] = value
 
-def apply_mapping(bsd_data, map_key, value):
-    """
-    Set the value to the bsd_data dict in the specified key.
-    If the key starts with characteristics then it puts it in the sub dictionary and apply the characteristics text
-    format
-    """
-    if map_key and value:
-        if map_key.startswith('characteristics.'):
-            keys = map_key.split('.')
-            _bsd_data = bsd_data
-            for k in keys[:-1]:
-                if k in _bsd_data:
-                    _bsd_data = _bsd_data[k]
+    def _group_across_fields(self, grouped_data, header, values_to_group):
+        """Populate the grouped_data with the values. The grouped_data variable will be changed by this function"""
+        groupname = self.map_project_key(header.split()[0].lower())
+        if groupname not in grouped_data:
+            grouped_data[groupname] = []
+            for i, value in enumerate(values_to_group.split('\t')):
+                grouped_data[groupname].append({self.map_project_key(header): value})
+        else:
+            for i, value in enumerate(values_to_group.split('\t')):
+                grouped_data[groupname][i][self.map_project_key(header)] = value
+
+    def map_sample_tab_to_bsd_data(self, sample_tab_data, project_tab):
+        """
+        Map each column provided in the sampletab file to a key in the API's sample schema.
+        No validation is performed at this point.
+        """
+        payloads = []
+        for sample_tab in sample_tab_data:
+            bsd_sample_entry = {'characteristics': {}}
+            for header in sample_tab:
+                if header.startswith('Characteristic['):
+                    # characteristic maps to characteristics
+                    key = header[len('Characteristic['): -1]
+                    self.apply_mapping(
+                        bsd_sample_entry['characteristics'],
+                        self.map_sample_key(key.lower()),
+                        [{'text': sample_tab[header]}]
+                    )
                 else:
-                    raise KeyError('{} does not exist in dict {}'.format(k, _bsd_data))
-                _bsd_data[keys[-1]] = [{'text': value}]
-        elif map_key:
-            bsd_data[map_key] = value
+                    self.apply_mapping(bsd_sample_entry, self.map_sample_key(header), sample_tab[header])
+            grouped_values = {}
+            for header in project_tab:
+                # Organisation and contact can contain multiple values that are split across several fields
+                # this will group the across fields
+                groupname = self.map_project_key(header.split()[0].lower())
+                if groupname in ['organization', 'contact']:
+                    self._group_across_fields(grouped_values, header, project_tab[header])
+                else:
+                    # All the other project level field are added to characteristics
+                    self.apply_mapping(bsd_sample_entry['characteristics'], header.lower(), [{'text': project_tab[header]}])
+            # Store the grouped values
+            for groupname in grouped_values:
+                self.apply_mapping(bsd_sample_entry, groupname, grouped_values[groupname])
 
+            bsd_sample_entry['release'] = _now
+            payloads.append(bsd_sample_entry)
 
-def _group_across_fields(grouped_data, header, values_to_group):
-    """Populate the grouped_data with the values. The grouped_data variable will be changed by this function"""
-    groupname = map_project_key(header.split()[0].lower())
-    if groupname not in grouped_data:
-        grouped_data[groupname] = []
-        for i, value in enumerate(values_to_group.split('\t')):
-            grouped_data[groupname].append({map_project_key(header): value})
-    else:
-        for i, value in enumerate(values_to_group.split('\t')):
-            grouped_data[groupname][i][map_project_key(header)] = value
+        return payloads
 
+    def parse_sample_tab(self):
+        self.info('Parse ' + self.sampletab_file)
+        msi_dict = {}
+        scd_lines = []
+        in_msi = in_scd = False
+        with open(self.sampletab_file) as open_file:
+            for line in open_file:
+                if line.strip() == '[MSI]':
+                    in_msi = True
+                    in_scd = False
+                elif line.strip() == '[SCD]':
+                    in_msi = False
+                    in_scd = True
+                else:
+                    if line.strip() == '':
+                        continue
+                    elif in_msi:
+                        values = line.strip().split('\t')
+                        msi_dict[values[0]] = '\t'.join(values[1:])
+                    elif in_scd:
+                        scd_lines.append(line.strip())
+        reader = DictReader(scd_lines, dialect='excel-tab')
+        return msi_dict, reader
 
-def map_sample_tab_to_bsd_data(sample_tab_data, project_tab):
-    """
-    Map each column provided in the sampletab file to a key in the API's sample schema.
-    No validation is performed at this point.
-    """
-    payloads = []
-    for sample_tab in sample_tab_data:
-        bsd_sample_entry = {'characteristics': {}}
-        for header in sample_tab:
-            if header.startswith('Characteristic['):
-                # characteristic maps to characteristics
-                key = header[len('Characteristic['): -1]
-                apply_mapping(bsd_sample_entry['characteristics'], map_sample_key(key.lower()), [{'text': sample_tab[header]}])
-            else:
-                apply_mapping(bsd_sample_entry, map_sample_key(header), sample_tab[header])
-        grouped_values = {}
-        for header in project_tab:
-            # Organisation and contact can contain multiple values that are split across several fields
-            # this will group the across fields
-            groupname = map_project_key(header.split()[0].lower())
-            if groupname in ['organization', 'contact']:
-                _group_across_fields(grouped_values, header, project_tab[header])
-            else:
-                # All the other project level field are added to characteristics
-                apply_mapping(bsd_sample_entry['characteristics'], header.lower(), [{'text': project_tab[header]}])
-        # Store the grouped values
-        for groupname in grouped_values:
-            apply_mapping(bsd_sample_entry, groupname, grouped_values[groupname])
-
-        bsd_sample_entry['release'] = _now
-        payloads.append(bsd_sample_entry)
-
-    return payloads
-
-
-def parse_sample_tab(file_path):
-    msi_dict = {}
-    scd_lines = []
-    in_msi = in_scd = False
-    with open(file_path) as open_file:
-        for line in open_file:
-            if line.strip() == '[MSI]':
-                in_msi = True
-                in_scd = False
-            elif line.strip() == '[SCD]':
-                in_msi = False
-                in_scd = True
-            else:
-                if line.strip() == '':
-                    continue
-                elif in_msi:
-                    values = line.strip().split('\t')
-                    msi_dict[values[0]] = '\t'.join(values[1:])
+    def write_sample_tab(self, samples_to_accessions):
+        """Read the input again and add the accessions to the sample lines in the output"""
+        with open(self.sampletab_file) as open_read, open(self.accessioned_sampletab_file, 'w') as open_write:
+            scd_lines = []
+            in_scd = False
+            for line in open_read:
+                if line.strip() == '[SCD]':
+                    in_scd = True
+                    open_write.write(line)
                 elif in_scd:
                     scd_lines.append(line.strip())
-    reader = DictReader(scd_lines, dialect='excel-tab')
-    return msi_dict, reader
+                else:
+                    open_write.write(line)
 
+            reader = DictReader(scd_lines, dialect='excel-tab')
+            fieldnames = ['Sample Accession'] + reader.fieldnames
+            writer = DictWriter(open_write, fieldnames, dialect='excel-tab')
+            writer.writeheader()
+            for sample_dict in reader:
+                sample_dict['Sample Accession'] = samples_to_accessions[sample_dict['Sample Name']]
+                writer.writerow(sample_dict)
 
-def write_sample_tab(input_path, output_path, samples_to_accessions):
-    """Read the input again and add the accessions to the sample lines in the output"""
-    with open(input_path) as open_read, open(output_path, 'w') as open_write:
-        scd_lines = []
-        in_scd = False
-        for line in open_read:
-            if line.strip() == '[SCD]':
-                in_scd = True
-                open_write.write(line)
-            elif in_scd:
-                scd_lines.append(line.strip())
-            else:
-                open_write.write(line)
+    def submit_to_bioSamples(self):
+        msi_dict, scd_reader = self.parse_sample_tab()
+        sample_data = self.map_sample_tab_to_bsd_data(scd_reader, msi_dict)
+        self.info('Validate {} sample(s) '.format(len(sample_data)))
+        self.submitter.validate_in_bsd(sample_data)
 
-        reader = DictReader(scd_lines, dialect='excel-tab')
-        fieldnames = ['Sample Accession'] + reader.fieldnames
-        writer = DictWriter(open_write, fieldnames, dialect='excel-tab')
-        writer.writeheader()
-        for sample_dict in reader:
-            sample_dict['Sample Accession'] = samples_to_accessions[sample_dict['Sample Name']]
-            writer.writerow(sample_dict)
+        # Only accessioned if it was not done before
+        if os.path.exists(self.accessioned_sampletab_file):
+            self.error('Accessioned file exist already ' + self.accessioned_sampletab_file)
+            self.error('If you want to update the samples you should provide the accessioned file.')
+            self.error('If you really want to submit the samples again delete or move the accessioned file.')
+        elif sample_data:
+            self.info('Upload {} sample(s) '.format(len(sample_data)))
+            try:
+                self.submitter.submit_to_bsd(sample_data)
+            finally:
+                if 'accession' not in sample_data[0]:
+                    # No accession in the input so create an output file
+                    self.write_sample_tab(self.submitter.sample_name_to_accession)
+        else:
+            self.error('No Sample found in the Sample tab file: ' + self.sampletab_file)
 
-
-def submit_to_bioSamples(sampletab_file):
-    communicator = HALCommunicator(cfg.query('biosamples', 'aap_url'), cfg.query('biosamples', 'bsd_url'),
-                                   cfg.query('biosamples', 'username'), cfg.query('biosamples', 'password'))
-    submitter = BSDSubmitter(communicator, cfg.query('biosamples', 'domain'))
-    logger.info('Parse ' + sampletab_file)
-    msi_dict, scd_reader = parse_sample_tab(sampletab_file)
-    sample_data = map_sample_tab_to_bsd_data(scd_reader, msi_dict)
-
-    logger.info('Validate {} sample(s) '.format(len(sample_data)))
-    submitter.validate_in_bsd(sample_data)
-    sampletab_base, ext = os.path.splitext(sampletab_file)
-    output_file = sampletab_base + '_accessioned' + ext
-    if os.path.exists(output_file):
-        logger.error('Accessioned file exist already ' + output_file)
-        logger.error('If you want to update the samples you should provide the accessioned file.')
-        logger.error('If you really want to submit the samples again delete or move the accessioned file.')
-    elif sample_data:
-        logger.info('Upload {} sample(s) '.format(len(sample_data)))
-        try:
-            submitter.submit_to_bsd(sample_data)
-        finally:
-            if 'accession' not in sample_data[0]:
-                # No accession in the input so create an output file
-                write_sample_tab(sampletab_file, output_file, submitter.sample_name_to_accession)
-    else:
-        logger.error('No Sample found in the Sample tab file: ' + sampletab_file)
-
-    return output_file
-
-
+        return self.submitter.sample_name_to_accession

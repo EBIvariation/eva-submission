@@ -20,9 +20,9 @@ import sys
 from argparse import ArgumentParser
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission import biosamples_submission
-
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from eva_submission import biosamples_submission
+from eva_submission.submission_brokering import EloadBrokering
 from eva_submission.submission_config import load_config
 
 logger = log_cfg.get_logger(__name__)
@@ -33,6 +33,9 @@ def main():
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
+    argparse.add_argument('--vcf_files', required=False, type=str, help='VCF files to use in the brokering', nargs='+')
+    argparse.add_argument('--metadata_file', required=False, type=str, help='VCF files to use in the brokering')
+
     args = argparse.parse_args()
 
     log_cfg.add_stdout_handler()
@@ -42,10 +45,11 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    # Prepare the brokering
-    # run the perl script to generate BioSamples sampletab file
-    sample_tab = ''
-    accessionned_sampletab = biosamples_submission.submit_to_bioSamples(sample_tab)
+    # Optionally Set the valid VCF and metadata file
+    brokering = EloadBrokering(args.eload, args.vcf_files, args.metadata_file)
+    brokering.broker()
+
+
     # Edit the spreadsheet
     # run the perl script to generate Analysis files
     # Upload the VCF to ENA FTP

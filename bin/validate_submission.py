@@ -20,9 +20,10 @@ import sys
 from argparse import ArgumentParser
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
+from eva_submission.eload_validation import EloadValidation
+
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from eva_submission.submission_config import load_config
-from eva_submission.eload_submission import EloadValidation
 
 logger = log_cfg.get_logger(__name__)
 
@@ -32,6 +33,7 @@ def main():
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
+
     args = argparse.parse_args()
 
     log_cfg.add_stdout_handler()
