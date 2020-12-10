@@ -29,7 +29,6 @@ class TestEload(TestCase):
         eloads = glob.glob(os.path.join(self.resources_folder, 'eloads', 'ELOAD_1'))
         for eload in eloads:
             shutil.rmtree(eload)
-        pass
 
     def test_copy_from_ftp(self):
         eload = EloadPreparation(1)

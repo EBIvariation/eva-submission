@@ -162,7 +162,6 @@ class EloadValidation(Eload):
         shutil.rmtree(output_dir)
 
     def _validate_spreadsheet(self):
-        # TODO: Check if the files are in the xls if not add them
         overall_differences, results_per_analysis_alias = compare_spreadsheet_and_vcf(
             eva_files_sheet=self.eload_cfg.query('submission', 'metadata_spreadsheet'),
             vcf_dir=self._get_dir('vcf'),
