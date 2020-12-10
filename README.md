@@ -1,4 +1,4 @@
-#Submission automation
+# Submission automation
 
 
 These scripts are meant to be used by EVA helpdesk personnel to manage submissions to the EVA.
@@ -18,7 +18,7 @@ python detect_submission.py --ftp_box 3 --username john
 
 ### Copy relevant file to the submission folder
 
-This script can be used to grab the relevant files from the ftp_box and to copy them to the submission folder when you supply `--ftp_box` and `--username` parameters
+This script can be used to grab the relevant files from the ftp_box and to copy them to the submission folder when you supply `--ftp_box` and `--username` parameters. 
 It will also prepare the submission folder and create the directory structure  and the config file required for the rest of the execution.
 Without the above parameters, it only prepares the submission folder.
 
