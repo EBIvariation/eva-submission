@@ -3,20 +3,16 @@ import glob
 import os
 import shutil
 import string
-import subprocess
 import random
 from datetime import datetime
 
-import yaml
-from cached_property import cached_property
-from ebi_eva_common_pyutils import command_utils
+import cached_property
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 from ebi_eva_common_pyutils.variation.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
 
-from eva_submission.eload_utils import get_genome_fasta_and_report, resolve_single_file_path
-from eva_submission.samples_checker import compare_spreadsheet_and_vcf
+from eva_submission.eload_utils import get_genome_fasta_and_report
 from eva_submission.submission_config import EloadConfig
 from eva_submission.submission_in_ftp import FtpDepositBox
 from eva_submission.xls_parser_eva import EVAXLSReader
@@ -53,11 +49,9 @@ class Eload(AppLogger):
     def _get_dir(self, key):
         return os.path.join(self.eload_dir, directory_structure[key])
 
-    def _add_to_submission_config(self, key, value):
-        if 'submission' in self.eload_cfg:
-            self.eload_cfg['submission'][key] = value
-        else:
-            self.eload_cfg['submission'] = {key: value}
+    @cached_property
+    def now(self):
+        return datetime.now()
 
 
 class EloadPreparation(Eload):
@@ -94,7 +88,7 @@ class EloadPreparation(Eload):
         if len(metadata_spreadsheets) != 1:
             self.critical('Found %s spreadsheet in %s', len(metadata_spreadsheets), metadata_dir)
             raise ValueError('Found %s spreadsheet in %s'% (len(metadata_spreadsheets), metadata_dir))
-        self._add_to_submission_config('metadata_spreadsheet', metadata_spreadsheets[0])
+        self.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata_spreadsheets[0])
 
     def detect_submitted_vcf(self):
         vcf_dir = os.path.join(self.eload_dir, directory_structure['vcf'])
@@ -103,7 +97,7 @@ class EloadPreparation(Eload):
         vcf_files = uncompressed_vcf + compressed_vcf
         if len(vcf_files) < 1:
             raise FileNotFoundError('Could not locate vcf file in in %s', vcf_dir)
-        self._add_to_submission_config('vcf_files', vcf_files)
+        self.eload_cfg.set('submission','vcf_files', value=vcf_files)
 
     def detect_metadata_attibutes(self):
         eva_metadata = EVAXLSReader(self.eload_cfg.query('submission', 'metadata_spreadsheet'))
@@ -118,15 +112,15 @@ class EloadPreparation(Eload):
             reference_gca = [sorted(reference_gca)[-1]]
 
         if reference_gca:
-            self._add_to_submission_config('assembly_accession', reference_gca.pop())
+            self.eload_cfg.set('submission', 'assembly_accession', value=reference_gca.pop())
         else:
             self.error('No genbank accession could be found for %s', reference_txt)
 
         taxonomy_id = eva_metadata.project.get('Tax ID')
         if taxonomy_id and (isinstance(taxonomy_id, int) or taxonomy_id.isdigit()):
-            self._add_to_submission_config('taxonomy_id', int(taxonomy_id))
+            self.eload_cfg.set('submission', 'taxonomy_id', value=int(taxonomy_id))
             scientific_name = get_scientific_name_from_ensembl(taxonomy_id)
-            self._add_to_submission_config('scientific_name', scientific_name)
+            self.eload_cfg.set('submission', 'scientific_name', value=scientific_name)
         else:
             if taxonomy_id:
                 self.error('Taxonomy id %s is invalid:', taxonomy_id)
@@ -138,8 +132,8 @@ class EloadPreparation(Eload):
             self.eload_cfg.query('submission', 'scientific_name'),
             self.eload_cfg.query('submission', 'assembly_accession')
         )
-        self._add_to_submission_config('assembly_fasta', assembly_fasta_path)
-        self._add_to_submission_config('assembly_report', assembly_report_path)
+        self.eload_cfg.set('submission', 'assembly_fasta', value=assembly_fasta_path)
+        self.eload_cfg.set('submission', 'assembly_report', value=assembly_report_path)
 
 
 class EloadValidation(Eload):

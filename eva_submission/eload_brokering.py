@@ -19,14 +19,14 @@ class EloadBrokering(Eload):
         if 'validation' not in self.eload_cfg:
             self.eload_cfg['validation'] = {}
         if vcf_files or metadata_file:
-            if 'valid' not in self.eload_cfg['validation']:
-                self.eload_cfg['validation']['valid'] = {}
-        if vcf_files:
-            self.eload_cfg['validation']['valid']['vcf_files'] = vcf_files
-        if metadata_file:
-            self.eload_cfg['validation']['valid']['metadata_spreadsheet'] = metadata_file
+            self.eload_cfg.set('validation', 'valid', value={'Force': True, 'date': self.now})
+            if vcf_files:
+                self.eload_cfg.set('validation', 'valid', 'vcf_files', value=vcf_files)
+            if metadata_file:
+                self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet', value=metadata_file)
 
     def broker(self):
+        # Reset previous values that could have been set before
         self.eload_cfg['brokering'] = {}
         output_dir = self._run_brokering_prep_workflow()
         self._collect_brokering_worklflow_results(output_dir)
@@ -49,7 +49,7 @@ class EloadBrokering(Eload):
 
     def run_perl_metadata_parser(self, output_folder, metadata_file):
         command = '{perl} {submission_to_xml} -f {output} -r {eload} -i ${metadata_file}'.format(
-            perl=cfg.query('executable','perl', 'perl'), submission_to_xml=cfg['executable']['submission_to_xml'],
+            perl=cfg.query('executable', 'perl', ret_default='perl'), submission_to_xml=cfg['executable']['submission_to_xml'],
             output=output_folder, eload=self.eload, metadata_file=metadata_file
         )
         command_utils.run_command_with_output('Run metadata perl scripts', command)
@@ -62,7 +62,7 @@ class EloadBrokering(Eload):
     def _run_brokering_prep_workflow(self):
         output_dir = self.create_temp_output_directory()
         brokering_config = {
-            'vcf_files': self.eload_cfg.query('validation', 'valid', 'vcf_files'),
+            'vcf_files': self.eload_cfg['validation']['valid']['vcf_files'],
             'output_dir': output_dir,
             'executable': cfg['executable']
         }
@@ -87,7 +87,6 @@ class EloadBrokering(Eload):
 
     def _collect_brokering_worklflow_results(self, output_dir):
         # Collect information from the output and summarise in the config
-        self.eload_cfg['brokering']['vcf_files'] = {}
         nextflow_vcf_output = os.path.join(output_dir, 'output')
         for vcf_file in self.eload_cfg.query('validation', 'valid', 'vcf_files'):
             vcf_file_name = os.path.basename(vcf_file)
@@ -103,12 +102,12 @@ class EloadBrokering(Eload):
             os.rename(ifile, o_index_file)
             os.rename(ifile + '.md5', o_index_file + '.md5')
 
-            self.eload_cfg['brokering']['vcf_files'][ovcf_file] = {
+            self.eload_cfg.set('brokering', 'vcf_files', ovcf_file, value={
                 'original_vcf': vcf_file,
                 'md5': read_md5(ovcf_file+'.md5'),
                 'index': o_index_file,
                 'index_md5': read_md5(o_index_file+'.md5'),
-            }
+            })
 
     def populate_spreadsheet_for_ena(self, spreadsheet):
         reader = EVAXLSReader(spreadsheet)

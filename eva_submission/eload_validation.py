@@ -2,10 +2,8 @@
 import os
 import shutil
 import subprocess
-from datetime import datetime
 
 import yaml
-from cached_property import cached_property
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 
@@ -15,10 +13,6 @@ from eva_submission.samples_checker import compare_spreadsheet_and_vcf
 
 
 class EloadValidation(Eload):
-
-    @cached_property
-    def now(self):
-        return datetime.now()
 
     def validate(self):
         # (Re-)Initialise the config file output
@@ -35,27 +29,24 @@ class EloadValidation(Eload):
         shutil.rmtree(output_dir)
 
         if all([self.eload_cfg['validation'][key]['pass'] for key in ['vcf_check', 'assembly_check', 'sample_check']]):
-            self.eload_cfg['validation']['valid'] = {
-                'vcf_files': self.eload_cfg['submission']['vcf_files'],
-                'metadata_spreadsheet': self.eload_cfg.query('submission', 'metadata_spreadsheet')
-            }
+            self.eload_cfg.set('validation', 'valid', 'vcf_files', value=self.eload_cfg['submission']['vcf_files'])
+            self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet', value=self.eload_cfg['submission']['metadata_spreadsheet'])
 
     def _validate_spreadsheet(self):
         overall_differences, results_per_analysis_alias = compare_spreadsheet_and_vcf(
-            eva_files_sheet=self.eload_cfg.query('submission', 'metadata_spreadsheet'),
+            eva_files_sheet=self.eload_cfg['submission']['metadata_spreadsheet'],
             vcf_dir=self._get_dir('vcf'),
             expected_vcf_files=self.eload_cfg['submission']['vcf_files']
         )
-        self.eload_cfg['validation']['sample_check']['analysis'] = {}
         for analysis_alias in results_per_analysis_alias:
             has_difference, diff_submitted_file_submission, diff_submission_submitted_file = results_per_analysis_alias[analysis_alias]
 
-            self.eload_cfg['validation']['sample_check']['analysis'][str(analysis_alias)] = {
+            self.eload_cfg.set('validation', 'sample_check', 'analysis', str(analysis_alias), value={
                 'difference_exists': has_difference,
                 'in_VCF_not_in_metadata': diff_submitted_file_submission,
                 'in_metadata_not_in_VCF': diff_submission_submitted_file
-            }
-        self.eload_cfg['validation']['sample_check']['pass'] = not overall_differences
+            })
+        self.eload_cfg.set('validation', 'sample_check', 'pass', value=not overall_differences)
 
     def parse_assembly_check_log(self, assembly_check_log):
         error_list = []
@@ -128,7 +119,6 @@ class EloadValidation(Eload):
 
     def _collect_validation_worklflow_results(self, output_dir):
         # Collect information from the output and summarise in the config
-        self.eload_cfg['validation']['vcf_check']['files'] = {}
         total_error = 0
         # detect output files for vcf check
         for vcf_file in self.eload_cfg.query('submission', 'vcf_files'):
@@ -163,15 +153,14 @@ class EloadValidation(Eload):
                 valid, error_list, error_count, warning_count = (False, 'Process failed', 1, 0)
             total_error += error_count
 
-            self.eload_cfg['validation']['vcf_check']['files'][vcf_name] = {
+            self.eload_cfg.set('validation', 'vcf_check', 'files', vcf_name, value={
                 'error_list': error_list, 'nb_error': error_count, 'nb_warning': warning_count,
                 'vcf_check_log': vcf_check_log, 'vcf_check_text_report': vcf_check_text_report,
                 'vcf_check_db_report': vcf_check_db_report
-            }
-        self.eload_cfg['validation']['vcf_check']['pass'] = total_error == 0
+            })
+        self.eload_cfg.set('validation', 'vcf_check', 'pass', value=total_error == 0)
 
         # detect output files for assembly check
-        self.eload_cfg['validation']['assembly_check']['files'] = {}
         total_error = 0
         for vcf_file in self.eload_cfg.query('submission', 'vcf_files'):
             vcf_name = os.path.basename(vcf_file)
@@ -204,12 +193,12 @@ class EloadValidation(Eload):
             else:
                 error_list, nb_error, match, total = (['Process failed'], 1, 0, 0)
             total_error += nb_error
-            self.eload_cfg['validation']['assembly_check']['files'][vcf_name] = {
+            self.eload_cfg.set('validation', 'assembly_check', 'files', vcf_name, value={
                 'error_list': error_list, 'nb_error': nb_error, 'ref_match': match, 'nb_variant': total,
                 'assembly_check_log': assembly_check_log, 'assembly_check_valid_vcf': assembly_check_valid_vcf,
                 'assembly_check_text_report': assembly_check_text_report
-            }
-        self.eload_cfg['validation']['assembly_check']['pass'] = total_error == 0
+            })
+        self.eload_cfg.set('validation', 'assembly_check', 'pass', value=total_error == 0)
 
     def _vcf_check_report(self):
         reports = []
