@@ -16,25 +16,25 @@ logger = log_cfg.get_logger(__name__)
 def inspect_all_users(ftp_box):
     deposit_boxes = glob.glob(deposit_box(ftp_box, '*'))
     for box in deposit_boxes:
-        username = os.path.basename(box)
-        inspect_one_user(ftp_box, username)
+        submitter = os.path.basename(box)
+        inspect_one_user(ftp_box, submitter)
         print("")
 
 
-def inspect_one_user(ftp_box, username):
-    box = FtpDepositBox(ftp_box, username)
+def inspect_one_user(ftp_box, submitter):
+    box = FtpDepositBox(ftp_box, submitter)
     box.report()
 
 
-def deposit_box(ftp_box, username):
-    return os.path.join(cfg['ftp_dir'], 'eva-box-%02d' % ftp_box, 'upload', username)
+def deposit_box(ftp_box, submitter):
+    return os.path.join(cfg['ftp_dir'], 'eva-box-%02d' % ftp_box, 'upload', submitter)
 
 
 class FtpDepositBox(AppLogger):
 
-    def __init__(self, ftp_box, username):
+    def __init__(self, ftp_box, submitter):
         self.box = ftp_box
-        self.username = username
+        self.submitter = submitter
         self._vcf_files = []
         self._metadata_files = []
         self._other_files = []
@@ -54,7 +54,7 @@ class FtpDepositBox(AppLogger):
 
     @property
     def deposit_box(self):
-        return deposit_box(self.box, self.username)
+        return deposit_box(self.box, self.submitter)
 
     @staticmethod
     def _size_of(file_list):

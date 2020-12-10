@@ -34,8 +34,8 @@ def main():
 
     argparse.add_argument('--ftp_box', required=True, type=int, choices=range(1, 21),
                           help='box number where the data should have been uploaded')
-    argparse.add_argument('--username', required=False, type=str,
-                          help='the name of the directory for that user.')
+    argparse.add_argument('--submitter', required=False, type=str,
+                          help='the name of the directory for that submitter.')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level',)
     args = argparse.parse_args()
@@ -46,8 +46,8 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    if args.username:
-        inspect_one_user(args.ftp_box, args.username)
+    if args.submitter:
+        inspect_one_user(args.ftp_box, args.submitter)
     else:
         inspect_all_users(args.ftp_box)
 

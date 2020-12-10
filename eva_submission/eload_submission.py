@@ -56,8 +56,8 @@ class Eload(AppLogger):
 
 class EloadPreparation(Eload):
 
-    def copy_from_ftp(self, ftp_box, username):
-        box = FtpDepositBox(ftp_box, username)
+    def copy_from_ftp(self, ftp_box, submitter):
+        box = FtpDepositBox(ftp_box, submitter)
 
         vcf_dir = os.path.join(self.eload_dir, directory_structure['vcf'])
         for vcf_file in box.vcf_files:
