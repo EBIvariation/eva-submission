@@ -1,8 +1,7 @@
+import ftplib
 import os
 import shutil
 import subprocess
-import ftplib
-from urllib import request
 
 import requests
 import yaml
@@ -90,10 +89,10 @@ class EloadBrokering(Eload):
             cfg.query('ena', 'submit_url'),
             files=dict(SUBMISSION=submission_file, PROJECT=project_file, ANALYSIS=analysis_file)
         )
+        # TODO: complete the parsing of the response
 
-
-    def upload_to_bioSamples(self):
-        sample_tab_submitter = SampleMetadataSubmitter()
+    def upload_to_bioSamples(self, metadata_spreadsheet):
+        sample_tab_submitter = SampleMetadataSubmitter(metadata_spreadsheet)
         sample_name_to_accession = sample_tab_submitter.submit_to_bioSamples()
         self.eload_cfg['brokering']['Biosamples'] = sample_name_to_accession
 

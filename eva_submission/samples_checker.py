@@ -1,7 +1,7 @@
 import logging
+import os
 
 import pysam
-import os
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
 from eva_submission.xlsx.xlsx_parser_eva import EVAXLSWriter, EVAXLSReader

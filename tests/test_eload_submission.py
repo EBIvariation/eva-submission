@@ -3,8 +3,8 @@ import os
 import shutil
 from unittest import TestCase
 
-from eva_submission.submission_config import load_config
 from eva_submission.eload_submission import EloadPreparation
+from eva_submission.submission_config import load_config
 
 
 def touch(filepath, content=None):

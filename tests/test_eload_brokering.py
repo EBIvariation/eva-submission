@@ -5,7 +5,6 @@ from unittest import TestCase
 
 from eva_submission.eload_brokering import EloadBrokering
 from eva_submission.submission_config import load_config
-from eva_submission.eload_submission import EloadPreparation
 
 
 class TestEloadBrokering(TestCase):

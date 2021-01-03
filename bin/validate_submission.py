@@ -18,6 +18,7 @@ import logging
 import os
 import sys
 from argparse import ArgumentParser
+
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
 from eva_submission.eload_validation import EloadValidation

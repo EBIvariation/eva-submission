@@ -22,13 +22,10 @@ get the 1st line in a worksheet and iterate over the rest of the worksheet row b
 a configuration file.
 This module depends on openpyxl and pyyaml.
 """
-import os
-from collections import defaultdict
 
-from cached_property import cached_property
+import yaml
 from ebi_eva_common_pyutils.logger import AppLogger
 from openpyxl import load_workbook
-import yaml
 
 WORKSHEETS_KEY_NAME = 'worksheets'
 REQUIRED_HEADERS_KEY_NAME = 'required'
@@ -154,8 +151,6 @@ class XLSReader(XLSBaseParser):
     def next(self):
         """
         Retrieve next data row
-        :param worksheet: the name of the worksheet
-        :type worksheet: basestring
         :return: A hash containing all the REQUIRED and OPTIONAL fields as keys
                 and the corresponding data as values
         :rtype: dict

@@ -1,13 +1,12 @@
 import os
 
 import yaml
+from cerberus import Validator
 from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 from ebi_eva_common_pyutils.variation.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
 
 from eva_submission.xlsx.xlsx_parser_eva import EVAXLSReader
-
-from cerberus import Validator
 
 
 class EVAXlsValidator(AppLogger):

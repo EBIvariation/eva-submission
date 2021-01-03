@@ -15,13 +15,13 @@
 
 import os
 import re
-from datetime import datetime
 from csv import DictReader, DictWriter
+from datetime import datetime
 
 import requests
 from cached_property import cached_property
 from ebi_eva_common_pyutils.config import cfg
-from ebi_eva_common_pyutils.logger import logging_config as log_cfg, AppLogger
+from ebi_eva_common_pyutils.logger import AppLogger
 
 from eva_submission.xlsx.xlsx_parser_eva import EVAXLSReader
 
@@ -167,7 +167,6 @@ class BSDSubmitter(AppLogger):
                 sample_json = self.communicator.follows_link('samples', method='PUT', join_url=sample.get('accession'),
                                                              json=sample)
             self.sample_name_to_accession[sample_json.get('name')] = sample_json.get('accession')
-
 
 
 class SampleSubmitter(AppLogger):
@@ -403,7 +402,7 @@ class SampleMetadataSubmitter(SampleSubmitter):
     }
 
     def __init__(self, metadata_spreadsheet):
-        super.__init__()
+        super().__init__()
         self.metadata_spreadsheet = metadata_spreadsheet
         self.reader = EVAXLSReader(self.metadata_spreadsheet)
 

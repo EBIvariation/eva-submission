@@ -18,9 +18,7 @@ import logging
 import os
 import sys
 
-from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
-from ebi_eva_common_pyutils.assembly import NCBIAssembly
 
 from eva_submission.eload_utils import get_genome_fasta_and_report
 
@@ -31,7 +29,7 @@ from eva_submission.submission_config import load_config
 logger = log_cfg.get_logger(__name__)
 
 
-def main(assembly_accession, species_name, output_directory, clear):
+def main():
     parser = argparse.ArgumentParser(description='Genome downloader assembly')
     parser.add_argument("-a", "--assembly-accession",
                         help="Assembly for which the process has to be run, e.g. GCA_000002285.2", required=True)
@@ -57,7 +55,7 @@ def main(assembly_accession, species_name, output_directory, clear):
 
     try:
         assembly_fasta_path, assembly_report_path = get_genome_fasta_and_report(
-            species_name, assembly_accession, output_directory, clear
+            args.species_name, args.assembly_accession, args.output_directory, args.clear
         )
         logger.info('FASTA: ' + assembly_fasta_path)
         logger.info('REPORT: ' + assembly_report_path)

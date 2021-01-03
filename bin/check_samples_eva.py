@@ -1,7 +1,6 @@
-import logging
-
-import os
 import argparse
+import logging
+import os
 import sys
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg

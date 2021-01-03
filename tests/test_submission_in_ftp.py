@@ -1,6 +1,6 @@
 import os
 from unittest import TestCase
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 
 from eva_submission.submission_config import load_config
 from eva_submission.submission_in_ftp import FtpDepositBox

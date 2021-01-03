@@ -1,22 +1,18 @@
 #!/usr/bin/env python
 import glob
 import os
+import random
 import shutil
 import string
-import random
-import subprocess
 from datetime import datetime
 
-import yaml
 from cached_property import cached_property
-from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 from ebi_eva_common_pyutils.variation.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
 
-from eva_submission.eload_utils import get_genome_fasta_and_report, resolve_single_file_path
-from eva_submission.samples_checker import compare_spreadsheet_and_vcf
+from eva_submission.eload_utils import get_genome_fasta_and_report
 from eva_submission.submission_config import EloadConfig
 from eva_submission.submission_in_ftp import FtpDepositBox
 from eva_submission.xlsx.xlsx_parser_eva import EVAXLSReader, EVAXLSWriter
@@ -57,7 +53,8 @@ class Eload(AppLogger):
     def now(self):
         return datetime.now()
 
-    def update_metadata_from_config(self, input_spreadsheet, output_spreadsheet):
+    def update_metadata_from_config(self, input_spreadsheet, output_spreadsheet=None):
+
         reader = EVAXLSReader(input_spreadsheet)
         single_analysis_alias = None
         if len(reader.analysis) == 1:
@@ -96,11 +93,13 @@ class Eload(AppLogger):
                 'File Type': 'tabix',
                 'MD5': self.eload_cfg['brokering']['vcf_files'][vcf_file]['index_md5']
             })
-
-        eva_xls_writer = EVAXLSWriter(input_spreadsheet)
+        if output_spreadsheet:
+            eva_xls_writer = EVAXLSWriter(input_spreadsheet, output_spreadsheet)
+        else:
+            eva_xls_writer = EVAXLSWriter(input_spreadsheet)
         eva_xls_writer.set_samples(sample_rows)
         eva_xls_writer.set_files(file_rows)
-        eva_xls_writer.save(output_spreadsheet)
+        eva_xls_writer.save()
         return output_spreadsheet
 
 
