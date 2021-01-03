@@ -23,6 +23,8 @@ from cached_property import cached_property
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg, AppLogger
 
+from eva_submission.xlsx.xlsx_parser_eva import EVAXLSReader
+
 _now = datetime.now().isoformat()
 
 
@@ -167,35 +169,14 @@ class BSDSubmitter(AppLogger):
             self.sample_name_to_accession[sample_json.get('name')] = sample_json.get('accession')
 
 
-class SampleTabSubmitter(AppLogger):
 
-    sample_mapping = {
-        'Sample Name': 'name',
-        'Sample Accession': 'accession',
-        'Sample Description': 'characteristics.description',
-        'Organism': 'characteristics.organism',
-        'Sex': 'characteristics.sex',
-        'Material': 'characteristics.material',
-        'Term Source REF': None,
-        'Term Source ID': 'taxId',  # This is a bit spurious: assumes that the "Term Source REF" is always NCBI Taxonomy
-        'Scientific Name': 'scientific name',
-        'Common Name': 'common name'
-    }
+class SampleSubmitter(AppLogger):
 
-    project_mapping = {
-        'person': 'contact',
-        'Organization Name': 'Name',
-        'Organization Address': 'Address',
-        'Person Email': 'E-mail',
-        'Person First Name': 'FirstName',
-        'Person Last Name': 'LastName'
-    }
+    sample_mapping = {}
 
-    def __init__(self, sampletab_file):
-        self.sampletab_file = sampletab_file
-        sampletab_base, ext = os.path.splitext(self.sampletab_file)
-        self.accessioned_sampletab_file = sampletab_base + '_accessioned' + ext
+    project_mapping = {}
 
+    def __init__(self):
         communicator = HALCommunicator(cfg.query('biosamples', 'aap_url'), cfg.query('biosamples', 'bsd_url'),
                                        cfg.query('biosamples', 'username'), cfg.query('biosamples', 'password'))
         self.submitter = BSDSubmitter(communicator, cfg.query('biosamples', 'domain'))
@@ -247,6 +228,40 @@ class SampleTabSubmitter(AppLogger):
             for i, value in enumerate(values_to_group.split('\t')):
                 grouped_data[groupname][i][self.map_project_key(header)] = value
 
+    def submit_to_bioSamples(self):
+        raise NotImplementedError
+
+
+class SampleTabSubmitter(SampleSubmitter):
+
+    sample_mapping = {
+        'Sample Name': 'name',
+        'Sample Accession': 'accession',
+        'Sample Description': 'characteristics.description',
+        'Organism': 'characteristics.organism',
+        'Sex': 'characteristics.sex',
+        'Material': 'characteristics.material',
+        'Term Source REF': None,
+        'Term Source ID': 'taxId',  # This is a bit spurious: assumes that the "Term Source REF" is always NCBI Taxonomy
+        'Scientific Name': 'scientific name',
+        'Common Name': 'common name'
+    }
+
+    project_mapping = {
+        'person': 'contact',
+        'Organization Name': 'Name',
+        'Organization Address': 'Address',
+        'Person Email': 'E-mail',
+        'Person First Name': 'FirstName',
+        'Person Last Name': 'LastName'
+    }
+
+    def __init__(self, sampletab_file):
+        super().__init__()
+        self.sampletab_file = sampletab_file
+        sampletab_base, ext = os.path.splitext(self.sampletab_file)
+        self.accessioned_sampletab_file = sampletab_base + '_accessioned' + ext
+
     def map_sample_tab_to_bsd_data(self, sample_tab_data, project_tab):
         """
         Map each column provided in the sampletab file to a key in the API's sample schema.
@@ -287,10 +302,14 @@ class SampleTabSubmitter(AppLogger):
 
     def parse_sample_tab(self):
         self.info('Parse ' + self.sampletab_file)
+        self._parse_sample_tab(self.sampletab_file)
+
+    @staticmethod
+    def _parse_sample_tab(sampletab_file):
         msi_dict = {}
         scd_lines = []
         in_msi = in_scd = False
-        with open(self.sampletab_file) as open_file:
+        with open(sampletab_file) as open_file:
             for line in open_file:
                 if line.strip() == '[MSI]':
                     in_msi = True
@@ -352,5 +371,102 @@ class SampleTabSubmitter(AppLogger):
                     self.write_sample_tab(self.submitter.sample_name_to_accession)
         else:
             self.error('No Sample found in the Sample tab file: ' + self.sampletab_file)
+
+        return self.submitter.sample_name_to_accession
+
+
+class SampleMetadataSubmitter(SampleSubmitter):
+    sample_mapping = {
+        'Sample Name': 'name',
+        'Sample Accession': 'accession',
+        'Sex': 'characteristics.sex',
+        'bio_material': 'characteristics.material',
+        'Tax Id': 'taxId',
+        'Scientific Name': 'scientific name',
+        'Common Name': 'common name'
+    }
+    accepted_characteristics = ['Unique Name Prefix', 'Subject', 'Derived From', 'Scientific Name', 'Common Name',
+                                'mating_type', 'sex', 'cell_type', 'dev_stage', 'germline', 'tissue_lib', 'tissue_type',
+                                'culture_collection', 'specimen_voucher', 'collected_by', 'collection_date',
+                                'geographic location (country and/or sea)', 'geographic location (region and locality)',
+                                'host', 'identified_by', 'isolation_source', 'lat_lon', 'lab_host',
+                                'environmental_sample', 'cultivar', 'ecotype', 'isolate', 'strain', 'sub_species',
+                                'variety', 'sub_strain', 'cell_line', 'serotype', 'serovar']
+
+    project_mapping = {
+        'person': 'contact',
+        'Organization Name': 'Name',
+        'Organization Address': 'Address',
+        'Person Email': 'E-mail',
+        'Person First Name': 'FirstName',
+        'Person Last Name': 'LastName'
+    }
+
+    def __init__(self, metadata_spreadsheet):
+        super.__init__()
+        self.metadata_spreadsheet = metadata_spreadsheet
+        self.reader = EVAXLSReader(self.metadata_spreadsheet)
+
+    def map_metadata_to_bsd_data(self):
+        payloads = []
+        for sample_row in self.reader.samples:
+            bsd_sample_entry = {'characteristics': {}}
+            for key in sample_row:
+                if sample_row[key]:
+                    if key in self.sample_mapping:
+                        self.apply_mapping(bsd_sample_entry, key, sample_row[key])
+                    elif key in self.accepted_characteristics:
+                        # other field  maps to characteristics
+                        self.apply_mapping(
+                            bsd_sample_entry['characteristics'],
+                            self.map_sample_key(key.lower()),
+                            [{'text': sample_row[key]}]
+                        )
+                    else:
+                        # Ignore the other values
+                        pass
+            if sample_row.get('Novel attribute(s)'):
+                for novel_attribute in sample_row.get('Novel attribute(s)').split(','):
+                    attribute, value = novel_attribute.split(':')
+                    self.apply_mapping(
+                        bsd_sample_entry['characteristics'],
+                        self.map_sample_key(attribute.lower()),
+                        [{'text': value}]
+                    )
+
+            grouped_values = {}
+            project_row = self.reader.project
+            for key in project_row:
+                # Organisation and contact can contain multiple values that are split across several fields
+                # this will group the across fields
+                groupname = self.map_project_key(key.split()[0].lower())
+                if groupname in ['organization', 'contact']:
+                    self._group_across_fields(grouped_values, key, project_row[key])
+                elif groupname in self.project_mapping:
+                    # All the other project level field are added to characteristics
+                    self.apply_mapping(bsd_sample_entry['characteristics'], key.lower(),
+                                       [{'text': project_row[key]}])
+                else:
+                    # Ignore the other values
+                    pass
+            # Store the grouped values
+            for groupname in grouped_values:
+                self.apply_mapping(bsd_sample_entry, groupname, grouped_values[groupname])
+
+            bsd_sample_entry['release'] = _now
+            payloads.append(bsd_sample_entry)
+
+        return payloads
+
+    def submit_to_bioSamples(self):
+        sample_data = self.map_metadata_to_bsd_data()
+
+        # TODO: Only accessioned if it was not done before
+        # Check that the data
+        if sample_data:
+            self.info('Validate {} sample(s) in BioSample'.format(len(sample_data)))
+            self.submitter.validate_in_bsd(sample_data)
+            self.info('Upload {} sample(s) '.format(len(sample_data)))
+            self.submitter.submit_to_bsd(sample_data)
 
         return self.submitter.sample_name_to_accession

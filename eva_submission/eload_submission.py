@@ -6,7 +6,7 @@ import string
 import random
 from datetime import datetime
 
-import cached_property
+from cached_property import cached_property
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
@@ -15,7 +15,7 @@ from ebi_eva_common_pyutils.variation.assembly_utils import retrieve_genbank_ass
 from eva_submission.eload_utils import get_genome_fasta_and_report
 from eva_submission.submission_config import EloadConfig
 from eva_submission.submission_in_ftp import FtpDepositBox
-from eva_submission.xls_parser_eva import EVAXLSReader
+from eva_submission.xlsx.xlsx_parser_eva import EVAXLSReader, EVAXLSWriter
 
 directory_structure = {
     'vcf': '10_submitted/vcf_files',
@@ -53,6 +53,52 @@ class Eload(AppLogger):
     def now(self):
         return datetime.now()
 
+    def update_metadata_from_config(self, input_spreadsheet, output_spreadsheet):
+        reader = EVAXLSReader(input_spreadsheet)
+        single_analysis_alias = None
+        if len(reader.analysis) == 1:
+            single_analysis_alias = reader.analysis[0].get('Analysis Alias')
+
+        sample_rows = []
+        for sample_row in reader.samples:
+            sample_rows.append({
+                'row_num': sample_row.get('row_num'),
+                'Analysis Alias': sample_row.get('Analysis Alias') or single_analysis_alias,
+                'Sample ID': sample_row.get('Sample Name'),
+                'Sample Accession': self.eload_cfg['brokering']['Biosamples'][sample_row.get('Sample Name')]
+            })
+
+        file_rows = []
+        file_to_row = {}
+        for file_row in reader.files:
+            file_to_row[file_row['File Name']] = file_row
+
+        for vcf_file in self.eload_cfg['brokering']['vcf_files']:
+            original_vcf_file = self.eload_cfg['brokering']['vcf_files'][vcf_file]['original_vcf']
+            file_row = file_to_row.get(os.path.basename(original_vcf_file), default={})
+            # Add the vcf file
+            file_rows.append({
+                'Analysis Alias': file_row.get('Analysis Alias') or single_analysis_alias,
+                'File Name': self.eload + '/' + vcf_file,
+                'File Type': 'vcf',
+                'MD5': self.eload_cfg['brokering']['vcf_files'][vcf_file]['md5']
+            })
+
+            # Add the index file
+            file_rows.append({
+                'Analysis Alias': file_row.get('Analysis Alias') or single_analysis_alias,
+                'File Name': self.eload + '/' + os.path.basename(
+                    self.eload_cfg['brokering']['vcf_files'][vcf_file]['index']),
+                'File Type': 'tabix',
+                'MD5': self.eload_cfg['brokering']['vcf_files'][vcf_file]['index_md5']
+            })
+
+        eva_xls_writer = EVAXLSWriter(input_spreadsheet)
+        eva_xls_writer.set_samples(sample_rows)
+        eva_xls_writer.set_files(file_rows)
+        eva_xls_writer.save(output_spreadsheet)
+        return output_spreadsheet
+
 
 class EloadPreparation(Eload):
 
@@ -79,7 +125,7 @@ class EloadPreparation(Eload):
     def detect_all(self):
         self.detect_submitted_metadata()
         self.detect_submitted_vcf()
-        self.detect_metadata_attibutes()
+        self.detect_metadata_attributes()
         self.find_genome()
 
     def detect_submitted_metadata(self):
@@ -99,7 +145,7 @@ class EloadPreparation(Eload):
             raise FileNotFoundError('Could not locate vcf file in in %s', vcf_dir)
         self.eload_cfg.set('submission','vcf_files', value=vcf_files)
 
-    def detect_metadata_attibutes(self):
+    def detect_metadata_attributes(self):
         eva_metadata = EVAXLSReader(self.eload_cfg.query('submission', 'metadata_spreadsheet'))
         reference_gca = set()
         for analysis in eva_metadata.analysis:

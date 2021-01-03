@@ -1,0 +1,119 @@
+#Configuration for defining the cerberus validation.
+
+Submitter Details:
+  type: 'list'
+  schema:
+    type: 'dict'
+    schema:
+      Last Name: {         type: 'string',  nullable: False, required: True}
+      First Name: {        type: 'string',  nullable: False, required: True}
+      Telephone Number: {  type: 'string',  nullable: False, required: True}
+      Email Address: {     type: 'string',  nullable: False, required: True}
+      Laboratory: {        type: 'string',  nullable: False, required: True}
+      Center: {            type: 'string',  nullable: False, required: True}
+      Address: {           type: 'string',  nullable: False, required: True}
+
+Project:
+  type: 'list'
+  schema:
+    type: 'dict'
+    schema:
+      Project Title: {       type: 'string',  nullable: False, required: True}
+      Project Alias: {       type: 'string',  nullable: False, required: True}
+      Description: {         type: 'string',  nullable: False, required: True}
+      Center: {              type: 'string',  nullable: False, required: True}
+      Tax ID: {              type: 'integer', nullable: False, required: True}
+      Publication(s): {      type: 'string',  nullable: True, regex: '\w+:\w+(,\w+:\w+)*' }
+      Parent Project(s): {   type: 'string',  nullable: True}
+      Child Project(s): {    type: 'string',  nullable: True}
+      Peer Project(s): {     type: 'string',  nullable: True}
+      Link(s): {             type: 'string',  nullable: True, regex: '(^(ftp:|http:|file:|https:):\w+)|(\w+:\w+(:\w+)?)'}
+      Hold Date: {           type: 'date',    nullable: True}
+      Collaborator(s): {     type: 'string',  nullable: True}
+      Strain: {              type: 'string',  nullable: True}
+      Breed: {               type: 'string',  nullable: True}
+      Broker: {              type: 'string',  nullable: True}
+
+
+Analysis:
+  type: 'list'
+  schema:
+    type: 'dict'
+    schema:
+      Analysis Title: {      type: 'string',  nullable: False, required: True}
+      Analysis Alias: {      type: 'string',  nullable: False, required: True}
+      Description: {         type: 'string',  nullable: False, required: True}
+      Project Title: {       type: 'string',  nullable: False, required: True}
+      Experiment Type: {     type: 'string',  nullable: False, required: True, allowed: ['Whole genome sequencing', 'Whole transcriptome sequencing','Exome sequencing', 'Genotyping by array', 'Curation', 'Genotyping by sequencing', 'Target sequencing'] }
+      Reference: {           type: 'string',  nullable: False, required: True}
+      Platform: {            type: 'string',  nullable: True, allowed: ['454 GS', '454 GS 20', '454 GS FLX', '454 GS FLX Titanium', '454 GS FLX+', '454 GS Junior', 'AB 3130 Genetic Analyzer', 'AB 3300 Genetic Analyzer', 'AB 3730xl', 'AB 3730xl', 'AB 5500 Genetic Analyzer', 'AB 5500xl Genetic Analyzer', 'AB SOLiD 3 Plus System', 'AB SOLiD 4 System', 'AB SOLiD 4hq System', 'AB SOLiD PI System', 'AB SOLiD System', 'AB SOLiD System 2.0', 'AB SOLiD System 3.0', 'ABI 3500 Genetic Analyzer', 'ABI PRISM 310 Genetic Analyzer', 'Affymetrix', 'BGISEQ-500', 'Bio-Rad CFX96', 'Complete Genomics', 'Illumina', 'Illumina CanineHD', 'Illumina Genome Analyzer', 'Illumina Genome Analyzer II', 'Illumina Genome Analyzer IIx', 'Illumina HiScanSQ', 'Illumina HiSeq 1000', 'Illumina HiSeq 2000', 'Illumina HiSeq 2500', 'Illumina HiSeq 3500', 'Illumina HiSeq 4000', 'Illumina HiSeq X Ten', 'Illumina Hiseq Xten', 'Illumina iScan', 'Illumina MiniSeq', 'Illumina MiSeq', 'Illumina NextSeq 500', 'Illumina NovaSeq 6000', 'Ion Personal Genome Machine (PGM) System v2', 'Ion S5XL', 'Ion Torrent PGM', 'Ion Torrent Proton', 'MGISEQ-2000', 'Nimblegen 4.2M Probe Custom DNA Microarray', 'Oxford Nanopore PromethION', 'unspecified']}
+      Software: {            type: 'string',  nullable: True}
+      Pipeline Description: {type: 'string',  nullable: True}
+      Imputation: {          type: 'string',  nullable: True}
+      Phasing: {             type: 'string',  nullable: True}
+      Centre: {              type: 'string',  nullable: True}
+      Date: {                type: 'string',  nullable: True}
+      Link(s): {             type: 'string',  nullable: True}
+      Run Accession(s): {    type: 'string',  nullable: True}
+
+Sample:
+  type: 'list'
+  schema:
+    type: 'dict'
+    schema:
+     Analysis Alias: {      type: 'string',  nullable: True}
+     Sample ID: {           type: 'string',  nullable: True}
+     Sample Accession: {    type: 'string',  nullable: True}
+     Sampleset Accession: { type: 'string',  nullable: True}
+     Sample Name: {         type: 'string',  nullable: True}
+     Title: {               type: 'string',  nullable: True}
+     Description: {         type: 'string',  nullable: True}
+     Unique Name: {         type: 'string',  nullable: True}
+     Prefix: {              type: 'string',  nullable: True}
+     Subject: {             type: 'string',  nullable: True}
+     Derived From: {        type: 'string',  nullable: True}
+     Tax Id: {              type: 'integer', nullable: True}
+     Scientific Name: {     type: 'string',  nullable: True}
+     Common Name: {         type: 'string',  nullable: True}
+     mating_type: {         type: 'string',  nullable: True}
+     sex: {                 type: 'string',  nullable: True}
+     population: {          type: 'string',  nullable: True}
+     cell_type: {           type: 'string',  nullable: True}
+     dev_stage: {           type: 'string',  nullable: True}
+     germline: {            type: 'string',  nullable: True}
+     tissue_lib: {          type: 'string',  nullable: True}
+     tissue_type: {         type: 'string',  nullable: True}
+     bio_material: {        type: 'string',  nullable: True}
+     culture_collection: {  type: 'string',  nullable: True}
+     specimen_voucher: {    type: 'string',  nullable: True}
+     collected_by: {        type: 'string',  nullable: True}
+     collection_date: {     type: 'string',  nullable: True}
+     geographic location (country and/or sea): {type: 'string',  nullable: True}
+     geographic location (region and locality): {type: 'string',  nullable: True}
+     host: {                type: 'string',  nullable: True}
+     identified_by: {       type: 'string',  nullable: True}
+     isolation_source: {    type: 'string',  nullable: True}
+     lat_lon: {             type: 'string',  nullable: True}
+     lab_host: {            type: 'string',  nullable: True}
+     environmental_sample: {type: 'string',  nullable: True}
+     cultivar: {            type: 'string',  nullable: True}
+     ecotype: {             type: 'string',  nullable: True}
+     isolate: {             type: 'string',  nullable: True}
+     strain: {              type: 'string',  nullable: True}
+     sub_species: {         type: 'string',  nullable: True}
+     variety: {             type: 'string',  nullable: True}
+     sub_strain: {          type: 'string',  nullable: True}
+     cell_line: {           type: 'string',  nullable: True}
+     serotype: {            type: 'string',  nullable: True}
+     serovar: {             type: 'string',  nullable: True}
+     Novel attribute(s) : { type: 'string',  nullable: True, regex: '\w+:\w+(,\w+:\w+)*'}
+
+Files:
+  type: 'list'
+  schema:
+    type: 'dict'
+    schema:
+      Analysis Alias: {    type: 'string',  nullable: False, required: True}
+      File Name: {         type: 'string',  nullable: False, required: True}
+      File Type: {         type: 'string',  nullable: True, allowed: ['vcf', 'tabix']}
+      MD5: {               type: 'string',  nullable: True}

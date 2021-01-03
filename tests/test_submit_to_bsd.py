@@ -6,7 +6,7 @@ from unittest.mock import patch, Mock, PropertyMock
 import yaml
 
 from eva_submission import biosamples_submission
-from eva_submission.biosamples_submission import HALCommunicator, BSDSubmitter, map_sample_tab_to_bsd_data
+from eva_submission.biosamples_submission import HALCommunicator, BSDSubmitter, SampleTabSubmitter
 
 
 class BSDTestCase(TestCase):
@@ -176,14 +176,14 @@ class TestBSDSubmitter(BSDTestCase):
         self.submitter.validate_in_bsd(self.sample_data)
 
     def test_submit_to_bsd(self):
-        sample_to_accession = self.submitter.submit_to_bsd(self.sample_data)
-        self.assertEqual(len(sample_to_accession), len(self.sample_data))
-        self.assertEqual(list(sample_to_accession.keys()), ['LH1'])
+        self.submitter.submit_to_bsd(self.sample_data)
+        self.assertEqual(len(self.submitter.sample_name_to_accession), len(self.sample_data))
+        self.assertEqual(list(self.submitter.sample_name_to_accession.keys()), ['LH1'])
         # The accession is set by the server so cannot test its content that will change every time
-        self.assertIsNotNone(list(sample_to_accession.values())[0])
+        self.assertIsNotNone(list(self.submitter.sample_name_to_accession.values())[0])
 
 
-class TestSampleTabParser(BSDTestCase):
+class TestSampleTabSubmitter(BSDTestCase):
     project_data = {
         'Submission Title': 'Characterization of a large dataset of SNPs in Larimichthys polyactis using high throughput 2b-RAD sequencing',
         'Submission Identifier': '',
@@ -212,8 +212,13 @@ class TestSampleTabParser(BSDTestCase):
         'Characteristic[Common Name]': 'yellow croaker'
     }
 
+    def setUp(self) -> None:
+        file_name = os.path.join(self.resources_dir, 'bsd_submission.yaml')
+        self.sampletab_file = os.path.join(self.resources_dir, 'ELOAD_609biosamples.txt')
+        self.submitter = SampleTabSubmitter(self.sampletab_file)
+
     def test_parse_sample_tab(self):
-        msi_data, scd_reader = biosamples_submission.parse_sample_tab(os.path.join(self.resources_dir, 'ELOAD_609biosamples.txt'))
+        msi_data, scd_reader = self.submitter._parse_sample_tab(self.sampletab_file)
         self.assertEqual(msi_data, self.project_data)
         self.assertEqual(next(scd_reader), self.first_sample)
 
@@ -222,13 +227,10 @@ class TestSampleTabParser(BSDTestCase):
             self.first_sample,
         ]
         biosamples_submission._now = '2020-07-06T19:09:29.090Z'
-        self.assertEqual(sample_data, map_sample_tab_to_bsd_data(sample_tab_data, self.project_data))
+        self.assertEqual(sample_data, self.submitter.map_sample_tab_to_bsd_data(sample_tab_data, self.project_data))
 
     def test_write_sample_tab(self):
-        accession_output = os.path.join(self.resources_dir, 'ELOAD_609biosamples_with_accession.txt')
-        biosamples_submission.write_sample_tab(
-            os.path.join(self.resources_dir, 'ELOAD_609biosamples.txt'),
-            accession_output,
+        self.submitter.write_sample_tab(
             samples_to_accessions={
                 'LH1': 'ACCESSION01', 'LS3': 'ACCESSION02', 'DL3': 'ACCESSION03', 'DL2': 'ACCESSION04',
                 'DL1': 'ACCESSION05', 'LH3': 'ACCESSION06', 'LS2': 'ACCESSION07', 'DL4': 'ACCESSION08',
@@ -236,6 +238,6 @@ class TestSampleTabParser(BSDTestCase):
                 'LS4': 'ACCESSION13', 'DL5': 'ACCESSION14', 'LS6': 'ACCESSION15', 'LS1': 'ACCESSION16'
             }
         )
-        self.assertTrue(os.path.isfile(accession_output))
-        msi_data, scd_reader = biosamples_submission.parse_sample_tab(accession_output)
+        self.assertTrue(os.path.isfile(self.submitter.accessioned_sampletab_file))
+        msi_data, scd_reader = self.submitter._parse_sample_tab(self.submitter.accessioned_sampletab_file)
         self.assertEqual(next(scd_reader).get('Sample Accession'), 'ACCESSION01')

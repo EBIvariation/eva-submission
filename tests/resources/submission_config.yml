@@ -1,2 +1,11 @@
 ftp_dir: 'tests/resources/ftpboxes'
 eloads_dir: 'tests/resources/eloads'
+
+
+
+ena:
+  submit_url: https://www-test.ebi.ac.uk/ena/submit/drop-box/submit/
+  ftphost: ena.example.com
+  username: user
+  password: pass
+

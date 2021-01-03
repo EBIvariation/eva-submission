@@ -1,29 +1,47 @@
 import os
 import shutil
 import subprocess
+import ftplib
+from urllib import request
 
+import requests
 import yaml
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 
-from eva_submission.biosamples_submission import SampleTabSubmitter
+from eva_submission.biosamples_submission import SampleMetadataSubmitter
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import read_md5
-from eva_submission.xls_parser_eva import EVAXLSWriter, EVAXLSReader
+from eva_submission.xlsx_to_xml.xlsx_to_ENA_xml import process_metadata_spreadsheet
+
+
+class HackFTP_TLS(ftplib.FTP_TLS):
+    """
+    Hack from https://stackoverflow.com/questions/14659154/ftpes-session-reuse-required
+    to work around bug in Python standard library: https://bugs.python.org/issue19500
+    Explicit FTPS, with shared TLS session
+    """
+    def ntransfercmd(self, cmd, rest=None):
+        conn, size = ftplib.FTP.ntransfercmd(self, cmd, rest)
+        if self._prot_p:
+            conn = self.context.wrap_socket(conn,
+                                            server_hostname=self.host,
+                                            session=self.sock.session)  # this is the fix
+        return conn, size
 
 
 class EloadBrokering(Eload):
 
-    def __init__(self, eload_number: int, vcf_files: list, metadata_file: str):
+    def __init__(self, eload_number: int, vcf_files: list = None, metadata_file: str = None):
         super().__init__(eload_number)
         if 'validation' not in self.eload_cfg:
             self.eload_cfg['validation'] = {}
         if vcf_files or metadata_file:
             self.eload_cfg.set('validation', 'valid', value={'Force': True, 'date': self.now})
             if vcf_files:
-                self.eload_cfg.set('validation', 'valid', 'vcf_files', value=vcf_files)
+                self.eload_cfg.set('validation', 'valid', 'vcf_files', value=[os.path.abspath(v) for v in vcf_files])
             if metadata_file:
-                self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet', value=metadata_file)
+                self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet', value=os.path.abspath(metadata_file))
 
     def broker(self):
         # Reset previous values that could have been set before
@@ -33,29 +51,47 @@ class EloadBrokering(Eload):
         shutil.rmtree(output_dir)
 
         # TODO: Test if biosample upload is required
-        self.run_perl_metadata_parser(
-            self._get_dir('biosamles'),
-            self.eload_cfg['validation']['valid']['metadata_spreadsheet']
-        )
         # Find sampletab file
-        sample_tab = os.path.join(self._get_dir('biosamles'), self.eload + 'biosamples.txt')
-        self.upload_to_bioSamples(sample_tab)
+        self.upload_to_bioSamples(self.eload_cfg['validation']['valid']['metadata_spreadsheet'])
+        ena_spreadsheet = os.path.join(self._get_dir('ena'), 'metadata_spreadsheet.xlsx')
+        self.update_metadata_from_config(self.eload_cfg['validation']['valid']['metadata_spreadsheet'], ena_spreadsheet)
 
-        ena_spreadsheet = self.populate_spreadsheet_for_ena(self.eload_cfg['validation']['valid']['metadata_spreadsheet'])
-        self.run_perl_metadata_parser(self._get_dir('ena'), ena_spreadsheet)
+        submission_file, project_file, analysis_file = process_metadata_spreadsheet(ena_spreadsheet, self._get_dir('ena'), self.eload)
 
         # Upload the VCF to ENA FTP
+        self.upload_vcf_files_to_ena_ftp()
+
         # Upload XML to ENA
 
-    def run_perl_metadata_parser(self, output_folder, metadata_file):
-        command = '{perl} {submission_to_xml} -f {output} -r {eload} -i ${metadata_file}'.format(
-            perl=cfg.query('executable', 'perl', ret_default='perl'), submission_to_xml=cfg['executable']['submission_to_xml'],
-            output=output_folder, eload=self.eload, metadata_file=metadata_file
-        )
-        command_utils.run_command_with_output('Run metadata perl scripts', command)
+    def upload_vcf_files_to_ena_ftp(self):
+        print('Connect to %s' % cfg.query('ena', 'ftphost'))
+        ftps = HackFTP_TLS(cfg.query('ena', 'ftphost'))
+        ftps.login(cfg.query('ena', 'username'), cfg.query('ena', 'password'))
+        ftps.prot_p()
+        if self.eload not in ftps.nlst():
+            self.info('Create %s directory' % self.eload)
+            ftps.mkd(self.eload)
+        ftps.cwd(self.eload)
+        for vcf_file in self.eload_cfg['brokering']['vcf_files']:
+            vcf_file_name = os.path.basename(vcf_file)
+            self.info('Upload %s to FTP' % vcf_file_name)
+            with open(vcf_file, 'rb') as open_file:
+                ftps.storbinary('STOR %s' % vcf_file_name, open_file)
+            vcf_file_index = self.eload_cfg['brokering']['vcf_files'][vcf_file]['index']
+            vcf_file_index_name = os.path.basename(vcf_file_index)
+            self.info('Upload %s to FTP' % vcf_file_index_name)
+            with open(vcf_file_index, 'rb') as open_file:
+                ftps.storbinary('STOR %s' % vcf_file_index_name, open_file)
 
-    def upload_to_bioSamples(self, sample_tab):
-        sample_tab_submitter = SampleTabSubmitter(sample_tab)
+    def upload_xml_files_to_ena(self, submission_file, project_file, analysis_file):
+        response = requests.post(
+            cfg.query('ena', 'submit_url'),
+            files=dict(SUBMISSION=submission_file, PROJECT=project_file, ANALYSIS=analysis_file)
+        )
+
+
+    def upload_to_bioSamples(self):
+        sample_tab_submitter = SampleMetadataSubmitter()
         sample_name_to_accession = sample_tab_submitter.submit_to_bioSamples()
         self.eload_cfg['brokering']['Biosamples'] = sample_name_to_accession
 
@@ -109,49 +145,49 @@ class EloadBrokering(Eload):
                 'index_md5': read_md5(o_index_file+'.md5'),
             })
 
-    def populate_spreadsheet_for_ena(self, spreadsheet):
-        reader = EVAXLSReader(spreadsheet)
-        single_analysis_alias = None
-        if len(reader.analysis) == 1 :
-            single_analysis_alias = reader.analysis[0].get('Analysis Alias')
-
-        sample_rows = []
-        for sample_row in reader.samples:
-            sample_rows.append({
-                'row_num': sample_row.get('row_num'),
-                'Analysis Alias': sample_row.get('Analysis Alias') or single_analysis_alias,
-                'Sample ID': sample_row.get('Sample Name'),
-                'Sample Accession': self.eload_cfg['brokering']['Biosamples'][sample_row.get('Sample Name')]
-            })
-
-        file_rows = []
-        file_to_row = {}
-        for file_row in reader.files:
-            file_to_row[file_row['File Name']] = file_row
-
-        for vcf_file in self.eload_cfg['brokering']['vcf_files']:
-            original_vcf_file = self.eload_cfg['brokering']['vcf_files'][vcf_file]['original_vcf']
-            file_row = file_to_row.get(os.path.basename(original_vcf_file), default={})
-            # Add the vcf file
-            file_rows.append({
-                'Analysis Alias': file_row.get('Analysis Alias') or single_analysis_alias,
-                'File Name': self.eload + '/' + vcf_file,
-                'File Type': 'vcf',
-                'MD5': self.eload_cfg['brokering']['vcf_files'][vcf_file]['md5']
-            })
-
-            # Add the index file
-            file_rows.append({
-                'Analysis Alias': file_row.get('Analysis Alias') or single_analysis_alias,
-                'File Name': self.eload + '/' + os.path.basename(self.eload_cfg['brokering']['vcf_files'][vcf_file]['index']),
-                'File Type': 'tabix',
-                'MD5': self.eload_cfg['brokering']['vcf_files'][vcf_file]['index_md5']
-            })
-
-        eva_xls_writer = EVAXLSWriter(spreadsheet)
-        eva_xls_writer.set_samples(sample_rows)
-        eva_xls_writer.set_files(file_rows)
-        output_spreadsheet = os.path.join(self._get_dir('ena'), 'metadata_spreadsheet.xlsx')
-        eva_xls_writer.save(output_spreadsheet)
-        return output_spreadsheet
+    # def update_metadata_from_config(self, spreadsheet):
+    #     reader = EVAXLSReader(spreadsheet)
+    #     single_analysis_alias = None
+    #     if len(reader.analysis) == 1 :
+    #         single_analysis_alias = reader.analysis[0].get('Analysis Alias')
+    #
+    #     sample_rows = []
+    #     for sample_row in reader.samples:
+    #         sample_rows.append({
+    #             'row_num': sample_row.get('row_num'),
+    #             'Analysis Alias': sample_row.get('Analysis Alias') or single_analysis_alias,
+    #             'Sample ID': sample_row.get('Sample Name'),
+    #             'Sample Accession': self.eload_cfg['brokering']['Biosamples'][sample_row.get('Sample Name')]
+    #         })
+    #
+    #     file_rows = []
+    #     file_to_row = {}
+    #     for file_row in reader.files:
+    #         file_to_row[file_row['File Name']] = file_row
+    #
+    #     for vcf_file in self.eload_cfg['brokering']['vcf_files']:
+    #         original_vcf_file = self.eload_cfg['brokering']['vcf_files'][vcf_file]['original_vcf']
+    #         file_row = file_to_row.get(os.path.basename(original_vcf_file), default={})
+    #         # Add the vcf file
+    #         file_rows.append({
+    #             'Analysis Alias': file_row.get('Analysis Alias') or single_analysis_alias,
+    #             'File Name': self.eload + '/' + vcf_file,
+    #             'File Type': 'vcf',
+    #             'MD5': self.eload_cfg['brokering']['vcf_files'][vcf_file]['md5']
+    #         })
+    #
+    #         # Add the index file
+    #         file_rows.append({
+    #             'Analysis Alias': file_row.get('Analysis Alias') or single_analysis_alias,
+    #             'File Name': self.eload + '/' + os.path.basename(self.eload_cfg['brokering']['vcf_files'][vcf_file]['index']),
+    #             'File Type': 'tabix',
+    #             'MD5': self.eload_cfg['brokering']['vcf_files'][vcf_file]['index_md5']
+    #         })
+    #
+    #     eva_xls_writer = EVAXLSWriter(spreadsheet)
+    #     eva_xls_writer.set_samples(sample_rows)
+    #     eva_xls_writer.set_files(file_rows)
+    #     output_spreadsheet = os.path.join(self._get_dir('ena'), 'metadata_spreadsheet.xlsx')
+    #     eva_xls_writer.save(output_spreadsheet)
+    #     return output_spreadsheet
 

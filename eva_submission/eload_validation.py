@@ -10,6 +10,7 @@ from ebi_eva_common_pyutils.config import cfg
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import resolve_single_file_path
 from eva_submission.samples_checker import compare_spreadsheet_and_vcf
+from eva_submission.xlsx.xlsx_validation import EVAXlsValidator
 
 
 class EloadValidation(Eload):
@@ -18,21 +19,31 @@ class EloadValidation(Eload):
         # (Re-)Initialise the config file output
         self.eload_cfg['validation'] = {
             'validation_date': self.now,
+            'metadata_check': {},
             'assembly_check': {},
             'vcf_check': {},
             'sample_check': {},
             'valid': {}
         }
-        self._validate_spreadsheet()
+        self._validate_metadata_format()
+        self._validate_sample_names()
         output_dir = self._run_validation_workflow()
         self._collect_validation_worklflow_results(output_dir)
         shutil.rmtree(output_dir)
 
-        if all([self.eload_cfg['validation'][key]['pass'] for key in ['vcf_check', 'assembly_check', 'sample_check']]):
+        if all([self.eload_cfg['validation'][key]['pass'] for key in ['metadata_check', 'vcf_check', 'assembly_check', 'sample_check']]):
             self.eload_cfg.set('validation', 'valid', 'vcf_files', value=self.eload_cfg['submission']['vcf_files'])
             self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet', value=self.eload_cfg['submission']['metadata_spreadsheet'])
 
-    def _validate_spreadsheet(self):
+    def _validate_metadata_format(self):
+        validator = EVAXlsValidator(self.eload_cfg['submission']['metadata_spreadsheet'])
+        validator.validate()
+        self.eload_cfg['validation']['metadata_check']['metadata_spreadsheet'] = self.eload_cfg['submission']['metadata_spreadsheet']
+        self.eload_cfg['validation']['metadata_check']['errors'] = validator.errors
+        self.eload_cfg['validation']['metadata_check']['pass'] = len(validator.errors) == 0
+        self.update_metadata_from_config(self.eload_cfg['submission']['metadata_spreadsheet'])
+
+    def _validate_sample_names(self):
         overall_differences, results_per_analysis_alias = compare_spreadsheet_and_vcf(
             eva_files_sheet=self.eload_cfg['submission']['metadata_spreadsheet'],
             vcf_dir=self._get_dir('vcf'),
@@ -200,6 +211,22 @@ class EloadValidation(Eload):
             })
         self.eload_cfg.set('validation', 'assembly_check', 'pass', value=total_error == 0)
 
+    def _metadata_check_report(self):
+        reports = []
+
+        results = self.eload_cfg.query('validation', 'metadata_check', ret_default={})
+        report_data = {
+            'metadata_spreadsheet': results.get('metadata_spreadsheet'),
+            'pass': 'PASS' if results.get('pass') else 'FAIL',
+            'nb_error': len(results.get('errors', [])),
+            'error_list': '\n'.join(results.get('errors', []))
+        }
+        reports.append("""  * {metadata_spreadsheet}: {pass}
+    - number of error: {nb_error}
+    - error messages: {error_list}
+""".format(**report_data))
+        return '\n'.join(reports)
+
     def _vcf_check_report(self):
         reports = []
         for vcf_file in self.eload_cfg.query('validation', 'vcf_check', 'files'):
@@ -257,18 +284,25 @@ class EloadValidation(Eload):
 
         report_data = {
             'validation_date': self.eload_cfg.query('validation', 'validation_date'),
+            'metadata_check': 'PASS' if self.eload_cfg.query('validation', 'metadata_check', 'pass') else 'FAIL',
             'vcf_check': 'PASS' if self.eload_cfg.query('validation', 'vcf_check', 'pass') else 'FAIL',
             'assembly_check': 'PASS' if self.eload_cfg.query('validation', 'assembly_check', 'pass') else 'FAIL',
             'sample_check': 'PASS' if self.eload_cfg.query('validation', 'sample_check', 'pass') else 'FAIL',
+            'metadata_check_report': self._metadata_check_report(),
             'vcf_check_report': self._vcf_check_report(),
             'assembly_check_report': self._assembly_check_report(),
             'sample_check_report': self._sample_check_report()
         }
 
         report = """Validation performed on {validation_date}
+Metadata check: {metadata_check}
 VCF check: {vcf_check}
 Assembly check: {assembly_check}
 Sample names check: {sample_check}
+----------------------------------
+
+Metadata check:
+{metadata_check_report}
 ----------------------------------
 
 VCF check:

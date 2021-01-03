@@ -1,8 +1,8 @@
 import os
 from unittest import TestCase
 
-from eva_submission.xls_parser import XLSReader
-from eva_submission.xls_parser_eva import EVAXLSReader
+from eva_submission.xlsx.xlsx_parser import XLSReader
+from eva_submission.xlsx.xlsx_parser_eva import EVAXLSReader
 
 
 class TestEVAXLSReader(TestCase):

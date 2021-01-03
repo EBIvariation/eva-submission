@@ -148,6 +148,9 @@ class XLSReader(XLSBaseParser):
     def __iter__(self):
         return self
 
+    def base_row_offset(self, worksheet):
+        return self.xls_conf[worksheet].get(HEADERS_KEY_ROW, 1)
+
     def next(self):
         """
         Retrieve next data row
@@ -163,7 +166,7 @@ class XLSReader(XLSBaseParser):
             raise StopIteration
 
         if worksheet not in self.row_offset:
-            self.row_offset[worksheet] = self.xls_conf[worksheet].get(HEADERS_KEY_ROW, 1)
+            self.row_offset[worksheet] = self.base_row_offset(worksheet)
         self.row_offset[worksheet] += 1
 
         required_headers = self.xls_conf[worksheet].get(REQUIRED_HEADERS_KEY_NAME, [])

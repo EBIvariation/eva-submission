@@ -4,4 +4,5 @@ cached-property
 humanize
 pysam
 requests
+cerberus
 ebi_eva_common_pyutils

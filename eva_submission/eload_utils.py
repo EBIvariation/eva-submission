@@ -6,6 +6,7 @@ from ebi_eva_common_pyutils.config import cfg
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
+from eva_submission.xlsx.xlsx_parser_eva import EVAXLSReader
 
 logger = log_cfg.get_logger(__name__)
 
@@ -33,4 +34,5 @@ def read_md5(md5_file):
     with open(md5_file) as open_file:
         md5, file_name = open_file.readline().split()
     return md5
+
 

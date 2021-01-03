@@ -17,7 +17,7 @@ class EloadConfig(Configuration):
             pass
 
     def write(self):
-        if self.config_file and self.content:
+        if self.config_file and self.content and os.path.isdir(os.path.dirname(self.config_file)):
             with open(self.config_file, 'w') as open_config:
                 yaml.safe_dump(self.content, open_config)
 
