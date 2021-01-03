@@ -41,7 +41,6 @@ class EloadValidation(Eload):
         self.eload_cfg['validation']['metadata_check']['metadata_spreadsheet'] = self.eload_cfg['submission']['metadata_spreadsheet']
         self.eload_cfg['validation']['metadata_check']['errors'] = validator.errors
         self.eload_cfg['validation']['metadata_check']['pass'] = len(validator.errors) == 0
-        self.update_metadata_from_config(self.eload_cfg['submission']['metadata_spreadsheet'])
 
     def _validate_sample_names(self):
         overall_differences, results_per_analysis_alias = compare_spreadsheet_and_vcf(
