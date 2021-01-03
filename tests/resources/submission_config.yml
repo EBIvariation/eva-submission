@@ -5,7 +5,8 @@ eloads_dir: 'tests/resources/eloads'
 
 ena:
   submit_url: https://www-test.ebi.ac.uk/ena/submit/drop-box/submit/
-  ftphost: ena.example.com
-  username: user
-  password: pass
+  ftphost: test.rebex.net
+  ftpport: 22
+  username: demo
+  password: password
 

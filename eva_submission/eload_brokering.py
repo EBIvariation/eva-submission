@@ -65,7 +65,9 @@ class EloadBrokering(Eload):
 
     def upload_vcf_files_to_ena_ftp(self):
         print('Connect to %s' % cfg.query('ena', 'ftphost'))
-        ftps = HackFTP_TLS(cfg.query('ena', 'ftphost'))
+        ftps = HackFTP_TLS()
+        host, port = cfg.query('ena', 'ftphost').split(':')
+        ftps.connect(host, port=int(cfg.query('ena', 'ftpport', ret_default=21)))
         ftps.login(cfg.query('ena', 'username'), cfg.query('ena', 'password'))
         ftps.prot_p()
         if self.eload not in ftps.nlst():

@@ -25,8 +25,10 @@ class TestEloadBrokering(TestCase):
             shutil.rmtree(eload)
 
     def test_upload_vcf_files_to_ena_ftp(self):
-        vcf_file = ''
-        index_file = ''
-
-        self.eload.eload_cfg.set('brokering', 'vcf_files', value={vcf_file: {'index': index_file}})
-        self.eload.upload_vcf_files_to_ena_ftp()
+        # TODO: Test upload to another FTP
+        pass
+        # vcf_file = ''
+        # index_file = ''
+        #
+        # self.eload.eload_cfg.set('brokering', 'vcf_files', value={vcf_file: {'index': index_file}})
+        # self.eload.upload_vcf_files_to_ena_ftp()
