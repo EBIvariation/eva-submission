@@ -2,8 +2,6 @@ import glob
 from distutils.core import setup
 from os.path import join, abspath, dirname
 
-from setuptools import find_packages
-
 requirements_txt = join(abspath(dirname(__file__)), 'requirements.txt')
 requirements = [l.strip() for l in open(requirements_txt) if l and not l.startswith('#')]
 

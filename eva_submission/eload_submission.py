@@ -4,15 +4,19 @@ import os
 import shutil
 import string
 import random
+import subprocess
 from datetime import datetime
 
+import yaml
 from cached_property import cached_property
+from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 from ebi_eva_common_pyutils.variation.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
 
-from eva_submission.eload_utils import get_genome_fasta_and_report
+from eva_submission.eload_utils import get_genome_fasta_and_report, resolve_single_file_path
+from eva_submission.samples_checker import compare_spreadsheet_and_vcf
 from eva_submission.submission_config import EloadConfig
 from eva_submission.submission_in_ftp import FtpDepositBox
 from eva_submission.xlsx.xlsx_parser_eva import EVAXLSReader, EVAXLSWriter
