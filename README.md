@@ -43,3 +43,13 @@ This script will run the validation required to ensure that the data is suitable
  ```bash
 python validate_submission.py --eload 677
 ```
+
+This command will output a report to standard output to detail the validation results.
+
+### Brokering to BioSamples and ENA
+
+Once the validation pass the brokering can start. It will:
+ - Index the VCF file(s) and calculate their md5
+ - Create BioSamples entries in BioSamples
+ - Upload the VCF files to ENA
+ - Create and upload ENA XML files

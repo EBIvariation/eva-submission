@@ -15,23 +15,37 @@ from eva_submission.xlsx.xlsx_validation import EVAXlsValidator
 
 class EloadValidation(Eload):
 
-    def validate(self):
-        # (Re-)Initialise the config file output
-        self.eload_cfg['validation'] = {
-            'validation_date': self.now,
-            'metadata_check': {},
-            'assembly_check': {},
-            'vcf_check': {},
-            'sample_check': {},
-            'valid': {}
-        }
-        self._validate_metadata_format()
-        self._validate_sample_names()
-        output_dir = self._run_validation_workflow()
-        self._collect_validation_worklflow_results(output_dir)
-        shutil.rmtree(output_dir)
+    all_validation_tasks = ['metadata_check', 'assembly_check', 'vcf_check', 'sample_check']
 
-        if all([self.eload_cfg['validation'][key]['pass'] for key in ['metadata_check', 'vcf_check', 'assembly_check', 'sample_check']]):
+    def validate(self, validation_tasks=None, set_as_valid=False):
+        if not validation_tasks:
+            validation_tasks = self.all_validation_tasks
+
+        # (Re-)Initialise the config file output
+        self.eload_cfg.set('validation', 'validation_date', value=self.now)
+        self.eload_cfg.set('validation', 'valid', value={})
+        for validation_task in validation_tasks:
+            self.eload_cfg.set('validation', validation_task, value={})
+
+        if 'metadata_check' in validation_tasks:
+            self._validate_metadata_format()
+        if 'sample_check' in validation_tasks:
+            self._validate_sample_names()
+
+        if 'vcf_check' in validation_tasks or 'assembly_check' in validation_tasks:
+            output_dir = self._run_validation_workflow()
+            self._collect_validation_worklflow_results(output_dir)
+            shutil.rmtree(output_dir)
+
+        if set_as_valid is True:
+            for validation_task in validation_tasks:
+                self.eload_cfg.set('validation', validation_task, 'forced', value=True)
+
+        if all([
+            self.eload_cfg.query('validation', validation_task, 'pass', ret_default=False) or
+            self.eload_cfg.query('validation', validation_task, 'forced', ret_default=False)
+            for validation_task in self.all_validation_tasks
+        ]):
             self.eload_cfg.set('validation', 'valid', 'vcf_files', value=self.eload_cfg['submission']['vcf_files'])
             self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet', value=self.eload_cfg['submission']['metadata_spreadsheet'])
 
@@ -110,6 +124,7 @@ class EloadValidation(Eload):
             command_utils.run_command_with_output(
                 'Start Nextflow Validation process',
                 ' '.join((
+                    'export NXF_OPTS="-Xms1g -Xmx8g"; ',
                     cfg['executable']['nextflow'], validation_script,
                     '-params-file', validation_confg_file,
                     '-work-dir', output_dir
@@ -228,7 +243,7 @@ class EloadValidation(Eload):
 
     def _vcf_check_report(self):
         reports = []
-        for vcf_file in self.eload_cfg.query('validation', 'vcf_check', 'files'):
+        for vcf_file in self.eload_cfg.query('validation', 'vcf_check', 'files', ret_default=[]):
             results = self.eload_cfg.query('validation', 'vcf_check', 'files', vcf_file)
             report_data = {
                 'vcf_file': vcf_file,
@@ -246,7 +261,7 @@ class EloadValidation(Eload):
 
     def _assembly_check_report(self):
         reports = []
-        for vcf_file in self.eload_cfg.query('validation', 'assembly_check', 'files'):
+        for vcf_file in self.eload_cfg.query('validation', 'assembly_check', 'files', ret_default=[]):
             results = self.eload_cfg.query('validation', 'assembly_check', 'files', vcf_file)
             report_data = {
                 'vcf_file': vcf_file,
@@ -264,7 +279,7 @@ class EloadValidation(Eload):
 
     def _sample_check_report(self):
         reports = []
-        for analysis_alias in self.eload_cfg.query('validation', 'sample_check', 'analysis'):
+        for analysis_alias in self.eload_cfg.query('validation', 'sample_check', 'analysis', ret_default=[]):
             results = self.eload_cfg.query('validation', 'sample_check', 'analysis', analysis_alias)
             report_data = {
                 'analysis_alias': analysis_alias,
@@ -273,20 +288,28 @@ class EloadValidation(Eload):
                 'in_metadata_not_in_VCF': ', '.join(results['in_metadata_not_in_VCF'])
             }
             reports.append("""  * {analysis_alias}: {pass}
-    - Samples that appear in the VCF but not in the Metadata sheet:: {in_VCF_not_in_metadata}
+    - Samples that appear in the VCF but not in the Metadata sheet: {in_VCF_not_in_metadata}
     - Samples that appear in the Metadata sheet but not in the VCF file(s): {in_metadata_not_in_VCF}
 """.format(**report_data))
         return '\n'.join(reports)
+
+    @staticmethod
+    def _check_pass_or_fail(check_dict):
+        if check_dict.get('forced'):
+            return 'FORCED'
+        if check_dict.get('pass'):
+            return 'PASS'
+        return 'FAIL'
 
     def report(self):
         """Collect information from the config and write the report."""
 
         report_data = {
             'validation_date': self.eload_cfg.query('validation', 'validation_date'),
-            'metadata_check': 'PASS' if self.eload_cfg.query('validation', 'metadata_check', 'pass') else 'FAIL',
-            'vcf_check': 'PASS' if self.eload_cfg.query('validation', 'vcf_check', 'pass') else 'FAIL',
-            'assembly_check': 'PASS' if self.eload_cfg.query('validation', 'assembly_check', 'pass') else 'FAIL',
-            'sample_check': 'PASS' if self.eload_cfg.query('validation', 'sample_check', 'pass') else 'FAIL',
+            'metadata_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'metadata_check')),
+            'vcf_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'vcf_check')),
+            'assembly_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'assembly_check')),
+            'sample_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'sample_check')),
             'metadata_check_report': self._metadata_check_report(),
             'vcf_check_report': self._vcf_check_report(),
             'assembly_check_report': self._assembly_check_report(),

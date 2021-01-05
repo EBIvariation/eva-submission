@@ -62,12 +62,15 @@ class Eload(AppLogger):
 
         sample_rows = []
         for sample_row in reader.samples:
-            sample_rows.append({
-                'row_num': sample_row.get('row_num'),
-                'Analysis Alias': sample_row.get('Analysis Alias') or single_analysis_alias,
-                'Sample ID': sample_row.get('Sample Name'),
-                'Sample Accession': self.eload_cfg['brokering']['Biosamples'][sample_row.get('Sample Name')]
-            })
+            if self.eload_cfg.query('brokering', 'Biosamples', sample_row.get('Sample Name')):
+                sample_rows.append({
+                    'row_num': sample_row.get('row_num'),
+                    'Analysis Alias': sample_row.get('Analysis Alias') or single_analysis_alias,
+                    'Sample ID': sample_row.get('Sample Name'),
+                    'Sample Accession': self.eload_cfg['brokering']['Biosamples'][sample_row.get('Sample Name')]
+                })
+            else:
+                sample_rows.append(sample_row)
 
         file_rows = []
         file_to_row = {}
@@ -76,21 +79,25 @@ class Eload(AppLogger):
 
         for vcf_file in self.eload_cfg['brokering']['vcf_files']:
             original_vcf_file = self.eload_cfg['brokering']['vcf_files'][vcf_file]['original_vcf']
-            file_row = file_to_row.get(os.path.basename(original_vcf_file), default={})
+            file_row = file_to_row.get(os.path.basename(original_vcf_file), {})
             # Add the vcf file
             file_rows.append({
                 'Analysis Alias': file_row.get('Analysis Alias') or single_analysis_alias,
-                'File Name': self.eload + '/' + vcf_file,
+                'File Name': self.eload + '/' + os.path.basename(vcf_file),
                 'File Type': 'vcf',
                 'MD5': self.eload_cfg['brokering']['vcf_files'][vcf_file]['md5']
             })
 
             # Add the index file
+            if self.eload_cfg['brokering']['vcf_files'][vcf_file]['index'].endswith('.csi'):
+                file_type = 'csi'
+            else:
+                file_type = 'tabix'
             file_rows.append({
                 'Analysis Alias': file_row.get('Analysis Alias') or single_analysis_alias,
                 'File Name': self.eload + '/' + os.path.basename(
                     self.eload_cfg['brokering']['vcf_files'][vcf_file]['index']),
-                'File Type': 'tabix',
+                'File Type': file_type,
                 'MD5': self.eload_cfg['brokering']['vcf_files'][vcf_file]['index_md5']
             })
         if output_spreadsheet:

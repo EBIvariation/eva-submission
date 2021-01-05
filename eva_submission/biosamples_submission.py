@@ -405,6 +405,8 @@ class SampleMetadataSubmitter(SampleSubmitter):
         super().__init__()
         self.metadata_spreadsheet = metadata_spreadsheet
         self.reader = EVAXLSReader(self.metadata_spreadsheet)
+        self.sample_data = self.map_metadata_to_bsd_data()
+
 
     def map_metadata_to_bsd_data(self):
         payloads = []
@@ -457,15 +459,16 @@ class SampleMetadataSubmitter(SampleSubmitter):
 
         return payloads
 
-    def submit_to_bioSamples(self):
-        sample_data = self.map_metadata_to_bsd_data()
+    def check_submit_done(self):
+        return all((s.get("Sample Accession") for s in self.sample_data))
 
-        # TODO: Only accessioned if it was not done before
-        # Check that the data
-        if sample_data:
-            self.info('Validate {} sample(s) in BioSample'.format(len(sample_data)))
-            self.submitter.validate_in_bsd(sample_data)
-            self.info('Upload {} sample(s) '.format(len(sample_data)))
-            self.submitter.submit_to_bsd(sample_data)
+    def submit_to_bioSamples(self):
+
+        # Check that the data exists
+        if self.sample_data:
+            self.info('Validate {} sample(s) in BioSample'.format(len(self.sample_data)))
+            self.submitter.validate_in_bsd(self.sample_data)
+            self.info('Upload {} sample(s) '.format(len(self.sample_data)))
+            self.submitter.submit_to_bsd(self.sample_data)
 
         return self.submitter.sample_name_to_accession

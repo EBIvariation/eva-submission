@@ -64,7 +64,7 @@ class EVAXlsValidator(AppLogger):
         for row in self.metadata['Sample']:
             self.group_of_fields_required(
                 'Sample', row,
-                ['Analysis Alias', 'Sample Accession, Sample ID'],
+                ['Analysis Alias', 'Sample Accession', 'Sample ID'],
                 ['Analysis Alias', 'Sample Name', 'Title', 'Tax Id', 'Scientific Name']
             )
 
@@ -95,9 +95,10 @@ class EVAXlsValidator(AppLogger):
             [all(row.get(key) for key in group) for group in args]
         ):
             self.errors.append(
-                'In %s, row %s, one of this group of fields must be filled: %s' % (
+                'In %s, row %s, one of this group of fields must be filled: %s -- %s' % (
                     sheet_name, row.get('row_num'),
-                    ' or '.join([', '.join(group) for group in args])
+                    ' or '.join([', '.join(group) for group in args]),
+                    ' -- '.join((', '.join(('%s:%s' % (key, row[key]) for key in group)) for group in args)),
                 )
             )
 

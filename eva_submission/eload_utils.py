@@ -33,3 +33,12 @@ def read_md5(md5_file):
     return md5
 
 
+def get_file_content(file_path):
+    """
+    Open a file in binary mode and close it afterwards.
+    :param str file_name:
+    :return: file content
+    """
+    with open(file_path, 'rb') as f:
+        fc = f.read()
+    return fc

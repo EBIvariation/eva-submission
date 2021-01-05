@@ -31,6 +31,16 @@ logger = log_cfg.get_logger(__name__)
 def main():
     argparse = ArgumentParser()
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
+    argparse.add_argument('--validation_tasks', required=False, type=str, nargs='+',
+                          default=EloadValidation.all_validation_tasks, choices=EloadValidation.all_validation_tasks,
+                          help='task or set of tasks to perform during validation')
+    argparse.add_argument('--set_as_valid', action='store_true', default=False,
+                          help='Set the script to consider all validation tasks performed as valid in the final '
+                               'evaluation. This does not affect the actual report but only change if the final '
+                               'evaluation')
+    argparse.add_argument('--report', action='store_true', default=False,
+                      help='Set the script to only report the results base on previously run validation.')
+
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
 
@@ -44,7 +54,9 @@ def main():
     load_config()
 
     eload = EloadValidation(args.eload)
-    eload.validate()
+    if not args.report:
+
+        eload.validate(args.validation_tasks, args.set_as_valid)
     eload.report()
 
 

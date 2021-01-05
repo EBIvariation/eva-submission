@@ -13,7 +13,7 @@ def helpMessage() {
 
 params.vcf_files = null
 // executables
-params.executable = ["md5sum", "bgzip", "bcftools"]
+params.executable = ["md5sum", "tabix", "bgzip", "bcftools"]
 // help
 params.help = null
 
@@ -47,6 +47,7 @@ process compress_vcf {
     output:
         path "output/*.gz" into compressed_vcf1
         path "output/*.gz" into compressed_vcf2
+        path "output/*.gz" into compressed_vcf3
 
     """
     mkdir output
@@ -63,7 +64,7 @@ process compress_vcf {
 * Index the compressed VCF file
 */
 
-process index_vcf {
+process csi_index_vcf {
 
     publishDir "$params.output_dir",
             overwrite: true,
@@ -73,10 +74,27 @@ process index_vcf {
         path compressed_vcf from compressed_vcf1
 
     output:
-        path "${compressed_vcf}.csi" into indexed_vcf
+        path "${compressed_vcf}.csi" into csi_indexed_vcf
 
     """
     $params.executable.bcftools index -c $compressed_vcf
+    """
+}
+
+process tabix_index_vcf {
+
+    publishDir "$params.output_dir",
+            overwrite: true,
+            mode: "copy"
+
+    input:
+        path compressed_vcf from compressed_vcf2
+
+    output:
+        path "${compressed_vcf}.tbi" into tbi_indexed_vcf
+
+    """
+    $params.executable.tabix -p vcf $compressed_vcf
     """
 }
 
@@ -92,16 +110,19 @@ process md5_vcf_and_index {
             mode: "copy"
 
     input:
-        path vcf from compressed_vcf2
-        path index from indexed_vcf
+        path vcf from compressed_vcf3
+        path index from tbi_indexed_vcf
+        path index2 from csi_indexed_vcf
 
     output:
         path "${vcf}.md5" into vcf_md5
         path "${index}.md5" into index_md5
+        path "${index2}.md5" into index2_md5
 
     """
     $params.executable.md5sum ${vcf} > ${vcf}.md5
     $params.executable.md5sum ${index} > ${index}.md5
+    $params.executable.md5sum ${index2} > ${index2}.md5
     """
 }
 

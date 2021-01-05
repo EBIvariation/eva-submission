@@ -2,7 +2,7 @@ import os
 from unittest import TestCase
 from xml.etree.ElementTree import ElementTree
 
-from eva_submission.xlsx_to_xml.xlsx_to_ENA_xml import add_project, new_project, new_analysis, add_analysis, \
+from eva_submission.ENA_submission.xlsx_to_ENA_xml import add_project, new_project, new_analysis, add_analysis, \
     process_metadata_spreadsheet, prettify
 
 

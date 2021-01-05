@@ -71,7 +71,7 @@ Assembly check:
 
 Sample names check:
   * a1: PASS
-    - Samples that appear in the VCF but not in the Metadata sheet:: 
+    - Samples that appear in the VCF but not in the Metadata sheet: 
     - Samples that appear in the Metadata sheet but not in the VCF file(s): 
 
 ----------------------------------
