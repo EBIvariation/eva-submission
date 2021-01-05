@@ -5,4 +5,5 @@ humanize
 pysam
 requests
 cerberus
+retry
 ebi_eva_common_pyutils

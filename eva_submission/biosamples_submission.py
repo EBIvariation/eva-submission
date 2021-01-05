@@ -22,6 +22,7 @@ import requests
 from cached_property import cached_property
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
+from retry import retry
 
 from eva_submission.xlsx.xlsx_parser_eva import EVAXLSReader
 
@@ -62,6 +63,7 @@ class HALCommunicator(AppLogger):
         self._validate_response(response)
         return response.text
 
+    @retry(exceptions=(ValueError, requests.RequestException), tries=3, delay=2, backoff=1.2, jitter=(1, 3))
     def _req(self, method, url, **kwargs):
         """private method that sends a request using the specified method. It adds the headers required by bsd"""
         headers = {'Accept': 'application/hal+json', 'Authorization': 'Bearer ' + self.token}

@@ -70,7 +70,7 @@ class EloadBrokering(Eload):
         }
         # run the validation
         brokering_config_file = os.path.join(self.eload_dir, 'brokering_config_file.yaml')
-        with open(brokering_confg_file, 'w') as open_file:
+        with open(brokering_config_file, 'w') as open_file:
             yaml.safe_dump(brokering_config, open_file)
         validation_script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'nextflow', 'prepare_brokering.nf')
         try:
@@ -78,7 +78,7 @@ class EloadBrokering(Eload):
                 'Start Nextflow brokering preparation process',
                 ' '.join((
                     cfg['executable']['nextflow'], validation_script,
-                    '-params-file', brokering_confg_file,
+                    '-params-file', brokering_config_file,
                     '-work-dir', output_dir
                 ))
             )
