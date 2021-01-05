@@ -69,7 +69,7 @@ class EloadBrokering(Eload):
             'executable': cfg['executable']
         }
         # run the validation
-        brokering_confg_file = os.path.join(self.eload_dir, 'brokering_confg_file.yaml')
+        brokering_config_file = os.path.join(self.eload_dir, 'brokering_config_file.yaml')
         with open(brokering_confg_file, 'w') as open_file:
             yaml.safe_dump(brokering_config, open_file)
         validation_script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'nextflow', 'prepare_brokering.nf')
@@ -87,7 +87,7 @@ class EloadBrokering(Eload):
             raise e
         return output_dir
 
-    def _collect_brokering_worklflow_results(self, output_dir):
+    def _collect_brokering_workflow_results(self, output_dir):
         # Collect information from the output and summarise in the config
         nextflow_vcf_output = os.path.join(output_dir, 'output')
         for vcf_file in self.eload_cfg.query('validation', 'valid', 'vcf_files'):
