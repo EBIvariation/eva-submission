@@ -1,18 +1,15 @@
 import os
 import shutil
 import subprocess
-from xml.etree import ElementTree
 
-import requests
 import yaml
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
-from requests.auth import HTTPBasicAuth
 
 from eva_submission.ENA_submission.upload_to_ENA import ENAUploader
 from eva_submission.biosamples_submission import SampleMetadataSubmitter
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import read_md5, get_file_content
+from eva_submission.eload_utils import read_md5
 from eva_submission.ENA_submission.xlsx_to_ENA_xml import process_metadata_spreadsheet
 
 
@@ -30,10 +27,11 @@ class EloadBrokering(Eload):
                 self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet', value=os.path.abspath(metadata_file))
 
     def broker(self):
+        """Run the brokering process"""
         # Reset previous values that could have been set before
         self.eload_cfg['brokering'] = {}
         output_dir = self._run_brokering_prep_workflow()
-        self._collect_brokering_worklflow_results(output_dir)
+        self._collect_brokering_workflow_results(output_dir)
         shutil.rmtree(output_dir)
 
         self.upload_to_bioSamples(self.eload_cfg['validation']['valid']['metadata_spreadsheet'])

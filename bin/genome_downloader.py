@@ -30,7 +30,7 @@ logger = log_cfg.get_logger(__name__)
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Genome downloader assembly')
+    parser = argparse.ArgumentParser(description='Download and store a reference sequence or assembly.')
     parser.add_argument("-a", "--assembly-accession",
                         help="Assembly for which the process has to be run, e.g. GCA_000002285.2", required=True)
     parser.add_argument("-s", "--species",

@@ -13,7 +13,7 @@ from eva_submission.samples_checker import compare_spreadsheet_and_vcf
 
 def main():
     arg_parser = argparse.ArgumentParser(
-        description='Transform and output validated data from an excel file to a XML file')
+        description='Compare the sample name in the VCF file and the one specified in the metadata.')
     arg_parser.add_argument('--metadata-file', required=True, dest='metadata_file',
                             help='EVA Submission Metadata Excel sheet')
     arg_parser.add_argument('--vcf-dir', required=True, dest='vcf_dir',

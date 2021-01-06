@@ -29,7 +29,7 @@ logger = log_cfg.get_logger(__name__)
 
 
 def main():
-    argparse = ArgumentParser()
+    argparse = ArgumentParser(description='Validate an ELOAD by checking the data and metadata format and semantics.')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
     argparse.add_argument('--validation_tasks', required=False, type=str, nargs='+',
                           default=EloadValidation.all_validation_tasks, choices=EloadValidation.all_validation_tasks,

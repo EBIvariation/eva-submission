@@ -30,8 +30,8 @@ logger = log_cfg.get_logger(__name__)
 
 
 def main():
-    argparse = ArgumentParser()
-
+    argparse = ArgumentParser(description='Inspect FTP boxes to detect new submission. '
+                                          'Provide a report that specify the project title')
     argparse.add_argument('--ftp_box', required=True, type=int, choices=range(1, 21),
                           help='box number where the data should have been uploaded')
     argparse.add_argument('--submitter', required=False, type=str,

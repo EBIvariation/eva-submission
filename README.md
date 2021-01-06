@@ -36,9 +36,12 @@ python prepare_submission.py --eload 677
 ### Validate the submitted data
 
 This script will run the validation required to ensure that the data is suitable to be archived. It will check
- - The sample names in the VCF and metadata matches
- - The VCF conforms to the [submission standards](https://www.ebi.ac.uk/eva/?Help#submissionPanel)
- - The VCF reference allele match the reference genome.
+ - The metadata spreadsheet format (metadata_check) 
+ - The sample names in the VCF and metadata matches (sample_check)
+ - The VCF conforms to the [submission standards](https://www.ebi.ac.uk/eva/?Help#submissionPanel) (vcf_check)
+ - The VCF reference allele match the reference genome. (assembly_check)
+
+ At the end of the run if all the validation pass the script will register the input vcf and metadata as valid in the config file.
  
  ```bash
 python validate_submission.py --eload 677
@@ -46,10 +49,31 @@ python validate_submission.py --eload 677
 
 This command will output a report to standard output to detail the validation results.
 
+You can run only part of the validation by specifying the validation task
+```bash
+python validate_submission.py --eload 677 --validation_tasks metadata_check
+```
+The valid values for the validation tasks are: `metadata_check`, `sample_check`, `vcf_check`, and `assembly_check`
+
+You can also force a validation to pass by specifying the flag `--set_as_valid`. This will mark all validation tasks performed as Forced.
+
+
 ### Brokering to BioSamples and ENA
 
-Once the validation pass the brokering can start. It will:
+Once the validation pass and VCF files and metadata are marked as valid, the brokering can start. It will:
  - Index the VCF file(s) and calculate their md5
  - Create BioSamples entries in BioSamples
  - Upload the VCF files to ENA
  - Create and upload ENA XML files
+ - Parse and store the submission, project and analysis accession
+
+ ```bash
+python broker_submission.py --eload 677
+```
+
+You can specify a list of VCF and/or a metadata file on the command line to override the one set in the config file by the validation step.
+
+ ```bash
+python broker_submission.py --eload 677 --vcf_files /path/to/vcf1.vcf /path/to/vcf2.vcf --metadata_file /path/to/metadata.xlsx
+```
+

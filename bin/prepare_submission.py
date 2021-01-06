@@ -30,8 +30,8 @@ logger = log_cfg.get_logger(__name__)
 
 
 def main():
-    argparse = ArgumentParser()
-
+    argparse = ArgumentParser(description='Copies data from the ftp (if specified) and search for VCF and metadata files.'
+                                          'then create a config file storing information about the eload')
     argparse.add_argument('--ftp_box', required=False, type=int, choices=range(1, 21),
                           help='box number where the data should have been uploaded. Required to copy the data from the FTP')
     argparse.add_argument('--submitter', required=False, type=str,
