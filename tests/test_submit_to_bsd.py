@@ -158,7 +158,7 @@ class TestBSDSubmitter(BSDTestCase):
     """
 
     def setUp(self) -> None:
-        file_name = os.path.join(self.resources_dir, 'bsd_submission.yaml')
+        file_name = os.path.join(self.resources_folder, 'bsd_submission.yaml')
         self.config = None
         if os.path.isfile(file_name):
             with open(file_name) as open_file:
@@ -169,8 +169,8 @@ class TestBSDSubmitter(BSDTestCase):
         self.submitter = BSDSubmitter(communicator, self.config.get('domain'))
 
     def tearDown(self):
-        if os.path.exists(os.path.join(self.resources_dir, 'ELOAD_609biosamples_with_accession.txt')):
-            os.remove(os.path.join(self.resources_dir, 'ELOAD_609biosamples_with_accession.txt'))
+        if os.path.exists(os.path.join(self.resources_folder, 'ELOAD_609biosamples_with_accession.txt')):
+            os.remove(os.path.join(self.resources_folder, 'ELOAD_609biosamples_with_accession.txt'))
 
     def test_validate_in_bsd(self):
         self.submitter.validate_in_bsd(self.sample_data)
@@ -213,8 +213,8 @@ class TestSampleTabSubmitter(BSDTestCase):
     }
 
     def setUp(self) -> None:
-        file_name = os.path.join(self.resources_dir, 'bsd_submission.yaml')
-        self.sampletab_file = os.path.join(self.resources_dir, 'ELOAD_609biosamples.txt')
+        file_name = os.path.join(self.resources_folder, 'bsd_submission.yaml')
+        self.sampletab_file = os.path.join(self.resources_folder, 'ELOAD_609biosamples.txt')
         self.submitter = SampleTabSubmitter(self.sampletab_file)
 
     def test_parse_sample_tab(self):
