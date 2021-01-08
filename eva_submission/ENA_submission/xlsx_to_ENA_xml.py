@@ -6,7 +6,7 @@ from xml.etree.ElementTree import Element, ElementTree
 
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 
-from eva_submission.xlsx.xlsx_parser_eva import EVAXLSReader
+from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 
 def add_attributes(element, **kwargs):
@@ -278,7 +278,7 @@ def write_xml_to_file(xml_element, output_file):
 
 
 def process_metadata_spreadsheet(metadata_file, output_folder, name, modify=False):
-    reader = EVAXLSReader(metadata_file)
+    reader = EvaXlsxReader(metadata_file)
 
     projects_elemt = new_project()
     add_project(projects_elemt, reader.project)

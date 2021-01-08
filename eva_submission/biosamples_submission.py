@@ -24,7 +24,7 @@ from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 from retry import retry
 
-from eva_submission.xlsx.xlsx_parser_eva import EVAXLSReader
+from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 _now = datetime.now().isoformat()
 
@@ -406,7 +406,7 @@ class SampleMetadataSubmitter(SampleSubmitter):
     def __init__(self, metadata_spreadsheet):
         super().__init__()
         self.metadata_spreadsheet = metadata_spreadsheet
-        self.reader = EVAXLSReader(self.metadata_spreadsheet)
+        self.reader = EvaXlsxReader(self.metadata_spreadsheet)
         self.sample_data = self.map_metadata_to_bsd_data()
 
 

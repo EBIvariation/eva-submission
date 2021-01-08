@@ -15,7 +15,7 @@ from ebi_eva_common_pyutils.variation.assembly_utils import retrieve_genbank_ass
 from eva_submission.eload_utils import get_genome_fasta_and_report
 from eva_submission.submission_config import EloadConfig
 from eva_submission.submission_in_ftp import FtpDepositBox
-from eva_submission.xlsx.xlsx_parser_eva import EVAXLSReader, EVAXLSWriter
+from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
 directory_structure = {
     'vcf': '10_submitted/vcf_files',
@@ -55,7 +55,7 @@ class Eload(AppLogger):
 
     def update_metadata_from_config(self, input_spreadsheet, output_spreadsheet=None):
 
-        reader = EVAXLSReader(input_spreadsheet)
+        reader = EvaXlsxReader(input_spreadsheet)
         single_analysis_alias = None
         if len(reader.analysis) == 1:
             single_analysis_alias = reader.analysis[0].get('Analysis Alias')
@@ -101,9 +101,9 @@ class Eload(AppLogger):
                 'MD5': self.eload_cfg['brokering']['vcf_files'][vcf_file]['index_md5']
             })
         if output_spreadsheet:
-            eva_xls_writer = EVAXLSWriter(input_spreadsheet, output_spreadsheet)
+            eva_xls_writer = EvaXlsxWriter(input_spreadsheet, output_spreadsheet)
         else:
-            eva_xls_writer = EVAXLSWriter(input_spreadsheet)
+            eva_xls_writer = EvaXlsxWriter(input_spreadsheet)
         eva_xls_writer.set_samples(sample_rows)
         eva_xls_writer.set_files(file_rows)
         eva_xls_writer.save()
@@ -156,7 +156,7 @@ class EloadPreparation(Eload):
         self.eload_cfg.set('submission','vcf_files', value=vcf_files)
 
     def detect_metadata_attributes(self):
-        eva_metadata = EVAXLSReader(self.eload_cfg.query('submission', 'metadata_spreadsheet'))
+        eva_metadata = EvaXlsxReader(self.eload_cfg.query('submission', 'metadata_spreadsheet'))
         reference_gca = set()
         for analysis in eva_metadata.analysis:
             reference_txt = analysis.get('Reference')

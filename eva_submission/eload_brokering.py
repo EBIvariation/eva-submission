@@ -34,7 +34,7 @@ class EloadBrokering(Eload):
         self._collect_brokering_workflow_results(output_dir)
         shutil.rmtree(output_dir)
 
-        self.upload_to_bioSamples(self.eload_cfg['validation']['valid']['metadata_spreadsheet'])
+        self.upload_to_bioSamples()
         self.broker_to_ena()
 
     def broker_to_ena(self):
@@ -53,7 +53,8 @@ class EloadBrokering(Eload):
 
         self.eload_cfg.set('brokering', 'ena', value=ena_uploader.results)
 
-    def upload_to_bioSamples(self, metadata_spreadsheet):
+    def upload_to_bioSamples(self):
+        metadata_spreadsheet = self.eload_cfg['validation']['valid']['metadata_spreadsheet']
         sample_tab_submitter = SampleMetadataSubmitter(metadata_spreadsheet)
         if not sample_tab_submitter.check_submit_done():
             sample_name_to_accession = sample_tab_submitter.submit_to_bioSamples()

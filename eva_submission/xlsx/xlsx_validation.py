@@ -6,14 +6,14 @@ from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 from ebi_eva_common_pyutils.variation.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
 
-from eva_submission.xlsx.xlsx_parser_eva import EVAXLSReader
+from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 
-class EVAXlsValidator(AppLogger):
+class EvaXlsxValidator(AppLogger):
 
     def __init__(self, metadata_file):
         self.metadata_file = metadata_file
-        self.reader = EVAXLSReader(metadata_file)
+        self.reader = EvaXlsxReader(metadata_file)
         self.metadata = {}
         for worksheet in self.reader.reader.valid_worksheets():
             self.metadata[worksheet] = self.reader._get_all_rows(worksheet)

@@ -33,7 +33,7 @@ OPTIONAL_HEADERS_KEY_NAME = 'optional'
 HEADERS_KEY_ROW = 'header_row'
 
 
-class XLSBaseParser(AppLogger):
+class XlsxBaseParser(AppLogger):
     """
     Base parser for Excel file for the fields from worksheets defined in a configuration file.
     It implements the base functioanlity allowing to open and validate the spreadsheet
@@ -127,7 +127,7 @@ class XLSBaseParser(AppLogger):
         return self.valid
 
 
-class XLSReader(XLSBaseParser):
+class XlsxReader(XlsxBaseParser):
     """
     Reader for Excel file for the fields from worksheets defined in a configuration file
     """
@@ -198,7 +198,7 @@ class XLSReader(XLSBaseParser):
         raise StopIteration
 
 
-class XLSWriter(XLSBaseParser):
+class XlsxWriter(XlsxBaseParser):
     """
     Writer for Excel file for the fields from worksheets defined in a configuration file
     """

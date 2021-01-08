@@ -10,7 +10,7 @@ from ebi_eva_common_pyutils.config import cfg
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import resolve_single_file_path
 from eva_submission.samples_checker import compare_spreadsheet_and_vcf
-from eva_submission.xlsx.xlsx_validation import EVAXlsValidator
+from eva_submission.xlsx.xlsx_validation import EvaXlsxValidator
 
 
 class EloadValidation(Eload):
@@ -50,7 +50,7 @@ class EloadValidation(Eload):
             self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet', value=self.eload_cfg['submission']['metadata_spreadsheet'])
 
     def _validate_metadata_format(self):
-        validator = EVAXlsValidator(self.eload_cfg['submission']['metadata_spreadsheet'])
+        validator = EvaXlsxValidator(self.eload_cfg['submission']['metadata_spreadsheet'])
         validator.validate()
         self.eload_cfg['validation']['metadata_check']['metadata_spreadsheet'] = self.eload_cfg['submission']['metadata_spreadsheet']
         self.eload_cfg['validation']['metadata_check']['errors'] = validator.errors
