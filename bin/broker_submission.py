@@ -50,11 +50,5 @@ def main():
     brokering.broker()
 
 
-    # Edit the spreadsheet
-    # run the perl script to generate Analysis files
-    # Upload the VCF to ENA FTP
-    # Upload XML to ENA
-
-
 if __name__ == "__main__":
     main()

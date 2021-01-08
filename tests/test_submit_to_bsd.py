@@ -5,13 +5,13 @@ from unittest.mock import patch, Mock, PropertyMock
 
 import yaml
 
-from eva_submission import biosamples_submission
+from eva_submission import biosamples_submission, ROOT_DIR
 from eva_submission.biosamples_submission import HALCommunicator, BSDSubmitter, SampleTabSubmitter
 
 
 class BSDTestCase(TestCase):
 
-    resources_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources')
+    resources_folder = os.path.join(ROOT_DIR, 'tests', 'resources')
 
 
 class TestHALCommunicator(BSDTestCase):

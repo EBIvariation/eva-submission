@@ -2,25 +2,26 @@ import os
 from unittest import TestCase
 from unittest.mock import patch
 
+from eva_submission import ROOT_DIR
 from eva_submission.eload_validation import EloadValidation
 from eva_submission.submission_config import load_config
 
 
 class TestEloadValidation(TestCase):
-    top_dir = os.path.dirname(os.path.dirname(__file__))
-    resources_folder = os.path.join(os.path.dirname(__file__), 'resources')
+    resources_folder = os.path.join(ROOT_DIR, 'tests', 'resources')
 
     def setUp(self) -> None:
         config_file = os.path.join(self.resources_folder, 'submission_config.yml')
         load_config(config_file)
         # Need to set the directory so that the relative path set in the config file works from the top directory
-        os.chdir(self.top_dir)
+        os.chdir(ROOT_DIR)
         self.validation = EloadValidation(2)
 
     def test_parse_assembly_check_log(self):
         assembly_check_log = os.path.join(self.resources_folder, 'validations', 'failed_assembly_check.log')
         expected = (
             [" The assembly checking could not be completed: Contig '8' not found in assembly report"],
+            [],
             1,
             0,
             0
@@ -65,6 +66,7 @@ Assembly check:
     - number of error: 0
     - match results: 20/20
     - first 10 errors: 
+    - first 10 mismatches: 
     - see report for detail: /path/to/report
 
 ----------------------------------

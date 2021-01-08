@@ -1,13 +1,14 @@
 import os
 from unittest import TestCase
 
+from eva_submission import ROOT_DIR
 from eva_submission.xlsx.xlsx_parser import XlsxReader
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 
 class TestEvaXlsxReader(TestCase):
 
-    metadata_file = os.path.join(os.path.dirname(__file__), 'resources', 'metadata.xlsx')
+    metadata_file = os.path.join(ROOT_DIR, 'tests', 'resources', 'metadata.xlsx')
 
     def test_get_all_rows(self):
         reader = EvaXlsxReader(self.metadata_file)

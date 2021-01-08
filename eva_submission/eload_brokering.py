@@ -6,6 +6,7 @@ import yaml
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 
+from eva_submission import ROOT_DIR
 from eva_submission.ENA_submission.upload_to_ENA import ENAUploader
 from eva_submission.biosamples_submission import SampleMetadataSubmitter
 from eva_submission.eload_submission import Eload
@@ -71,7 +72,7 @@ class EloadBrokering(Eload):
         brokering_config_file = os.path.join(self.eload_dir, 'brokering_config_file.yaml')
         with open(brokering_config_file, 'w') as open_file:
             yaml.safe_dump(brokering_config, open_file)
-        validation_script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'nextflow', 'prepare_brokering.nf')
+        validation_script = os.path.join(ROOT_DIR, 'nextflow', 'prepare_brokering.nf')
         try:
             command_utils.run_command_with_output(
                 'Start Nextflow brokering preparation process',

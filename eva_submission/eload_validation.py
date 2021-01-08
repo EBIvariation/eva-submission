@@ -7,6 +7,7 @@ import yaml
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 
+from eva_submission import ROOT_DIR
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import resolve_single_file_path
 from eva_submission.samples_checker import compare_spreadsheet_and_vcf
@@ -74,7 +75,8 @@ class EloadValidation(Eload):
 
     def parse_assembly_check_log(self, assembly_check_log):
         error_list = []
-        nb_error = 0
+        mismatch_list = []
+        nb_error, nb_mismatch = 0, 0
         match = total = None
         with open(assembly_check_log) as open_file:
             for line in open_file:
@@ -82,11 +84,15 @@ class EloadValidation(Eload):
                     nb_error += 1
                     if nb_error < 11:
                         error_list.append(line.strip()[len('[error]'):])
+                elif 'does not match the reference sequence' in line:
+                    nb_mismatch += 1
+                    if nb_mismatch < 11:
+                        mismatch_list.append(line.strip())
                 elif line.startswith('[info] Number of matches:'):
                     match, total = line.strip()[len('[info] Number of matches: '):].split('/')
                     match = int(match)
                     total = int(total)
-        return error_list, nb_error, match, total
+        return error_list, mismatch_list,  nb_error, match, total
 
     def parse_vcf_check_report(self, vcf_check_report):
         valid = True
@@ -119,7 +125,7 @@ class EloadValidation(Eload):
         validation_confg_file = os.path.join(self.eload_dir, 'validation_confg_file.yaml')
         with open(validation_confg_file, 'w') as open_file:
             yaml.safe_dump(validation_config, open_file)
-        validation_script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'nextflow', 'validation.nf')
+        validation_script = os.path.join(ROOT_DIR, 'nextflow', 'validation.nf')
         try:
             command_utils.run_command_with_output(
                 'Start Nextflow Validation process',
@@ -214,13 +220,14 @@ class EloadValidation(Eload):
                 os.path.join(self._get_dir('assembly_check'), vcf_name + '.text_assembly_report.txt')
             )
             if assembly_check_log and assembly_check_valid_vcf and assembly_check_text_report:
-                error_list, nb_error, match, total = self.parse_assembly_check_log(assembly_check_log)
+                error_list, mismatch_list, nb_error, match, total = self.parse_assembly_check_log(assembly_check_log)
             else:
-                error_list, nb_error, match, total = (['Process failed'], 1, 0, 0)
-            total_error += nb_error
+                error_list, mismatch_list, nb_error, match, total = (['Process failed'], [], 1, 0, 0)
+            total_error += nb_error + len(mismatch_list)
             self.eload_cfg.set('validation', 'assembly_check', 'files', vcf_name, value={
-                'error_list': error_list, 'nb_error': nb_error, 'ref_match': match, 'nb_variant': total,
-                'assembly_check_log': assembly_check_log, 'assembly_check_valid_vcf': assembly_check_valid_vcf,
+                'error_list': error_list, 'mismatch_list': mismatch_list, 'nb_error': nb_error, 'ref_match': match,
+                'nb_variant': total, 'assembly_check_log': assembly_check_log,
+                'assembly_check_valid_vcf': assembly_check_valid_vcf,
                 'assembly_check_text_report': assembly_check_text_report
             })
         self.eload_cfg.set('validation', 'assembly_check', 'pass', value=total_error == 0)
@@ -266,13 +273,15 @@ class EloadValidation(Eload):
             report_data = {
                 'vcf_file': vcf_file,
                 'pass': 'PASS' if results.get('nb_error') == 0 else 'FAIL',
-                '10_error_list': '\n'.join(results['error_list'])
+                '10_error_list': '\n'.join(results['error_list']),
+                '10_mismatch_list': '\n'.join(results['mismatch_list'])
             }
             report_data.update(results)
             reports.append("""  * {vcf_file}: {pass}
     - number of error: {nb_error}
     - match results: {ref_match}/{nb_variant}
     - first 10 errors: {10_error_list}
+    - first 10 mismatches: {10_mismatch_list}
     - see report for detail: {assembly_check_text_report}
 """.format(**report_data))
         return '\n'.join(reports)
