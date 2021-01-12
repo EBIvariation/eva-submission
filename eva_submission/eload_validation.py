@@ -54,8 +54,8 @@ class EloadValidation(Eload):
         validator = EvaXlsxValidator(self.eload_cfg['submission']['metadata_spreadsheet'])
         validator.validate()
         self.eload_cfg['validation']['metadata_check']['metadata_spreadsheet'] = self.eload_cfg['submission']['metadata_spreadsheet']
-        self.eload_cfg['validation']['metadata_check']['errors'] = validator.errors
-        self.eload_cfg['validation']['metadata_check']['pass'] = len(validator.errors) == 0
+        self.eload_cfg['validation']['metadata_check']['errors'] = validator.error_list
+        self.eload_cfg['validation']['metadata_check']['pass'] = len(validator.error_list) == 0
 
     def _validate_sample_names(self):
         overall_differences, results_per_analysis_alias = compare_spreadsheet_and_vcf(
@@ -112,7 +112,7 @@ class EloadValidation(Eload):
         return valid, error_list, error_count, warning_count
 
     def _run_validation_workflow(self):
-        output_dir = self.create_temp_output_directory()
+        output_dir = self.create_nextflow_temp_output_directory()
         validation_config = {
             'metadata_file': self.eload_cfg.query('submission', 'metadata_spreadsheet'),
             'vcf_files': self.eload_cfg.query('submission', 'vcf_files'),

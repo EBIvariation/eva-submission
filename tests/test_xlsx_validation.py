@@ -14,12 +14,12 @@ class TestEvaXlsValidator(TestCase):
 
     def test_cerberus_validation(self):
         self.validator.cerberus_validation()
-        print(self.validator.errors)
+        print(self.validator.error_list)
 
     def test_complex_validation(self):
         self.validator.complex_validation()
-        print(self.validator.errors)
+        print(self.validator.error_list)
 
     def test_validate(self):
         self.validator.validate()
-        print(self.validator.errors)
+        print(self.validator.error_list)

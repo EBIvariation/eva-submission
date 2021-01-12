@@ -2,7 +2,8 @@ import os
 from unittest import TestCase
 
 from eva_submission import ROOT_DIR
-from eva_submission.samples_checker import get_samples_from_vcf, get_sample_names, compare_names_in_files_and_samples
+from eva_submission.samples_checker import get_samples_from_vcf, get_sample_names, compare_names_in_files_and_samples, \
+    compare_spreadsheet_and_vcf
 
 
 class TestFtpDepositBox(TestCase):
@@ -27,4 +28,8 @@ class TestFtpDepositBox(TestCase):
             [{'Sample Name': 'S1'}, {'Sample Name': 'S2'}],
             'A1'
         ) == (True, [], ['S2'])
+
+    def test_compare_spreadsheet_and_vcf(self):
+        compare_spreadsheet_and_vcf()
+
 

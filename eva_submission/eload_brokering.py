@@ -62,9 +62,9 @@ class EloadBrokering(Eload):
             self.eload_cfg.set('brokering', 'Biosamples', value=sample_name_to_accession)
 
     def _run_brokering_prep_workflow(self):
-        output_dir = self.create_temp_output_directory()
+        output_dir = self.create_nextflow_temp_output_directory()
         brokering_config = {
-            'vcf_files': self.eload_cfg['validation']['valid']['vcf_files'],
+            'vcf_files': self.eload_cfg.query('validation', 'valid', 'vcf_files'),
             'output_dir': output_dir,
             'executable': cfg['executable']
         }

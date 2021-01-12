@@ -5,6 +5,7 @@ from cerberus import Validator
 from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 from ebi_eva_common_pyutils.variation.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
+from requests import HTTPError
 
 from eva_submission import ROOT_DIR
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
@@ -19,7 +20,7 @@ class EvaXlsxValidator(AppLogger):
         for worksheet in self.reader.reader.valid_worksheets():
             self.metadata[worksheet] = self.reader._get_all_rows(worksheet)
 
-        self.errors = []
+        self.error_list = []
 
     def validate(self):
         self.cerberus_validation()
@@ -46,7 +47,7 @@ class EvaXlsxValidator(AppLogger):
                     for error2 in error1[data_pos]:
                         for field_name in error2:
                             for error3 in error2[field_name]:
-                                self.errors.append(
+                                self.error_list.append(
                                     f'In Sheet {sheet}, Row {row_num}, field {field_name}: {error3}'
                                 )
 
@@ -79,23 +80,30 @@ class EvaXlsxValidator(AppLogger):
         for reference in references:
             accessions = retrieve_genbank_assembly_accessions_from_ncbi(reference)
             if len(accessions) == 0:
-                self.errors.append(f'In Analysis, Reference {reference} did not resolve to any accession')
+                self.error_list.append(f'In Analysis, Reference {reference} did not resolve to any accession')
             elif len(accessions) > 1:
-                self.errors.append(f'In Analysis, Reference {reference} resolve to more than one accession: {accessions}')
+                self.error_list.append(f'In Analysis, Reference {reference} resolve to more than one accession: {accessions}')
 
         # Check taxonomy scientific name pair
         taxid_and_species_list = set([(row['Tax Id'], row['Scientific Name']) for row in self.metadata['Sample'] if row['Tax Id']])
         for taxid, species in taxid_and_species_list:
-            scientific_name = get_scientific_name_from_ensembl(int(taxid))
-            if species != scientific_name:
-                self.errors.append(
-                    f'In Samples, Taxonomy {taxid} and scientific name {species} are inconsistent')
+            try:
+                scientific_name = get_scientific_name_from_ensembl(int(taxid))
+                if species != scientific_name:
+                    self.error_list.append(
+                        f'In Samples, Taxonomy {taxid} and scientific name {species} are inconsistent')
+            except ValueError as e:
+                self.error(str(e))
+                self.error_list.append(str(e))
+            except HTTPError as e:
+                self.error(str(e))
+                self.error_list.append(str(e))
 
     def group_of_fields_required(self, sheet_name, row, *args):
         if not any(
             [all(row.get(key) for key in group) for group in args]
         ):
-            self.errors.append(
+            self.error_list.append(
                 'In %s, row %s, one of this group of fields must be filled: %s -- %s' % (
                     sheet_name, row.get('row_num'),
                     ' or '.join([', '.join(group) for group in args]),
@@ -109,7 +117,7 @@ class EvaXlsxValidator(AppLogger):
             list2_list1 = set(list2).difference(list1)
             errors = []
             if list1_list2:
-                errors.append('%s present in %s not in %s' %(','.join(list1_list2), list1_desc, list2_desc))
+                errors.append('%s present in %s not in %s' %(','.join(str(list1_list2)), list1_desc, list2_desc))
             if list2_list1:
-                errors.append('%s present in %s not in %s' % (','.join(list2_list1), list2_desc, list1_desc))
-            self.errors.append('Check %s vs %s: %s' % (list1_desc, list2_desc, ' -- '.join(errors)))
+                errors.append('%s present in %s not in %s' % (','.join(str(list2_list1)), list2_desc, list1_desc))
+            self.error_list.append('Check %s vs %s: %s' % (list1_desc, list2_desc, ' -- '.join(errors)))
