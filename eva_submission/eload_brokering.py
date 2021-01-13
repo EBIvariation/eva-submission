@@ -32,7 +32,7 @@ class EloadBrokering(Eload):
         # Reset previous values that could have been set before
         self.eload_cfg['brokering'] = {}
         output_dir = self._run_brokering_prep_workflow()
-        self._collect_brokering_workflow_results(output_dir)
+        self._collect_brokering_prep_results(output_dir)
         shutil.rmtree(output_dir)
 
         self.upload_to_bioSamples()
@@ -87,7 +87,7 @@ class EloadBrokering(Eload):
             raise e
         return output_dir
 
-    def _collect_brokering_workflow_results(self, output_dir):
+    def _collect_brokering_prep_results(self, output_dir):
         # Collect information from the output and summarise in the config
         nextflow_vcf_output = os.path.join(output_dir, 'output')
         for vcf_file in self.eload_cfg.query('validation', 'valid', 'vcf_files'):

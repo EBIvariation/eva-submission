@@ -52,7 +52,7 @@ Analysis:
       Imputation: {          type: 'string',  nullable: True}
       Phasing: {             type: 'string',  nullable: True}
       Centre: {              type: 'string',  nullable: True}
-      Date: {                type: 'string',  nullable: True}
+      Date: {                type: 'date',    nullable: True}
       Link(s): {             type: 'string',  nullable: True}
       Run Accession(s): {    type: 'string',  nullable: True}
 
@@ -87,7 +87,7 @@ Sample:
      culture_collection: {  type: 'string',  nullable: True}
      specimen_voucher: {    type: 'string',  nullable: True}
      collected_by: {        type: 'string',  nullable: True}
-     collection_date: {     type: 'string',  nullable: True}
+     collection_date: {     type: 'date',    nullable: True}
      geographic location (country and/or sea): {type: 'string',  nullable: True}
      geographic location (region and locality): {type: 'string',  nullable: True}
      host: {                type: 'string',  nullable: True}

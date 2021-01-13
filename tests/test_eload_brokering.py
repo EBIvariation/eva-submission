@@ -29,10 +29,6 @@ class TestEloadBrokering(TestCase):
         for eload in eloads:
             shutil.rmtree(eload)
 
-    def test_upload_vcf_files_to_ena_ftp(self):
-        # TODO: Test upload to another FTP
-        pass
-
     def test_run_brokering_prep_workflow(self):
         cfg.content['executable'] = {
             'nextflow': 'path_to_nextflow'
@@ -60,7 +56,7 @@ class TestEloadBrokering(TestCase):
         self.eload.eload_cfg.set('validation', 'valid', 'vcf_files', value={
             'vcf_file1.vcf': ''
         })
-        self.eload._collect_brokering_workflow_results(tmp_dir)
+        self.eload._collect_brokering_prep_results(tmp_dir)
         vcf_file1 = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.gz')
         vcf_file1_index = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.gz.tbi')
         assert os.path.isfile(vcf_file1)

@@ -36,10 +36,10 @@ def main():
                           help='task or set of tasks to perform during validation')
     argparse.add_argument('--set_as_valid', action='store_true', default=False,
                           help='Set the script to consider all validation tasks performed as valid in the final '
-                               'evaluation. This does not affect the actual report but only change if the final '
+                               'evaluation. This does not affect the actual report but only change the final '
                                'evaluation')
     argparse.add_argument('--report', action='store_true', default=False,
-                      help='Set the script to only report the results base on previously run validation.')
+                      help='Set the script to only report the results based on previously run validation.')
 
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')

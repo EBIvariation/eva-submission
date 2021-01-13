@@ -2,8 +2,7 @@ import os
 from unittest import TestCase
 
 from eva_submission import ROOT_DIR
-from eva_submission.samples_checker import get_samples_from_vcf, get_sample_names, compare_names_in_files_and_samples, \
-    compare_spreadsheet_and_vcf
+from eva_submission.samples_checker import get_samples_from_vcf, get_sample_names, compare_names_in_files_and_samples
 
 
 class TestFtpDepositBox(TestCase):
@@ -14,7 +13,7 @@ class TestFtpDepositBox(TestCase):
         assert get_samples_from_vcf(os.path.join(self.resources_folder, 'test.vcf')) == ['S1']
 
     def test_get_sample_names(self):
-        assert get_sample_names([ {'Sample Name': 'S1'}, {'Sample ID': 'S2'}, {'Analysis': ''}]) == ['S1', 'S2']
+        assert get_sample_names([{'Sample Name': 'S1'}, {'Sample ID': 'S2'}, {'Analysis': ''}]) == ['S1', 'S2']
 
     def test_compare_names_in_files_and_samples(self):
         assert compare_names_in_files_and_samples(
@@ -29,7 +28,5 @@ class TestFtpDepositBox(TestCase):
             'A1'
         ) == (True, [], ['S2'])
 
-    def test_compare_spreadsheet_and_vcf(self):
-        compare_spreadsheet_and_vcf()
 
 
