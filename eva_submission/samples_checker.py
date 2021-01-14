@@ -1,10 +1,10 @@
 import logging
+import os
 
 import pysam
-import os
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.xls_parser_eva import EVAXLSWriter, EVAXLSReader
+from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxWriter, EvaXlsxReader
 
 logger = log_cfg.get_logger(__name__)
 
@@ -82,7 +82,7 @@ def compare_spreadsheet_and_vcf(eva_files_sheet, vcf_dir, expected_vcf_files=Non
     """
     Take a spreadsheet following EVA standard and compare the samples in it to the ones found in the VCF files
     """
-    eva_xls_reader = EVAXLSReader(eva_files_sheet)
+    eva_xls_reader = EvaXlsxReader(eva_files_sheet)
     vcf_files = [row['File Name'] for row in eva_xls_reader.files]
     if expected_vcf_files:
         expected_vcf_files = [os.path.basename(vcf_file) for vcf_file in expected_vcf_files]
@@ -92,7 +92,7 @@ def compare_spreadsheet_and_vcf(eva_files_sheet, vcf_dir, expected_vcf_files=Non
             analysis_alias = ''
             if len(eva_xls_reader.analysis) > 0:
                 analysis_alias = eva_xls_reader.analysis[0].get('Analysis Alias') or ''
-            eva_xls_writer = EVAXLSWriter(eva_files_sheet)
+            eva_xls_writer = EvaXlsxWriter(eva_files_sheet)
             eva_xls_writer.set_files([
                 {
                     'File Name': os.path.basename(vcf_file),
@@ -102,7 +102,7 @@ def compare_spreadsheet_and_vcf(eva_files_sheet, vcf_dir, expected_vcf_files=Non
                 } for vcf_file in expected_vcf_files
             ])
             eva_xls_writer.save()
-            eva_xls_reader = EVAXLSReader(eva_files_sheet)
+            eva_xls_reader = EvaXlsxReader(eva_files_sheet)
 
     samples_per_analysis = eva_xls_reader.samples_per_analysis
     files_per_analysis = eva_xls_reader.files_per_analysis

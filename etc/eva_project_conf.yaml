@@ -10,10 +10,21 @@
 
 # List of worksheets to be parsed.
 worksheets:
+  - Submitter Details
   - Project
   - Analysis
   - Sample
   - Files
+
+Submitter Details:
+  required:
+    - Last Name
+    - First Name
+    - Telephone Number
+    - Email Address
+    - Laboratory
+    - Center
+    - Address
 
 # List of field for Projects
 Project:
@@ -103,6 +114,7 @@ Sample:
     - cell_line
     - serotype
     - serovar
+    - Novel attribute(s)
 
 Files:
   required:

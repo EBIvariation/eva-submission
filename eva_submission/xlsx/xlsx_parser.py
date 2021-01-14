@@ -22,13 +22,10 @@ get the 1st line in a worksheet and iterate over the rest of the worksheet row b
 a configuration file.
 This module depends on openpyxl and pyyaml.
 """
-import os
-from collections import defaultdict
 
-from cached_property import cached_property
+import yaml
 from ebi_eva_common_pyutils.logger import AppLogger
 from openpyxl import load_workbook
-import yaml
 
 WORKSHEETS_KEY_NAME = 'worksheets'
 REQUIRED_HEADERS_KEY_NAME = 'required'
@@ -36,7 +33,7 @@ OPTIONAL_HEADERS_KEY_NAME = 'optional'
 HEADERS_KEY_ROW = 'header_row'
 
 
-class XLSBaseParser(AppLogger):
+class XlsxBaseParser(AppLogger):
     """
     Base parser for Excel file for the fields from worksheets defined in a configuration file.
     It implements the base functioanlity allowing to open and validate the spreadsheet
@@ -130,7 +127,7 @@ class XLSBaseParser(AppLogger):
         return self.valid
 
 
-class XLSReader(XLSBaseParser):
+class XlsxReader(XlsxBaseParser):
     """
     Reader for Excel file for the fields from worksheets defined in a configuration file
     """
@@ -148,11 +145,12 @@ class XLSReader(XLSBaseParser):
     def __iter__(self):
         return self
 
+    def base_row_offset(self, worksheet):
+        return self.xls_conf[worksheet].get(HEADERS_KEY_ROW, 1)
+
     def next(self):
         """
         Retrieve next data row
-        :param worksheet: the name of the worksheet
-        :type worksheet: basestring
         :return: A hash containing all the REQUIRED and OPTIONAL fields as keys
                 and the corresponding data as values
         :rtype: dict
@@ -163,7 +161,7 @@ class XLSReader(XLSBaseParser):
             raise StopIteration
 
         if worksheet not in self.row_offset:
-            self.row_offset[worksheet] = self.xls_conf[worksheet].get(HEADERS_KEY_ROW, 1)
+            self.row_offset[worksheet] = self.base_row_offset(worksheet)
         self.row_offset[worksheet] += 1
 
         required_headers = self.xls_conf[worksheet].get(REQUIRED_HEADERS_KEY_NAME, [])
@@ -200,7 +198,7 @@ class XLSReader(XLSBaseParser):
         raise StopIteration
 
 
-class XLSWriter(XLSBaseParser):
+class XlsxWriter(XlsxBaseParser):
     """
     Writer for Excel file for the fields from worksheets defined in a configuration file
     """

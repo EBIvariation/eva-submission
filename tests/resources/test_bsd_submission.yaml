@@ -1,0 +1,5 @@
+username: 'test_user'
+password: 'testpassword'
+aap_url: 'https://aap.example.com/auth'
+bsd_url: 'https://bsd.example.com/api'
+domain: 'team-42'

@@ -1,17 +1,18 @@
 import os
 from unittest import TestCase
 
-from eva_submission.xls_parser_eva import XLSWriter, EVAXLSReader
+from eva_submission import ROOT_DIR
+from eva_submission.xlsx.xlsx_parser_eva import XlsxWriter, EvaXlsxReader
 
 
-class TestXLSWriter(TestCase):
+class TestXlsxWriter(TestCase):
 
-    metadata_file = os.path.join(os.path.dirname(__file__), 'resources', 'metadata.xlsx')
-    eva_xls_reader_conf = os.path.join(os.path.dirname(__file__), 'resources', 'test_metadata_fields.yaml')
+    metadata_file = os.path.join(ROOT_DIR, 'tests', 'resources', 'metadata.xlsx')
+    eva_xls_reader_conf = os.path.join(ROOT_DIR, 'tests', 'resources', 'test_metadata_fields.yaml')
 
     def setUp(self):
-        self.xls_writer = XLSWriter(self.metadata_file, self.eva_xls_reader_conf)
-        self.reader = EVAXLSReader(self.metadata_file)
+        self.xls_writer = XlsxWriter(self.metadata_file, self.eva_xls_reader_conf)
+        self.reader = EvaXlsxReader(self.metadata_file)
 
     def test_edit_row(self):
         self.xls_writer.active_worksheet = 'Sample'

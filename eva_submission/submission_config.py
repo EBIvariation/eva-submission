@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os
+
 import yaml
 from ebi_eva_common_pyutils.config import Configuration, cfg
 
@@ -17,9 +18,17 @@ class EloadConfig(Configuration):
             pass
 
     def write(self):
-        if self.config_file and self.content:
+        if self.config_file and self.content and os.path.isdir(os.path.dirname(self.config_file)):
             with open(self.config_file, 'w') as open_config:
                 yaml.safe_dump(self.content, open_config)
+
+    def set(self, *path, value):
+        top_level = self.content
+        for p in path[:-1]:
+            if p not in top_level:
+                top_level[p] = {}
+            top_level = top_level[p]
+        top_level[path[-1]] = value
 
     def __setitem__(self, item, value):
         """Allow dict-style write access, e.g. config['this']='that'."""

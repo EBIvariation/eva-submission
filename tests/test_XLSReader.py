@@ -1,28 +1,29 @@
 import os
 from unittest import TestCase
 
-from eva_submission.xls_parser import XLSReader
-from eva_submission.xls_parser_eva import EVAXLSReader
+from eva_submission import ROOT_DIR
+from eva_submission.xlsx.xlsx_parser import XlsxReader
+from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 
-class TestEVAXLSReader(TestCase):
+class TestEvaXlsxReader(TestCase):
 
-    metadata_file = os.path.join(os.path.dirname(__file__), 'resources', 'metadata.xlsx')
+    metadata_file = os.path.join(ROOT_DIR, 'tests', 'resources', 'metadata.xlsx')
 
     def test_get_all_rows(self):
-        reader = EVAXLSReader(self.metadata_file)
+        reader = EvaXlsxReader(self.metadata_file)
         rows = reader._get_all_rows('Analysis')
         assert len(rows) == 1
         assert rows[0]['Analysis Title'] == 'Greatest analysis ever'
 
 
-class TestXLSReader(TestCase):
+class TestXlsxReader(TestCase):
 
     metadata_file = os.path.join(os.path.dirname(__file__), 'resources', 'metadata.xlsx')
     eva_xls_reader_conf = os.path.join(os.path.dirname(__file__), 'resources', 'test_metadata_fields.yaml')
 
     def setUp(self):
-        self.xls_reader = XLSReader(self.metadata_file, self.eva_xls_reader_conf)
+        self.xls_reader = XlsxReader(self.metadata_file, self.eva_xls_reader_conf)
 
     def test_valid_worksheets(self):
         worksheets = self.xls_reader.valid_worksheets()

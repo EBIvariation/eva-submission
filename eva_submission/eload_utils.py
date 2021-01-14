@@ -3,9 +3,7 @@ import os
 
 from ebi_eva_common_pyutils.assembly import NCBIAssembly
 from ebi_eva_common_pyutils.config import cfg
-
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
-
 
 logger = log_cfg.get_logger(__name__)
 
@@ -27,3 +25,20 @@ def resolve_single_file_path(file_path):
         return None
     elif len(files) > 0:
         return files[0]
+
+
+def read_md5(md5_file):
+    with open(md5_file) as open_file:
+        md5, file_name = open_file.readline().split()
+    return md5
+
+
+def get_file_content(file_path):
+    """
+    Open a file in binary mode and close it afterwards.
+    :param str file_name:
+    :return: file content
+    """
+    with open(file_path, 'rb') as f:
+        fc = f.read()
+    return fc

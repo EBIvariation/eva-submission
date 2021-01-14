@@ -22,23 +22,20 @@ from argparse import ArgumentParser
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
+from eva_submission.eload_brokering import EloadBrokering
 from eva_submission.submission_config import load_config
-from eva_submission.eload_submission import EloadPreparation
 
 logger = log_cfg.get_logger(__name__)
 
 
 def main():
-    argparse = ArgumentParser(description='Copies data from the ftp (if specified) and search for VCF and metadata files.'
-                                          'then create a config file storing information about the eload')
-    argparse.add_argument('--ftp_box', required=False, type=int, choices=range(1, 21),
-                          help='box number where the data should have been uploaded. Required to copy the data from the FTP')
-    argparse.add_argument('--submitter', required=False, type=str,
-                          help='the name of the directory for that submitter. Required to copy the data from the FTP')
+    argparse = ArgumentParser(description='Broker validated ELOAD to BioSamples and ENA')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
+    argparse.add_argument('--vcf_files', required=False, type=str, help='VCF files to use in the brokering', nargs='+')
+    argparse.add_argument('--metadata_file', required=False, type=str, help='VCF files to use in the brokering')
+
     args = argparse.parse_args()
 
     log_cfg.add_stdout_handler()
@@ -48,10 +45,9 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    eload = EloadPreparation(args.eload)
-    if args.ftp_box and args.submitter:
-        eload.copy_from_ftp(args.ftp_box, args.submitter)
-    eload.detect_all()
+    # Optionally Set the valid VCF and metadata file
+    brokering = EloadBrokering(args.eload, args.vcf_files, args.metadata_file)
+    brokering.broker()
 
 
 if __name__ == "__main__":

@@ -3,8 +3,9 @@ import os
 import shutil
 from unittest import TestCase
 
-from eva_submission.submission_config import load_config
+from eva_submission import ROOT_DIR
 from eva_submission.eload_submission import EloadPreparation
+from eva_submission.submission_config import load_config
 
 
 def touch(filepath, content=None):
@@ -14,14 +15,13 @@ def touch(filepath, content=None):
 
 
 class TestEload(TestCase):
-    top_dir = os.path.dirname(os.path.dirname(__file__))
-    resources_folder = os.path.join(os.path.dirname(__file__), 'resources')
+    resources_folder = os.path.join(ROOT_DIR, 'tests', 'resources')
 
     def setUp(self) -> None:
         config_file = os.path.join(self.resources_folder, 'submission_config.yml')
         load_config(config_file)
         # Need to set the directory so that the relative path set in the config file works from the top directory
-        os.chdir(self.top_dir)
+        os.chdir(ROOT_DIR)
         self.eload = EloadPreparation(1)
 
 

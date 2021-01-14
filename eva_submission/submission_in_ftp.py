@@ -8,7 +8,7 @@ import humanize
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg, AppLogger
 
-from eva_submission.xls_parser_eva import EVAXLSReader
+from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 logger = log_cfg.get_logger(__name__)
 
@@ -111,7 +111,7 @@ class FtpDepositBox(AppLogger):
             ]) or 'NA'
         }
         try:
-            reader = EVAXLSReader(metadata_file)
+            reader = EvaXlsxReader(metadata_file)
             report_params['project_title'] = reader.project_title
             report_params['number_analysis'] = len(reader.analysis)
             if reader.references:

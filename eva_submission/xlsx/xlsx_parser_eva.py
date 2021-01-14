@@ -18,14 +18,15 @@ from collections import defaultdict
 from cached_property import cached_property
 from ebi_eva_common_pyutils.logger import AppLogger
 
-from eva_submission.xls_parser import XLSReader, XLSWriter
+from eva_submission import ROOT_DIR
+from eva_submission.xlsx.xlsx_parser import XlsxReader, XlsxWriter
 
 
-class EVAXLSReader(AppLogger):
+class EvaXlsxReader(AppLogger):
 
     def __init__(self, metadata_file):
-        conf = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc', 'eva_project_conf.yaml')
-        self.reader = XLSReader(metadata_file, conf)
+        conf = os.path.join(ROOT_DIR, 'etc', 'eva_project_conf.yaml')
+        self.reader = XlsxReader(metadata_file, conf)
         self.metadata_file=metadata_file
 
     def _get_all_rows(self, active_sheet):
@@ -89,11 +90,11 @@ class EVAXLSReader(AppLogger):
         return files_per_analysis
 
 
-class EVAXLSWriter(AppLogger):
+class EvaXlsxWriter(AppLogger):
 
     def __init__(self, metadata_source, metadata_dest=None):
-        conf = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc', 'eva_project_conf.yaml')
-        self.writer = XLSWriter(metadata_source, conf)
+        conf = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'etc', 'eva_project_conf.yaml')
+        self.writer = XlsxWriter(metadata_source, conf)
         self.metadata_source = metadata_source
         if metadata_dest:
             self.metadata_dest = metadata_dest

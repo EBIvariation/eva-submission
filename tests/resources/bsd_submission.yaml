@@ -1,0 +1,5 @@
+username: 'dsp_eva_test_user'
+password: 'dspEVAtestPwD1'
+aap_url: 'https://explore.api.aai.ebi.ac.uk/auth'
+bsd_url: 'https://wwwdev.ebi.ac.uk/biosamples'
+domain: 'subs.test-team-71'
