@@ -1,0 +1,34 @@
+brokering:
+  ena:
+    PROJECT: PRJEB12345
+validation:
+  assembly_check:
+    files:
+      test.vcf:
+        assembly_check_text_report: /path/to/report
+        error_list: []
+        mismatch_list: []
+        nb_error: 0
+        nb_variant: 20
+        ref_match: 20
+    pass: true
+  metadata_check:
+    errors: []
+    metadata_spreadsheet: /path/to/spreadsheet
+    pass: true
+  sample_check:
+    analysis:
+      a1:
+        difference_exists: false
+        in_VCF_not_in_metadata: []
+        in_metadata_not_in_VCF: []
+    pass: true
+  validation_date: 2020-11-01 10:37:54.755607
+  vcf_check:
+    files:
+      test.vcf:
+        error_list: []
+        nb_error: 0
+        nb_warning: 2
+        vcf_check_text_report: /path/to/report
+    pass: true
