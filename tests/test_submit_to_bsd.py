@@ -6,7 +6,8 @@ from unittest.mock import patch, Mock, PropertyMock
 import yaml
 
 from eva_submission import biosamples_submission, ROOT_DIR
-from eva_submission.biosamples_submission import HALCommunicator, BSDSubmitter, SampleTabSubmitter
+from eva_submission.biosamples_submission import HALCommunicator, BSDSubmitter, SampleTabSubmitter, \
+    SampleMetadataSubmitter
 
 
 class BSDTestCase(TestCase):
@@ -241,3 +242,26 @@ class TestSampleTabSubmitter(BSDTestCase):
         self.assertTrue(os.path.isfile(self.submitter.accessioned_sampletab_file))
         msi_data, scd_reader = self.submitter._parse_sample_tab(self.submitter.accessioned_sampletab_file)
         self.assertEqual(next(scd_reader).get('Sample Accession'), 'ACCESSION01')
+
+
+class TestSampleMetadataSubmitter(BSDTestCase):
+
+    top_dir = os.path.dirname(os.path.dirname(__file__))
+    resources_folder = os.path.join(os.path.dirname(__file__), 'resources')
+
+    def setUp(self) -> None:
+        brokering_folder = os.path.join(ROOT_DIR, 'tests', 'resources', 'brokering')
+        metadata_file = os.path.join(brokering_folder, 'metadata_sheet2.xlsx')
+        self.submitter = SampleMetadataSubmitter(metadata_file)
+
+    def test_map_metadata_to_bsd_data(self):
+        now = '2020-07-06T19:09:29.090Z'
+        biosamples_submission._now = now
+        expected_payload = [
+            {'characteristics': {'Organism': [{'text': 'Homo sapiens'}], 'description': [{'text': 'Sample %s' % (i+1)}]},
+             'name': 'S%s' % (i + 1), 'taxId': 9606, 'scientific name': 'Homo sapiens', 'release': now}
+            for i in range(100)
+        ]
+
+        payload = self.submitter.map_metadata_to_bsd_data()
+        assert payload == expected_payload

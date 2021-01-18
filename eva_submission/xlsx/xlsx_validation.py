@@ -117,7 +117,7 @@ class EvaXlsxValidator(AppLogger):
             list2_list1 = set(list2).difference(list1)
             errors = []
             if list1_list2:
-                errors.append('%s present in %s not in %s' %(','.join(str(list1_list2)), list1_desc, list2_desc))
+                errors.append('%s present in %s not in %s' % (','.join([str(l) for l in list1_list2]), list1_desc, list2_desc))
             if list2_list1:
-                errors.append('%s present in %s not in %s' % (','.join(str(list2_list1)), list2_desc, list1_desc))
+                errors.append('%s present in %s not in %s' % (','.join([str(l) for l in list2_list1]), list2_desc, list1_desc))
             self.error_list.append('Check %s vs %s: %s' % (list1_desc, list2_desc, ' -- '.join(errors)))

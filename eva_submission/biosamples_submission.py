@@ -206,7 +206,11 @@ class SampleSubmitter(AppLogger):
         format
         """
         if map_key and value:
-            if map_key.startswith('characteristics.'):
+            if isinstance(map_key, list):
+                # If we are provided a list then apply to all elements of the list
+                for element in map_key:
+                    SampleSubmitter.apply_mapping(bsd_data, element, value)
+            elif map_key.startswith('characteristics.'):
                 keys = map_key.split('.')
                 _bsd_data = bsd_data
                 for k in keys[:-1]:
@@ -377,14 +381,52 @@ class SampleTabSubmitter(SampleSubmitter):
 
 
 class SampleMetadataSubmitter(SampleSubmitter):
+    '''
+    sub set_description {
+    my ($self, $description) = @_;
+    $self->add_characteristic_processed("Sample Description", $description);
+    return $self->get_characteristics()->{"Sample Description"};
+}
+
+sub set_organism {
+    my ($self, $organism) = @_;
+    $self->add_characteristic_processed("Organism", $organism);
+    return $self->get_characteristics()->{"Organism"};
+}
+
+sub set_material {
+    my ($self, $material) = @_;
+    $self->add_characteristic_processed("Material", $material);
+    return $self->get_characteristics()->{"Material"};
+}
+
+sub set_sex {
+    my ($self, $sex) = @_;
+    $self->add_characteristic_processed("Sex", $sex);
+    return $self->get_characteristics()->{"Sex"};
+}
+
+sub set_term_source_ref {
+    my ($self, $term_source_ref) = @_;
+    $self->add_characteristic_processed("Term Source REF", $term_source_ref);
+    return $self->get_characteristics()->{"Term Source REF"};
+}
+
+sub set_term_source_id {
+    my ($self, $term_source_id) = @_;
+    $self->add_characteristic_processed("Term Source ID", $term_source_id);
+    return $self->get_characteristics()->{"Term Source ID"};
+}
+
+    '''
     sample_mapping = {
         'Sample Name': 'name',
         'Sample Accession': 'accession',
         'Sex': 'characteristics.sex',
         'bio_material': 'characteristics.material',
         'Tax Id': 'taxId',
-        'Scientific Name': 'scientific name',
-        'Common Name': 'common name'
+        'Scientific Name': ['scientific name', 'characteristics.Organism'],
+        'Common Name': 'common name',
     }
     accepted_characteristics = ['Unique Name Prefix', 'Subject', 'Derived From', 'Scientific Name', 'Common Name',
                                 'mating_type', 'sex', 'cell_type', 'dev_stage', 'germline', 'tissue_lib', 'tissue_type',
@@ -409,15 +451,20 @@ class SampleMetadataSubmitter(SampleSubmitter):
         self.reader = EvaXlsxReader(self.metadata_spreadsheet)
         self.sample_data = self.map_metadata_to_bsd_data()
 
-
     def map_metadata_to_bsd_data(self):
         payloads = []
         for sample_row in self.reader.samples:
             bsd_sample_entry = {'characteristics': {}}
+            description_list = []
+            if sample_row.get('Title'):
+                description_list.append(sample_row.get('Title'))
+            if sample_row.get('Description'):
+                description_list.append(sample_row.get('Description'))
+            self.apply_mapping(bsd_sample_entry['characteristics'], 'description', [{'text': ' - '.join(description_list)}])
             for key in sample_row:
                 if sample_row[key]:
                     if key in self.sample_mapping:
-                        self.apply_mapping(bsd_sample_entry, key, sample_row[key])
+                        self.apply_mapping(bsd_sample_entry, self.map_sample_key(key), sample_row[key])
                     elif key in self.accepted_characteristics:
                         # other field  maps to characteristics
                         self.apply_mapping(
@@ -427,6 +474,7 @@ class SampleMetadataSubmitter(SampleSubmitter):
                         )
                     else:
                         # Ignore the other values
+                        # self.warning('Field %s in Sample was ignored', key)
                         pass
             if sample_row.get('Novel attribute(s)'):
                 for novel_attribute in sample_row.get('Novel attribute(s)').split(','):
