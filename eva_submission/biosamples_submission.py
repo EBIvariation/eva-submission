@@ -381,44 +381,7 @@ class SampleTabSubmitter(SampleSubmitter):
 
 
 class SampleMetadataSubmitter(SampleSubmitter):
-    '''
-    sub set_description {
-    my ($self, $description) = @_;
-    $self->add_characteristic_processed("Sample Description", $description);
-    return $self->get_characteristics()->{"Sample Description"};
-}
 
-sub set_organism {
-    my ($self, $organism) = @_;
-    $self->add_characteristic_processed("Organism", $organism);
-    return $self->get_characteristics()->{"Organism"};
-}
-
-sub set_material {
-    my ($self, $material) = @_;
-    $self->add_characteristic_processed("Material", $material);
-    return $self->get_characteristics()->{"Material"};
-}
-
-sub set_sex {
-    my ($self, $sex) = @_;
-    $self->add_characteristic_processed("Sex", $sex);
-    return $self->get_characteristics()->{"Sex"};
-}
-
-sub set_term_source_ref {
-    my ($self, $term_source_ref) = @_;
-    $self->add_characteristic_processed("Term Source REF", $term_source_ref);
-    return $self->get_characteristics()->{"Term Source REF"};
-}
-
-sub set_term_source_id {
-    my ($self, $term_source_id) = @_;
-    $self->add_characteristic_processed("Term Source ID", $term_source_id);
-    return $self->get_characteristics()->{"Term Source ID"};
-}
-
-    '''
     sample_mapping = {
         'Sample Name': 'name',
         'Sample Accession': 'accession',
@@ -435,14 +398,17 @@ sub set_term_source_id {
                                 'environmental_sample', 'cultivar', 'ecotype', 'isolate', 'strain', 'sub_species',
                                 'variety', 'sub_strain', 'cell_line', 'serotype', 'serovar']
 
-    project_mapping = {
-        'person': 'contact',
-        'Organization Name': 'Name',
-        'Organization Address': 'Address',
-        'Person Email': 'E-mail',
-        'Person First Name': 'FirstName',
-        'Person Last Name': 'LastName'
+    submitter_mapping = {
+        'Email Address': 'E-mail',
+        'First Name': 'FirstName',
+        'Last Name': 'LastName'
     }
+
+    organisation_mapping = {
+        'Laboratory': 'Name',
+        'Address': 'Address',
+    }
+
 
     def __init__(self, metadata_spreadsheet):
         super().__init__()
@@ -484,24 +450,29 @@ sub set_term_source_id {
                         [{'text': value}]
                     )
 
-            grouped_values = {}
             project_row = self.reader.project
-            for key in project_row:
-                # Organisation and contact can contain multiple values that are split across several fields
-                # this will group the across fields
-                groupname = self.map_project_key(key.split()[0].lower())
-                if groupname in ['organization', 'contact']:
-                    self._group_across_fields(grouped_values, key, project_row[key])
-                elif groupname in self.project_mapping:
-                    # All the other project level field are added to characteristics
-                    self.apply_mapping(bsd_sample_entry['characteristics'], key.lower(),
+            for key in self.reader.project:
+                if key in self.project_mapping:
+                    self.apply_mapping(bsd_sample_entry['characteristics'], self.map_project_key(key),
                                        [{'text': project_row[key]}])
                 else:
                     # Ignore the other values
                     pass
-            # Store the grouped values
-            for groupname in grouped_values:
-                self.apply_mapping(bsd_sample_entry, groupname, grouped_values[groupname])
+            contacts = []
+            organisations = []
+            for submitter_row in self.reader.submitters:
+                contact = {}
+                organisation = {}
+                for key in submitter_row:
+                    self.apply_mapping(contact, self.submitter_mapping.get(key), submitter_row[key])
+                    self.apply_mapping(organisation, self.organisation_mapping.get(key), submitter_row[key])
+                if contact:
+                    contacts.append(contact)
+                if organisation:
+                    organisations.append(organisation)
+
+            self.apply_mapping(bsd_sample_entry, 'contact', contacts)
+            self.apply_mapping(bsd_sample_entry, 'organization', organisations)
 
             bsd_sample_entry['release'] = _now
             payloads.append(bsd_sample_entry)

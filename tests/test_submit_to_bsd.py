@@ -258,13 +258,17 @@ class TestSampleMetadataSubmitter(BSDTestCase):
         now = '2020-07-06T19:09:29.090Z'
         biosamples_submission._now = now
         expected_payload = [
-            {'name': 'S%s' % (i + 1), 'taxId': 9606, 'release': now, 'characteristics': {
+            {'name': 'S%s' % (i + 1), 'taxId': 9606, 'release': now,
+             'contact': [{'LastName': 'John', 'FirstName': 'Doe', 'E-mail': 'john.doe@example.com'},
+                         {'LastName': 'Jane', 'FirstName': 'Doe', 'E-mail': 'jane.doe@example.com'}],
+             'organization': [{'Name': 'GPE', 'Address': 'The place to be'},
+                              {'Name': 'GPE', 'Address': 'The place to be'}],
+             'characteristics': {
                 'Organism': [{'text': 'Homo sapiens'}],
                 'description': [{'text': 'Sample %s' % (i+1)}],
                 'scientific name': [{'text': 'Homo sapiens'}]
             }}
             for i in range(100)
         ]
-
         payload = self.submitter.map_metadata_to_bsd_data()
-        assert payload == expected_payload
+        self.assertEqual(payload, expected_payload)

@@ -51,6 +51,10 @@ class EvaXlsxReader(AppLogger):
             self.error('No project was found in the spreadsheet %s', self.metadata_file)
 
     @cached_property
+    def submitters(self):
+        return self._get_all_rows('Submitter Details')
+
+    @cached_property
     def analysis(self):
         return self._get_all_rows('Analysis')
 
