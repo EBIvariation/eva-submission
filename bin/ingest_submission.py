@@ -31,6 +31,9 @@ logger = log_cfg.get_logger(__name__)
 def main():
     argparse = ArgumentParser(description='Broker validated ELOAD to BioSamples and ENA')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
+    argparse.add_argument('--tasks', required=False, type=str, nargs='+',
+                          default=EloadIngestion.all_tasks, choices=EloadIngestion.all_tasks,
+                          help='task or set of tasks to perform during ingestion')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
 
@@ -44,7 +47,7 @@ def main():
     load_config()
 
     ingestion = EloadIngestion(args.eload)
-    ingestion.load_from_ena()
+    ingestion.ingest(tasks=args.tasks)
 
 
 if __name__ == "__main__":

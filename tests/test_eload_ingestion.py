@@ -1,4 +1,5 @@
 import os
+import subprocess
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -26,9 +27,17 @@ class TestEloadIngestion(TestCase):
         self.eload = EloadIngestion(4)
         with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_execute:
             self.eload.load_from_ena()
-        m_execute.assert_called_once()
+            m_execute.assert_called_once()
 
     def test_load_from_ena_no_project_accession(self):
         self.eload = EloadIngestion(2)
         with self.assertRaises(ValueError):
             self.eload.load_from_ena()
+
+    def test_load_from_ena_script_fails(self):
+        self.eload = EloadIngestion(4)
+        with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_execute:
+            m_execute.side_effect = subprocess.CalledProcessError('Something terrible happened', 'some command')
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.eload.load_from_ena()
+            m_execute.assert_called_once()
