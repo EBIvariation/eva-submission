@@ -67,6 +67,8 @@ class EloadBrokering(Eload):
             sample_name_to_accession = sample_tab_submitter.submit_to_bioSamples()
             self.eload_cfg.set('brokering', 'Biosamples', 'date', value=self.now)
             self.eload_cfg.set('brokering', 'Biosamples', 'Samples', value=sample_name_to_accession)
+        else:
+            self.info('BioSamples brokering is already done, Skip!')
 
     def _run_brokering_prep_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory()

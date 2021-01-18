@@ -439,7 +439,6 @@ class SampleMetadataSubmitter(SampleSubmitter):
                         )
                     else:
                         # Ignore the other values
-                        # self.warning('Field %s in Sample was ignored', key)
                         pass
             if sample_row.get('Novel attribute(s)'):
                 for novel_attribute in sample_row.get('Novel attribute(s)').split(','):
