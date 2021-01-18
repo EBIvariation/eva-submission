@@ -425,8 +425,7 @@ sub set_term_source_id {
         'Sex': 'characteristics.sex',
         'bio_material': 'characteristics.material',
         'Tax Id': 'taxId',
-        'Scientific Name': ['scientific name', 'characteristics.Organism'],
-        'Common Name': 'common name',
+        'Scientific Name': ['characteristics.scientific name', 'characteristics.Organism']
     }
     accepted_characteristics = ['Unique Name Prefix', 'Subject', 'Derived From', 'Scientific Name', 'Common Name',
                                 'mating_type', 'sex', 'cell_type', 'dev_stage', 'germline', 'tissue_lib', 'tissue_type',

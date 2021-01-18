@@ -258,8 +258,11 @@ class TestSampleMetadataSubmitter(BSDTestCase):
         now = '2020-07-06T19:09:29.090Z'
         biosamples_submission._now = now
         expected_payload = [
-            {'characteristics': {'Organism': [{'text': 'Homo sapiens'}], 'description': [{'text': 'Sample %s' % (i+1)}]},
-             'name': 'S%s' % (i + 1), 'taxId': 9606, 'scientific name': 'Homo sapiens', 'release': now}
+            {'name': 'S%s' % (i + 1), 'taxId': 9606, 'release': now, 'characteristics': {
+                'Organism': [{'text': 'Homo sapiens'}],
+                'description': [{'text': 'Sample %s' % (i+1)}],
+                'scientific name': [{'text': 'Homo sapiens'}]
+            }}
             for i in range(100)
         ]
 

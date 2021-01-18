@@ -57,7 +57,7 @@ class EloadBrokering(Eload):
     def upload_to_bioSamples(self):
         metadata_spreadsheet = self.eload_cfg['validation']['valid']['metadata_spreadsheet']
         sample_tab_submitter = SampleMetadataSubmitter(metadata_spreadsheet)
-        if not sample_tab_submitter.check_submit_done():
+        if not sample_tab_submitter.check_submit_done() or self.eload_cfg.query('brokering', 'Biosamples'):
             sample_name_to_accession = sample_tab_submitter.submit_to_bioSamples()
             self.eload_cfg.set('brokering', 'Biosamples', value=sample_name_to_accession)
 
