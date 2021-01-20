@@ -29,8 +29,9 @@ logger = log_cfg.get_logger(__name__)
 
 
 def main():
-    argparse = ArgumentParser(description='Broker validated ELOAD to BioSamples and ENA')
+    argparse = ArgumentParser(description='Accession and ingest submission data into EVA')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
+    argparse.add_argument('--db_name', required=False, type=str, help='Name of existing variant database in MongoDB')
     argparse.add_argument('--tasks', required=False, type=str, nargs='+',
                           default=EloadIngestion.all_tasks, choices=EloadIngestion.all_tasks,
                           help='task or set of tasks to perform during ingestion')
@@ -47,7 +48,7 @@ def main():
     load_config()
 
     ingestion = EloadIngestion(args.eload)
-    ingestion.ingest(tasks=args.tasks)
+    ingestion.ingest(db_name=args.db_name, tasks=args.tasks)
 
 
 if __name__ == "__main__":

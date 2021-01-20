@@ -1,9 +1,10 @@
-openpyxl
-pyyaml
+bs4
 cached-property
-humanize
-pysam
-requests
 cerberus
-retry
 ebi_eva_common_pyutils
+humanize
+openpyxl
+pysam
+pyyaml
+requests
+retry

@@ -26,3 +26,8 @@ ena:
   ftphost: ena.example.com
   username: user
   password: pass
+
+mongo:
+  username: user
+  password: pass
+  host: host

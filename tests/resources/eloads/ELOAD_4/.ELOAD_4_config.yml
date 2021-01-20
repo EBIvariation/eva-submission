@@ -1,6 +1,9 @@
 brokering:
   ena:
     PROJECT: PRJEB12345
+ingestion:
+  ena_load: failure
+  ingestion_date: 2021-01-20 15:36:46.518744
 validation:
   assembly_check:
     files:
