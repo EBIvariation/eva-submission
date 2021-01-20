@@ -29,11 +29,11 @@ class EloadBrokering(Eload):
             if metadata_file:
                 self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet', value=os.path.abspath(metadata_file))
 
-    def broker(self, brokering_tasks=None):
+    def broker(self, brokering_tasks_to_force=None):
         """Run the brokering process"""
-        self.prepare_brokering(force='preparation' in brokering_tasks)
-        self.upload_to_bioSamples(force='biosamples' in brokering_tasks)
-        self.broker_to_ena(force='ena' in brokering_tasks)
+        self.prepare_brokering(force=('preparation' in brokering_tasks_to_force))
+        self.upload_to_bioSamples(force=('biosamples' in brokering_tasks_to_force))
+        self.broker_to_ena(force=('ena' in brokering_tasks_to_force))
 
     def prepare_brokering(self, force=False):
         if not self.eload_cfg.query('brokering', 'vcf_files') or force:
@@ -58,6 +58,8 @@ class EloadBrokering(Eload):
             # Upload XML to ENA
             ena_uploader.upload_xml_files_to_ena(submission_file, project_file, analysis_file)
             self.eload_cfg.set('brokering', 'ena', value=ena_uploader.results)
+        else:
+            self.info('Brokering to ENA has already been run, Skip!')
 
     def upload_to_bioSamples(self, force=False):
         metadata_spreadsheet = self.eload_cfg['validation']['valid']['metadata_spreadsheet']

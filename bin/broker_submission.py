@@ -37,9 +37,9 @@ def main():
     argparse.add_argument('--metadata_file', required=False, type=str, help='VCF files to use in the brokering')
     argparse.add_argument('--force', required=False, type=str, nargs='+', default=[],
                           choices=EloadBrokering.all_brokering_tasks,
-                          help='When not set, the script only perfomred the tasks that were not successful. When '
-                               'set without argument force all the task to be performed regardless of previous status. '
-                               'Otherwise, you can specify one or several tasks to perform during the brokering')
+                          help='When not set, the script only performs the tasks that were not successful. Can be '
+                               'set to specify one or several tasks to force during the brokering regardless of '
+                               'previous status')
     args = argparse.parse_args()
 
     log_cfg.add_stdout_handler()
@@ -51,7 +51,7 @@ def main():
 
     # Optionally Set the valid VCF and metadata file
     brokering = EloadBrokering(args.eload, args.vcf_files, args.metadata_file)
-    brokering.broker(args.force)
+    brokering.broker(brokering_tasks_to_force=args.force)
 
 
 if __name__ == "__main__":

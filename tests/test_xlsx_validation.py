@@ -18,6 +18,7 @@ class TestEvaXlsValidator(TestCase):
         self.validator.cerberus_validation()
         self.assertEqual(self.validator.error_list, [])
 
+    def test_cerberus_validation_failure(self):
         self.validator_fail.cerberus_validation()
         expected_errors = ['In Sheet Analysis, Row 4, field Analysis Alias: null value not allowed']
         self.assertEqual(self.validator_fail.error_list, expected_errors)
@@ -25,6 +26,8 @@ class TestEvaXlsValidator(TestCase):
     def test_complex_validation(self):
         self.validator.complex_validation()
         assert self.validator.error_list == []
+
+    def test_complex_validation_failure(self):
         self.validator_fail.complex_validation()
         expected_errors = [
             'Check Analysis Alias vs Samples: GAE2,None present in Analysis Alias not in Samples',
