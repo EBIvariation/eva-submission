@@ -56,7 +56,7 @@ class EloadIngestion(Eload):
         assembly_name = soup.find('name').text
         return f'eva_{sanitize(sci_name)}_{sanitize(assembly_name)}'
 
-    def check_variant_db(self, db_name):
+    def check_variant_db(self, db_name=None):
         """
         Checks mongo for the right variant database.
         If db_name is provided it will check for that, otherwise it will construct the expected database name.
@@ -67,8 +67,8 @@ class EloadIngestion(Eload):
         self.eload_cfg.set(self.config_section, 'database', 'db_name', value=db_name)
 
         with get_mongo_connection_handle(
-                username=cfg.query('mongo', 'user'),
-                password=cfg.query('mongo', 'pass'),
+                username=cfg.query('mongo', 'username'),
+                password=cfg.query('mongo', 'password'),
                 host=cfg.query('mongo', 'host')
         ) as db:
             names = db.list_database_names()
@@ -80,7 +80,7 @@ class EloadIngestion(Eload):
                 self.error(f'Database named {db_name} does not exist in variant warehouse, aborting.')
                 self.error('Please create the database or pass in the appropriate database name explicitly.')
                 self.eload_cfg.set(self.config_section, 'database', 'exists', value=False)
-                raise ValueError('No variant database found.')
+                raise ValueError(f'No database named {db_name} found.')
 
     def load_from_ena(self):
         """
