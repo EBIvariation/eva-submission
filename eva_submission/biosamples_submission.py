@@ -206,7 +206,11 @@ class SampleSubmitter(AppLogger):
         format
         """
         if map_key and value:
-            if map_key.startswith('characteristics.'):
+            if isinstance(map_key, list):
+                # If we are provided a list then apply to all elements of the list
+                for element in map_key:
+                    SampleSubmitter.apply_mapping(bsd_data, element, value)
+            elif map_key.startswith('characteristics.'):
                 keys = map_key.split('.')
                 _bsd_data = bsd_data
                 for k in keys[:-1]:
@@ -377,14 +381,14 @@ class SampleTabSubmitter(SampleSubmitter):
 
 
 class SampleMetadataSubmitter(SampleSubmitter):
+
     sample_mapping = {
         'Sample Name': 'name',
         'Sample Accession': 'accession',
         'Sex': 'characteristics.sex',
         'bio_material': 'characteristics.material',
         'Tax Id': 'taxId',
-        'Scientific Name': 'scientific name',
-        'Common Name': 'common name'
+        'Scientific Name': ['characteristics.scientific name', 'characteristics.Organism']
     }
     accepted_characteristics = ['Unique Name Prefix', 'Subject', 'Derived From', 'Scientific Name', 'Common Name',
                                 'mating_type', 'sex', 'cell_type', 'dev_stage', 'germline', 'tissue_lib', 'tissue_type',
@@ -394,14 +398,17 @@ class SampleMetadataSubmitter(SampleSubmitter):
                                 'environmental_sample', 'cultivar', 'ecotype', 'isolate', 'strain', 'sub_species',
                                 'variety', 'sub_strain', 'cell_line', 'serotype', 'serovar']
 
-    project_mapping = {
-        'person': 'contact',
-        'Organization Name': 'Name',
-        'Organization Address': 'Address',
-        'Person Email': 'E-mail',
-        'Person First Name': 'FirstName',
-        'Person Last Name': 'LastName'
+    submitter_mapping = {
+        'Email Address': 'E-mail',
+        'First Name': 'FirstName',
+        'Last Name': 'LastName'
     }
+
+    organisation_mapping = {
+        'Laboratory': 'Name',
+        'Address': 'Address',
+    }
+
 
     def __init__(self, metadata_spreadsheet):
         super().__init__()
@@ -409,15 +416,20 @@ class SampleMetadataSubmitter(SampleSubmitter):
         self.reader = EvaXlsxReader(self.metadata_spreadsheet)
         self.sample_data = self.map_metadata_to_bsd_data()
 
-
     def map_metadata_to_bsd_data(self):
         payloads = []
         for sample_row in self.reader.samples:
             bsd_sample_entry = {'characteristics': {}}
+            description_list = []
+            if sample_row.get('Title'):
+                description_list.append(sample_row.get('Title'))
+            if sample_row.get('Description'):
+                description_list.append(sample_row.get('Description'))
+            self.apply_mapping(bsd_sample_entry['characteristics'], 'description', [{'text': ' - '.join(description_list)}])
             for key in sample_row:
                 if sample_row[key]:
                     if key in self.sample_mapping:
-                        self.apply_mapping(bsd_sample_entry, key, sample_row[key])
+                        self.apply_mapping(bsd_sample_entry, self.map_sample_key(key), sample_row[key])
                     elif key in self.accepted_characteristics:
                         # other field  maps to characteristics
                         self.apply_mapping(
@@ -437,24 +449,29 @@ class SampleMetadataSubmitter(SampleSubmitter):
                         [{'text': value}]
                     )
 
-            grouped_values = {}
             project_row = self.reader.project
-            for key in project_row:
-                # Organisation and contact can contain multiple values that are split across several fields
-                # this will group the across fields
-                groupname = self.map_project_key(key.split()[0].lower())
-                if groupname in ['organization', 'contact']:
-                    self._group_across_fields(grouped_values, key, project_row[key])
-                elif groupname in self.project_mapping:
-                    # All the other project level field are added to characteristics
-                    self.apply_mapping(bsd_sample_entry['characteristics'], key.lower(),
+            for key in self.reader.project:
+                if key in self.project_mapping:
+                    self.apply_mapping(bsd_sample_entry['characteristics'], self.map_project_key(key),
                                        [{'text': project_row[key]}])
                 else:
                     # Ignore the other values
                     pass
-            # Store the grouped values
-            for groupname in grouped_values:
-                self.apply_mapping(bsd_sample_entry, groupname, grouped_values[groupname])
+            contacts = []
+            organisations = []
+            for submitter_row in self.reader.submitters:
+                contact = {}
+                organisation = {}
+                for key in submitter_row:
+                    self.apply_mapping(contact, self.submitter_mapping.get(key), submitter_row[key])
+                    self.apply_mapping(organisation, self.organisation_mapping.get(key), submitter_row[key])
+                if contact:
+                    contacts.append(contact)
+                if organisation:
+                    organisations.append(organisation)
+
+            self.apply_mapping(bsd_sample_entry, 'contact', contacts)
+            self.apply_mapping(bsd_sample_entry, 'organization', organisations)
 
             bsd_sample_entry['release'] = _now
             payloads.append(bsd_sample_entry)

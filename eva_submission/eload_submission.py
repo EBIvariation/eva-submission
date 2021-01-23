@@ -62,12 +62,12 @@ class Eload(AppLogger):
 
         sample_rows = []
         for sample_row in reader.samples:
-            if self.eload_cfg.query('brokering', 'Biosamples', sample_row.get('Sample Name')):
+            if self.eload_cfg.query('brokering', 'Biosamples', 'Samples', sample_row.get('Sample Name')):
                 sample_rows.append({
                     'row_num': sample_row.get('row_num'),
                     'Analysis Alias': sample_row.get('Analysis Alias') or single_analysis_alias,
                     'Sample ID': sample_row.get('Sample Name'),
-                    'Sample Accession': self.eload_cfg['brokering']['Biosamples'][sample_row.get('Sample Name')]
+                    'Sample Accession': self.eload_cfg['brokering']['Biosamples']['Samples'][sample_row.get('Sample Name')]
                 })
             else:
                 sample_rows.append(sample_row)

@@ -35,7 +35,11 @@ def main():
                           help='Set the script to output logging information at debug level')
     argparse.add_argument('--vcf_files', required=False, type=str, help='VCF files to use in the brokering', nargs='+')
     argparse.add_argument('--metadata_file', required=False, type=str, help='VCF files to use in the brokering')
-
+    argparse.add_argument('--force', required=False, type=str, nargs='+', default=[],
+                          choices=EloadBrokering.all_brokering_tasks,
+                          help='When not set, the script only performs the tasks that were not successful. Can be '
+                               'set to specify one or several tasks to force during the brokering regardless of '
+                               'previous status')
     args = argparse.parse_args()
 
     log_cfg.add_stdout_handler()
@@ -47,7 +51,7 @@ def main():
 
     # Optionally Set the valid VCF and metadata file
     brokering = EloadBrokering(args.eload, args.vcf_files, args.metadata_file)
-    brokering.broker()
+    brokering.broker(brokering_tasks_to_force=args.force)
 
 
 if __name__ == "__main__":

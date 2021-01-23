@@ -16,6 +16,8 @@ from eva_submission.ENA_submission.xlsx_to_ENA_xml import process_metadata_sprea
 
 class EloadBrokering(Eload):
 
+    all_brokering_tasks = ['preparation', 'biosamples', 'ena']
+
     def __init__(self, eload_number: int, vcf_files: list = None, metadata_file: str = None):
         super().__init__(eload_number)
         if 'validation' not in self.eload_cfg:
@@ -27,39 +29,48 @@ class EloadBrokering(Eload):
             if metadata_file:
                 self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet', value=os.path.abspath(metadata_file))
 
-    def broker(self):
+    def broker(self, brokering_tasks_to_force=None):
         """Run the brokering process"""
-        # Reset previous values that could have been set before
-        self.eload_cfg['brokering'] = {}
-        output_dir = self._run_brokering_prep_workflow()
-        self._collect_brokering_prep_results(output_dir)
-        shutil.rmtree(output_dir)
+        self.prepare_brokering(force=('preparation' in brokering_tasks_to_force))
+        self.upload_to_bioSamples(force=('biosamples' in brokering_tasks_to_force))
+        self.broker_to_ena(force=('ena' in brokering_tasks_to_force))
 
-        self.upload_to_bioSamples()
-        self.broker_to_ena()
+    def prepare_brokering(self, force=False):
+        if not self.eload_cfg.query('brokering', 'vcf_files') or force:
+            output_dir = self._run_brokering_prep_workflow()
+            self._collect_brokering_prep_results(output_dir)
+            shutil.rmtree(output_dir)
+        else:
+            self.info('Preparation has already been run, Skip!')
 
-    def broker_to_ena(self):
-        ena_spreadsheet = os.path.join(self._get_dir('ena'), 'metadata_spreadsheet.xlsx')
-        self.update_metadata_from_config(self.eload_cfg['validation']['valid']['metadata_spreadsheet'], ena_spreadsheet)
-        submission_file, project_file, analysis_file = process_metadata_spreadsheet(ena_spreadsheet,
-                                                                                    self._get_dir('ena'), self.eload)
-        # Upload the VCF to ENA FTP
-        ena_uploader = ENAUploader(self.eload)
-        files_to_upload = [vcf_file for vcf_file in self.eload_cfg['brokering']['vcf_files']] + \
-                          [self.eload_cfg['brokering']['vcf_files'][vcf_file]['index'] for vcf_file in self.eload_cfg['brokering']['vcf_files']]
-        ena_uploader.upload_vcf_files_to_ena_ftp(files_to_upload)
+    def broker_to_ena(self, force=False):
+        if not self.eload_cfg.query('brokering', 'ena', 'PROJECT') or force:
+            ena_spreadsheet = os.path.join(self._get_dir('ena'), 'metadata_spreadsheet.xlsx')
+            self.update_metadata_from_config(self.eload_cfg['validation']['valid']['metadata_spreadsheet'], ena_spreadsheet)
+            submission_file, project_file, analysis_file = process_metadata_spreadsheet(ena_spreadsheet,
+                                                                                        self._get_dir('ena'), self.eload)
+            # Upload the VCF to ENA FTP
+            ena_uploader = ENAUploader(self.eload)
+            files_to_upload = [vcf_file for vcf_file in self.eload_cfg['brokering']['vcf_files']] + \
+                              [self.eload_cfg['brokering']['vcf_files'][vcf_file]['index'] for vcf_file in self.eload_cfg['brokering']['vcf_files']]
+            ena_uploader.upload_vcf_files_to_ena_ftp(files_to_upload)
 
-        # Upload XML to ENA
-        ena_uploader.upload_xml_files_to_ena(submission_file, project_file, analysis_file)
+            # Upload XML to ENA
+            ena_uploader.upload_xml_files_to_ena(submission_file, project_file, analysis_file)
+            self.eload_cfg.set('brokering', 'ena', value=ena_uploader.results)
+        else:
+            self.info('Brokering to ENA has already been run, Skip!')
 
-        self.eload_cfg.set('brokering', 'ena', value=ena_uploader.results)
-
-    def upload_to_bioSamples(self):
+    def upload_to_bioSamples(self, force=False):
         metadata_spreadsheet = self.eload_cfg['validation']['valid']['metadata_spreadsheet']
         sample_tab_submitter = SampleMetadataSubmitter(metadata_spreadsheet)
-        if not sample_tab_submitter.check_submit_done():
+        if not (sample_tab_submitter.check_submit_done() or self.eload_cfg.query('brokering', 'Biosamples', 'Samples'))\
+                or force:
             sample_name_to_accession = sample_tab_submitter.submit_to_bioSamples()
-            self.eload_cfg.set('brokering', 'Biosamples', value=sample_name_to_accession)
+            self.eload_cfg.set('brokering', 'Biosamples', 'date', value=self.now)
+            self.eload_cfg.set('brokering', 'Biosamples', 'Samples', value=sample_name_to_accession)
+        else:
+            self.info('BioSamples brokering is already done, Skip!')
 
     def _run_brokering_prep_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory()

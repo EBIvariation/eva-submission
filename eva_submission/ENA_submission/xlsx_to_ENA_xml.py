@@ -98,9 +98,9 @@ def add_project(root, project_row):
         add_element(org_elemt, 'STRAIN', element_text=project_row.get('Strain', ''), content_required=True)
         add_element(org_elemt, 'BREED', element_text=project_row.get('Breed', ''), content_required=True)
 
-    if 'Parent Project(s)' in project_row or \
-            'Child Project(s)' in project_row or \
-            'Peer Project(s)' in project_row:
+    if project_row.get('Parent Project(s)') or \
+            project_row.get('Child Project(s)') or \
+            project_row.get('Peer Project(s)'):
         related_prjs_elemt = add_element(project_elemt, 'RELATED_PROJECTS')
 
         if 'Parent Project(s)' in project_row and project_row.get('Parent Project(s)'):
