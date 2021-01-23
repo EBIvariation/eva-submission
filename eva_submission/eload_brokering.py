@@ -86,7 +86,7 @@ class EloadBrokering(Eload):
         validation_script = os.path.join(ROOT_DIR, 'nextflow', 'prepare_brokering.nf')
         try:
             command_utils.run_command_with_output(
-                'Start Nextflow brokering preparation process',
+                'Nextflow brokering preparation process',
                 ' '.join((
                     cfg['executable']['nextflow'], validation_script,
                     '-params-file', brokering_config_file,
