@@ -128,7 +128,7 @@ class EloadValidation(Eload):
         validation_script = os.path.join(ROOT_DIR, 'nextflow', 'validation.nf')
         try:
             command_utils.run_command_with_output(
-                'Start Nextflow Validation process',
+                'Nextflow Validation process',
                 ' '.join((
                     'export NXF_OPTS="-Xms1g -Xmx8g"; ',
                     cfg['executable']['nextflow'], validation_script,

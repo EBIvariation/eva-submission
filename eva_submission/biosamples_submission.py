@@ -479,7 +479,7 @@ class SampleMetadataSubmitter(SampleSubmitter):
         return payloads
 
     def check_submit_done(self):
-        return all((s.get("Sample Accession") for s in self.sample_data))
+        return all((s.get("accession") for s in self.sample_data))
 
     def submit_to_bioSamples(self):
 
