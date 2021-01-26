@@ -253,7 +253,7 @@ class TestSampleMetadataSubmitter(BSDTestCase):
         brokering_folder = os.path.join(ROOT_DIR, 'tests', 'resources', 'brokering')
         metadata_file1 = os.path.join(brokering_folder, 'metadata_sheet.xlsx')
         metadata_file2 = os.path.join(brokering_folder, 'metadata_sheet2.xlsx')
-        self.submitter_no_biosamples = SampleMetadataSubmitter(metadata_file1)
+        self.submitter_no_biosample_ids = SampleMetadataSubmitter(metadata_file1)
         self.submitter = SampleMetadataSubmitter(metadata_file2)
 
     def test_map_metadata_to_bsd_data(self):
@@ -276,9 +276,9 @@ class TestSampleMetadataSubmitter(BSDTestCase):
         self.assertEqual(payload, expected_payload)
 
     def test_check_submit_done(self):
-        # This submitter contains data to broker to BioSamples
-        self.assertFalse(self.submitter.check_submit_done())
+        # This data has already been brokered to BioSamples
+        self.assertTrue(self.submitter_no_biosample_ids.check_submit_done())
 
     def test_check_submit_not_done(self):
-        # This data has already been brokered to BioSamples
-        self.assertTrue(self.submitter_no_biosamples.check_submit_done())
+        # This submitter contains data to broker to BioSamples
+        self.assertFalse(self.submitter.check_submit_done())
