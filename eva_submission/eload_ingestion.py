@@ -61,7 +61,7 @@ class EloadIngestion(Eload):
                 "SELECT b.taxonomy_code, a.assembly_code "
                 "FROM evapro.assembly a "
                 "JOIN evapro.taxonomy b on b.taxonomy_id = a.taxonomy_id "
-                f"WHERE a.taxonomy_id = '%{taxon_id}%' "
+                f"WHERE a.taxonomy_id = '{taxon_id}' "
                 f"AND a.assembly_accession = '{assm_accession}';"
             )
             rows = get_all_results_for_query(conn, query)
