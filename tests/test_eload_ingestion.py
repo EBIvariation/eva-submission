@@ -44,7 +44,7 @@ class TestEloadIngestion(TestCase):
 <SUBMITTER_ID namespace="University of Louisville">EquCab3.0</SUBMITTER_ID>
 </IDENTIFIERS>
 <TITLE>EquCab3.0 assembly for Equus caballus</TITLE>
-<DESCRIPTION>The current reference assembly for the domestic horse Equus caballus was published in 2009.<DESCRIPTION>
+<DESCRIPTION>The current reference assembly for the domestic horse Equus caballus was published in 2009.</DESCRIPTION>
 <NAME>EquCab3.0</NAME>
 <ASSEMBLY_LEVEL>chromosome</ASSEMBLY_LEVEL>
 <GENOME_REPRESENTATION>full</GENOME_REPRESENTATION>
@@ -58,24 +58,44 @@ class TestEloadIngestion(TestCase):
         """
         return m_response
 
-    def _mock_db_client(self):
+    def _mock_mongodb_client(self):
         m_db = mock.Mock()
         m_db.list_database_names = mock.Mock(return_value=[
-            'eva_ecaballus_equcab30',
+            'eva_ecaballus_30',
             'eva_hsapiens_grch38'
         ])
         return m_db
 
     def test_get_db_name(self):
-        with patch('eva_submission.eload_ingestion.requests.get', autospec=True) as m_get:
+        with patch('eva_submission.eload_ingestion.requests.get', autospec=True) as m_get, \
+                patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_query_results:
             m_get.return_value = self._mock_ena_response()
-            self.assertEqual(self.eload.get_db_name(), 'eva_ecaballus_equcab30')
+            m_get_query_results.return_value = [('ecaballus', '30')]
+            self.assertEqual('eva_ecaballus_30', self.eload.get_db_name())
+
+    def test_get_db_name_missing_evapro(self):
+        with patch('eva_submission.eload_ingestion.requests.get', autospec=True) as m_get, \
+                patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_query_results:
+            m_get.return_value = self._mock_ena_response()
+            m_get_query_results.return_value = []
+            with self.assertRaises(ValueError):
+                self.eload.get_db_name()
+
+    def test_get_db_name_multiple_evapro(self):
+        with patch('eva_submission.eload_ingestion.requests.get', autospec=True) as m_get, \
+                patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_query_results:
+            m_get.return_value = self._mock_ena_response()
+            m_get_query_results.return_value = [('ecaballus', '30'), ('ecaballus', '20')]
+            with self.assertRaises(ValueError):
+                self.eload.get_db_name()
 
     def test_get_db_name_ena_fails(self):
         # mock failed response to ENA call
         m_response = mock.Mock()
         m_response.status_code = 400
-
         m_response.raise_for_status.side_effect = requests.HTTPError('Bad request')
         with patch('eva_submission.eload_ingestion.requests.get', autospec=True) as m_get:
             m_get.return_value = m_response
@@ -84,14 +104,17 @@ class TestEloadIngestion(TestCase):
 
     def test_check_variant_db(self):
         with patch('eva_submission.eload_ingestion.requests.get', autospec=True) as m_get, \
+                patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.get_mongo_connection_handle', autospec=True) as m_get_mongo:
             m_get.return_value = self._mock_ena_response()
-            m_get_mongo.return_value.__enter__.return_value = self._mock_db_client()
+            m_get_results.return_value = [('ecaballus', '30')]
+            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
 
             self.eload.check_variant_db()
             self.assertEqual(
-                self.eload.eload_cfg.query('ingestion', 'database', 'db_name'),
-                'eva_ecaballus_equcab30'
+                'eva_ecaballus_30',
+                self.eload.eload_cfg.query('ingestion', 'database', 'db_name')
             )
             assert self.eload.eload_cfg.query('ingestion', 'database', 'exists')
 
@@ -99,7 +122,7 @@ class TestEloadIngestion(TestCase):
         with patch('eva_submission.eload_ingestion.requests.get', autospec=True) as m_get, \
                 patch('eva_submission.eload_ingestion.get_mongo_connection_handle', autospec=True) as m_get_mongo:
             m_get.return_value = self._mock_ena_response()
-            m_get_mongo.return_value.__enter__.return_value = self._mock_db_client()
+            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             self.eload.check_variant_db(db_name='eva_hsapiens_grch38')
             self.assertEqual(
                 self.eload.eload_cfg.query('ingestion', 'database', 'db_name'),
@@ -111,7 +134,7 @@ class TestEloadIngestion(TestCase):
         with patch('eva_submission.eload_ingestion.requests.get', autospec=True) as m_get, \
                 patch('eva_submission.eload_ingestion.get_mongo_connection_handle', autospec=True) as m_get_mongo:
             m_get.return_value = self._mock_ena_response()
-            m_get_mongo.return_value.__enter__.return_value = self._mock_db_client()
+            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
 
             with self.assertRaises(ValueError):
                 self.eload.check_variant_db(db_name='eva_fcatus_90')

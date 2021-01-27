@@ -1,18 +1,14 @@
-import string
 import subprocess
 
-from bs4 import BeautifulSoup
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.mongo_utils import get_mongo_connection_handle
+from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
+from lxml import etree
+import psycopg2
 import requests
 
 from eva_submission.eload_submission import Eload
-
-
-def sanitize(s):
-    """Lowercases and removes punctuation from s, e.g. to make it a legal MongoDB identifier."""
-    return s.lower().translate(str.maketrans('', '', string.punctuation))
 
 
 class EloadIngestion(Eload):
@@ -39,9 +35,11 @@ class EloadIngestion(Eload):
 
     def get_db_name(self):
         """
-        Constructs the expected database name in mongo, based on assembly info retrieved from ENA.
+        Constructs the expected database name in mongo, based on assembly info retrieved from EVAPRO.
         """
         assm_accession = self.eload_cfg.query('submission', 'assembly_accession')
+
+        # get taxonomy id from ENA
         ena_url = f'https://www.ebi.ac.uk/ena/browser/api/xml/{assm_accession}'
         try:  # catches any kind of request error, including non-20X status code
             response = requests.get(ena_url)
@@ -49,12 +47,36 @@ class EloadIngestion(Eload):
         except requests.exceptions.RequestException as e:
             self.error(f"Couldn't get assembly info from ENA for accession {assm_accession}")
             raise e
+        root = etree.XML(bytes(response.text, encoding='utf-8'))
+        taxon_id = root.xpath('/ASSEMBLY_SET/ASSEMBLY/TAXON/TAXON_ID')[0].text
 
-        soup = BeautifulSoup(response.text, 'lxml')
-        sci_name_terms = soup.scientific_name.text.split()
-        sci_name = sci_name_terms[0][0] + ''.join(sci_name_terms[1:])
-        assembly_name = soup.find('name').text
-        return f'eva_{sanitize(sci_name)}_{sanitize(assembly_name)}'
+        # query EVAPRO for db name based on taxonomy id and accession
+        with psycopg2.connect(
+            dbname=cfg.query('postgres', 'dbname'),
+            user=cfg.query('postgres', 'username'),
+            password=cfg.query('postgres', 'password'),
+            host=cfg.query('postgres', 'host')
+        ) as conn:
+            query = (
+                "SELECT b.taxonomy_code, a.assembly_code "
+                "FROM evapro.assembly a "
+                "JOIN evapro.taxonomy b on b.taxonomy_id = a.taxonomy_id "
+                f"WHERE a.taxonomy_id = '%{taxon_id}%' "
+                f"AND a.assembly_accession = '{assm_accession}';"
+            )
+            rows = get_all_results_for_query(conn, query)
+        # we should get exactly one result, if not, fail loudly.
+        if len(rows) == 0:
+            self.error(f'Database for taxonomy id {taxon_id} and assembly {assm_accession} not found in EVAPRO.')
+            self.error(f'Please insert the appropriate taxonomy and assembly or pass in the database name explicitly.')
+            # TODO propose a database name, based on a TBD convention
+            raise ValueError(f'No database for {taxon_id} and {assm_accession} found')
+        elif len(rows) > 1:
+            self.error(f'Found more than one possible database, please pass in the database name explicitly.')
+            options = ', '.join((f'{r[0]}_{r[1]}' for r in rows))
+            self.error(f'Options found: {options}')
+            raise ValueError(f'More than one possible database for {taxon_id} and {assm_accession} found')
+        return f'eva_{rows[0][0]}_{rows[0][1]}'
 
     def check_variant_db(self, db_name=None):
         """

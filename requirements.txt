@@ -1,9 +1,9 @@
-bs4
 cached-property
 cerberus
 ebi_eva_common_pyutils
 humanize
 openpyxl
+psycopg2-binary
 pysam
 pyyaml
 requests

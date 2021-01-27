@@ -27,6 +27,12 @@ ena:
   username: user
   password: pass
 
+postgres:
+  dbname: dbname
+  username: user
+  password: pass
+  host: host
+
 mongo:
   username: user
   password: pass
