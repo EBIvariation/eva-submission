@@ -4,6 +4,7 @@ ebi_eva_common_pyutils
 humanize
 openpyxl
 psycopg2-binary
+pymongo
 pysam
 pyyaml
 requests

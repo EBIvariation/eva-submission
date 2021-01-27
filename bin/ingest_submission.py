@@ -35,6 +35,7 @@ def main():
     argparse.add_argument('--tasks', required=False, type=str, nargs='+',
                           default=EloadIngestion.all_tasks, choices=EloadIngestion.all_tasks,
                           help='task or set of tasks to perform during ingestion')
+    argparse.add_argument('--secrets', required=True, type=str, help='XML file containing db credentials')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
 
@@ -47,7 +48,7 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    ingestion = EloadIngestion(args.eload)
+    ingestion = EloadIngestion(args.eload, args.secrets)
     ingestion.ingest(db_name=args.db_name, tasks=args.tasks)
 
 

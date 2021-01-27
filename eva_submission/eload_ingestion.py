@@ -2,11 +2,10 @@ import subprocess
 
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
-from ebi_eva_common_pyutils.mongo_utils import get_mongo_connection_handle
+from ebi_eva_common_pyutils.config_utils import get_pg_metadata_uri_for_eva_profile, get_mongo_uri_for_eva_profile
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
-from lxml import etree
 import psycopg2
-import requests
+import pymongo
 
 from eva_submission.eload_submission import Eload
 
@@ -15,9 +14,10 @@ class EloadIngestion(Eload):
     config_section = 'ingestion'  # top-level config key
     all_tasks = ['metadata_load', 'accession', 'variant_load']
 
-    def __init__(self, eload_number):
+    def __init__(self, eload_number, settings_xml_file):
         super().__init__(eload_number)
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
+        self.settings_xml_file = settings_xml_file
 
     def ingest(self, db_name=None, tasks=None):
         # TODO assembly/taxonomy insertion script should be incorporated here
@@ -38,25 +38,11 @@ class EloadIngestion(Eload):
         Constructs the expected database name in mongo, based on assembly info retrieved from EVAPRO.
         """
         assm_accession = self.eload_cfg.query('submission', 'assembly_accession')
-
-        # get taxonomy id from ENA
-        ena_url = f'https://www.ebi.ac.uk/ena/browser/api/xml/{assm_accession}'
-        try:  # catches any kind of request error, including non-20X status code
-            response = requests.get(ena_url)
-            response.raise_for_status()
-        except requests.exceptions.RequestException as e:
-            self.error(f"Couldn't get assembly info from ENA for accession {assm_accession}")
-            raise e
-        root = etree.XML(bytes(response.text, encoding='utf-8'))
-        taxon_id = root.xpath('/ASSEMBLY_SET/ASSEMBLY/TAXON/TAXON_ID')[0].text
+        taxon_id = self.eload_cfg.query('submission', 'taxonomy_id')
 
         # query EVAPRO for db name based on taxonomy id and accession
-        with psycopg2.connect(
-            dbname=cfg.query('postgres', 'dbname'),
-            user=cfg.query('postgres', 'username'),
-            password=cfg.query('postgres', 'password'),
-            host=cfg.query('postgres', 'host')
-        ) as conn:
+        pg_uri = get_pg_metadata_uri_for_eva_profile("development", self.settings_xml_file)
+        with psycopg2.connect(pg_uri) as conn:
             query = (
                 "SELECT b.taxonomy_code, a.assembly_code "
                 "FROM evapro.assembly a "
@@ -88,11 +74,8 @@ class EloadIngestion(Eload):
             db_name = self.get_db_name()
         self.eload_cfg.set(self.config_section, 'database', 'db_name', value=db_name)
 
-        with get_mongo_connection_handle(
-                username=cfg.query('mongo', 'username'),
-                password=cfg.query('mongo', 'password'),
-                host=cfg.query('mongo', 'host')
-        ) as db:
+        mongo_uri = get_mongo_uri_for_eva_profile("production", self.settings_xml_file)
+        with pymongo.MongoClient(mongo_uri) as db:
             names = db.list_database_names()
             if db_name in names:
                 self.info(f'Found database named {db_name}.')
