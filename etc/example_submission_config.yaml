@@ -1,6 +1,7 @@
 ftp_dir: '/path/to/ftp/dir'
 eloads_dir: '/path/to/eload/dir'
 eutils_api_key: 1234556lkxflk
+maven_settings_file: '/path/to/settings/file'
 
 
 genome_downloader:
@@ -11,6 +12,7 @@ executable:
   nextflow: /path/to/nextflow
   vcf_assembly_checker: /path/to/vcf_assembly_checker
   vcf_validator: /path/to/vcf_validator
+  load_from_ena: /path/to/load_from_ena_script
 
 
 biosamples:

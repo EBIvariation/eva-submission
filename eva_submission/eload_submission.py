@@ -32,6 +32,7 @@ directory_structure = {
 
 class Eload(AppLogger):
     def __init__(self, eload_number: int):
+        self.eload_num = eload_number
         self.eload = f'ELOAD_{eload_number}'
         self.eload_dir = os.path.abspath(os.path.join(cfg['eloads_dir'], self.eload))
         self.eload_cfg = EloadConfig(os.path.join(self.eload_dir, '.' + self.eload + '_config.yml'))

@@ -1,9 +1,11 @@
-openpyxl
-pyyaml
 cached-property
-humanize
-pysam
-requests
 cerberus
-retry
 ebi_eva_common_pyutils
+humanize
+openpyxl
+psycopg2-binary
+pymongo
+pysam
+pyyaml
+requests
+retry
