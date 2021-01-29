@@ -14,10 +14,10 @@ class EloadIngestion(Eload):
     config_section = 'ingestion'  # top-level config key
     all_tasks = ['metadata_load', 'accession', 'variant_load']
 
-    def __init__(self, eload_number, settings_xml_file):
+    def __init__(self, eload_number):
         super().__init__(eload_number)
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
-        self.settings_xml_file = settings_xml_file
+        self.settings_xml_file = cfg['maven_settings_file']
 
     def ingest(self, db_name=None, tasks=None):
         # TODO assembly/taxonomy insertion script should be incorporated here

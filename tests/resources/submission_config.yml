@@ -1,6 +1,6 @@
 ftp_dir: 'tests/resources/ftpboxes'
 eloads_dir: 'tests/resources/eloads'
-
+maven_settings_file: 'path/to/settings/file'
 
 
 ena:

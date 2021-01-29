@@ -25,7 +25,7 @@ class TestEloadIngestion(TestCase):
         # Need to set the directory so that the relative path set in the config file works from the top directory
         os.chdir(self.top_dir)
         # Set up a working eload config
-        self.eload = EloadIngestion(3, 'path_to_settings_xml')
+        self.eload = EloadIngestion(3)
         self.eload.eload_cfg.set('submission', 'assembly_accession', value='GCA_002863925.1')
         self.eload.eload_cfg.set('brokering', 'ena', 'PROJECT', value='PRJEB12345')
 
