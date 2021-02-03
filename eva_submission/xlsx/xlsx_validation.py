@@ -8,6 +8,7 @@ from ebi_eva_common_pyutils.variation.assembly_utils import retrieve_genbank_ass
 from requests import HTTPError
 
 from eva_submission import ROOT_DIR
+from eva_submission.eload_utils import cast_list
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 
@@ -113,8 +114,8 @@ class EvaXlsxValidator(AppLogger):
 
     def same_set(self, list1, list2, list1_desc, list2_desc):
         if not set(list1) == set(list2):
-            list1_list2 = sorted([str(e) for e in set(list1).difference(list2)])
-            list2_list1 = sorted([str(e) for e in set(list2).difference(list1)])
+            list1_list2 = sorted(cast_list(set(list1).difference(list2)))
+            list2_list1 = sorted(cast_list(set(list2).difference(list1)))
             errors = []
             if list1_list2:
                 errors.append('%s present in %s not in %s' % (','.join(list1_list2), list1_desc, list2_desc))

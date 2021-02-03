@@ -6,6 +6,7 @@ validation:
         error_list: []
         mismatch_list: []
         nb_error: 0
+        nb_mismatch: 0
         nb_variant: 20
         ref_match: 20
     pass: true

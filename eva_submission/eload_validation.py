@@ -75,7 +75,6 @@ class EloadValidation(Eload):
 
     def parse_assembly_check_log(self, assembly_check_log):
         error_list = []
-        mismatch_list = []
         nb_error, nb_mismatch = 0, 0
         match = total = None
         with open(assembly_check_log) as open_file:
@@ -84,15 +83,22 @@ class EloadValidation(Eload):
                     nb_error += 1
                     if nb_error < 11:
                         error_list.append(line.strip()[len('[error]'):])
-                elif 'does not match the reference sequence' in line:
-                    nb_mismatch += 1
-                    if nb_mismatch < 11:
-                        mismatch_list.append(line.strip())
                 elif line.startswith('[info] Number of matches:'):
                     match, total = line.strip()[len('[info] Number of matches: '):].split('/')
                     match = int(match)
                     total = int(total)
-        return error_list, mismatch_list,  nb_error, match, total
+        return error_list, nb_error, match, total
+
+    def parse_assembly_check_report(self, assembly_check_report):
+        mismatch_list = []
+        nb_mismatch = 0
+        with open(assembly_check_report) as open_file:
+            for line in open_file:
+               if 'does not match the reference sequence' in line:
+                    nb_mismatch += 1
+                    if nb_mismatch < 11:
+                        mismatch_list.append(line.strip())
+        return mismatch_list, nb_mismatch
 
     def parse_vcf_check_report(self, vcf_check_report):
         valid = True
@@ -181,7 +187,7 @@ class EloadValidation(Eload):
             if vcf_check_log and vcf_check_text_report and vcf_check_db_report:
                 valid, error_list, error_count, warning_count = self.parse_vcf_check_report(vcf_check_text_report)
             else:
-                valid, error_list, error_count, warning_count = (False, 'Process failed', 1, 0)
+                valid, error_list, error_count, warning_count = (False, ['Process failed'], 1, 0)
             total_error += error_count
 
             self.eload_cfg.set('validation', 'vcf_check', 'files', vcf_name, value={
@@ -220,12 +226,14 @@ class EloadValidation(Eload):
                 os.path.join(self._get_dir('assembly_check'), vcf_name + '.text_assembly_report.txt')
             )
             if assembly_check_log and assembly_check_valid_vcf and assembly_check_text_report:
-                error_list, mismatch_list, nb_error, match, total = self.parse_assembly_check_log(assembly_check_log)
+                error_list, nb_error, match, total = self.parse_assembly_check_log(assembly_check_log)
+                mismatch_list, nb_mismatch = self.parse_assembly_check_report(assembly_check_text_report)
             else:
-                error_list, mismatch_list, nb_error, match, total = (['Process failed'], [], 1, 0, 0)
-            total_error += nb_error + len(mismatch_list)
+                error_list, mismatch_list, nb_mismatch, nb_error, match, total = (['Process failed'], [], 0, 1, 0, 0)
+            total_error += nb_error + nb_mismatch
             self.eload_cfg.set('validation', 'assembly_check', 'files', vcf_name, value={
-                'error_list': error_list, 'mismatch_list': mismatch_list, 'nb_error': nb_error, 'ref_match': match,
+                'error_list': error_list, 'mismatch_list': mismatch_list, 'nb_mismatch': nb_mismatch,
+                'nb_error': nb_error, 'ref_match': match,
                 'nb_variant': total, 'assembly_check_log': assembly_check_log,
                 'assembly_check_valid_vcf': assembly_check_valid_vcf,
                 'assembly_check_text_report': assembly_check_text_report
@@ -272,14 +280,15 @@ class EloadValidation(Eload):
             results = self.eload_cfg.query('validation', 'assembly_check', 'files', vcf_file)
             report_data = {
                 'vcf_file': vcf_file,
-                'pass': 'PASS' if results.get('nb_error') == 0 else 'FAIL',
+                'pass': 'PASS' if results.get('nb_error') == 0 and results.get('nb_mismatch') == 0 else 'FAIL',
                 '10_error_list': '\n'.join(results['error_list']),
-                '10_mismatch_list': '\n'.join(results['mismatch_list'])
+                '10_mismatch_list': '\n'.join(results['mismatch_list']),
+                'perc': results.get('ref_match') / (results.get('nb_variant') or 1)
             }
             report_data.update(results)
             reports.append("""  * {vcf_file}: {pass}
     - number of error: {nb_error}
-    - match results: {ref_match}/{nb_variant}
+    - match results: {ref_match}/{nb_variant} ({perc:.1%})
     - first 10 errors: {10_error_list}
     - first 10 mismatches: {10_mismatch_list}
     - see report for detail: {assembly_check_text_report}

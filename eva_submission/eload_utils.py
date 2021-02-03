@@ -42,3 +42,8 @@ def get_file_content(file_path):
     with open(file_path, 'rb') as f:
         fc = f.read()
     return fc
+
+
+def cast_list(l, type_to_cast=str):
+    for e in l:
+        yield type_to_cast(e)

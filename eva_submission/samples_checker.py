@@ -4,6 +4,7 @@ import os
 import pysam
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
+from eva_submission.eload_utils import cast_list
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxWriter, EvaXlsxReader
 
 logger = log_cfg.get_logger(__name__)
@@ -54,12 +55,12 @@ def compare_names_in_files_and_samples(files, sample_rows, analysis_alias):
     if diff_submitted_file_submission:
         has_difference = True
         logger.warning('For analysis %s Samples that appear in the VCF but not in the Metadata sheet:', analysis_alias)
-        logger.warning(', '.join(sorted(diff_submitted_file_submission)))
+        logger.warning(', '.join(sorted(cast_list(diff_submitted_file_submission))))
 
     if diff_submission_submitted_file:
         has_difference = True
         logger.warning('For analysis %s Samples that appear in the Metadata sheet but not in the VCF file(s):', analysis_alias)
-        logger.warning(', '.join(sorted(diff_submission_submitted_file)))
+        logger.warning(', '.join(sorted(cast_list(diff_submission_submitted_file))))
 
     if not has_difference:
         logger.debug('No difference found in analysis: %s\nIn spreadsheet: %s\nIn VCF files:   %s',
