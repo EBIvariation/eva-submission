@@ -1,5 +1,7 @@
+import os
 import subprocess
 
+import yaml
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.config_utils import get_pg_metadata_uri_for_eva_profile, get_mongo_uri_for_eva_profile
@@ -7,7 +9,22 @@ from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
 import psycopg2
 import pymongo
 
+from eva_submission import ROOT_DIR
 from eva_submission.eload_submission import Eload
+from eva_submission.properties.accession import create_accession_properties
+from eva_submission.properties.load import variant_load_properties
+
+directory_structure = {
+    'logs': '00_logs',
+    'valid': '30_eva_valid',
+    'transformed': '40_transformed',
+    'stats': '50_stats',
+    'annotation': '51_annotation',
+    'accessions': '52_accessions',
+    'public': '60_eva_public',
+    'external': '70_external_submissions',
+    'deprecated': '80_deprecated'
+}
 
 
 class EloadIngestion(Eload):
@@ -18,9 +35,12 @@ class EloadIngestion(Eload):
         super().__init__(eload_number)
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
         self.settings_xml_file = cfg['maven_settings_file']
+        self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
 
     def ingest(self, db_name=None, tasks=None):
         # TODO assembly/taxonomy insertion script should be incorporated here
+        # TODO set ENA data release date:
+        # https://ena-docs.readthedocs.io/en/latest/submit/general-guide/programmatic.html#submission-xml-set-study-hold-date
         self.check_variant_db(db_name)
 
         if not tasks:
@@ -28,15 +48,14 @@ class EloadIngestion(Eload):
 
         if 'metadata_load' in tasks:
             self.load_from_ena()
-        if 'accession' in tasks:
-            self.warning('Accessioning not yet supported, skipping.')
-        if 'variant_load' in tasks:
-            self.warning('Variant loading not yet supported, skipping.')
+        if 'accession' in tasks or 'variant_load' in tasks:
+            self.run_ingestion_workflow()
 
     def get_db_name(self):
         """
         Constructs the expected database name in mongo, based on assembly info retrieved from EVAPRO.
         """
+        #  TODO use library method...
         assm_accession = self.eload_cfg.query('submission', 'assembly_accession')
         taxon_id = self.eload_cfg.query('submission', 'taxonomy_id')
 
@@ -69,7 +88,6 @@ class EloadIngestion(Eload):
         Checks mongo for the right variant database.
         If db_name is provided it will check for that, otherwise it will construct the expected database name.
         """
-        #
         if not db_name:
             db_name = self.get_db_name()
         self.eload_cfg.set(self.config_section, 'database', 'db_name', value=db_name)
@@ -91,8 +109,7 @@ class EloadIngestion(Eload):
         """
         Loads project metadata from ENA into EVADEV.
         """
-        project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
-        if not project_accession:
+        if not self.project_accession:
             self.error('No project accession in submission config, check that brokering to ENA is done. ')
             raise ValueError('No project accession in submission config.')
         try:
@@ -100,7 +117,7 @@ class EloadIngestion(Eload):
                 'Load metadata from ENA to EVADEV',
                 ' '.join((
                     'perl', cfg['executable']['load_from_ena'],
-                    '-p', project_accession,
+                    '-p', self.project_accession,
                     # Current submission process never changes -c or -v
                     '-c', 'submitted',
                     '-v', '1',
@@ -114,3 +131,58 @@ class EloadIngestion(Eload):
             self.error('ENA metadata load failed: aborting ingestion.')
             self.eload_cfg.set(self.config_section, 'ena_load', value='failure')
             raise e
+
+    def accession_and_load(self):
+        self.create_project_dir()
+        # TODO check we're in the right directory...
+        create_accession_properties(
+            assembly_accession=self.eload_cfg.query('submission', 'assembly_accession'),
+            taxonomy_id=self.eload_cfg.query('submission', 'taxonomy_id'),
+            project_accession=self.project_accession,
+            aggregation='',  # TODO ???
+            fasta=self.eload_cfg.query('submission', 'assembly_fasta'),
+            report=self.eload_cfg('submission', 'assembly_report'),
+            instance_id=0,  # TODO ???
+        )
+        # self.create_variant_load_properties()
+        # self.run_ingestion_workflow()
+
+    def create_project_dir(self):
+        project_dir = os.path.abspath(os.path.join(cfg['projects_dir'], self.project_accession))
+        os.makedirs(project_dir, exist_ok=True)
+        for k in directory_structure:
+            os.makedirs(self._get_dir(k), exist_ok=True)
+        # TODO do we need the links to submitted/scratch?
+
+    def create_variant_load_properties(self):
+        # TODO what should this be?
+        filename = ''
+        with open(filename, 'w+') as f:
+            f.write(variant_load_properties(...))
+
+    def run_ingestion_workflow(self):
+        output_dir = self.create_nextflow_temp_output_directory()
+        ingestion_config = {
+            # TODO params here
+            # 'vcf_files': self.eload_cfg.query('validation', 'valid', 'vcf_files'),
+            'output_dir': output_dir,
+            'executable': cfg['executable'],
+            'jar': cfg['jar'],
+        }
+        ingestion_config_file = os.path.join(self.eload_dir, 'ingestion_config_file.yaml')
+        with open(ingestion_config_file, 'w') as open_file:
+            yaml.safe_dump(ingestion_config, open_file)
+        ingestion_script = os.path.join(ROOT_DIR, 'nextflow', 'ingestion.nf')
+        try:
+            command_utils.run_command_with_output(
+                'Nextflow Ingestion process',
+                ' '.join((
+                    'export NXF_OPTS="-Xms1g -Xmx8g"; ',
+                    cfg['executable']['nextflow'], ingestion_script,
+                    '-params-file', ingestion_config_file,
+                    '-work-dir', output_dir
+                ))
+            )
+        except subprocess.CalledProcessError:
+            self.error('Nextflow pipeline failed: results might not be complete')
+        return output_dir
