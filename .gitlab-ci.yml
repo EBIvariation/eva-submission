@@ -15,7 +15,7 @@ test:
   environment:
     name: test-env
   only:
-    - merge_requests
+    - external_pull_requests
     - tags
 
 
@@ -42,7 +42,7 @@ deploy-python-tool-development:
     EVA_SUBMISSION_PATH: $EVA_SUBMISSION_DEVELOPMENT_PATH
     DEPLOY_POINT: CI_COMMIT_BRANCH
   only:
-    - merge_requests
+    - external_pull_requests
 
 deploy-python-tool-production:
   extends: .deploy-python-tool
