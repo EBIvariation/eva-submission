@@ -1,38 +1,3 @@
-# Methods to help make accession pipeline properties file.
-from pathlib import Path
-
-
-def create_accession_properties(
-        assembly_accession,
-        taxonomy_id,
-        project_accession,
-        aggregation,
-        fasta,
-        report,
-        instance_id,
-        projects_root='/nfs/production3/eva/data'
-):
-    # replicates the shell script
-    project_dir = Path(projects_root, project_accession)
-    for vcf_path in project_dir.joinpath('30_eva_valid').glob('*.vcf.gz'):
-        filename = vcf_path.stem
-        output = project_dir.joinpath('60_eva_public', f'{filename}.accessioned.vcf')
-
-        with open(f'{filename}.properties', 'w+') as f:
-            f.write(accession_props_template(
-                instance_id=instance_id,
-                assembly_accession=assembly_accession,
-                taxonomy_id=taxonomy_id,
-                project_accession=project_accession,
-                vcf_path=vcf_path,
-                aggregation=aggregation,
-                fasta=fasta,
-                output_vcf=output,
-                report=report,
-                # TODO db creds from settings xml file...
-            ))
-
-
 def accession_props_template(
         instance_id,
         assembly_accession,
@@ -88,4 +53,65 @@ spring.data.mongodb.authentication-database=admin
 mongodb.read-preference=primaryPreferred
 
 spring.main.web-environment=false
+"""
+
+
+def variant_load_props_template(
+        project_accession,
+        analysis_accession,
+        vcf_path,
+        aggregation,
+        study_name,
+        fasta,
+        db_name,
+        species,
+):
+    # TODO does VEP stuff need to be parameterized?
+    return f"""
+# JOB
+spring.batch.job.names=genotyped-vcf-job
+
+# SUBMISSION FIELDS
+input.study.id={project_accession}
+input.vcf.id={analysis_accession}
+input.vcf={vcf_path}
+input.vcf.aggregation={aggregation}
+
+input.study.name={study_name}
+input.study.type=COLLECTION
+
+input.pedigree=
+input.fasta={fasta}
+
+output.dir=/nfs/production3/eva/data/{project_accession}/40_transformed/
+output.dir.annotation=/nfs/production3/eva/data/{project_accession}/51_annotation/
+output.dir.statistics=/nfs/production3/eva/data/{project_accession}/50_stats/
+
+
+# MONGODB (MongoProperties)
+spring.data.mongodb.database={db_name}
+
+db.collections.files.name=files_2_0
+db.collections.variants.name=variants_2_0
+db.collections.annotation-metadata.name=annotationMetadata_2_0
+db.collections.annotations.name=annotations_2_0
+
+# External applications
+## VEP
+app.vep.version=82
+app.vep.path=/nfs/production3/eva/software/vep/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_effect_predictor.pl
+app.vep.cache.version=82
+app.vep.cache.path=/nfs/production3/eva/databases/vep-cache/
+app.vep.cache.species={species}
+app.vep.num-forks=4
+app.vep.timeout=500
+
+
+# STEPS MANAGEMENT
+## Skip steps
+statistics.skip=false
+annotation.skip=false
+annotation.overwrite=false
+
+config.chunk.size=200
 """

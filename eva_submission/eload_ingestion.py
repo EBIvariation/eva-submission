@@ -1,5 +1,6 @@
 import os
 import subprocess
+from pathlib import Path
 
 import yaml
 from ebi_eva_common_pyutils import command_utils
@@ -11,10 +12,9 @@ import pymongo
 
 from eva_submission import ROOT_DIR
 from eva_submission.eload_submission import Eload
-from eva_submission.properties.accession import create_accession_properties
-from eva_submission.properties.load import variant_load_properties
+from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
 
-directory_structure = {
+project_dirs = {
     'logs': '00_logs',
     'valid': '30_eva_valid',
     'transformed': '40_transformed',
@@ -37,10 +37,9 @@ class EloadIngestion(Eload):
         self.settings_xml_file = cfg['maven_settings_file']
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
 
-    def ingest(self, db_name=None, tasks=None):
+    def ingest(self, aggregation, instance_id, db_name=None, tasks=None):
         # TODO assembly/taxonomy insertion script should be incorporated here
-        # TODO set ENA data release date:
-        # https://ena-docs.readthedocs.io/en/latest/submit/general-guide/programmatic.html#submission-xml-set-study-hold-date
+        # TODO set ENA data release date
         self.check_variant_db(db_name)
 
         if not tasks:
@@ -48,14 +47,14 @@ class EloadIngestion(Eload):
 
         if 'metadata_load' in tasks:
             self.load_from_ena()
+        # TODO are accession and variant load independent tasks?
         if 'accession' in tasks or 'variant_load' in tasks:
-            self.run_ingestion_workflow()
+            self.accession_and_load(aggregation, instance_id)
 
     def get_db_name(self):
         """
         Constructs the expected database name in mongo, based on assembly info retrieved from EVAPRO.
         """
-        #  TODO use library method...
         assm_accession = self.eload_cfg.query('submission', 'assembly_accession')
         taxon_id = self.eload_cfg.query('submission', 'taxonomy_id')
 
@@ -132,39 +131,85 @@ class EloadIngestion(Eload):
             self.eload_cfg.set(self.config_section, 'ena_load', value='failure')
             raise e
 
-    def accession_and_load(self):
-        self.create_project_dir()
-        # TODO check we're in the right directory...
-        create_accession_properties(
-            assembly_accession=self.eload_cfg.query('submission', 'assembly_accession'),
-            taxonomy_id=self.eload_cfg.query('submission', 'taxonomy_id'),
-            project_accession=self.project_accession,
-            aggregation='',  # TODO ???
-            fasta=self.eload_cfg.query('submission', 'assembly_fasta'),
-            report=self.eload_cfg('submission', 'assembly_report'),
-            instance_id=0,  # TODO ???
-        )
-        # self.create_variant_load_properties()
-        # self.run_ingestion_workflow()
+    def accession_and_load(self, aggregation, instance_id):
+        self.eload_cfg.set(self.config_section, 'aggregation', aggregation)
+        self.eload_cfg.set(self.config_section, 'accession', 'instance_id', instance_id)
+
+        project_dir = self.create_project_dir()
+        self.eload_cfg.set(self.config_section, 'project_dir', project_dir)
+
+        prop_files = self.create_accession_properties()
+        self.eload_cfg.set(self.config_section, 'accession', 'properties', prop_files)
+        prop_files = self.create_variant_load_properties()
+        self.eload_cfg.set(self.config_section, 'variant_load', 'properties', prop_files)
+
+        self.run_ingestion_workflow()
 
     def create_project_dir(self):
-        project_dir = os.path.abspath(os.path.join(cfg['projects_dir'], self.project_accession))
+        project_dir = Path(cfg['projects_dir'], self.project_accession)
         os.makedirs(project_dir, exist_ok=True)
-        for k in directory_structure:
-            os.makedirs(self._get_dir(k), exist_ok=True)
+        for _, v in project_dirs.items():
+            os.makedirs(project_dir.joinpath(project_dirs[v]), exist_ok=True)
         # TODO do we need the links to submitted/scratch?
+        # TODO need to copy valid vcfs + index to 'valid'!
+        return project_dir
+
+    def create_accession_properties(self):
+        project_dir = self.eload_cfg(self.config_section, 'project_dir')
+        prop_files = []
+        for vcf_path in project_dir.joinpath(project_dirs['valid']).glob('*.vcf.gz'):
+            filename = vcf_path.stem
+            output_vcf = project_dir.joinpath(project_dirs['public'], f'{filename}.accessioned.vcf')
+
+            properties_filename = project_dir.joinpath(project_dirs['accessions'], f'{filename}.properties')
+            with open(properties_filename, 'w+') as f:
+                f.write(accession_props_template(
+                    assembly_accession=self.eload_cfg.query('submission', 'assembly_accession'),
+                    taxonomy_id=self.eload_cfg.query('submission', 'taxonomy_id'),
+                    project_accession=self.project_accession,
+                    aggregation=self.eload_cfg.query(self.config_section, 'aggregation'),
+                    fasta=self.eload_cfg.query('submission', 'assembly_fasta'),
+                    report=self.eload_cfg('submission', 'assembly_report'),
+                    instance_id=self.eload.cfg.query(self.config_section, 'accession', 'instance_id'),
+                    vcf_path=vcf_path,
+                    output_vcf=output_vcf,
+                    # TODO db creds from settings xml file...
+                ))
+            prop_files.append(properties_filename)
+        return prop_files
 
     def create_variant_load_properties(self):
-        # TODO what should this be?
-        filename = ''
-        with open(filename, 'w+') as f:
-            f.write(variant_load_properties(...))
+        # like accession props we want one per vcf file
+        project_dir = self.eload_cfg(self.config_section, 'project_dir')
+        prop_files = []
+        for vcf_path in project_dir.joinpath(project_dirs['valid']).glob('*.vcf.gz'):
+            filename = vcf_path.stem
+            properties_filename = project_dir.joinpath(f'load_{filename}.properties')
+            with open(properties_filename, 'w+') as f:
+                f.write(variant_load_props_template(
+                    project_accession=self.project_accession,
+                    analysis_accession=self.eload_cfg.query('brokering', 'ena', 'ANALYSIS'),
+                    vcf_path=vcf_path,
+                    aggregation=self.eload_cfg.query(self.config_section, 'aggregation'),
+                    study_name='',  # TODO - from metadata (also double check other params)
+                    fasta=self.eload_cfg.query('submission', 'assembly_fasta'),
+                    db_name=self.eload_cfg.query(self.config_section, 'database', 'db_name'),
+                    species=self.get_vep_species()
+                ))
+            prop_files.append(properties_filename)
+        return prop_files
+
+    def get_vep_species(self):
+        # TODO is this right...
+        words = self.eload_cfg.query('submission', 'scientific name').lower().split()
+        return '_'.join(words)
 
     def run_ingestion_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory()
         ingestion_config = {
-            # TODO params here
-            # 'vcf_files': self.eload_cfg.query('validation', 'valid', 'vcf_files'),
+            'accession_props': self.eload_cfg.query(self.config_section, 'accession', 'properties'),
+            'variant_load_props': self.eload_cfg.query(self.config_section, 'variant_load', 'properties'),
+            'eva_pipeline_props': cfg['eva_pipeline_props'],
             'output_dir': output_dir,
             'executable': cfg['executable'],
             'jar': cfg['jar'],
