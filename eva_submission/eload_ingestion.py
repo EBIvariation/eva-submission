@@ -38,7 +38,7 @@ class EloadIngestion(Eload):
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
         self.settings_xml_file = cfg['maven_settings_file']
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
-        self.pg_uri = get_pg_metadata_uri_for_eva_profile("development", self.settings_xml_file)
+        self.pg_uri = get_pg_metadata_uri_for_eva_profile('development', self.settings_xml_file)
         self.mongo_uri = get_mongo_uri_for_eva_profile('production', self.settings_xml_file)
 
     def ingest(self, aggregation, instance_id, vep_version, vep_cache_version, db_name=None, tasks=None):
@@ -61,7 +61,7 @@ class EloadIngestion(Eload):
         """
         assm_accession = self.eload_cfg.query('submission', 'assembly_accession')
         taxon_id = self.eload_cfg.query('submission', 'taxonomy_id')
-
+        # TODO replace this with library method
         # query EVAPRO for db name based on taxonomy id and accession
         with psycopg2.connect(self.pg_uri) as conn:
             query = (

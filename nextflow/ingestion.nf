@@ -47,10 +47,16 @@ process accession_vcf {
         path "accession.properties" from accession_props
 
     output:
-        some output logs...
+        path "00_logs/accessioning.*.log" into accessioning_log
+        path "00_logs/accessioning.*.err" into accessioning_err
 
     """
-    java -Xmx7g -jar $params.jar.accession_pipeline --spring.config.name=accession.properties
+    filename=$(basename accession.properties)
+    filename="${filename%.*}"
+    # TODO still confused as to whether this will run on the lsf instance properly...
+    java -Xmx7g -jar $params.jar.accession_pipeline --spring.config.name=accession.properties \
+        > 00_logs/accessioning.${filename}.log \
+        2> 00_logs/accessioning.${filename}.err
     # TODO accessioned files in 60_eva_public need to be compressed & moved to FTP folder
     """
 }
@@ -64,9 +70,14 @@ process load_vcf {
         path "variant_load.properties" from variant_load_props
 
     output:
-        some output logs...
+        path "00_logs/pipeline.*.log" into pipeline_log
+        path "00_logs/pipeline.*.err" into pipeline_err
 
     """
-    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.eva_pipeline_props --parameters.path=variant_load.properties
+    filename=$(basename variant_load.properties)
+    filename="${filename%.*}"
+    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.eva_pipeline_props --parameters.path=variant_load.properties \
+        > 00_logs/pipeline.${filename}.log \
+        2> 00_logs/pipeline.${filename}.err
     """
 }
