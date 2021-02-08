@@ -51,10 +51,10 @@ process accession_vcf {
 
     """
     java -Xmx7g -jar $params.jar.accession_pipeline --spring.config.name=accession.properties
+    # TODO accessioned files in 60_eva_public need to be compressed & moved to FTP folder
     """
 }
 
-// TODO accessioned files in 60_eva_public need to be compressed & moved to FTP folder
 
 /*
 * Load into variant db.

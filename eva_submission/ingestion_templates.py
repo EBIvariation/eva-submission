@@ -64,9 +64,11 @@ def variant_load_props_template(
         study_name,
         fasta,
         db_name,
-        species,
+        vep_species,
+        vep_version,
+        vep_cache_version,
+        annotation_skip=False,
 ):
-    # TODO does VEP stuff need to be parameterized?
     return f"""
 # JOB
 spring.batch.job.names=genotyped-vcf-job
@@ -98,11 +100,11 @@ db.collections.annotations.name=annotations_2_0
 
 # External applications
 ## VEP
-app.vep.version=82
+app.vep.version={vep_version}
 app.vep.path=/nfs/production3/eva/software/vep/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_effect_predictor.pl
-app.vep.cache.version=82
+app.vep.cache.version={vep_cache_version}
 app.vep.cache.path=/nfs/production3/eva/databases/vep-cache/
-app.vep.cache.species={species}
+app.vep.cache.species={vep_species}
 app.vep.num-forks=4
 app.vep.timeout=500
 
@@ -110,7 +112,7 @@ app.vep.timeout=500
 # STEPS MANAGEMENT
 ## Skip steps
 statistics.skip=false
-annotation.skip=false
+annotation.skip={annotation_skip}
 annotation.overwrite=false
 
 config.chunk.size=200

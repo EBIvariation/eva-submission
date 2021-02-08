@@ -32,8 +32,10 @@ def main():
     argparse = ArgumentParser(description='Accession and ingest submission data into EVA')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
     argparse.add_argument('--instance', required=True, type=int, help='The instance id to use for accessioning')
-    # TODO infer aggregation from vcf files
+    # TODO infer aggregation from vcf files, VEP version & cache version from species
     argparse.add_argument('--aggregation', required=True, type=str, choices=['BASIC', 'NONE'], help='The aggregation type')
+    argparse.add_argument('--vep_version', required=True, type=int, help='VEP version to use for annotation')
+    argparse.add_argument('--vep_cache_version', required=True, type=int, help='VEP cache version to use for annotation')
     argparse.add_argument('--db_name', required=False, type=str, help='Name of existing variant database in MongoDB')
     argparse.add_argument('--tasks', required=False, type=str, nargs='+',
                           default=EloadIngestion.all_tasks, choices=EloadIngestion.all_tasks,
