@@ -17,6 +17,11 @@ executable:
   load_from_ena: /path/to/load_from_ena_script
 
 
+jar:
+  accession_pipeline: /path/to/accession_pipeline.jar
+  eva_pipeline: /path/to/eva_pipeline.jar
+
+
 biosamples:
   username: 'dsp_eva_test_user'
   password: 'dspEVAtestPwD1'

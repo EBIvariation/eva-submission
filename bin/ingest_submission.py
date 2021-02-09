@@ -53,7 +53,14 @@ def main():
     load_config()
 
     ingestion = EloadIngestion(args.eload)
-    ingestion.ingest(aggregation=args.aggregation, instance_id=args.instance, db_name=args.db_name, tasks=args.tasks)
+    ingestion.ingest(
+        aggregation=args.aggregation,
+        instance_id=args.instance,
+        vep_version=args.vep_version,
+        vep_cache_version=args.vep_cache_version,
+        db_name=args.db_name,
+        tasks=args.tasks
+    )
 
 
 if __name__ == "__main__":

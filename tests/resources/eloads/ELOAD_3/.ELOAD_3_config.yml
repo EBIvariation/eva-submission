@@ -1,0 +1,18 @@
+brokering:
+  ena:
+    PROJECT: PRJEB12345
+  vcf_files:
+    tests/resources/eloads/ELOAD_3/18_brokering/ena/test1.vcf.gz:
+      index: tests/resources/eloads/ELOAD_3/18_brokering/ena/test1.vcf.gz.tbi
+    tests/resources/eloads/ELOAD_3/18_brokering/ena/test2.vcf.gz:
+      index: tests/resources/eloads/ELOAD_3/18_brokering/ena/test2.vcf.gz.tbi
+ingestion:
+  database:
+    db_name: eva_hsapiens_grch38
+    exists: true
+  ena_load: failure
+  ingestion_date: 2021-02-09 16:21:50.702795
+  project_dir: tests/resources/projects/PRJEB12345
+submission:
+  assembly_accession: GCA_002863925.1
+  scientific_name: Equus caballus

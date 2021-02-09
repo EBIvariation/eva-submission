@@ -35,15 +35,16 @@ class EloadIngestion(Eload):
 
     def __init__(self, eload_number):
         super().__init__(eload_number)
-        self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
         self.settings_xml_file = cfg['maven_settings_file']
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
+        self.project_dir = self.setup_project_dir()
         self.pg_uri = get_pg_metadata_uri_for_eva_profile('development', self.settings_xml_file)
         self.mongo_uri = get_mongo_uri_for_eva_profile('production', self.settings_xml_file)
 
     def ingest(self, aggregation, instance_id, vep_version, vep_cache_version, db_name=None, tasks=None):
         # TODO assembly/taxonomy insertion script should be incorporated here
         # TODO set ENA data release date
+        self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
         self.check_variant_db(db_name)
 
         if not tasks:
@@ -140,9 +141,6 @@ class EloadIngestion(Eload):
         self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'version', vep_version)
         self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', vep_cache_version)
 
-        project_dir = self.setup_project_dir()
-        self.eload_cfg.set(self.config_section, 'project_dir', project_dir)
-
         prop_files = self.create_accession_properties()
         self.eload_cfg.set(self.config_section, 'accession', 'properties', prop_files)
         prop_files = self.create_variant_load_properties()
@@ -154,28 +152,32 @@ class EloadIngestion(Eload):
         project_dir = Path(cfg['projects_dir'], self.project_accession)
         os.makedirs(project_dir, exist_ok=True)
         for _, v in project_dirs.items():
-            os.makedirs(project_dir.joinpath(project_dirs[v]), exist_ok=True)
+            os.makedirs(project_dir.joinpath(v), exist_ok=True)
         # copy valid vcfs + index to 'valid' folder
         valid_dir = project_dir.joinpath(project_dirs['valid'])
         vcf_dict = self.eload_cfg.query('brokering', 'vcf_files')
+        if vcf_dict is None:
+            self.error('No brokered VCF files found, aborting ingestion.')
+            raise ValueError('No brokered VCF files found.')
         for key, val in vcf_dict.items():
             vcf_path = Path(key)
             shutil.copyfile(vcf_path, valid_dir.joinpath(vcf_path.name))
             index_path = Path(val['index'])
             shutil.copyfile(index_path, valid_dir.joinpath(index_path.name))
+        self.eload_cfg.set(self.config_section, 'project_dir', value=str(project_dir))
         return project_dir
 
     def create_accession_properties(self):
-        project_dir = self.eload_cfg(self.config_section, 'project_dir')
         prop_files = []
         # TODO change accession pipeline to get db creds from a common properties file, like variant load?
         # then we won't need this bit
         mongo_host, mongo_user, mongo_pass = self.get_mongo_creds()
-        for vcf_path in project_dir.joinpath(project_dirs['valid']).glob('*.vcf.gz'):
+        pg_url, pg_user, pg_pass = self.get_pg_creds()
+        for vcf_path in self.project_dir.joinpath(project_dirs['valid']).glob('*.vcf.gz'):
             filename = vcf_path.stem
-            output_vcf = project_dir.joinpath(project_dirs['public'], f'{filename}.accessioned.vcf')
+            output_vcf = self.project_dir.joinpath(project_dirs['public'], f'{filename}.accessioned.vcf')
 
-            properties_filename = project_dir.joinpath(project_dirs['accessions'], f'{filename}.properties')
+            properties_filename = self.project_dir.joinpath(project_dirs['accessions'], f'{filename}.properties')
             with open(properties_filename, 'w+') as f:
                 f.write(accession_props_template(
                     assembly_accession=self.eload_cfg.query('submission', 'assembly_accession'),
@@ -183,28 +185,30 @@ class EloadIngestion(Eload):
                     project_accession=self.project_accession,
                     aggregation=self.eload_cfg.query(self.config_section, 'aggregation'),
                     fasta=self.eload_cfg.query('submission', 'assembly_fasta'),
-                    report=self.eload_cfg('submission', 'assembly_report'),
-                    instance_id=self.eload.cfg.query(self.config_section, 'accession', 'instance_id'),
+                    report=self.eload_cfg.query('submission', 'assembly_report'),
+                    instance_id=self.eload_cfg.query(self.config_section, 'accession', 'instance_id'),
                     vcf_path=vcf_path,
                     output_vcf=output_vcf,
                     mongo_host=mongo_host,
                     mongo_user=mongo_user,
                     mongo_pass=mongo_pass,
+                    postgres_url=pg_url,
+                    postgres_user=pg_user,
+                    postgres_pass=pg_pass
                 ))
             prop_files.append(properties_filename)
         return prop_files
 
     def create_variant_load_properties(self):
         # like accession props we want one per vcf file
-        project_dir = self.eload_cfg(self.config_section, 'project_dir')
         prop_files = []
-        for vcf_path in project_dir.joinpath(project_dirs['valid']).glob('*.vcf.gz'):
+        for vcf_path in self.project_dir.joinpath(project_dirs['valid']).glob('*.vcf.gz'):
             filename = vcf_path.stem
-            properties_filename = project_dir.joinpath(f'load_{filename}.properties')
+            properties_filename = self.project_dir.joinpath(f'load_{filename}.properties')
             with open(properties_filename, 'w+') as f:
                 f.write(variant_load_props_template(
                     project_accession=self.project_accession,
-                    analysis_accession=self.eload_cfg.query('brokering', 'ena', 'ANALYSIS'),
+                    analysis_accession=self.eload_cfg.query('brokering', 'ena', 'ANALYSIS'),  # TODO raise if None?
                     vcf_path=vcf_path,
                     aggregation=self.eload_cfg.query(self.config_section, 'aggregation'),
                     study_name=self.get_study_name(),
@@ -219,10 +223,17 @@ class EloadIngestion(Eload):
 
     def get_mongo_creds(self):
         properties = get_properties_from_xml_file('production', self.settings_xml_file)
+        mongo_host = str(str(properties['eva.mongo.host']).split(',')[0]).split(':')[0]
         mongo_user = properties['eva.mongo.user']
         mongo_pass = properties['eva.mongo.passwd']
-        mongo_host = str(str(properties['eva.mongo.host']).split(',')[0]).split(':')[0]
         return mongo_host, mongo_user, mongo_pass
+
+    def get_pg_creds(self):
+        properties = get_properties_from_xml_file('development', self.settings_xml_file)
+        pg_url = properties['eva.evapro.jdbc.url']
+        pg_user = properties['eva.evapro.user']
+        pg_pass = properties['eva.evapro.password']
+        return pg_url, pg_user, pg_pass
 
     def get_study_name(self):
         with psycopg2.connect(self.pg_uri) as conn:
@@ -233,11 +244,11 @@ class EloadIngestion(Eload):
         return rows[0][0]
 
     def get_vep_species(self):
-        words = self.eload_cfg.query('submission', 'scientific name').lower().split()
+        words = self.eload_cfg.query('submission', 'scientific_name').lower().split()
         return '_'.join(words)
 
     def run_ingestion_workflow(self):
-        output_dir = self.create_nextflow_temp_output_directory()
+        output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
         ingestion_config = {
             'accession_props': self.eload_cfg.query(self.config_section, 'accession', 'properties'),
             'variant_load_props': self.eload_cfg.query(self.config_section, 'variant_load', 'properties'),
@@ -246,7 +257,7 @@ class EloadIngestion(Eload):
             'executable': cfg['executable'],
             'jar': cfg['jar'],
         }
-        ingestion_config_file = os.path.join(self.eload_dir, 'ingestion_config_file.yaml')
+        ingestion_config_file = os.path.join(self.project_dir, 'ingestion_config_file.yaml')
         with open(ingestion_config_file, 'w') as open_file:
             yaml.safe_dump(ingestion_config, open_file)
         ingestion_script = os.path.join(ROOT_DIR, 'nextflow', 'ingestion.nf')
@@ -260,6 +271,8 @@ class EloadIngestion(Eload):
                     '-work-dir', output_dir
                 ))
             )
-        except subprocess.CalledProcessError:
-            self.error('Nextflow pipeline failed: results might not be complete')
+        except subprocess.CalledProcessError as e:
+            self.error('Nextflow ingestion pipeline failed: results might not be complete')
+            raise e
+        # TODO store something in config in both cases
         return output_dir

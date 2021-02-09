@@ -1,7 +1,16 @@
 ftp_dir: 'tests/resources/ftpboxes'
 eloads_dir: 'tests/resources/eloads'
+projects_dir: 'tests/resources/projects'
 maven_settings_file: 'path/to/settings/file'
+eva_pipeline_props: '/path/to/pipeline/properties'
 
+executable:
+  nextflow: /path/to/nextflow
+  load_from_ena: /path/to/load_from_ena_script
+
+jar:
+  accession_pipeline: /path/to/accession_pipeline.jar
+  eva_pipeline: /path/to/eva_pipeline.jar
 
 ena:
   submit_url: https://www-test.ebi.ac.uk/ena/submit/drop-box/submit/

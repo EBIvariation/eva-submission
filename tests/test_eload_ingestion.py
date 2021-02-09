@@ -8,7 +8,7 @@ from unittest.mock import patch
 from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission.eload_ingestion import EloadIngestion
-from eva_submission.submission_config import load_config
+from eva_submission.submission_config import load_config, EloadConfig
 
 
 class TestEloadIngestion(TestCase):
@@ -18,22 +18,16 @@ class TestEloadIngestion(TestCase):
     def setUp(self):
         config_file = os.path.join(self.resources_folder, 'submission_config.yml')
         load_config(config_file)
-        cfg.content['executable'] = {
-            'load_from_ena': 'path_to_load_script'
-        }
         # Need to set the directory so that the relative path set in the config file works from the top directory
         os.chdir(self.top_dir)
-        # Set up a working eload config
         with patch('eva_submission.eload_ingestion.get_pg_metadata_uri_for_eva_profile', autospec=True), \
                 patch('eva_submission.eload_ingestion.get_mongo_uri_for_eva_profile', autospec=True):
             self.eload = EloadIngestion(3)
-        self.eload.eload_cfg.set('submission', 'assembly_accession', value='GCA_002863925.1')
-        self.eload.eload_cfg.set('brokering', 'ena', 'PROJECT', value='PRJEB12345')
 
     def tearDown(self):
-        eloads = glob.glob(os.path.join(self.resources_folder, 'eloads', 'ELOAD_3'))
-        for eload in eloads:
-            shutil.rmtree(eload)
+        projects = glob.glob(os.path.join(self.resources_folder, 'projects', 'PRJEB12345'))
+        for proj in projects:
+            shutil.rmtree(proj)
 
     def _mock_mongodb_client(self):
         m_db = mock.Mock()
@@ -116,14 +110,31 @@ class TestEloadIngestion(TestCase):
                 self.eload.load_from_ena()
             m_execute.assert_called_once()
 
-    def test_setup_project_dir(self):
-        pass
-
     def test_create_accession_properties(self):
-        pass
+        with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True):
+            self.eload.create_accession_properties()
+            # TODO assert two properties files created
 
     def test_create_variant_load_properties(self):
-        pass
+        with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True), \
+                patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results:
+            m_get_results.return_value = [('Test Study Name')]
+            self.eload.create_variant_load_properties()
+            # TODO assert two properties files created
+
+    def test_run_ingestion_workflow(self):
+        with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output',
+                   autospec=True) as m_execute:
+            self.eload.run_ingestion_workflow()
+            m_execute.assert_called_once()
+
+    def test_run_ingestion_nextflow_fails(self):
+        with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_execute:
+            m_execute.side_effect = subprocess.CalledProcessError(1, 'some command')
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.eload.run_ingestion_workflow()
+            m_execute.assert_called_once()
 
     def test_accession_and_load(self):
         pass
