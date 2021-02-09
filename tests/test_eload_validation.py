@@ -98,7 +98,6 @@ Sample names check:
 '''
         with patch('builtins.print') as mprint:
             self.validation.report()
-        print(mprint.mock_calls[0][0])
         mprint.assert_called_once_with(expected_report)
 
 
