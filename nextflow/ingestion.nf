@@ -5,19 +5,21 @@ def helpMessage() {
     Accession and ingest variant files.
 
     Inputs:
-            --accession_props
-            --variant_load_props
-            --eva_pipeline_props
-            --output_dir         output_directory where the reports will be output
+            --accession_props       properties files for accessioning
+            --variant_load_props    properties files for variant load
+            --eva_pipeline_props    main properties file for eva pipeline
+            --project_accession     project accession
+            --instance_id           instance id to run accessioning
     """
 }
 
 params.accession_props = null
 params.variant_load_props = null
 params.eva_pipeline_props = null
-params.output_dir = null
+params.project_accession = null
+params.instance_id = null
 // executables
-params.executable =["bcf_tools": "bcf_tools", "create_accession_props": "create_accession_props"]
+params.executable = ["bcf_tools": "bcf_tools", "create_accession_props": "create_accession_props", "bgzip": "bgzip", "tabix": "tabix", "copy_to_ftp": "copy_to_ftp"]
 // java jars
 params.jar = ["accession_pipeline": "accession_pipeline", "eva_pipeline": "eva_pipeline"]
 // help
@@ -27,11 +29,12 @@ params.help = null
 if (params.help) exit 0, helpMessage()
 
 // Test input files
-if (!params.accession_props || !params.variant_load_props || !params.eva_pipeline_props || !params.output_dir) {
+if (!params.accession_props || !params.variant_load_props || !params.eva_pipeline_props || !params.project_accession) {
     if (!params.accession_props)    log.warn('Provide an accessions properties file using --accession_props')
-    if (!params.variant_load_props)  log.warn('Provide a variant load properties file using --variant_load_props')
-    if (!params.eva_pipeline_props)    log.warn('Provide an EVA Pipeline properties file using --eva_pipeline_props')
-    if (!params.output_dir)    log.warn('Provide an output directory where the reports will be copied using --output_dir')
+    if (!params.variant_load_props) log.warn('Provide a variant load properties file using --variant_load_props')
+    if (!params.eva_pipeline_props) log.warn('Provide an EVA Pipeline properties file using --eva_pipeline_props')
+    if (!params.project_accession)  log.warn('Provide a project accession using --project_accession')
+    if (!params.instance_id)        log.warn('Provide an instance id using --instance_id')
     exit 1, helpMessage()
 }
 
@@ -49,17 +52,65 @@ process accession_vcf {
     output:
         path "00_logs/accessioning.*.log" into accessioning_log
         path "00_logs/accessioning.*.err" into accessioning_err
+        path "60_eva_public/*.vcf" into accessioned_vcfs
+
+    clusterOptions '-g /accession/instance-$params.instance_id'
 
     """
     filename=$(basename accession.properties)
     filename="${filename%.*}"
-    # TODO still confused as to whether this will run on the lsf instance properly...
     java -Xmx7g -jar $params.jar.accession_pipeline --spring.config.name=accession.properties \
         > 00_logs/accessioning.${filename}.log \
         2> 00_logs/accessioning.${filename}.err
-    # TODO accessioned files in 60_eva_public need to be compressed & moved to FTP folder
     """
 }
+
+
+/*
+ * Compress accessioned VCFs
+ */
+process compress_vcfs {
+    input:
+        path vcf_file from accessioned_vcfs
+
+    output:
+        path "60_eva_public/*.gz" into compressed_vcfs
+
+    """
+    $params.executable.bgzip -c $vcf_file > ${vcf_file}.gz
+    """
+}
+
+
+/*
+* Index the compressed VCF file
+*/
+process index_vcf {
+    input:
+        path compressed_vcf from compressed_vcfs
+
+    output:
+        path "${compressed_vcf}.tbi" into indexed_vcfs
+
+    """
+    $params.executable.tabix -p vcf $compressed_vcf
+    """
+}
+
+
+/*
+ * Move files from eva_public to FTP folder.
+ */
+ process move_to_ftp {
+    input:
+        path _ from indexed_vcfs
+
+    """
+    cd 60_eva_public
+    $params.executable.copy_to_ftp $params.project_accession
+    cd ..
+    """
+ }
 
 
 /*

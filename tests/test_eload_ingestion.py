@@ -5,10 +5,8 @@ import subprocess
 from unittest import TestCase, mock
 from unittest.mock import patch
 
-from ebi_eva_common_pyutils.config import cfg
-
 from eva_submission.eload_ingestion import EloadIngestion
-from eva_submission.submission_config import load_config, EloadConfig
+from eva_submission.submission_config import load_config
 
 
 class TestEloadIngestion(TestCase):
@@ -22,7 +20,7 @@ class TestEloadIngestion(TestCase):
         os.chdir(self.top_dir)
         with patch('eva_submission.eload_ingestion.get_pg_metadata_uri_for_eva_profile', autospec=True), \
                 patch('eva_submission.eload_ingestion.get_mongo_uri_for_eva_profile', autospec=True):
-            self.eload = EloadIngestion(3)
+            self.eload = EloadIngestion(33)
 
     def tearDown(self):
         projects = glob.glob(os.path.join(self.resources_folder, 'projects', 'PRJEB12345'))
@@ -137,7 +135,13 @@ class TestEloadIngestion(TestCase):
             m_execute.assert_called_once()
 
     def test_accession_and_load(self):
-        pass
+        with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True), \
+                patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
+            m_get_results.return_value = [('Test Study Name')]
+            self.eload.accession_and_load('none', 1, 82, 82)
+            # TODO assert config updated appropriately
 
-    def test_ingest(self):
+    def test_accession_and_load_invalid_params(self):
         pass

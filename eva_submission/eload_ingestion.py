@@ -136,15 +136,21 @@ class EloadIngestion(Eload):
             raise e
 
     def accession_and_load(self, aggregation, instance_id, vep_version, vep_cache_version):
-        self.eload_cfg.set(self.config_section, 'aggregation', aggregation)
-        self.eload_cfg.set(self.config_section, 'accession', 'instance_id', instance_id)
-        self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'version', vep_version)
-        self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', vep_cache_version)
+        if instance_id not in range(1, 13):
+            raise ValueError('Instance id must be between 1-12')
+        aggregation = aggregation.lower()
+        if aggregation not in {'basic', 'none'}:
+            raise ValueError('Aggregation type must be BASIC or NONE')
+
+        self.eload_cfg.set(self.config_section, 'aggregation', value=aggregation)
+        self.eload_cfg.set(self.config_section, 'accession', 'instance_id', value=instance_id)
+        self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'version', value=vep_version)
+        self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', value=vep_cache_version)
 
         prop_files = self.create_accession_properties()
-        self.eload_cfg.set(self.config_section, 'accession', 'properties', prop_files)
+        self.eload_cfg.set(self.config_section, 'accession', 'properties', value=prop_files)
         prop_files = self.create_variant_load_properties()
-        self.eload_cfg.set(self.config_section, 'variant_load', 'properties', prop_files)
+        self.eload_cfg.set(self.config_section, 'variant_load', 'properties', value=prop_files)
 
         self.run_ingestion_workflow()
 
@@ -196,7 +202,7 @@ class EloadIngestion(Eload):
                     postgres_user=pg_user,
                     postgres_pass=pg_pass
                 ))
-            prop_files.append(properties_filename)
+            prop_files.append(str(properties_filename))
         return prop_files
 
     def create_variant_load_properties(self):
@@ -208,7 +214,7 @@ class EloadIngestion(Eload):
             with open(properties_filename, 'w+') as f:
                 f.write(variant_load_props_template(
                     project_accession=self.project_accession,
-                    analysis_accession=self.eload_cfg.query('brokering', 'ena', 'ANALYSIS'),  # TODO raise if None?
+                    analysis_accession=self.eload_cfg.query('brokering', 'ena', 'ANALYSIS'),
                     vcf_path=vcf_path,
                     aggregation=self.eload_cfg.query(self.config_section, 'aggregation'),
                     study_name=self.get_study_name(),
@@ -218,7 +224,7 @@ class EloadIngestion(Eload):
                     vep_version=self.eload_cfg.query(self.config_section, 'variant_load', 'vep', 'version'),
                     vep_cache_version=self.eload_cfg.query(self.config_section, 'variant_load', 'vep', 'cache_version')
                 ))
-            prop_files.append(properties_filename)
+            prop_files.append(str(properties_filename))
         return prop_files
 
     def get_mongo_creds(self):
@@ -250,10 +256,10 @@ class EloadIngestion(Eload):
     def run_ingestion_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
         ingestion_config = {
+            'project_accession': self.project_accession,
             'accession_props': self.eload_cfg.query(self.config_section, 'accession', 'properties'),
             'variant_load_props': self.eload_cfg.query(self.config_section, 'variant_load', 'properties'),
             'eva_pipeline_props': cfg['eva_pipeline_props'],
-            'output_dir': output_dir,
             'executable': cfg['executable'],
             'jar': cfg['jar'],
         }
