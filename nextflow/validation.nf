@@ -62,7 +62,7 @@ process check_vcf_valid {
 
     """
     mkdir -p vcf_format
-    $params.executable.vcf_validator -i $vcf_file  -r database,text -o vcf_format > vcf_format/${vcf_file}.vcf_format.log 2>&1
+    $params.executable.vcf_validator -i $vcf_file  -r database,text -o vcf_format --require-evidence > vcf_format/${vcf_file}.vcf_format.log 2>&1
     """
 }
 
@@ -91,7 +91,7 @@ process check_vcf_reference {
 
     """
     mkdir -p assembly_check
-    $params.executable.vcf_assembly_checker -i $vcf_file -f reference.fa -a reference.report -r summary,text,valid  -o assembly_check > assembly_check/${vcf_file}.assembly_check.log 2>&1
+    $params.executable.vcf_assembly_checker -i $vcf_file -f reference.fa -a reference.report -r summary,text,valid  -o assembly_check --require-genbank > assembly_check/${vcf_file}.assembly_check.log 2>&1
     """
 }
 
