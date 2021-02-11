@@ -1,3 +1,6 @@
+from ebi_eva_common_pyutils.config import cfg
+
+
 def accession_props_template(
         instance_id,
         assembly_accession,
@@ -85,9 +88,9 @@ input.study.type=COLLECTION
 input.pedigree=
 input.fasta={fasta}
 
-output.dir=/nfs/production3/eva/data/{project_accession}/40_transformed/
-output.dir.annotation=/nfs/production3/eva/data/{project_accession}/51_annotation/
-output.dir.statistics=/nfs/production3/eva/data/{project_accession}/50_stats/
+output.dir={cfg['projects_dir']}/{project_accession}/40_transformed/
+output.dir.annotation={cfg['projects_dir']}/{project_accession}/51_annotation/
+output.dir.statistics={cfg['projects_dir']}/{project_accession}/50_stats/
 
 
 # MONGODB (MongoProperties)
@@ -101,9 +104,9 @@ db.collections.annotations.name=annotations_2_0
 # External applications
 ## VEP
 app.vep.version={vep_version}
-app.vep.path=/nfs/production3/eva/software/vep/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_effect_predictor.pl
+app.vep.path={cfg['vep_path']}
 app.vep.cache.version={vep_cache_version}
-app.vep.cache.path=/nfs/production3/eva/databases/vep-cache/
+app.vep.cache.path={cfg['vep_cache_path']}
 app.vep.cache.species={vep_species}
 app.vep.num-forks=4
 app.vep.timeout=500

@@ -3,6 +3,8 @@ eloads_dir: 'tests/resources/eloads'
 projects_dir: 'tests/resources/projects'
 maven_settings_file: 'path/to/settings/file'
 eva_pipeline_props: '/path/to/pipeline/properties'
+vep_path: '/path/to/vep'
+vep_cache_path: '/path/to/vep/cache'
 
 executable:
   nextflow: /path/to/nextflow
