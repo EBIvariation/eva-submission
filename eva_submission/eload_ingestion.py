@@ -219,6 +219,9 @@ class EloadIngestion(Eload):
                     aggregation=self.eload_cfg.query(self.config_section, 'aggregation'),
                     study_name=self.get_study_name(),
                     fasta=self.eload_cfg.query('submission', 'assembly_fasta'),
+                    output_dir=self.project_dir.joinpath(project_dirs['transformed']),
+                    annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
+                    stats_dir=self.project_dir.joinpath(project_dirs['stats']),
                     db_name=self.eload_cfg.query(self.config_section, 'database', 'db_name'),
                     vep_species=self.get_vep_species(),
                     vep_version=self.eload_cfg.query(self.config_section, 'variant_load', 'vep', 'version'),
@@ -280,5 +283,4 @@ class EloadIngestion(Eload):
         except subprocess.CalledProcessError as e:
             self.error('Nextflow ingestion pipeline failed: results might not be complete')
             raise e
-        # TODO store something in config in both cases
         return output_dir

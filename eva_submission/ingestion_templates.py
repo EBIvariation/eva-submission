@@ -66,6 +66,9 @@ def variant_load_props_template(
         aggregation,
         study_name,
         fasta,
+        output_dir,
+        annotation_dir,
+        stats_dir,
         db_name,
         vep_species,
         vep_version,
@@ -74,7 +77,7 @@ def variant_load_props_template(
 ):
     return f"""
 # JOB
-spring.batch.job.names=genotyped-vcf-job
+spring.batch.job.names={'genotyped-vcf-job' if aggregation == 'none' else 'aggregated-vcf-job'}
 
 # SUBMISSION FIELDS
 input.study.id={project_accession}
@@ -88,9 +91,9 @@ input.study.type=COLLECTION
 input.pedigree=
 input.fasta={fasta}
 
-output.dir={cfg['projects_dir']}/{project_accession}/40_transformed/
-output.dir.annotation={cfg['projects_dir']}/{project_accession}/51_annotation/
-output.dir.statistics={cfg['projects_dir']}/{project_accession}/50_stats/
+output.dir={output_dir}
+output.dir.annotation={annotation_dir}
+output.dir.statistics={stats_dir}
 
 
 # MONGODB (MongoProperties)

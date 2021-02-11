@@ -111,7 +111,10 @@ class TestEloadIngestion(TestCase):
     def test_create_accession_properties(self):
         with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True):
             self.eload.create_accession_properties()
-            # TODO assert two properties files created
+            for filename in ('test1.vcf', 'test2.vcf'):
+                assert os.path.exists(
+                    os.path.join(self.resources_folder, f'projects/PRJEB12345/52_accessions/{filename}.properties')
+                )
 
     def test_create_variant_load_properties(self):
         with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True), \
@@ -119,7 +122,10 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results:
             m_get_results.return_value = [('Test Study Name')]
             self.eload.create_variant_load_properties()
-            # TODO assert two properties files created
+            for filename in ('test1.vcf', 'test2.vcf'):
+                assert os.path.exists(
+                    os.path.join(self.resources_folder, f'projects/PRJEB12345/load_{filename}.properties')
+                )
 
     def test_run_ingestion_workflow(self):
         with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output',
@@ -140,8 +146,17 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
             m_get_results.return_value = [('Test Study Name')]
-            self.eload.accession_and_load('none', 1, 82, 82)
-            # TODO assert config updated appropriately
+            self.eload.accession_and_load('NONE', 1, 82, 82)
+            assert self.eload.eload_cfg.query('ingestion', 'aggregation') == 'none'
+            assert self.eload.eload_cfg.query('ingestion', 'accession', 'instance_id') == 1
 
     def test_accession_and_load_invalid_params(self):
-        pass
+        with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True), \
+                patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
+            m_get_results.return_value = [('Test Study Name')]
+            with self.assertRaises(ValueError):
+                self.eload.accession_and_load('something else', 1, 82, 82)
+            with self.assertRaises(ValueError):
+                self.eload.accession_and_load('basic', 13, 82, 82)
