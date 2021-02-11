@@ -6,22 +6,18 @@ def helpMessage() {
 
     Inputs:
             --accession_props       properties files for accessioning
-            --variant_load_props    properties files for variant load
-            --eva_pipeline_props    main properties file for eva pipeline
             --project_accession     project accession
             --instance_id           instance id to run accessioning
     """
 }
 
 params.accession_props = null
-params.variant_load_props = null
-params.eva_pipeline_props = null
 params.project_accession = null
 params.instance_id = null
 // executables
-params.executable = ["bcf_tools": "bcf_tools", "create_accession_props": "create_accession_props", "bgzip": "bgzip", "tabix": "tabix", "copy_to_ftp": "copy_to_ftp"]
+params.executable = ["bgzip": "bgzip", "tabix": "tabix", "copy_to_ftp": "copy_to_ftp"]
 // java jars
-params.jar = ["accession_pipeline": "accession_pipeline", "eva_pipeline": "eva_pipeline"]
+params.jar = ["accession_pipeline": "accession_pipeline"]
 // help
 params.help = null
 
@@ -29,23 +25,22 @@ params.help = null
 if (params.help) exit 0, helpMessage()
 
 // Test input files
-if (!params.accession_props || !params.variant_load_props || !params.eva_pipeline_props || !params.project_accession) {
+if (!params.accession_props || !params.project_accession || !params.instance_id) {
     if (!params.accession_props)    log.warn('Provide an accessions properties file using --accession_props')
-    if (!params.variant_load_props) log.warn('Provide a variant load properties file using --variant_load_props')
-    if (!params.eva_pipeline_props) log.warn('Provide an EVA Pipeline properties file using --eva_pipeline_props')
     if (!params.project_accession)  log.warn('Provide a project accession using --project_accession')
     if (!params.instance_id)        log.warn('Provide an instance id using --instance_id')
     exit 1, helpMessage()
 }
 
 accession_props = Channel.fromPath(params.accession_props)
-variant_load_props = Channel.fromPath(params.variant_load_props)
 
 
 /*
 * Accession VCF
 */
 process accession_vcf {
+    clusterOptions '-g /accession/instance-$params.instance_id'
+
     input:
         path "accession.properties" from accession_props
 
@@ -53,8 +48,6 @@ process accession_vcf {
         path "00_logs/accessioning.*.log" into accessioning_log
         path "00_logs/accessioning.*.err" into accessioning_err
         path "60_eva_public/*.vcf" into accessioned_vcfs
-
-    clusterOptions '-g /accession/instance-$params.instance_id'
 
     """
     filename=$(basename accession.properties)
@@ -111,24 +104,3 @@ process index_vcf {
     cd ..
     """
  }
-
-
-/*
-* Load into variant db.
-*/
-process load_vcf {
-    input:
-        path "variant_load.properties" from variant_load_props
-
-    output:
-        path "00_logs/pipeline.*.log" into pipeline_log
-        path "00_logs/pipeline.*.err" into pipeline_err
-
-    """
-    filename=$(basename variant_load.properties)
-    filename="${filename%.*}"
-    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.eva_pipeline_props --parameters.path=variant_load.properties \
-        > 00_logs/pipeline.${filename}.log \
-        2> 00_logs/pipeline.${filename}.err
-    """
-}

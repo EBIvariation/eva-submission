@@ -41,7 +41,15 @@ class EloadIngestion(Eload):
         self.pg_uri = get_pg_metadata_uri_for_eva_profile('development', self.settings_xml_file)
         self.mongo_uri = get_mongo_uri_for_eva_profile('production', self.settings_xml_file)
 
-    def ingest(self, aggregation, instance_id, vep_version, vep_cache_version, db_name=None, tasks=None):
+    def ingest(
+            self,
+            aggregation=None,
+            instance_id=None,
+            vep_version=None,
+            vep_cache_version=None,
+            db_name=None,
+            tasks=None
+    ):
         # TODO assembly/taxonomy insertion script should be incorporated here
         # TODO set ENA data release date
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
@@ -52,9 +60,29 @@ class EloadIngestion(Eload):
 
         if 'metadata_load' in tasks:
             self.load_from_ena()
-        # TODO are accession and variant load independent tasks?
-        if 'accession' in tasks or 'variant_load' in tasks:
-            self.accession_and_load(aggregation, instance_id, vep_version, vep_cache_version)
+        do_accession = 'accession' in tasks
+        do_variant_load = 'variant_load' in tasks
+
+        if do_accession or do_variant_load:
+            aggregation = aggregation.lower()
+            if aggregation not in {'basic', 'none'}:
+                raise ValueError('Aggregation type must be BASIC or NONE')
+            self.eload_cfg.set(self.config_section, 'aggregation', value=aggregation)
+
+        if do_accession:
+            if instance_id not in range(1, 13):
+                raise ValueError('Instance id must be between 1-12')
+            self.eload_cfg.set(self.config_section, 'accession', 'instance_id', value=instance_id)
+            accession_prop_files = self.create_accession_properties()
+            self.eload_cfg.set(self.config_section, 'accession', 'properties', value=accession_prop_files)
+            self.run_accession_workflow()
+
+        if do_variant_load:
+            self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'version', value=vep_version)
+            self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', value=vep_cache_version)
+            load_prop_files = self.create_variant_load_properties()
+            self.eload_cfg.set(self.config_section, 'variant_load', 'properties', value=load_prop_files)
+            self.run_variant_load_workflow()
 
     def get_db_name(self):
         """
@@ -135,26 +163,10 @@ class EloadIngestion(Eload):
             self.eload_cfg.set(self.config_section, 'ena_load', value='failure')
             raise e
 
-    def accession_and_load(self, aggregation, instance_id, vep_version, vep_cache_version):
-        if instance_id not in range(1, 13):
-            raise ValueError('Instance id must be between 1-12')
-        aggregation = aggregation.lower()
-        if aggregation not in {'basic', 'none'}:
-            raise ValueError('Aggregation type must be BASIC or NONE')
-
-        self.eload_cfg.set(self.config_section, 'aggregation', value=aggregation)
-        self.eload_cfg.set(self.config_section, 'accession', 'instance_id', value=instance_id)
-        self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'version', value=vep_version)
-        self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', value=vep_cache_version)
-
-        prop_files = self.create_accession_properties()
-        self.eload_cfg.set(self.config_section, 'accession', 'properties', value=prop_files)
-        prop_files = self.create_variant_load_properties()
-        self.eload_cfg.set(self.config_section, 'variant_load', 'properties', value=prop_files)
-
-        self.run_ingestion_workflow()
-
     def setup_project_dir(self):
+        """
+        Sets up project directory and copies VCF files from the eload directory.
+        """
         project_dir = Path(cfg['projects_dir'], self.project_accession)
         os.makedirs(project_dir, exist_ok=True)
         for _, v in project_dirs.items():
@@ -174,6 +186,9 @@ class EloadIngestion(Eload):
         return project_dir
 
     def create_accession_properties(self):
+        """
+        Creates properties files for the accessioning pipeline, one for each VCF file.
+        """
         prop_files = []
         # TODO change accession pipeline to get db creds from a common properties file, like variant load?
         # then we won't need this bit
@@ -206,7 +221,9 @@ class EloadIngestion(Eload):
         return prop_files
 
     def create_variant_load_properties(self):
-        # like accession props we want one per vcf file
+        """
+        Creates properties files for the variant load pipeline, one for each VCF file.
+        """
         prop_files = []
         for vcf_path in self.project_dir.joinpath(project_dirs['valid']).glob('*.vcf.gz'):
             filename = vcf_path.stem
@@ -256,31 +273,55 @@ class EloadIngestion(Eload):
         words = self.eload_cfg.query('submission', 'scientific_name').lower().split()
         return '_'.join(words)
 
-    def run_ingestion_workflow(self):
+    def run_accession_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
-        ingestion_config = {
+        accession_config = {
             'project_accession': self.project_accession,
             'accession_props': self.eload_cfg.query(self.config_section, 'accession', 'properties'),
-            'variant_load_props': self.eload_cfg.query(self.config_section, 'variant_load', 'properties'),
-            'eva_pipeline_props': cfg['eva_pipeline_props'],
             'executable': cfg['executable'],
             'jar': cfg['jar'],
         }
-        ingestion_config_file = os.path.join(self.project_dir, 'ingestion_config_file.yaml')
-        with open(ingestion_config_file, 'w') as open_file:
-            yaml.safe_dump(ingestion_config, open_file)
-        ingestion_script = os.path.join(ROOT_DIR, 'nextflow', 'ingestion.nf')
+        accession_config_file = os.path.join(self.project_dir, 'accession_config_file.yaml')
+        with open(accession_config_file, 'w') as open_file:
+            yaml.safe_dump(accession_config, open_file)
+        accession_script = os.path.join(ROOT_DIR, 'nextflow', 'ingestion.nf')
         try:
             command_utils.run_command_with_output(
-                'Nextflow Ingestion process',
+                'Nextflow Accessioning process',
                 ' '.join((
                     'export NXF_OPTS="-Xms1g -Xmx8g"; ',
-                    cfg['executable']['nextflow'], ingestion_script,
-                    '-params-file', ingestion_config_file,
+                    cfg['executable']['nextflow'], accession_script,
+                    '-params-file', accession_config_file,
                     '-work-dir', output_dir
                 ))
             )
         except subprocess.CalledProcessError as e:
-            self.error('Nextflow ingestion pipeline failed: results might not be complete')
+            self.error('Nextflow accessioning pipeline failed: results might not be complete')
+            raise e
+        return output_dir
+
+    def run_variant_load_workflow(self):
+        output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
+        load_config = {
+            'variant_load_props': self.eload_cfg.query(self.config_section, 'variant_load', 'properties'),
+            'eva_pipeline_props': cfg['eva_pipeline_props'],
+            'jar': cfg['jar'],
+        }
+        load_config_file = os.path.join(self.project_dir, 'load_config_file.yaml')
+        with open(load_config_file, 'w') as open_file:
+            yaml.safe_dump(load_config, open_file)
+        variant_load_script = os.path.join(ROOT_DIR, 'nextflow', 'variant_load.nf')
+        try:
+            command_utils.run_command_with_output(
+                'Nextflow Variant Load process',
+                ' '.join((
+                    'export NXF_OPTS="-Xms1g -Xmx8g"; ',
+                    cfg['executable']['nextflow'], variant_load_script,
+                    '-params-file', load_config_file,
+                    '-work-dir', output_dir
+                ))
+            )
+        except subprocess.CalledProcessError as e:
+            self.error('Nextflow variant load pipeline failed: results might not be complete')
             raise e
         return output_dir

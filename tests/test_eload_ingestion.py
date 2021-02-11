@@ -127,36 +127,66 @@ class TestEloadIngestion(TestCase):
                     os.path.join(self.resources_folder, f'projects/PRJEB12345/load_{filename}.properties')
                 )
 
-    def test_run_ingestion_workflow(self):
-        with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output',
-                   autospec=True) as m_execute:
-            self.eload.run_ingestion_workflow()
-            m_execute.assert_called_once()
-
-    def test_run_ingestion_nextflow_fails(self):
-        with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_execute:
-            m_execute.side_effect = subprocess.CalledProcessError(1, 'some command')
-            with self.assertRaises(subprocess.CalledProcessError):
-                self.eload.run_ingestion_workflow()
-            m_execute.assert_called_once()
-
-    def test_accession_and_load(self):
+    def test_ingest_all_tasks(self):
         with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True), \
                 patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
+                patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
+            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             m_get_results.return_value = [('Test Study Name')]
-            self.eload.accession_and_load('NONE', 1, 82, 82)
-            assert self.eload.eload_cfg.query('ingestion', 'aggregation') == 'none'
-            assert self.eload.eload_cfg.query('ingestion', 'accession', 'instance_id') == 1
+            self.eload.ingest('NONE', 1, 82, 82, db_name='eva_hsapiens_grch38')
 
-    def test_accession_and_load_invalid_params(self):
+    def test_ingest_metadata_load(self):
+        with patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
+            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
+            self.eload.ingest(tasks=['metadata_load'], db_name='eva_hsapiens_grch38')
+
+    def test_ingest_accession(self):
+        with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True), \
+                patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
+            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
+            self.eload.ingest(
+                aggregation='NONE',
+                instance_id=1,
+                tasks=['accession'],
+                db_name='eva_hsapiens_grch38'
+            )
+
+    def test_ingest_accession_invalid_params(self):
+        with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True), \
+                patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
+            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
+            with self.assertRaises(ValueError):
+                self.eload.ingest(
+                    aggregation='blah',
+                    instance_id=1,
+                    tasks=['accession'],
+                    db_name='eva_hsapiens_grch38'
+                )
+            with self.assertRaises(ValueError):
+                self.eload.ingest(
+                    aggregation='basic',
+                    instance_id=13,
+                    tasks=['accession'],
+                    db_name='eva_hsapiens_grch38'
+                )
+
+    def test_ingest_variant_load(self):
         with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True), \
                 patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
+                patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
+            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             m_get_results.return_value = [('Test Study Name')]
-            with self.assertRaises(ValueError):
-                self.eload.accession_and_load('something else', 1, 82, 82)
-            with self.assertRaises(ValueError):
-                self.eload.accession_and_load('basic', 13, 82, 82)
+            self.eload.ingest(
+                aggregation='NONE',
+                vep_version=82,
+                vep_cache_version=82,
+                tasks=['variant_load'],
+                db_name='eva_hsapiens_grch38'
+            )
