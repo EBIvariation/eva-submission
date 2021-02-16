@@ -36,3 +36,9 @@ class TestENAUploader(TestCase):
      <ACTIONS>ADD</ACTIONS>
 </RECEIPT>'''
         assert self.uploader.parse_ena_receipt(receipt) == {'errors': ['In submission, alias:"Sorghum GBS SNPs", accession:"". The object being added already exists in the submission account with accession: "ERA3030993".']}
+
+    def test_parse_ena_receipt_failed(self):
+        receipt = '''This is a random message that cannot be parsed by XML libraries'''
+        assert self.uploader.parse_ena_receipt(receipt) == {
+            'errors': 'Cannot parse ENA receipt: This is a random message that cannot be parsed by XML libraries'
+        }

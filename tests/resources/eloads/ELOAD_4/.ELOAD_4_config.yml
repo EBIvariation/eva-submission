@@ -1,0 +1,31 @@
+brokering:
+  Biosamples:
+    Samples:
+      S1: SAMEA0000001
+      S2: SAMEA0000002
+    date: 2021-01-01 12:20:.0
+    pass: true
+  date: 2021-01-01 12:20:.0
+  ena:
+    ANALYSIS: ERZ0000001
+    PROJECT: PRJEB00001
+    SUBMISSION: ERA0000001
+    errors: []
+    pass: true
+    receipt: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<?xml-stylesheet type=\"\
+      text/xsl\" href=\"receipt.xsl\"?>\n<RECEIPT receiptDate=\"2021-01-01T12:01:001.0Z\"\
+      \ submissionFile=\"ELOAD_3.Submission.xml\" success=\"true\">\n     <ANALYSIS\
+      \ accession=\"ERZ0000001\" alias=\"alias1\" status=\"PRIVATE\"/>\n     <PROJECT\
+      \ accession=\"PRJEB00001\" alias=\"alias1\" status=\"PRIVATE\" holdUntilDate=\"\
+      2023-02-16Z\">\n          <EXT_ID accession=\"ERP000001\" type=\"study\"/>\n\
+      \     </PROJECT>\n     <SUBMISSION accession=\"ERA0000001\" alias=\"alias1\"\
+      />\n     <MESSAGES>\n          <INFO>Submission has been committed.</INFO>\n\
+      \     </MESSAGES>\n     <ACTIONS>ADD</ACTIONS>\n     <ACTIONS>ADD</ACTIONS>\n\
+      </RECEIPT>"
+  vcf_files:
+    /path/to/vcf.gz:
+      index: /path/to/vcf.gz.tbi
+      index_md5: 0b46d1a751c52509b9ed36fea528c7a0
+      md5: b3fe0a9bbd876e4117dfbe27dbb03cb6
+      original_vcf: /path/to/original.vcf
+validation: {}

@@ -23,6 +23,7 @@ class TestEloadBrokering(TestCase):
         # Need to set the directory so that the relative path set in the config file works from the top directory
         os.chdir(self.top_dir)
         self.eload = EloadBrokering(3)
+        self.existing_eload = EloadBrokering(4)
 
     def tearDown(self) -> None:
         eloads = glob.glob(os.path.join(self.resources_folder, 'eloads', 'ELOAD_3'))
@@ -69,3 +70,6 @@ class TestEloadBrokering(TestCase):
                 'index_md5': 'md5checksum'
             }
         }
+
+    def test_report(self):
+        self.existing_eload.report()

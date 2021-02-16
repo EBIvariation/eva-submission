@@ -311,13 +311,6 @@ class EloadValidation(Eload):
 """.format(**report_data))
         return '\n'.join(reports)
 
-    @staticmethod
-    def _check_pass_or_fail(check_dict):
-        if check_dict.get('forced'):
-            return 'FORCED'
-        if check_dict.get('pass'):
-            return 'PASS'
-        return 'FAIL'
 
     def report(self):
         """Collect information from the config and write the report."""

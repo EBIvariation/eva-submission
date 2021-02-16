@@ -268,12 +268,12 @@ def prettify(etree):
     etree.write(outfile, encoding='utf-8', xml_declaration=True)
     rough_string = outfile.getvalue()
     reparsed = minidom.parseString(rough_string)
-    return reparsed.toprettyxml(indent='    ')
+    return reparsed.toprettyxml(indent='    ', encoding="utf-8")
 
 
 def write_xml_to_file(xml_element, output_file):
     etree = ElementTree(xml_element)
-    with open(output_file, 'w') as open_file:
+    with open(output_file, 'bw') as open_file:
         open_file.write(prettify(etree))
 
 

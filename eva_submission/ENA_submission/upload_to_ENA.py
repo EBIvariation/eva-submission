@@ -62,16 +62,18 @@ class ENAUploader(AppLogger):
         if self.results['errors']:
             self.error('\n'.join(self.results['errors']))
 
-    @staticmethod
-    def parse_ena_receipt(ena_xml_receipt):
-        receipt = ET.fromstring(ena_xml_receipt)
-        message = receipt.findall('MESSAGES')[0]
+    def parse_ena_receipt(self, ena_xml_receipt):
         results = {'errors': []}
-        for child in message:
-            if child.tag == 'ERROR':
-                results['errors'].append(child.text)
-        for child in receipt:
-            if 'accession' in child.attrib:
-                results[child.tag] = child.attrib['accession']
+        try:
+            receipt = ET.fromstring(ena_xml_receipt)
+            message = receipt.findall('MESSAGES')[0]
+            for child in message:
+                if child.tag == 'ERROR':
+                    results['errors'].append(child.text)
+            for child in receipt:
+                if 'accession' in child.attrib:
+                    results[child.tag] = child.attrib['accession']
+        except ET.ParseError:
+            self.error('Cannot parse ENA receipt: ' + ena_xml_receipt)
+            results['errors'] = 'Cannot parse ENA receipt: ' + ena_xml_receipt
         return results
-
