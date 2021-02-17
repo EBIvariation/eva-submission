@@ -108,24 +108,29 @@ class TestEloadIngestion(TestCase):
                 self.eload.load_from_ena()
             m_execute.assert_called_once()
 
-    def test_create_accession_properties(self):
-        with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True):
-            self.eload.create_accession_properties()
-            for filename in ('test1.vcf', 'test2.vcf'):
-                assert os.path.exists(
-                    os.path.join(self.resources_folder, f'projects/PRJEB12345/52_accessions/{filename}.properties')
-                )
+    def test_merge_vcfs(self):
+        expected = ['tests/resources/projects/PRJEB12345/31_merged/PRJEB12345_merged.vcf.gz']
+        with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
+            self.assertEqual(expected, sorted(str(x) for x in self.eload.merge_vcfs()))
 
-    def test_create_variant_load_properties(self):
-        with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True), \
-                patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
-                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results:
-            m_get_results.return_value = [('Test Study Name')]
-            self.eload.create_variant_load_properties()
-            for filename in ('test1.vcf', 'test2.vcf'):
-                assert os.path.exists(
-                    os.path.join(self.resources_folder, f'projects/PRJEB12345/load_{filename}.properties')
-                )
+    def test_merge_vcfs_duplicate_names(self):
+        expected = [
+            'tests/resources/projects/PRJEB12345/30_eva_valid/test1.vcf.gz',
+            'tests/resources/projects/PRJEB12345/30_eva_valid/test2.vcf.gz'
+        ]
+        with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_execute:
+            m_execute.side_effect = subprocess.CalledProcessError(
+                1, 'some command',
+                'Error: Duplicate sample names (HG002), use --force-samples to proceed anyway.'
+            )
+            self.assertEqual(expected, sorted(str(x) for x in self.eload.merge_vcfs()))
+
+    def test_merge_vcfs_error(self):
+        with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_execute:
+            m_execute.side_effect = subprocess.CalledProcessError(1, 'some command')
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.eload.merge_vcfs()
+            m_execute.assert_called_once()
 
     def test_ingest_all_tasks(self):
         with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True), \
@@ -175,7 +180,7 @@ class TestEloadIngestion(TestCase):
                     db_name='eva_hsapiens_grch38'
                 )
 
-    def test_ingest_variant_load(self):
+    def test_ingest_variant_load_no_aggregation(self):
         with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True), \
                 patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
@@ -190,3 +195,28 @@ class TestEloadIngestion(TestCase):
                 tasks=['variant_load'],
                 db_name='eva_hsapiens_grch38'
             )
+            # multiple vcf files with no aggregation => merge
+            assert os.path.exists(
+                os.path.join(self.resources_folder, 'projects/PRJEB12345/load_PRJEB12345_merged.vcf.properties')
+            )
+
+    def test_ingest_variant_load_basic_aggregation(self):
+        with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True), \
+                patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
+                patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
+            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
+            m_get_results.return_value = [('Test Study Name')]
+            self.eload.ingest(
+                aggregation='basic',
+                vep_version=82,
+                vep_cache_version=82,
+                tasks=['variant_load'],
+                db_name='eva_hsapiens_grch38'
+            )
+            # multiple vcf files with aggregation => no merge
+            for filename in ('test1.vcf', 'test2.vcf'):
+                assert os.path.exists(
+                    os.path.join(self.resources_folder, f'projects/PRJEB12345/load_{filename}.properties')
+                )

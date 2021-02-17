@@ -14,7 +14,7 @@ ingestion:
     - tests/resources/projects/PRJEB12345/52_accessions/test2.vcf.properties
   aggregation: none
   database:
-    db_name: eva_hsapiens_grch38
+    db_name: eva_ecaballus_30
     exists: true
   ena_load: failure
   ingestion_date: 2021-02-09 16:21:50.702795

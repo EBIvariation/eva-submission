@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 
 import yaml
+from cached_property import cached_property
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.config_utils import get_pg_metadata_uri_for_eva_profile, get_mongo_uri_for_eva_profile, \
@@ -19,6 +20,7 @@ from eva_submission.ingestion_templates import accession_props_template, variant
 project_dirs = {
     'logs': '00_logs',
     'valid': '30_eva_valid',
+    'merged': '31_merged',
     'transformed': '40_transformed',
     'stats': '50_stats',
     'annotation': '51_annotation',
@@ -80,6 +82,13 @@ class EloadIngestion(Eload):
         if do_variant_load:
             self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'version', value=vep_version)
             self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', value=vep_cache_version)
+            if aggregation == 'none':
+                merged_files = self.merge_vcfs()
+                self.vcfs_to_load = merged_files
+            else:
+                self.vcfs_to_load = self.valid_vcf_filenames
+            self.eload_cfg.set(self.config_section, 'variant_load', 'vcfs_to_load', value=[str(x) for x in self.vcfs_to_load])
+
             load_prop_files = self.create_variant_load_properties()
             self.eload_cfg.set(self.config_section, 'variant_load', 'properties', value=load_prop_files)
             self.run_variant_load_workflow()
@@ -185,6 +194,43 @@ class EloadIngestion(Eload):
         self.eload_cfg.set(self.config_section, 'project_dir', value=str(project_dir))
         return project_dir
 
+    def merge_vcfs(self):
+        """
+        Attempts to merge valid VCFs by sample.
+        If duplicate sample names are detected, this will assume files are split horizontally
+        and so no merge is necessary.
+        Returns the list of filenames that should be used for the load pipeline, i.e. either
+        a singleton list with the merged filename, or the list of valid VCFs.
+        """
+        merged_dir = self.project_dir.joinpath(project_dirs['merged'])
+        output_file = str(merged_dir.joinpath(f'{self.project_accession}_merged.vcf'))
+        list_file = str(merged_dir.joinpath('all_files.list'))
+        with open(list_file, 'w+') as f:
+            f.write('\n'.join(str(fn) for fn in self.valid_vcf_filenames))
+        try:
+            command_utils.run_command_with_output(
+                'Merge VCFs',
+                ' '.join((
+                    cfg['executable']['bcftools'], 'merge'
+                    '--merge', 'all',
+                    '--file-list', list_file,
+                    '--threads', '3',
+                    '-o', output_file
+                ))
+            )
+            command_utils.run_command_with_output(
+                'Bgzip merged vcf file',
+                ' '.join((cfg['executable']['bgzip'], output_file))
+            )
+            return [Path(f'{output_file}.gz')]
+        except subprocess.CalledProcessError as e:
+            if e.output is not None and 'Duplicate sample names' in e.output:  # TODO brittle
+                self.warning('Duplicate sample names found while merging, will continue with unmerged VCFs.')
+                return self.valid_vcf_filenames
+            self.error('Merging VCFs failed: aborting ingestion.')
+            self.eload_cfg.set(self.config_section, 'variant_load', 'vcfs_to_load', value='merge failed')
+            raise e
+
     def create_accession_properties(self):
         """
         Creates properties files for the accessioning pipeline, one for each VCF file.
@@ -194,7 +240,7 @@ class EloadIngestion(Eload):
         # then we won't need this bit
         mongo_host, mongo_user, mongo_pass = self.get_mongo_creds()
         pg_url, pg_user, pg_pass = self.get_pg_creds()
-        for vcf_path in self.project_dir.joinpath(project_dirs['valid']).glob('*.vcf.gz'):
+        for vcf_path in self.valid_vcf_filenames:
             filename = vcf_path.stem
             output_vcf = self.project_dir.joinpath(project_dirs['public'], f'{filename}.accessioned.vcf')
 
@@ -225,7 +271,7 @@ class EloadIngestion(Eload):
         Creates properties files for the variant load pipeline, one for each VCF file.
         """
         prop_files = []
-        for vcf_path in self.project_dir.joinpath(project_dirs['valid']).glob('*.vcf.gz'):
+        for vcf_path in self.vcfs_to_load:
             filename = vcf_path.stem
             properties_filename = self.project_dir.joinpath(f'load_{filename}.properties')
             with open(properties_filename, 'w+') as f:
@@ -325,3 +371,7 @@ class EloadIngestion(Eload):
             self.error('Nextflow variant load pipeline failed: results might not be complete')
             raise e
         return output_dir
+
+    @cached_property
+    def valid_vcf_filenames(self):
+        return list(self.project_dir.joinpath(project_dirs['valid']).glob('*.vcf.gz'))

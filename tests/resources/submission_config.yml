@@ -9,6 +9,8 @@ vep_cache_path: '/path/to/vep/cache'
 executable:
   nextflow: /path/to/nextflow
   load_from_ena: /path/to/load_from_ena_script
+  bcftools: /path/to/bcftools
+  bgzip: /path/to/bgzip
 
 jar:
   accession_pipeline: /path/to/accession_pipeline.jar
