@@ -18,8 +18,7 @@ class TestEloadIngestion(TestCase):
         load_config(config_file)
         # Need to set the directory so that the relative path set in the config file works from the top directory
         os.chdir(self.top_dir)
-        with patch('eva_submission.eload_ingestion.get_pg_metadata_uri_for_eva_profile', autospec=True), \
-                patch('eva_submission.eload_ingestion.get_mongo_uri_for_eva_profile', autospec=True):
+        with patch('eva_submission.eload_ingestion.get_mongo_uri_for_eva_profile', autospec=True):
             self.eload = EloadIngestion(33)
 
     def tearDown(self):
@@ -35,31 +34,13 @@ class TestEloadIngestion(TestCase):
         ])
         return m_db
 
-    def test_get_db_name(self):
-        with patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
-                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_query_results:
-            m_get_query_results.return_value = [('ecaballus', '30')]
-            self.assertEqual('eva_ecaballus_30', self.eload.get_db_name())
-
-    def test_get_db_name_missing_evapro(self):
-        with patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
-                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_query_results:
-            m_get_query_results.return_value = []
-            with self.assertRaises(ValueError):
-                self.eload.get_db_name()
-
-    def test_get_db_name_multiple_evapro(self):
-        with patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
-                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_query_results:
-            m_get_query_results.return_value = [('ecaballus', '30'), ('ecaballus', '20')]
-            with self.assertRaises(ValueError):
-                self.eload.get_db_name()
-
     def test_check_variant_db(self):
         with patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
-                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
+                patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True), \
+                patch('eva_submission.eload_ingestion.get_variant_warehouse_db_name_from_assembly_and_taxonomy',
+                      autospec=True) as m_get_results, \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo:
-            m_get_results.return_value = [('ecaballus', '30')]
+            m_get_results.return_value = 'eva_ecaballus_30'
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
 
             self.eload.check_variant_db()
@@ -68,6 +49,17 @@ class TestEloadIngestion(TestCase):
                 self.eload.eload_cfg.query('ingestion', 'database', 'db_name')
             )
             assert self.eload.eload_cfg.query('ingestion', 'database', 'exists')
+
+    def test_check_variant_db_not_in_evapro(self):
+        with patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
+                patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True), \
+                patch('eva_submission.eload_ingestion.get_variant_warehouse_db_name_from_assembly_and_taxonomy',
+                      autospec=True) as m_get_results, \
+                patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo:
+            m_get_results.return_value = None
+            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
+            with self.assertRaises(ValueError):
+                self.eload.check_variant_db()
 
     def test_check_variant_db_name_provided(self):
         with patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo:
