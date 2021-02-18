@@ -7,8 +7,8 @@ import yaml
 from cached_property import cached_property
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
-from ebi_eva_common_pyutils.config_utils import get_pg_metadata_uri_for_eva_profile, get_mongo_uri_for_eva_profile, \
-    get_properties_from_xml_file
+from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile, get_properties_from_xml_file
+from ebi_eva_common_pyutils.metadata_utils import get_variant_warehouse_db_name_from_assembly_and_taxonomy
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
 import psycopg2
 import pymongo
@@ -40,7 +40,6 @@ class EloadIngestion(Eload):
         self.settings_xml_file = cfg['maven_settings_file']
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
         self.project_dir = self.setup_project_dir()
-        self.pg_uri = get_pg_metadata_uri_for_eva_profile('development', self.settings_xml_file)
         self.mongo_uri = get_mongo_uri_for_eva_profile('production', self.settings_xml_file)
 
     def ingest(
@@ -99,30 +98,16 @@ class EloadIngestion(Eload):
         """
         assm_accession = self.eload_cfg.query('submission', 'assembly_accession')
         taxon_id = self.eload_cfg.query('submission', 'taxonomy_id')
-        # TODO replace this with library method
         # query EVAPRO for db name based on taxonomy id and accession
-        with psycopg2.connect(self.pg_uri) as conn:
-            query = (
-                "SELECT b.taxonomy_code, a.assembly_code "
-                "FROM evapro.assembly a "
-                "JOIN evapro.taxonomy b on b.taxonomy_id = a.taxonomy_id "
-                f"WHERE a.taxonomy_id = '{taxon_id}' "
-                f"AND a.assembly_accession = '{assm_accession}';"
-            )
-            rows = get_all_results_for_query(conn, query)
-        # we should get exactly one result, if not, fail loudly.
-        if len(rows) == 0:
+        with self.get_pg_conn() as conn:
+            db_name = get_variant_warehouse_db_name_from_assembly_and_taxonomy(conn, assm_accession, taxon_id)
+        if not db_name:
             self.error(f'Database for taxonomy id {taxon_id} and assembly {assm_accession} not found in EVAPRO.')
             self.error(f'Please insert the appropriate taxonomy and assembly or pass in the database name explicitly.')
             # TODO propose a database name, based on a TBD convention
             # TODO download the VEP cache for new species
             raise ValueError(f'No database for {taxon_id} and {assm_accession} found')
-        elif len(rows) > 1:
-            self.error(f'Found more than one possible database, please pass in the database name explicitly.')
-            options = ', '.join((f'{r[0]}_{r[1]}' for r in rows))
-            self.error(f'Options found: {options}')
-            raise ValueError(f'More than one possible database for {taxon_id} and {assm_accession} found')
-        return f'eva_{rows[0][0]}_{rows[0][1]}'
+        return db_name
 
     def check_variant_db(self, db_name=None):
         """
@@ -307,8 +292,13 @@ class EloadIngestion(Eload):
         pg_pass = properties['eva.evapro.password']
         return pg_url, pg_user, pg_pass
 
+    def get_pg_conn(self):
+        pg_url, pg_user, pg_pass = self.get_pg_creds()
+        # need to cut the jdbc: from the front of the pg_url
+        return psycopg2.connect(pg_url[5:], user=pg_user, password=pg_pass)
+
     def get_study_name(self):
-        with psycopg2.connect(self.pg_uri) as conn:
+        with self.get_pg_conn() as conn:
             query = f"SELECT title FROM evapro.project WHERE project_accession='{self.project_accession}';"
             rows = get_all_results_for_query(conn, query)
         if len(rows) != 1:
