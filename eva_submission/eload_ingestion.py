@@ -67,13 +67,9 @@ class EloadIngestion(Eload):
 
         if do_accession or do_variant_load:
             aggregation = aggregation.lower()
-            if aggregation not in {'basic', 'none'}:
-                raise ValueError('Aggregation type must be BASIC or NONE')
             self.eload_cfg.set(self.config_section, 'aggregation', value=aggregation)
 
         if do_accession:
-            if instance_id not in range(1, 13):
-                raise ValueError('Instance id must be between 1-12')
             self.eload_cfg.set(self.config_section, 'accession', 'instance_id', value=instance_id)
             accession_prop_files = self.create_accession_properties()
             self.eload_cfg.set(self.config_section, 'accession', 'properties', value=accession_prop_files)

@@ -71,7 +71,7 @@ def variant_load_props_template(
         stats_dir,
         db_name,
         vep_species,
-        vep_version,
+        vep_version,  # TODO vep path depends on version
         vep_cache_version,
         annotation_skip=False,
 ):

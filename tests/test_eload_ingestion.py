@@ -160,26 +160,6 @@ class TestEloadIngestion(TestCase):
                 db_name='eva_hsapiens_grch38'
             )
 
-    def test_ingest_accession_invalid_params(self):
-        with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True), \
-                patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
-                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
-            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
-            with self.assertRaises(ValueError):
-                self.eload.ingest(
-                    aggregation='blah',
-                    instance_id=1,
-                    tasks=['accession'],
-                    db_name='eva_hsapiens_grch38'
-                )
-            with self.assertRaises(ValueError):
-                self.eload.ingest(
-                    aggregation='basic',
-                    instance_id=13,
-                    tasks=['accession'],
-                    db_name='eva_hsapiens_grch38'
-                )
-
     def test_ingest_variant_load_no_aggregation(self):
         with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True), \
                 patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
