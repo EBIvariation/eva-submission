@@ -31,7 +31,7 @@ logger = log_cfg.get_logger(__name__)
 def main():
     argparse = ArgumentParser(description='Accession and ingest submission data into EVA')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
-    argparse.add_argument('--instance', required=False, type=int, help='The instance id to use for accessioning')
+    argparse.add_argument('--instance', required=False, type=int, choices=range(1, 13), help='The instance id to use for accessioning')
     # TODO infer aggregation from vcf files, VEP version & cache version from species
     argparse.add_argument('--aggregation', required=False, type=str, choices=['BASIC', 'NONE'], help='The aggregation type')
     argparse.add_argument('--vep_version', required=False, type=int, help='VEP version to use for annotation')

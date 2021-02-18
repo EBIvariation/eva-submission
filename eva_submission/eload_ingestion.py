@@ -53,7 +53,7 @@ class EloadIngestion(Eload):
             tasks=None
     ):
         # TODO assembly/taxonomy insertion script should be incorporated here
-        # TODO set ENA data release date
+        # TODO set ENA data release date (EVA-2322)
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
         self.check_variant_db(db_name)
 
