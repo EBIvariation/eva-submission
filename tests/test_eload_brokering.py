@@ -72,4 +72,41 @@ class TestEloadBrokering(TestCase):
         }
 
     def test_report(self):
-        self.existing_eload.report()
+
+        expected_report = '''Brokering performed on 2021-01-01 12:20:.0
+BioSamples: PASS
+ENA: PASS
+----------------------------------
+
+BioSamples brokering:
+  * Biosamples: PASS
+    - Accessions: S1: SAMEA0000001
+S2: SAMEA0000002
+
+----------------------------------
+
+ENA brokering:
+  * ENA: PASS
+    - Accessions: PROJECT: PRJEB00001
+SUBMISSION: ERA0000001
+ANALYSIS: ERZ0000001
+    - Errors: 
+    - receipt: <?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="receipt.xsl"?>
+<RECEIPT receiptDate="2021-01-01T12:01:001.0Z" submissionFile="ELOAD_3.Submission.xml" success="true">
+     <ANALYSIS accession="ERZ0000001" alias="alias1" status="PRIVATE"/>
+     <PROJECT accession="PRJEB00001" alias="alias1" status="PRIVATE" holdUntilDate="2023-02-16Z">
+          <EXT_ID accession="ERP000001" type="study"/>
+     </PROJECT>
+     <SUBMISSION accession="ERA0000001" alias="alias1"/>
+     <MESSAGES>
+          <INFO>Submission has been committed.</INFO>
+     </MESSAGES>
+     <ACTIONS>ADD</ACTIONS>
+     <ACTIONS>ADD</ACTIONS>
+</RECEIPT>
+
+----------------------------------'''
+        with patch('builtins.print') as mprint:
+            self.existing_eload.report()
+        mprint.assert_called_once_with(expected_report)

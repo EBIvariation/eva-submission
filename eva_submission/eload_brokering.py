@@ -178,7 +178,5 @@ BioSamples brokering:
 
 ENA brokering:
 {ena_report}
-----------------------------------
-
-"""
+----------------------------------"""
         print(report.format(**report_data))
