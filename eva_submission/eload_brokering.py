@@ -70,7 +70,7 @@ class EloadBrokering(Eload):
         if sample_tab_submitter.check_submit_done() and not force:
             self.info('Biosamples accession already provided in the metadata, Skip!')
             self.eload_cfg.set('brokering', 'Biosamples', 'pass', value=True)
-        elif not self.eload_cfg.query('brokering', 'Biosamples', 'Samples') and not force:
+        elif self.eload_cfg.query('brokering', 'Biosamples', 'Samples') and not force:
             self.info('BioSamples brokering is already done, Skip!')
         else:
             sample_name_to_accession = sample_tab_submitter.submit_to_bioSamples()
