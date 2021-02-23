@@ -59,7 +59,7 @@ class TestEloadBrokering(TestCase):
         self.eload.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
                                  value=os.path.join(self.resources_folder, 'metadata.xlsx'))
         self.eload.eload_cfg.set('brokering', 'Biosamples', 'Samples', value={'sample1': 'SAMPLE1'})
-        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'pass') is None
+        self.eload.eload_cfg.set('brokering', 'Biosamples', 'pass', value=None)
         self.eload.upload_to_bioSamples()
         # Pass is not set because it is expected to have been set when the samples
         assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'pass') is None
