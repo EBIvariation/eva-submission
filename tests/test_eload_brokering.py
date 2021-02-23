@@ -2,11 +2,12 @@ import glob
 import os
 import shutil
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import patch, PropertyMock
 
 from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission import ROOT_DIR
+from eva_submission.biosamples_submission import SampleMetadataSubmitter
 from eva_submission.eload_brokering import EloadBrokering
 from eva_submission.eload_submission import Eload
 from eva_submission.submission_config import load_config
@@ -29,6 +30,40 @@ class TestEloadBrokering(TestCase):
         eloads = glob.glob(os.path.join(self.resources_folder, 'eloads', 'ELOAD_3'))
         for eload in eloads:
             shutil.rmtree(eload)
+
+    def test_upload_to_bioSamples(self):
+
+        self.eload.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
+                                 value=os.path.join(self.resources_folder, 'metadata.xlsx'))
+
+        with patch.object(SampleMetadataSubmitter, 'submit_to_bioSamples', return_value='samples') as mock_submit,\
+                patch.object(EloadBrokering, 'now', new_callable=PropertyMock(return_value='a_date')):
+            self.eload.upload_to_bioSamples()
+
+        assert mock_submit.call_count == 1
+        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'pass')
+        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'Samples') == 'samples'
+        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'date') == 'a_date'
+
+    def test_upload_to_bioSamples_not_required(self):
+
+        self.eload.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
+                                 value=os.path.join(self.resources_folder, 'metadata.xlsx'))
+
+        with patch.object(SampleMetadataSubmitter, 'check_submit_done', return_value=True) as check_submit_done:
+            self.eload.upload_to_bioSamples()
+        assert check_submit_done.call_count == 1
+        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'pass')
+
+    def test_upload_to_bioSamples_done(self):
+        self.eload.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
+                                 value=os.path.join(self.resources_folder, 'metadata.xlsx'))
+        self.eload.eload_cfg.set('brokering', 'Biosamples', 'Samples', value={'sample1': 'SAMPLE1'})
+        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'pass') is None
+        self.eload.upload_to_bioSamples()
+        # Pass is not set because it is expected to have been set when the samples
+        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'pass') is None
+
 
     def test_run_brokering_prep_workflow(self):
         cfg.content['executable'] = {
