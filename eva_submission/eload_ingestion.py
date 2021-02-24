@@ -310,6 +310,8 @@ class EloadIngestion(Eload):
         accession_config = {
             'project_accession': self.project_accession,
             'accession_props': self.eload_cfg.query(self.config_section, 'accession', 'properties'),
+            'public_dir': os.path.join(self.project_dir, project_dirs['public']),
+            'logs_dir': os.path.join(self.project_dir, project_dirs['logs']),
             'executable': cfg['executable'],
             'jar': cfg['jar'],
         }
@@ -336,6 +338,7 @@ class EloadIngestion(Eload):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
         load_config = {
             'variant_load_props': self.eload_cfg.query(self.config_section, 'variant_load', 'properties'),
+            'logs_dir': os.path.join(self.project_dir, project_dirs['logs']),
             'eva_pipeline_props': cfg['eva_pipeline_props'],
             'jar': cfg['jar'],
         }
