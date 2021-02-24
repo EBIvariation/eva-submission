@@ -32,7 +32,6 @@ class TestEloadBrokering(TestCase):
             shutil.rmtree(eload)
 
     def test_upload_to_bioSamples(self):
-
         self.eload.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
                                  value=os.path.join(self.resources_folder, 'metadata.xlsx'))
 
@@ -46,7 +45,6 @@ class TestEloadBrokering(TestCase):
         assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'date') == 'a_date'
 
     def test_upload_to_bioSamples_not_required(self):
-
         self.eload.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
                                  value=os.path.join(self.resources_folder, 'metadata.xlsx'))
 
@@ -107,7 +105,6 @@ class TestEloadBrokering(TestCase):
         }
 
     def test_report(self):
-
         expected_report = '''Brokering performed on 2021-01-01 12:20:.0
 BioSamples: PASS
 ENA: PASS
