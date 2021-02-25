@@ -40,6 +40,8 @@ def main():
                           help='When not set, the script only performs the tasks that were not successful. Can be '
                                'set to specify one or several tasks to force during the brokering regardless of '
                                'previous status')
+    argparse.add_argument('--report', action='store_true', default=False,
+                          help='Set the script to only report the results based on previously run brokering.')
     args = argparse.parse_args()
 
     log_cfg.add_stdout_handler()
@@ -51,7 +53,9 @@ def main():
 
     # Optionally Set the valid VCF and metadata file
     brokering = EloadBrokering(args.eload, args.vcf_files, args.metadata_file)
-    brokering.broker(brokering_tasks_to_force=args.force)
+    if not args.report:
+        brokering.broker(brokering_tasks_to_force=args.force)
+    brokering.report()
 
 
 if __name__ == "__main__":

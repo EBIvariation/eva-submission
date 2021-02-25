@@ -409,7 +409,6 @@ class SampleMetadataSubmitter(SampleSubmitter):
         'Address': 'Address',
     }
 
-
     def __init__(self, metadata_spreadsheet):
         super().__init__()
         self.metadata_spreadsheet = metadata_spreadsheet

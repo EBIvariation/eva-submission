@@ -31,6 +31,7 @@ class EloadBrokering(Eload):
 
     def broker(self, brokering_tasks_to_force=None):
         """Run the brokering process"""
+        self.eload_cfg.set('brokering', 'brokering_date', value=self.now)
         self.prepare_brokering(force=('preparation' in brokering_tasks_to_force))
         self.upload_to_bioSamples(force=('biosamples' in brokering_tasks_to_force))
         self.broker_to_ena(force=('ena' in brokering_tasks_to_force))
@@ -58,19 +59,24 @@ class EloadBrokering(Eload):
             # Upload XML to ENA
             ena_uploader.upload_xml_files_to_ena(submission_file, project_file, analysis_file)
             self.eload_cfg.set('brokering', 'ena', value=ena_uploader.results)
+            self.eload_cfg.set('brokering', 'ena', 'date', value=self.now)
+            self.eload_cfg.set('brokering', 'ena', 'pass', value=not bool(ena_uploader.results['error']))
         else:
             self.info('Brokering to ENA has already been run, Skip!')
 
     def upload_to_bioSamples(self, force=False):
         metadata_spreadsheet = self.eload_cfg['validation']['valid']['metadata_spreadsheet']
         sample_tab_submitter = SampleMetadataSubmitter(metadata_spreadsheet)
-        if not (sample_tab_submitter.check_submit_done() or self.eload_cfg.query('brokering', 'Biosamples', 'Samples'))\
-                or force:
+        if sample_tab_submitter.check_submit_done() and not force:
+            self.info('Biosamples accession already provided in the metadata, Skip!')
+            self.eload_cfg.set('brokering', 'Biosamples', 'pass', value=True)
+        elif self.eload_cfg.query('brokering', 'Biosamples', 'Samples') and not force:
+            self.info('BioSamples brokering is already done, Skip!')
+        else:
             sample_name_to_accession = sample_tab_submitter.submit_to_bioSamples()
             self.eload_cfg.set('brokering', 'Biosamples', 'date', value=self.now)
             self.eload_cfg.set('brokering', 'Biosamples', 'Samples', value=sample_name_to_accession)
-        else:
-            self.info('BioSamples brokering is already done, Skip!')
+            self.eload_cfg.set('brokering', 'Biosamples', 'pass', value=bool(sample_name_to_accession))
 
     def _run_brokering_prep_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory()
@@ -121,3 +127,56 @@ class EloadBrokering(Eload):
                 'index': output_index_file,
                 'index_md5': read_md5(output_index_file+'.md5'),
             })
+
+    def _biosamples_report(self):
+        reports = []
+        results = self.eload_cfg.query('brokering', 'Biosamples', ret_default={})
+        report_data = {
+            'samples_to_accessions': '\n'.join(['%s: %s' % (s, a) for s, a in results.get('Samples',  {}).items()]),
+            'pass': 'PASS' if results.get('pass') else 'FAIL'
+        }
+        reports.append("""  * Biosamples: {pass}
+    - Accessions: {samples_to_accessions}
+""".format(**report_data))
+        return '\n'.join(reports)
+
+    def _ena_report(self):
+        reports = []
+        results = self.eload_cfg.query('brokering', 'ena', ret_default={})
+        report_data = {
+            'samples_to_accessions': '\n'.join(['%s: %s' % (t, results.get(t))
+                                                for t in ['PROJECT','SUBMISSION', 'ANALYSIS'] if t in results]),
+            'pass': 'PASS' if results.get('pass') else 'FAIL',
+            'errors': '\n'.join(results.get('errors', [])),
+            'receipt': results.get('receipt', '')
+        }
+        reports.append("""  * ENA: {pass}
+    - Accessions: {samples_to_accessions}
+    - Errors: {errors}
+    - receipt: {receipt}
+""".format(**report_data))
+        return '\n'.join(reports)
+
+    def report(self):
+        """Collect information from the config and write the report."""
+        report_data = {
+            'brokering_date': self.eload_cfg.query('brokering', 'brokering_date'),
+            'biosamples_status': self._check_pass_or_fail(self.eload_cfg.query('brokering', 'Biosamples')),
+            'ena_status': self._check_pass_or_fail(self.eload_cfg.query('brokering', 'ena')),
+            'biosamples_report': self._biosamples_report(),
+            'ena_report': self._ena_report(),
+
+        }
+        report = """Brokering performed on {brokering_date}
+BioSamples: {biosamples_status}
+ENA: {ena_status}
+----------------------------------
+
+BioSamples brokering:
+{biosamples_report}
+----------------------------------
+
+ENA brokering:
+{ena_report}
+----------------------------------"""
+        print(report.format(**report_data))
