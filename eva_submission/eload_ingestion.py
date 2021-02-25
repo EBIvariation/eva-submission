@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+from urllib.parse import urlsplit
 from pathlib import Path
 
 import yaml
@@ -12,6 +13,7 @@ from ebi_eva_common_pyutils.metadata_utils import get_variant_warehouse_db_name_
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
 import psycopg2
 import pymongo
+from pymongo.uri_parser import split_hosts
 
 from eva_submission import ROOT_DIR
 from eva_submission.eload_submission import Eload
@@ -40,7 +42,7 @@ class EloadIngestion(Eload):
         self.settings_xml_file = cfg['maven_settings_file']
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
         self.project_dir = self.setup_project_dir()
-        self.mongo_uri = get_mongo_uri_for_eva_profile('production', self.settings_xml_file)
+        self.mongo_uri = get_mongo_uri_for_eva_profile(cfg['environment'], self.settings_xml_file)
 
     def ingest(
             self,
@@ -51,8 +53,7 @@ class EloadIngestion(Eload):
             db_name=None,
             tasks=None
     ):
-        # TODO assembly/taxonomy insertion script should be incorporated here
-        # TODO set ENA data release date (EVA-2322)
+        # TODO assembly/taxonomy insertion script should be incorporated here (EVA-2309)
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
         self.check_variant_db(db_name)
 
@@ -78,8 +79,7 @@ class EloadIngestion(Eload):
             self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'version', value=vep_version)
             self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', value=vep_cache_version)
             if aggregation == 'none':
-                merged_files = self.merge_vcfs()
-                self.vcfs_to_load = merged_files
+                self.vcfs_to_load = self.merge_vcfs()
             else:
                 self.vcfs_to_load = self.valid_vcf_filenames
             self.eload_cfg.set(self.config_section, 'variant_load', 'vcfs_to_load', value=[str(x) for x in self.vcfs_to_load])
@@ -159,7 +159,7 @@ class EloadIngestion(Eload):
         """
         project_dir = Path(cfg['projects_dir'], self.project_accession)
         os.makedirs(project_dir, exist_ok=True)
-        for _, v in project_dirs.items():
+        for v in project_dirs.values():
             os.makedirs(project_dir.joinpath(v), exist_ok=True)
         # copy valid vcfs + index to 'valid' folder
         valid_dir = project_dir.joinpath(project_dirs['valid'])
@@ -205,7 +205,8 @@ class EloadIngestion(Eload):
             )
             return [Path(f'{output_file}.gz')]
         except subprocess.CalledProcessError as e:
-            if e.output is not None and 'Duplicate sample names' in e.output:  # TODO brittle
+            # TODO properly handle requirement for horizontal merge (EVA-2334)
+            if e.output is not None and 'Duplicate sample names' in e.output:
                 self.warning('Duplicate sample names found while merging, will continue with unmerged VCFs.')
                 return self.valid_vcf_filenames
             self.error('Merging VCFs failed: aborting ingestion.')
@@ -225,7 +226,10 @@ class EloadIngestion(Eload):
             filename = vcf_path.stem
             output_vcf = self.project_dir.joinpath(project_dirs['public'], f'{filename}.accessioned.vcf')
 
-            properties_filename = self.project_dir.joinpath(project_dirs['accessions'], f'{filename}.properties')
+            properties_filename = self.project_dir.joinpath(
+                project_dirs['accessions'],
+                f'{filename}_accessioning.properties'
+            )
             with open(properties_filename, 'w+') as f:
                 f.write(accession_props_template(
                     assembly_accession=self.eload_cfg.query('submission', 'assembly_accession'),
@@ -275,8 +279,8 @@ class EloadIngestion(Eload):
         return prop_files
 
     def get_mongo_creds(self):
-        properties = get_properties_from_xml_file('production', self.settings_xml_file)
-        mongo_host = str(str(properties['eva.mongo.host']).split(',')[0]).split(':')[0]
+        properties = get_properties_from_xml_file(cfg['environment'], self.settings_xml_file)
+        mongo_host = split_hosts(properties['eva.mongo.host'])[0][0]
         mongo_user = properties['eva.mongo.user']
         mongo_pass = properties['eva.mongo.passwd']
         return mongo_host, mongo_user, mongo_pass
@@ -290,8 +294,7 @@ class EloadIngestion(Eload):
 
     def get_pg_conn(self):
         pg_url, pg_user, pg_pass = self.get_pg_creds()
-        # need to cut the jdbc: from the front of the pg_url
-        return psycopg2.connect(pg_url[5:], user=pg_user, password=pg_pass)
+        return psycopg2.connect(urlsplit(pg_url).path, user=pg_user, password=pg_pass)
 
     def get_study_name(self):
         with self.get_pg_conn() as conn:

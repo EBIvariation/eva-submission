@@ -38,7 +38,9 @@ if (!params.accession_props || !params.project_accession || !params.instance_id)
 
 accession_props = Channel.fromPath(params.accession_props)
 num_props = Channel.fromPath(params.accession_props).count().value
-// watches public dir for the same number of vcf files as there are property files
+// Watches public dir for the same number of vcf files as there are property files.
+// Note that this will ignore any files already in the public directory but not vcfs that are added
+// while the pipeline is running.
 accessioned_vcfs = Channel.watchPath(params.public_dir + '/*.vcf').take(num_props)
 
 
@@ -47,6 +49,8 @@ accessioned_vcfs = Channel.watchPath(params.public_dir + '/*.vcf').take(num_prop
  */
 process accession_vcf {
     clusterOptions '-g /accession/instance-$params.instance_id'
+
+    memory '8 GB'
 
     input:
         path accession_properties from accession_props

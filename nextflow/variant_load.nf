@@ -39,6 +39,8 @@ process load_vcf {
     input:
         path variant_load_properties from variant_load_props
 
+    memory '5 GB'
+
     """
     filename=\$(basename $variant_load_properties)
     filename=\${filename%.*}

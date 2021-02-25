@@ -1,3 +1,4 @@
+environment: 'internal'
 ftp_dir: '/path/to/ftp/dir'
 eloads_dir: '/path/to/eload/dir'
 projects_dir: '/path/to/project/dir'

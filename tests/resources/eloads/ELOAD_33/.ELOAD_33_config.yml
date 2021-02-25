@@ -16,13 +16,15 @@ ingestion:
   database:
     db_name: eva_ecaballus_30
     exists: true
-  ena_load: failure
-  ingestion_date: 2021-02-09 16:21:50.702795
+  ena_load: success
+  ingestion_date: 2021-02-25 17:23:59.064626
   project_dir: tests/resources/projects/PRJEB12345
   variant_load:
     properties:
     - tests/resources/projects/PRJEB12345/load_test1.vcf.properties
     - tests/resources/projects/PRJEB12345/load_test2.vcf.properties
+    vcfs_to_load:
+    - tests/resources/projects/PRJEB12345/31_merged/PRJEB12345_merged.vcf.gz
     vep:
       cache_version: 82
       version: 82

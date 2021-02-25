@@ -1,3 +1,4 @@
+environment: 'internal'
 ftp_dir: 'tests/resources/ftpboxes'
 eloads_dir: 'tests/resources/eloads'
 projects_dir: 'tests/resources/projects'
