@@ -71,7 +71,7 @@ def variant_load_props_template(
         stats_dir,
         db_name,
         vep_species,
-        vep_version,  # TODO vep path depends on version
+        vep_version,
         vep_cache_version,
         annotation_skip=False,
 ):
@@ -107,7 +107,7 @@ db.collections.annotations.name=annotations_2_0
 # External applications
 ## VEP
 app.vep.version={vep_version}
-app.vep.path={cfg['vep_path']}
+app.vep.path={cfg['vep_path']}/ensembl-vep-release-{vep_version}/vep
 app.vep.cache.version={vep_cache_version}
 app.vep.cache.path={cfg['vep_cache_path']}
 app.vep.cache.species={vep_species}
