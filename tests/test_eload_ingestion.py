@@ -2,6 +2,7 @@ import glob
 import os
 import shutil
 import subprocess
+from copy import deepcopy
 from unittest import TestCase, mock
 from unittest.mock import patch
 
@@ -20,11 +21,14 @@ class TestEloadIngestion(TestCase):
         os.chdir(self.top_dir)
         with patch('eva_submission.eload_ingestion.get_mongo_uri_for_eva_profile', autospec=True):
             self.eload = EloadIngestion(33)
+        # Used to restore test config after each test
+        self.original_cfg = deepcopy(self.eload.eload_cfg.content)
 
     def tearDown(self):
         projects = glob.glob(os.path.join(self.resources_folder, 'projects', 'PRJEB12345'))
         for proj in projects:
             shutil.rmtree(proj)
+        self.eload.eload_cfg.content = self.original_cfg
 
     def _mock_mongodb_client(self):
         m_db = mock.Mock()
@@ -43,6 +47,14 @@ class TestEloadIngestion(TestCase):
             'eva.mongo.user': 'mongouser',
             'eva.mongo.passwd': 'mongopass'
         }
+
+    def test_check_brokering_done(self):
+        self.eload.project_accession = None
+        with self.assertRaises(ValueError):
+            self.eload.check_brokering_done()
+        del self.eload.eload_cfg.content['brokering']
+        with self.assertRaises(ValueError):
+            self.eload.check_brokering_done()
 
     def test_check_variant_db(self):
         with patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
@@ -99,11 +111,6 @@ class TestEloadIngestion(TestCase):
         with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_execute:
             self.eload.load_from_ena()
             m_execute.assert_called_once()
-
-    def test_load_from_ena_no_project_accession(self):
-        self.eload.project_accession = None
-        with self.assertRaises(ValueError):
-            self.eload.load_from_ena()
 
     def test_load_from_ena_script_fails(self):
         with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_execute:

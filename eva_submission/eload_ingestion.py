@@ -55,6 +55,7 @@ class EloadIngestion(Eload):
     ):
         # TODO assembly/taxonomy insertion script should be incorporated here (EVA-2309)
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
+        self.check_brokering_done()
         self.check_variant_db(db_name)
 
         if not tasks:
@@ -87,6 +88,14 @@ class EloadIngestion(Eload):
             load_prop_files = self.create_variant_load_properties()
             self.eload_cfg.set(self.config_section, 'variant_load', 'properties', value=load_prop_files)
             self.run_variant_load_workflow()
+
+    def check_brokering_done(self):
+        if self.eload_cfg.query('brokering', 'vcf_files') is None:
+            self.error('No brokered VCF files found, aborting ingestion.')
+            raise ValueError('No brokered VCF files found.')
+        if self.project_accession is None:
+            self.error('No project accession in submission config, check that brokering to ENA is done. ')
+            raise ValueError('No project accession in submission config.')
 
     def get_db_name(self):
         """
@@ -130,9 +139,6 @@ class EloadIngestion(Eload):
         """
         Loads project metadata from ENA into EVADEV.
         """
-        if not self.project_accession:
-            self.error('No project accession in submission config, check that brokering to ENA is done. ')
-            raise ValueError('No project accession in submission config.')
         try:
             command_utils.run_command_with_output(
                 'Load metadata from ENA to EVADEV',
@@ -164,9 +170,6 @@ class EloadIngestion(Eload):
         # copy valid vcfs + index to 'valid' folder
         valid_dir = project_dir.joinpath(project_dirs['valid'])
         vcf_dict = self.eload_cfg.query('brokering', 'vcf_files')
-        if vcf_dict is None:
-            self.error('No brokered VCF files found, aborting ingestion.')
-            raise ValueError('No brokered VCF files found.')
         for key, val in vcf_dict.items():
             vcf_path = Path(key)
             shutil.copyfile(vcf_path, valid_dir.joinpath(vcf_path.name))
@@ -334,6 +337,7 @@ class EloadIngestion(Eload):
             )
         except subprocess.CalledProcessError as e:
             self.error('Nextflow accessioning pipeline failed: results might not be complete')
+            self.error(f'See {output_dir}/.nextflow.log for more details')
             raise e
         return output_dir
 
@@ -361,6 +365,7 @@ class EloadIngestion(Eload):
             )
         except subprocess.CalledProcessError as e:
             self.error('Nextflow variant load pipeline failed: results might not be complete')
+            self.error(f'See {output_dir}/.nextflow.log for more details')
             raise e
         return output_dir
 

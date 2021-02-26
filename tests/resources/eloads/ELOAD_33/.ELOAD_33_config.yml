@@ -7,27 +7,7 @@ brokering:
     tests/resources/eloads/ELOAD_33/18_brokering/ena/test2.vcf.gz:
       index: tests/resources/eloads/ELOAD_33/18_brokering/ena/test2.vcf.gz.tbi
 ingestion:
-  accession:
-    instance_id: 1
-    properties:
-    - tests/resources/projects/PRJEB12345/52_accessions/test1.vcf.properties
-    - tests/resources/projects/PRJEB12345/52_accessions/test2.vcf.properties
-  aggregation: none
-  database:
-    db_name: eva_ecaballus_30
-    exists: true
-  ena_load: success
-  ingestion_date: 2021-02-25 17:23:59.064626
   project_dir: tests/resources/projects/PRJEB12345
-  variant_load:
-    properties:
-    - tests/resources/projects/PRJEB12345/load_test1.vcf.properties
-    - tests/resources/projects/PRJEB12345/load_test2.vcf.properties
-    vcfs_to_load:
-    - tests/resources/projects/PRJEB12345/31_merged/PRJEB12345_merged.vcf.gz
-    vep:
-      cache_version: 82
-      version: 82
 submission:
   assembly_accession: GCA_002863925.1
   scientific_name: Equus caballus
