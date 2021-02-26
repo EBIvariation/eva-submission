@@ -337,7 +337,7 @@ class EloadIngestion(Eload):
             )
         except subprocess.CalledProcessError as e:
             self.error('Nextflow accessioning pipeline failed: results might not be complete')
-            self.error(f'See {output_dir}/.nextflow.log for more details')
+            self.error('See .nextflow.log for more details')
             raise e
         return output_dir
 
@@ -365,7 +365,7 @@ class EloadIngestion(Eload):
             )
         except subprocess.CalledProcessError as e:
             self.error('Nextflow variant load pipeline failed: results might not be complete')
-            self.error(f'See {output_dir}/.nextflow.log for more details')
+            self.error('See .nextflow.log for more details')
             raise e
         return output_dir
 
