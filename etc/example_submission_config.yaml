@@ -1,7 +1,12 @@
+environment: 'internal'
 ftp_dir: '/path/to/ftp/dir'
 eloads_dir: '/path/to/eload/dir'
+projects_dir: '/path/to/project/dir'
 eutils_api_key: 1234556lkxflk
 maven_settings_file: '/path/to/settings/file'
+eva_pipeline_props: '/path/to/pipeline/properties'
+vep_path: '/path/to/vep'
+vep_cache_path: '/path/to/vep/cache'
 
 
 genome_downloader:
@@ -13,6 +18,14 @@ executable:
   vcf_assembly_checker: /path/to/vcf_assembly_checker
   vcf_validator: /path/to/vcf_validator
   load_from_ena: /path/to/load_from_ena_script
+  copy_to_ftp: /path/to/copy_to_ftp_script
+  bcftools: /path/to/bcftools
+  bgzip: /path/to/bgzip
+
+
+jar:
+  accession_pipeline: /path/to/accession_pipeline.jar
+  eva_pipeline: /path/to/eva_pipeline.jar
 
 
 biosamples:
