@@ -1,6 +1,6 @@
 cached-property
 cerberus
-ebi_eva_common_pyutils
+ebi_eva_common_pyutils==0.3.8
 humanize
 openpyxl
 psycopg2-binary

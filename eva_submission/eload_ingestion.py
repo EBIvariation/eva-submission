@@ -211,13 +211,10 @@ class EloadIngestion(Eload):
                 )
                 return [Path(f'{output_file}.gz')]
             except subprocess.CalledProcessError as e:
-                # TODO properly handle requirement for horizontal merge (EVA-2334)
-                if e.output is not None and 'Duplicate sample names' in e.output:
-                    self.warning('Duplicate sample names found while merging, will continue with unmerged VCFs.')
-                    return self.valid_vcf_filenames
                 self.error('Merging VCFs failed: aborting ingestion.')
                 self.eload_cfg.set(self.config_section, 'variant_load', 'vcfs_to_load', value='merge failed')
                 raise e
+        return self.valid_vcf_filenames
 
     def create_accession_properties(self):
         """
@@ -379,7 +376,7 @@ class EloadIngestion(Eload):
     @cached_property
     def vcf_merge_type(self):
         file_to_sample_names = {}
-        # retrieve all the sample_names
+        # retrieve all the sample_names from the VCF files
         for file_path in self.valid_vcf_filenames:
             file_to_sample_names[file_path] = get_samples_from_vcf(file_path)
         # Check that all the samples are the same and in the same order to enable horizontal merging

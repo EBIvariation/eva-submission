@@ -4,7 +4,7 @@ import shutil
 import subprocess
 from copy import deepcopy
 from unittest import TestCase, mock
-from unittest.mock import patch
+from unittest.mock import patch, PropertyMock
 
 from eva_submission.eload_ingestion import EloadIngestion
 from eva_submission.submission_config import load_config
@@ -121,23 +121,15 @@ class TestEloadIngestion(TestCase):
 
     def test_merge_vcfs(self):
         expected = ['tests/resources/projects/PRJEB12345/31_merged/PRJEB12345_merged.vcf.gz']
-        with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
-            self.assertEqual(expected, sorted(str(x) for x in self.eload.merge_vcfs()))
-
-    def test_merge_vcfs_duplicate_names(self):
-        expected = [
-            'tests/resources/projects/PRJEB12345/30_eva_valid/test1.vcf.gz',
-            'tests/resources/projects/PRJEB12345/30_eva_valid/test2.vcf.gz'
-        ]
-        with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_execute:
-            m_execute.side_effect = subprocess.CalledProcessError(
-                1, 'some command',
-                'Error: Duplicate sample names (HG002), use --force-samples to proceed anyway.'
-            )
+        with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
+             patch.object(EloadIngestion, 'vcf_merge_type',
+                          new_callable=PropertyMock(return_value='horizontal merging')):
             self.assertEqual(expected, sorted(str(x) for x in self.eload.merge_vcfs()))
 
     def test_merge_vcfs_error(self):
-        with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_execute:
+        with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_execute, \
+                patch.object(EloadIngestion, 'vcf_merge_type',
+                             new_callable=PropertyMock(return_value='horizontal merging')):
             m_execute.side_effect = subprocess.CalledProcessError(1, 'some command')
             with self.assertRaises(subprocess.CalledProcessError):
                 self.eload.merge_vcfs()
@@ -148,7 +140,9 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
-                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
+                patch.object(EloadIngestion, 'vcf_merge_type',
+                             new_callable=PropertyMock(return_value='horizontal merging')):
             m_properties.return_value = self._fake_properties_dict()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             m_get_results.return_value = [('Test Study Name')]
@@ -178,7 +172,9 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
-                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
+                patch.object(EloadIngestion, 'vcf_merge_type',
+                             new_callable=PropertyMock(return_value='horizontal merging')):
             m_properties.return_value = self._fake_properties_dict()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             m_get_results.return_value = [('Test Study Name')]
