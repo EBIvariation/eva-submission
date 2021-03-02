@@ -2,6 +2,7 @@ cached-property
 cerberus
 ebi_eva_common_pyutils
 humanize
+lxml
 openpyxl
 psycopg2-binary
 pymongo
