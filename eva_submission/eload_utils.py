@@ -1,4 +1,5 @@
 import glob
+import itertools
 import os
 
 from ebi_eva_common_pyutils.assembly import NCBIAssembly
@@ -47,3 +48,26 @@ def get_file_content(file_path):
 def cast_list(l, type_to_cast=str):
     for e in l:
         yield type_to_cast(e)
+
+
+def compare_sample_sets(list_of_sample_names):
+    set_of_sample_names = set(tuple(s) for s in list_of_sample_names)
+    set_of_sample_names_sorted = set([tuple(sorted(list(s))) for s in set_of_sample_names])
+    if len(set_of_sample_names) == 1:
+        return 'single set'
+    elif len(set_of_sample_names_sorted) == 1:
+        return 'unsorted single set'
+    elif are_all_elements_unique(itertools.chain(*list_of_sample_names)):
+        return 'unique sample sets'
+    elif len(set_of_sample_names_sorted) == len(list_of_sample_names):
+        return 'overlapping sample names'
+
+
+def are_all_elements_unique(elements):
+    """Check if there are any repeated element in the list of element. If yes return False otherwise return True"""
+    unique_elements = set()
+    for element in elements:
+        if element in unique_elements:
+            return False
+        unique_elements.add(element)
+    return True

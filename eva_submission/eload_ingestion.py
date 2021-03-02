@@ -17,7 +17,9 @@ from pymongo.uri_parser import split_hosts
 
 from eva_submission import ROOT_DIR
 from eva_submission.eload_submission import Eload
+from eva_submission.eload_utils import compare_sample_sets
 from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
+from eva_submission.samples_checker import get_samples_from_vcf
 
 project_dirs = {
     'logs': '00_logs',
@@ -186,35 +188,36 @@ class EloadIngestion(Eload):
         Returns the list of filenames that should be used for the load pipeline, i.e. either
         a singleton list with the merged filename, or the list of valid VCFs.
         """
-        merged_dir = self.project_dir.joinpath(project_dirs['merged'])
-        output_file = str(merged_dir.joinpath(f'{self.project_accession}_merged.vcf'))
-        list_file = str(merged_dir.joinpath('all_files.list'))
-        with open(list_file, 'w+') as f:
-            f.write('\n'.join(str(fn) for fn in self.valid_vcf_filenames))
-        try:
-            command_utils.run_command_with_output(
-                'Merge VCFs',
-                ' '.join((
-                    cfg['executable']['bcftools'], 'merge'
-                    '--merge', 'all',
-                    '--file-list', list_file,
-                    '--threads', '3',
-                    '-o', output_file
-                ))
-            )
-            command_utils.run_command_with_output(
-                'Bgzip merged vcf file',
-                ' '.join((cfg['executable']['bgzip'], output_file))
-            )
-            return [Path(f'{output_file}.gz')]
-        except subprocess.CalledProcessError as e:
-            # TODO properly handle requirement for horizontal merge (EVA-2334)
-            if e.output is not None and 'Duplicate sample names' in e.output:
-                self.warning('Duplicate sample names found while merging, will continue with unmerged VCFs.')
-                return self.valid_vcf_filenames
-            self.error('Merging VCFs failed: aborting ingestion.')
-            self.eload_cfg.set(self.config_section, 'variant_load', 'vcfs_to_load', value='merge failed')
-            raise e
+        if self.vcf_merge_type == 'horizontal merging':
+            merged_dir = self.project_dir.joinpath(project_dirs['merged'])
+            output_file = str(merged_dir.joinpath(f'{self.project_accession}_merged.vcf'))
+            list_file = str(merged_dir.joinpath('all_files.list'))
+            with open(list_file, 'w+') as f:
+                f.write('\n'.join(str(fn) for fn in self.valid_vcf_filenames))
+            try:
+                command_utils.run_command_with_output(
+                    'Merge VCFs',
+                    ' '.join((
+                        cfg['executable']['bcftools'], 'merge'
+                        '--merge', 'all',
+                        '--file-list', list_file,
+                        '--threads', '3',
+                        '-o', output_file
+                    ))
+                )
+                command_utils.run_command_with_output(
+                    'Bgzip merged vcf file',
+                    ' '.join((cfg['executable']['bgzip'], output_file))
+                )
+                return [Path(f'{output_file}.gz')]
+            except subprocess.CalledProcessError as e:
+                # TODO properly handle requirement for horizontal merge (EVA-2334)
+                if e.output is not None and 'Duplicate sample names' in e.output:
+                    self.warning('Duplicate sample names found while merging, will continue with unmerged VCFs.')
+                    return self.valid_vcf_filenames
+                self.error('Merging VCFs failed: aborting ingestion.')
+                self.eload_cfg.set(self.config_section, 'variant_load', 'vcfs_to_load', value='merge failed')
+                raise e
 
     def create_accession_properties(self):
         """
@@ -372,3 +375,16 @@ class EloadIngestion(Eload):
     @cached_property
     def valid_vcf_filenames(self):
         return list(self.project_dir.joinpath(project_dirs['valid']).glob('*.vcf.gz'))
+
+    @cached_property
+    def vcf_merge_type(self):
+        file_to_sample_names = {}
+        # retrieve all the sample_names
+        for file_path in self.valid_vcf_filenames:
+            file_to_sample_names[file_path] = get_samples_from_vcf(file_path)
+        # Check that all the samples are the same and in the same order to enable horizontal merging
+        sample_info = compare_sample_sets(file_to_sample_names.values())
+        if sample_info == 'unique sample sets':
+            return 'horizontal merging'
+        elif sample_info == 'single set':
+            return 'vertical merging'
