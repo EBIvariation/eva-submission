@@ -16,6 +16,7 @@ import pymongo
 from pymongo.uri_parser import split_hosts
 
 from eva_submission import ROOT_DIR
+from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy
 from eva_submission.eload_submission import Eload
 from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
 
@@ -53,7 +54,6 @@ class EloadIngestion(Eload):
             db_name=None,
             tasks=None
     ):
-        # TODO assembly/taxonomy insertion script should be incorporated here (EVA-2309)
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
         self.check_brokering_done()
         self.check_variant_db(db_name)
@@ -63,6 +63,14 @@ class EloadIngestion(Eload):
 
         if 'metadata_load' in tasks:
             self.load_from_ena()
+            with self.get_pg_conn() as conn:
+                # TODO need to check first?
+                insert_new_assembly_and_taxonomy(
+                    assembly_accession=self.eload_cfg.query('submission', 'assembly_accession'),
+                    taxonomy_id=self.eload_cfg.query('submission', 'taxonomy_id'),
+                    conn=conn,
+                    assembly_code=''  # TODO what should this be, given new database naming?
+                )
         do_accession = 'accession' in tasks
         do_variant_load = 'variant_load' in tasks
 

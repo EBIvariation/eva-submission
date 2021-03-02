@@ -148,9 +148,9 @@ def insert_taxonomy(conn, taxonomy_id, scientific_name, common_name, taxonomy_co
 
 def insert_new_assembly_and_taxonomy(
         assembly_accession,
-        assembly_code,  # TODO what should this be?
+        assembly_code,
         conn,
-        taxonomy=None,
+        taxonomy_id,
         eva_name=None,
         in_accessioning=True,
         simulate=False
@@ -167,7 +167,7 @@ def insert_new_assembly_and_taxonomy(
     :param assembly_accession: Assembly accession (Example: GCA_000002315.3)
     :param assembly_code: Assembly code (Example: galgal5)
     :param conn: DB connection
-    :param taxonomy: Assembly code (Example: galgal5)
+    :param taxonomy_id: Taxonomy id (Example: 9031)
     :param eva_name: EVA name (Example: chicken).
         Not required if the taxonomy exists or ENA has a common name available.
     :param in_accessioning: Flag that this assembly is in the accessioning data store.
@@ -176,21 +176,20 @@ def insert_new_assembly_and_taxonomy(
     """
     # check if assembly is already in EVAPRO, adding it if not
     assembly_name, official_taxonomy = get_assembly_name_and_taxonomy_id(assembly_accession)
-    if taxonomy is not None:
-        if taxonomy != official_taxonomy:
+    if taxonomy_id is not None:
+        if taxonomy_id != official_taxonomy:
             logger.warning("Adding taxonomy {} for assembly {}, although the standard taxonomy is {}".format(
-                taxonomy, assembly_accession, official_taxonomy))
+                taxonomy_id, assembly_accession, official_taxonomy))
     else:
-        taxonomy = official_taxonomy
+        taxonomy_id = official_taxonomy
 
-    assembly_set_id = get_assembly_set(conn, taxonomy, assembly_accession)
+    assembly_set_id = get_assembly_set(conn, taxonomy_id, assembly_accession)
     if assembly_set_id is not None:
-        logger.warning("Assembly set id {} already links taxonomy {} and assembly {}".format(assembly_set_id,
-                                                                                             taxonomy,
-                                                                                             assembly_accession))
+        logger.warning("Assembly set id {} already links taxonomy {} and assembly {}".format(
+            assembly_set_id, taxonomy_id, assembly_accession))
     else:
-        ensure_taxonomy_is_in_evapro(conn, taxonomy, eva_name, simulate)
-        insert_assembly(conn, taxonomy, assembly_accession, assembly_name, assembly_code, simulate)
+        ensure_taxonomy_is_in_evapro(conn, taxonomy_id, eva_name, simulate)
+        insert_assembly(conn, taxonomy_id, assembly_accession, assembly_name, assembly_code, simulate)
 
     update_accessioning_status(conn, assembly_accession, in_accessioning, simulate)
 
