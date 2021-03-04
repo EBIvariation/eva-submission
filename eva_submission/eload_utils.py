@@ -61,6 +61,8 @@ def compare_sample_sets(list_of_sample_names):
         return 'unique sample sets'
     elif len(set_of_sample_names_sorted) == len(list_of_sample_names):
         return 'overlapping sample names'
+    else:
+        return None
 
 
 def are_all_elements_unique(elements):

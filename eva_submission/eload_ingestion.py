@@ -385,3 +385,5 @@ class EloadIngestion(Eload):
             return 'horizontal merging'
         elif sample_info == 'single set':
             return 'vertical merging'
+        else:
+            return None
