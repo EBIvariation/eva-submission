@@ -7,5 +7,5 @@ psycopg2-binary
 pymongo
 pysam
 pyyaml
-requests[security]
+requests
 retry
