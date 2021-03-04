@@ -63,14 +63,6 @@ class EloadIngestion(Eload):
 
         if 'metadata_load' in tasks:
             self.load_from_ena()
-            with self.get_pg_conn() as conn:
-                # TODO need to check first?
-                insert_new_assembly_and_taxonomy(
-                    assembly_accession=self.eload_cfg.query('submission', 'assembly_accession'),
-                    taxonomy_id=self.eload_cfg.query('submission', 'taxonomy_id'),
-                    conn=conn,
-                    assembly_code=''  # TODO what should this be, given new database naming?
-                )
         do_accession = 'accession' in tasks
         do_variant_load = 'variant_load' in tasks
 
@@ -125,10 +117,20 @@ class EloadIngestion(Eload):
     def check_variant_db(self, db_name=None):
         """
         Checks mongo for the right variant database.
-        If db_name is provided it will check for that, otherwise it will construct the expected database name.
+        If db_name is omitted, looks up the name in metadata DB and checks mongo for that.
+        If db_name is provided, it will also attempt to insert into the metadata DB before checking mongo.
         """
         if not db_name:
             db_name = self.get_db_name()
+        else:
+            with self.get_pg_conn() as conn:
+                # warns but doesn't crash if assembly set already exists
+                insert_new_assembly_and_taxonomy(
+                    assembly_accession=self.eload_cfg.query('submission', 'assembly_accession'),
+                    taxonomy_id=self.eload_cfg.query('submission', 'taxonomy_id'),
+                    db_name=db_name,
+                    conn=conn
+                )
         self.eload_cfg.set(self.config_section, 'database', 'db_name', value=db_name)
 
         with pymongo.MongoClient(self.mongo_uri) as db:
