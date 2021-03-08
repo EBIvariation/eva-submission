@@ -7,13 +7,17 @@ def helpMessage() {
     Inputs:
             --variant_load_props    properties files for variant load
             --eva_pipeline_props    main properties file for eva pipeline
+            --project_accession     project accession
             --logs_dir              logs directory
     """
 }
 
 params.variant_load_props = null
 params.eva_pipeline_props = null
+params.project_accession = null
 params.logs_dir = null
+// executables
+params.executable = ["bgzip": "bgzip", "bcftools": "bcftools"]
 // java jars
 params.jar = ["eva_pipeline": "eva_pipeline"]
 // help
@@ -32,9 +36,73 @@ if (!params.variant_load_props || !params.eva_pipeline_props) {
 variant_load_props = Channel.fromPath(params.variant_load_props)
 
 
+process prepare_files_to_load {
+    input:
+    path ... from valid_vcfs
+
+    output:
+    path ... into vcfs_to_load
+
+    script:
+    if( needs_merge )
+	// create file list, merge, compress
+    else
+	// copy to output directly?
+}
+
+
+process create_properties {
+    input:
+    path vcf_file from vcfs_to_load
+
+    output:
+    path "load_${vcf_file}.properties" into load_properties
+
+    """
+
+    """
+}
+
+
 /*
-* Load into variant db.
-*/
+ * Merge VCFs by sample. TODO: move conditional logic in here
+ */
+process merge_vcfs {
+    publishDir params.merged_dir,
+	mode: 'copy'
+
+    input:
+        path file_list from ...
+
+    output:
+        path ${params.project_accession}_merged.vcf into merged_vcf
+
+
+    """
+    $params.executable.bcftools merge --merge all --file-list $file_list --threads 3 -o ${params.project_accession}_merged.vcf
+    """
+}
+
+
+/*
+ * Compress merged vcf file.  TODO: how to route this to properties file appropriately?
+ */
+process compress_vcf {
+    publishDir params.merged_dir,
+	mode: 'copy'
+
+    input:
+        path vcf_file from merged_vcf
+
+    """
+    $params.executable.bgzip -c $vcf_file > ${vcf_file}.gz
+    """
+}
+
+
+/*
+ * Load into variant db.
+ */
 process load_vcf {
     input:
         path variant_load_properties from variant_load_props
