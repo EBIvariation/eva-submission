@@ -33,50 +33,26 @@ if (!params.variant_load_props || !params.eva_pipeline_props) {
     exit 1, helpMessage()
 }
 
-variant_load_props = Channel.fromPath(params.variant_load_props)
+//variant_load_props = Channel.fromPath(params.variant_load_props)
 
 
-process prepare_files_to_load {
-    input:
-    path ... from valid_vcfs
-
-    output:
-    path ... into vcfs_to_load
-
-    script:
-    if( needs_merge )
-	// create file list, merge, compress
-    else
-	// copy to output directly?
-}
-
-
-process create_properties {
-    input:
-    path vcf_file from vcfs_to_load
-
-    output:
-    path "load_${vcf_file}.properties" into load_properties
-
-    """
-
-    """
-}
+// valid vcfs redirected to merge step or directly to load
+Channel.from(params.valid_vcfs)
+    .branch {
+	vcfs_to_merge: params.needs_merge
+	vcfs_to_load: true
+    }
 
 
 /*
- * Merge VCFs by sample. TODO: move conditional logic in here
+ * Merge VCFs by sample.
  */
 process merge_vcfs {
-    publishDir params.merged_dir,
-	mode: 'copy'
-
     input:
-        path file_list from ...
+    path file_list from vcfs_to_merge.collectFile('all_files.list', newLine: true)
 
     output:
-        path ${params.project_accession}_merged.vcf into merged_vcf
-
+    path ${params.project_accession}_merged.vcf into merged_vcf
 
     """
     $params.executable.bcftools merge --merge all --file-list $file_list --threads 3 -o ${params.project_accession}_merged.vcf
@@ -85,17 +61,33 @@ process merge_vcfs {
 
 
 /*
- * Compress merged vcf file.  TODO: how to route this to properties file appropriately?
+ * Compress merged vcf file.
  */
 process compress_vcf {
-    publishDir params.merged_dir,
-	mode: 'copy'
-
     input:
-        path vcf_file from merged_vcf
+    path vcf_file from merged_vcf
+
+    output:
+    path "${vcf_file}.gz" into vcfs_to_load
 
     """
     $params.executable.bgzip -c $vcf_file > ${vcf_file}.gz
+    """
+}
+
+
+process create_properties {
+    publishDir params.project_dir,
+	mode: 'copy'
+
+    input:
+    path vcf_file from vcfs_to_load
+
+    output:
+    path "load_${vcf_file}.properties" into variant_load_props
+
+    """
+
     """
 }
 
