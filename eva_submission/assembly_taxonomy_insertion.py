@@ -23,7 +23,7 @@ def get_assembly_name_and_taxonomy_id(assembly_accession):
     xml_root = download_xml_from_ena(assembly_accession)
     xml_assembly = xml_root.xpath('/ASSEMBLY_SET/ASSEMBLY')
     if len(xml_assembly) == 0:
-        raise Exception(f'Assembly {assembly_accession} not found in ENA')
+        raise ValueError(f'Assembly {assembly_accession} not found in ENA')
     assembly_name = xml_assembly[0].get('alias')
     taxonomy_id = int(xml_assembly[0].xpath('TAXON/TAXON_ID')[0].text)
     return assembly_name, taxonomy_id
@@ -33,7 +33,7 @@ def get_scientific_name_and_common_name(taxonomy_id):
     xml_root = download_xml_from_ena(taxonomy_id)
     xml_taxon = xml_root.xpath('/TAXON_SET/taxon')
     if len(xml_taxon) == 0:
-        raise Exception(f'Taxonomy {taxonomy_id} not found in ENA')
+        raise ValueError(f'Taxonomy {taxonomy_id} not found in ENA')
     scientific_name = xml_taxon[0].get('scientificName')
     optional_common_name = xml_taxon[0].get('commonName')
     return scientific_name, optional_common_name
@@ -51,8 +51,8 @@ def get_assembly_set(conn, taxonomy, assembly_accession):
     elif len(rows) == 0:
         return None
     else:
-        raise Exception('Inconsistent database state: several assembly_set_ids for the same taxonomy ({}) and assembly '
-                        'accession ({}): {}'.format(taxonomy, assembly_accession, rows))
+        raise ValueError('Inconsistent database state: several assembly_set_ids for the same taxonomy ({}) and '
+                         'assembly accession ({}): {}'.format(taxonomy, assembly_accession, rows))
 
 
 def is_taxonomy_in_evapro(conn, taxonomy_id):
@@ -75,7 +75,7 @@ def ensure_taxonomy_is_in_evapro(conn, taxonomy, eva_species_name):
         taxonomy_code = build_taxonomy_code(scientific_name)
         eva_species_name = eva_species_name if eva_species_name is not None else common_name
         if eva_species_name is None:
-            raise Exception(
+            raise ValueError(
                 'The taxonomy in ENA doesn\'t include a common name. '
                 'Please specify the EVA name for the species "{}"'.format(scientific_name))
         insert_taxonomy(conn, taxonomy, scientific_name, common_name, taxonomy_code, eva_species_name)
@@ -118,8 +118,8 @@ def update_accessioning_status(conn, assembly_accession, in_accessioning_flag):
 
 def insert_taxonomy(conn, taxonomy_id, scientific_name, common_name, taxonomy_code, eva_species_name):
     if taxonomy_code is None or eva_species_name is None:
-        raise Exception('Error: taxonomy code ({}) and EVA taxonomy name ({}) are required '
-                        'for inserting a taxonomy'.format(taxonomy_code, eva_species_name))
+        raise ValueError('Error: taxonomy code ({}) and EVA taxonomy name ({}) are required '
+                         'for inserting a taxonomy'.format(taxonomy_code, eva_species_name))
     cur = conn.cursor()
     cur.execute('INSERT INTO evapro.taxonomy(taxonomy_id, common_name, scientific_name, taxonomy_code, eva_name) '
                 'VALUES (%s, %s, %s, %s, %s)',
