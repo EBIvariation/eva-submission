@@ -6,9 +6,15 @@ public_dir: ../../../project/public
 accession_props:
 - accession_test1.vcf.gz.properties
 - accession_test2.vcf.gz.properties
-variant_load_props:
-- load_PRJEB12345_merged.vcf.gz.properties
+
+valid_vcfs:
+- test1.vcf.gz
+- test2.vcf.gz
+needs_merge: true
 eva_pipeline_props: test_eva_pipeline.properties
+job_props:
+  test.prop1: a
+  test.prop2: b
 
 executable:
   bcftools: ../../../bin/fake_bcftools.sh
