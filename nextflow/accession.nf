@@ -53,7 +53,7 @@ process accession_vcf {
     memory '8 GB'
 
     input:
-        path accession_properties from accession_props
+    path accession_properties from accession_props
 
     """
     filename=\$(basename $accession_properties)
@@ -73,12 +73,11 @@ process compress_vcf {
 	mode: 'copy'
 
     input:
-        path vcf_file from accessioned_vcfs
+    path vcf_file from accessioned_vcfs
 
     output:
-        // used by both tabix and csi indexing processes
-        path "${vcf_file}.gz" into compressed_vcf1
-        path "${vcf_file}.gz" into compressed_vcf2
+    // used by both tabix and csi indexing processes
+    path "${vcf_file}.gz" into compressed_vcf1, compressed_vcf2
 
     """
     $params.executable.bgzip -c $vcf_file > ${vcf_file}.gz
@@ -94,10 +93,10 @@ process tabix_index_vcf {
 	mode: 'copy'
 
     input:
-        path compressed_vcf from compressed_vcf1
+    path compressed_vcf from compressed_vcf1
 
     output:
-        path "${compressed_vcf}.tbi" into tbi_indexed_vcf
+    path "${compressed_vcf}.tbi" into tbi_indexed_vcf
 
     """
     $params.executable.tabix -p vcf $compressed_vcf
@@ -110,10 +109,10 @@ process csi_index_vcf {
 	mode: 'copy'
 
     input:
-        path compressed_vcf from compressed_vcf2
+    path compressed_vcf from compressed_vcf2
 
     output:
-        path "${compressed_vcf}.csi" into csi_indexed_vcf
+    path "${compressed_vcf}.csi" into csi_indexed_vcf
 
     """
     $params.executable.bcftools index -c $compressed_vcf
@@ -126,9 +125,9 @@ process csi_index_vcf {
  */
  process copy_to_ftp {
     input:
-        // ensures that all indices are done before we copy
-        file csi_indices from csi_indexed_vcf.toList()
-        file tbi_indices from tbi_indexed_vcf.toList()
+    // ensures that all indices are done before we copy
+    file csi_indices from csi_indexed_vcf.toList()
+    file tbi_indices from tbi_indexed_vcf.toList()
 
     """
     cd $params.public_dir

@@ -42,12 +42,12 @@ process compress_vcf {
             mode: "copy"
 
     input:
-        path vcf_file from vcf_channel
+    path vcf_file from vcf_channel
 
     output:
-        path "output/*.gz" into compressed_vcf1
-        path "output/*.gz" into compressed_vcf2
-        path "output/*.gz" into compressed_vcf3
+    path "output/*.gz" into compressed_vcf1
+    path "output/*.gz" into compressed_vcf2
+    path "output/*.gz" into compressed_vcf3
 
     """
     mkdir output
@@ -71,10 +71,10 @@ process csi_index_vcf {
             mode: "copy"
 
     input:
-        path compressed_vcf from compressed_vcf1
+    path compressed_vcf from compressed_vcf1
 
     output:
-        path "${compressed_vcf}.csi" into csi_indexed_vcf
+    path "${compressed_vcf}.csi" into csi_indexed_vcf
 
     """
     $params.executable.bcftools index -c $compressed_vcf
@@ -88,10 +88,10 @@ process tabix_index_vcf {
             mode: "copy"
 
     input:
-        path compressed_vcf from compressed_vcf2
+    path compressed_vcf from compressed_vcf2
 
     output:
-        path "${compressed_vcf}.tbi" into tbi_indexed_vcf
+    path "${compressed_vcf}.tbi" into tbi_indexed_vcf
 
     """
     $params.executable.tabix -p vcf $compressed_vcf
@@ -110,14 +110,14 @@ process md5_vcf_and_index {
             mode: "copy"
 
     input:
-        path vcf from compressed_vcf3
-        path index from tbi_indexed_vcf
-        path index2 from csi_indexed_vcf
+    path vcf from compressed_vcf3
+    path index from tbi_indexed_vcf
+    path index2 from csi_indexed_vcf
 
     output:
-        path "${vcf}.md5" into vcf_md5
-        path "${index}.md5" into index_md5
-        path "${index2}.md5" into index2_md5
+    path "${vcf}.md5" into vcf_md5
+    path "${index}.md5" into index_md5
+    path "${index2}.md5" into index2_md5
 
     """
     $params.executable.md5sum ${vcf} > ${vcf}.md5
