@@ -16,6 +16,7 @@ import pymongo
 from pymongo.uri_parser import split_hosts
 
 from eva_submission import ROOT_DIR
+from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy
 from eva_submission.eload_submission import Eload
 from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
 
@@ -53,7 +54,6 @@ class EloadIngestion(Eload):
             db_name=None,
             tasks=None
     ):
-        # TODO assembly/taxonomy insertion script should be incorporated here (EVA-2309)
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
         self.check_brokering_done()
         self.check_variant_db(db_name)
@@ -117,10 +117,20 @@ class EloadIngestion(Eload):
     def check_variant_db(self, db_name=None):
         """
         Checks mongo for the right variant database.
-        If db_name is provided it will check for that, otherwise it will construct the expected database name.
+        If db_name is omitted, looks up the name in metadata DB and checks mongo for that.
+        If db_name is provided, it will also attempt to insert into the metadata DB before checking mongo.
         """
         if not db_name:
             db_name = self.get_db_name()
+        else:
+            with self.get_pg_conn() as conn:
+                # warns but doesn't crash if assembly set already exists
+                insert_new_assembly_and_taxonomy(
+                    assembly_accession=self.eload_cfg.query('submission', 'assembly_accession'),
+                    taxonomy_id=self.eload_cfg.query('submission', 'taxonomy_id'),
+                    db_name=db_name,
+                    conn=conn
+                )
         self.eload_cfg.set(self.config_section, 'database', 'db_name', value=db_name)
 
         with pymongo.MongoClient(self.mongo_uri) as db:
