@@ -18,7 +18,7 @@ from pymongo.uri_parser import split_hosts
 from eva_submission import ROOT_DIR
 from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy
 from eva_submission.eload_submission import Eload
-from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
+from eva_submission.ingestion_templates import accession_props_template
 
 project_dirs = {
     'logs': '00_logs',
@@ -72,6 +72,7 @@ class EloadIngestion(Eload):
 
         if do_accession:
             self.eload_cfg.set(self.config_section, 'accession', 'instance_id', value=instance_id)
+            # TODO move accession prop creation to nextflow
             accession_prop_files = self.create_accession_properties()
             self.eload_cfg.set(self.config_section, 'accession', 'properties', value=accession_prop_files)
             self.run_accession_workflow()
@@ -79,14 +80,6 @@ class EloadIngestion(Eload):
         if do_variant_load:
             self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'version', value=vep_version)
             self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', value=vep_cache_version)
-            if aggregation == 'none':
-                self.vcfs_to_load = self.merge_vcfs()
-            else:
-                self.vcfs_to_load = self.valid_vcf_filenames
-            self.eload_cfg.set(self.config_section, 'variant_load', 'vcfs_to_load', value=[str(x) for x in self.vcfs_to_load])
-
-            load_prop_files = self.create_variant_load_properties()
-            self.eload_cfg.set(self.config_section, 'variant_load', 'properties', value=load_prop_files)
             self.run_variant_load_workflow()
 
     def check_brokering_done(self):
@@ -188,44 +181,6 @@ class EloadIngestion(Eload):
         self.eload_cfg.set(self.config_section, 'project_dir', value=str(project_dir))
         return project_dir
 
-    def merge_vcfs(self):
-        """
-        Attempts to merge valid VCFs by sample.
-        If duplicate sample names are detected, this will assume files are split horizontally
-        and so no merge is necessary.
-        Returns the list of filenames that should be used for the load pipeline, i.e. either
-        a singleton list with the merged filename, or the list of valid VCFs.
-        """
-        merged_dir = self.project_dir.joinpath(project_dirs['merged'])
-        output_file = str(merged_dir.joinpath(f'{self.project_accession}_merged.vcf'))
-        list_file = str(merged_dir.joinpath('all_files.list'))
-        with open(list_file, 'w+') as f:
-            f.write('\n'.join(str(fn) for fn in self.valid_vcf_filenames))
-        try:
-            command_utils.run_command_with_output(
-                'Merge VCFs',
-                ' '.join((
-                    cfg['executable']['bcftools'], 'merge'
-                    '--merge', 'all',
-                    '--file-list', list_file,
-                    '--threads', '3',
-                    '-o', output_file
-                ))
-            )
-            command_utils.run_command_with_output(
-                'Bgzip merged vcf file',
-                ' '.join((cfg['executable']['bgzip'], output_file))
-            )
-            return [Path(f'{output_file}.gz')]
-        except subprocess.CalledProcessError as e:
-            # TODO properly handle requirement for horizontal merge (EVA-2334)
-            if e.output is not None and 'Duplicate sample names' in e.output:
-                self.warning('Duplicate sample names found while merging, will continue with unmerged VCFs.')
-                return self.valid_vcf_filenames
-            self.error('Merging VCFs failed: aborting ingestion.')
-            self.eload_cfg.set(self.config_section, 'variant_load', 'vcfs_to_load', value='merge failed')
-            raise e
-
     def create_accession_properties(self):
         """
         Creates properties files for the accessioning pipeline, one for each VCF file.
@@ -264,32 +219,41 @@ class EloadIngestion(Eload):
             prop_files.append(str(properties_filename))
         return prop_files
 
-    def create_variant_load_properties(self):
+    def get_load_job_properties(self):
         """
-        Creates properties files for the variant load pipeline, one for each VCF file.
+        Get all properties needed for this variant load job, except for the vcf file
+        which is filled in after (optional) merge.
         """
-        prop_files = []
-        for vcf_path in self.vcfs_to_load:
-            filename = vcf_path.stem
-            properties_filename = self.project_dir.joinpath(f'load_{filename}.properties')
-            with open(properties_filename, 'w+') as f:
-                f.write(variant_load_props_template(
-                    project_accession=self.project_accession,
-                    analysis_accession=self.eload_cfg.query('brokering', 'ena', 'ANALYSIS'),
-                    vcf_path=vcf_path,
-                    aggregation=self.eload_cfg.query(self.config_section, 'aggregation'),
-                    study_name=self.get_study_name(),
-                    fasta=self.eload_cfg.query('submission', 'assembly_fasta'),
-                    output_dir=self.project_dir.joinpath(project_dirs['transformed']),
-                    annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
-                    stats_dir=self.project_dir.joinpath(project_dirs['stats']),
-                    db_name=self.eload_cfg.query(self.config_section, 'database', 'db_name'),
-                    vep_species=self.get_vep_species(),
-                    vep_version=self.eload_cfg.query(self.config_section, 'variant_load', 'vep', 'version'),
-                    vep_cache_version=self.eload_cfg.query(self.config_section, 'variant_load', 'vep', 'cache_version')
-                ))
-            prop_files.append(str(properties_filename))
-        return prop_files
+        aggregation = self.eload_cfg.query(self.config_section, 'aggregation')
+        vep_version = self.eload_cfg.query(self.config_section, 'variant_load', 'vep', 'version')
+        return {
+            'spring.batch.job.names': 'genotyped-vcf-job' if aggregation == 'none' else 'aggregated-vcf-job',
+            'input.study.id': self.project_accession,
+            'input.vcf.id': self.eload_cfg.query('brokering', 'ena', 'ANALYSIS'),
+            'input.vcf.aggregation': aggregation,
+            'input.study.name': self.get_study_name(),
+            'input.study.type': 'COLLECTION',
+            'input.fasta': self.eload_cfg.query('submission', 'assembly_fasta'),
+            'output.dir': str(self.project_dir.joinpath(project_dirs['transformed'])),
+            'output.dir.annotation': str(self.project_dir.joinpath(project_dirs['annotation'])),
+            'output.dir.statistics': str(self.project_dir.joinpath(project_dirs['stats'])),
+            'spring.data.mongodb.database': self.eload_cfg.query(self.config_section, 'database', 'db_name'),
+            'db.collections.files.name': 'files_2_0',
+            'db.collections.variants.name': 'variants_2_0',
+            'db.collections.annotation-metadata.name': 'annotationMetadata_2_0',
+            'db.collections.annotations.name': 'annotations_2_0',
+            'app.vep.version': vep_version,
+            'app.vep.path': f"{cfg['vep_path']}/ensembl-vep-release-{vep_version}/vep",
+            'app.vep.cache.version': self.eload_cfg.query(self.config_section, 'variant_load', 'vep', 'cache_version'),
+            'app.vep.cache.path': cfg['vep_cache_path'],
+            'app.vep.cache.species': self.get_vep_species(),
+            'app.vep.num-forks': 4,
+            'app.vep.timeout': 500,
+            'statistics.skip': False,
+            'annotation.skip': False,
+            'annotation.overwrite': False,
+            'config.chunk.size': 200,
+        }
 
     def get_mongo_creds(self):
         properties = get_properties_from_xml_file(cfg['environment'], self.settings_xml_file)
@@ -354,9 +318,14 @@ class EloadIngestion(Eload):
     def run_variant_load_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
         load_config = {
-            'variant_load_props': self.eload_cfg.query(self.config_section, 'variant_load', 'properties'),
+            'valid_vcfs': [str(f) for f in self.valid_vcf_filenames],
+            # TODO implement proper merge check or get from validation
+            'needs_merge': self.eload_cfg.query(self.config_section, 'aggregation') == 'none',
+            'job_props': self.get_load_job_properties(),
+            'project_accession': self.project_accession,
             'logs_dir': os.path.join(self.project_dir, project_dirs['logs']),
             'eva_pipeline_props': cfg['eva_pipeline_props'],
+            'executable': cfg['executable'],
             'jar': cfg['jar'],
         }
         load_config_file = os.path.join(self.project_dir, 'load_config_file.yaml')

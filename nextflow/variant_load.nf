@@ -95,8 +95,8 @@ process create_properties {
     props = new Properties()
     props.putAll(params.job_props)
     props.setProperty("input.vcf", vcf_file.toString())
-    // need to store in workDir so next process can pick it up
-    // this needs to happen explicitly in exec (as opposed to script)
+    // need to explicitly store in workDir so next process can pick it up
+    // see https://github.com/nextflow-io/nextflow/issues/942#issuecomment-441536175
     props_file = new File("${task.workDir}/load_${vcf_file}.properties")
     props_file.createNewFile()
     props_file.withWriter { w ->
