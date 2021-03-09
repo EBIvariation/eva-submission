@@ -126,6 +126,8 @@ class TestEloadIngestion(TestCase):
             m_execute.assert_called_once()
 
     # TODO test these ingest ones properly
+    # - check that yaml file for nextflow exists?
+    # - check it contains the right stuff?
 
     def test_ingest_all_tasks(self):
         with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True) as m_properties, \

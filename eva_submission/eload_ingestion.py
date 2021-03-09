@@ -23,7 +23,6 @@ from eva_submission.ingestion_templates import accession_props_template
 project_dirs = {
     'logs': '00_logs',
     'valid': '30_eva_valid',
-    'merged': '31_merged',
     'transformed': '40_transformed',
     'stats': '50_stats',
     'annotation': '51_annotation',
