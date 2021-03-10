@@ -18,7 +18,7 @@ from pymongo.uri_parser import split_hosts
 from eva_submission import ROOT_DIR
 from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy
 from eva_submission.eload_submission import Eload
-from eva_submission.ingestion_templates import accession_props_template
+from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
 
 project_dirs = {
     'logs': '00_logs',
@@ -71,9 +71,6 @@ class EloadIngestion(Eload):
 
         if do_accession:
             self.eload_cfg.set(self.config_section, 'accession', 'instance_id', value=instance_id)
-            # TODO move accession prop creation to nextflow
-            accession_prop_files = self.create_accession_properties()
-            self.eload_cfg.set(self.config_section, 'accession', 'properties', value=accession_prop_files)
             self.run_accession_workflow()
 
         if do_variant_load:
@@ -180,80 +177,6 @@ class EloadIngestion(Eload):
         self.eload_cfg.set(self.config_section, 'project_dir', value=str(project_dir))
         return project_dir
 
-    def create_accession_properties(self):
-        """
-        Creates properties files for the accessioning pipeline, one for each VCF file.
-        """
-        prop_files = []
-        # TODO change accession pipeline to get db creds from a common properties file, like variant load?
-        # then we won't need this bit
-        mongo_host, mongo_user, mongo_pass = self.get_mongo_creds()
-        pg_url, pg_user, pg_pass = self.get_pg_creds()
-        for vcf_path in self.valid_vcf_filenames:
-            filename = vcf_path.stem
-            output_vcf = self.project_dir.joinpath(project_dirs['public'], f'{filename}.accessioned.vcf')
-
-            properties_filename = self.project_dir.joinpath(
-                project_dirs['accessions'],
-                f'{filename}_accessioning.properties'
-            )
-            with open(properties_filename, 'w+') as f:
-                f.write(accession_props_template(
-                    assembly_accession=self.eload_cfg.query('submission', 'assembly_accession'),
-                    taxonomy_id=self.eload_cfg.query('submission', 'taxonomy_id'),
-                    project_accession=self.project_accession,
-                    aggregation=self.eload_cfg.query(self.config_section, 'aggregation'),
-                    fasta=self.eload_cfg.query('submission', 'assembly_fasta'),
-                    report=self.eload_cfg.query('submission', 'assembly_report'),
-                    instance_id=self.eload_cfg.query(self.config_section, 'accession', 'instance_id'),
-                    vcf_path=vcf_path,
-                    output_vcf=output_vcf,
-                    mongo_host=mongo_host,
-                    mongo_user=mongo_user,
-                    mongo_pass=mongo_pass,
-                    postgres_url=pg_url,
-                    postgres_user=pg_user,
-                    postgres_pass=pg_pass
-                ))
-            prop_files.append(str(properties_filename))
-        return prop_files
-
-    def get_load_job_properties(self):
-        """
-        Get all properties needed for this variant load job, except for the vcf file
-        which is filled in after (optional) merge.
-        """
-        aggregation = self.eload_cfg.query(self.config_section, 'aggregation')
-        vep_version = self.eload_cfg.query(self.config_section, 'variant_load', 'vep', 'version')
-        return {
-            'spring.batch.job.names': 'genotyped-vcf-job' if aggregation == 'none' else 'aggregated-vcf-job',
-            'input.study.id': self.project_accession,
-            'input.vcf.id': self.eload_cfg.query('brokering', 'ena', 'ANALYSIS'),
-            'input.vcf.aggregation': aggregation,
-            'input.study.name': self.get_study_name(),
-            'input.study.type': 'COLLECTION',
-            'input.fasta': self.eload_cfg.query('submission', 'assembly_fasta'),
-            'output.dir': str(self.project_dir.joinpath(project_dirs['transformed'])),
-            'output.dir.annotation': str(self.project_dir.joinpath(project_dirs['annotation'])),
-            'output.dir.statistics': str(self.project_dir.joinpath(project_dirs['stats'])),
-            'spring.data.mongodb.database': self.eload_cfg.query(self.config_section, 'database', 'db_name'),
-            'db.collections.files.name': 'files_2_0',
-            'db.collections.variants.name': 'variants_2_0',
-            'db.collections.annotation-metadata.name': 'annotationMetadata_2_0',
-            'db.collections.annotations.name': 'annotations_2_0',
-            'app.vep.version': vep_version,
-            'app.vep.path': f"{cfg['vep_path']}/ensembl-vep-release-{vep_version}/vep",
-            'app.vep.cache.version': self.eload_cfg.query(self.config_section, 'variant_load', 'vep', 'cache_version'),
-            'app.vep.cache.path': cfg['vep_cache_path'],
-            'app.vep.cache.species': self.get_vep_species(),
-            'app.vep.num-forks': 4,
-            'app.vep.timeout': 500,
-            'statistics.skip': False,
-            'annotation.skip': False,
-            'annotation.overwrite': False,
-            'config.chunk.size': 200,
-        }
-
     def get_mongo_creds(self):
         properties = get_properties_from_xml_file(cfg['environment'], self.settings_xml_file)
         mongo_host = split_hosts(properties['eva.mongo.host'])[0][0]
@@ -286,9 +209,28 @@ class EloadIngestion(Eload):
 
     def run_accession_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
+        mongo_host, mongo_user, mongo_pass = self.get_mongo_creds()
+        pg_url, pg_user, pg_pass = self.get_pg_creds()
+        job_props = accession_props_template(
+            assembly_accession=self.eload_cfg.query('submission', 'assembly_accession'),
+            taxonomy_id=self.eload_cfg.query('submission', 'taxonomy_id'),
+            project_accession=self.project_accession,
+            aggregation=self.eload_cfg.query(self.config_section, 'aggregation'),
+            fasta=self.eload_cfg.query('submission', 'assembly_fasta'),
+            report=self.eload_cfg.query('submission', 'assembly_report'),
+            instance_id=self.eload_cfg.query(self.config_section, 'accession', 'instance_id'),
+            mongo_host=mongo_host,
+            mongo_user=mongo_user,
+            mongo_pass=mongo_pass,
+            postgres_url=pg_url,
+            postgres_user=pg_user,
+            postgres_pass=pg_pass
+        )
         accession_config = {
+            'valid_vcfs': [str(f) for f in self.valid_vcf_filenames],
             'project_accession': self.project_accession,
-            'accession_props': self.eload_cfg.query(self.config_section, 'accession', 'properties'),
+            'instance_id': self.eload_cfg.query(self.config_section, 'accession', 'instance_id'),
+            'accession_job_props': job_props,
             'public_dir': os.path.join(self.project_dir, project_dirs['public']),
             'logs_dir': os.path.join(self.project_dir, project_dirs['logs']),
             'executable': cfg['executable'],
@@ -316,11 +258,25 @@ class EloadIngestion(Eload):
 
     def run_variant_load_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
+        job_props = variant_load_props_template(
+                project_accession=self.project_accession,
+                analysis_accession=self.eload_cfg.query('brokering', 'ena', 'ANALYSIS'),
+                aggregation=self.eload_cfg.query(self.config_section, 'aggregation'),
+                study_name=self.get_study_name(),
+                fasta=self.eload_cfg.query('submission', 'assembly_fasta'),
+                output_dir=self.project_dir.joinpath(project_dirs['transformed']),
+                annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
+                stats_dir=self.project_dir.joinpath(project_dirs['stats']),
+                db_name=self.eload_cfg.query(self.config_section, 'database', 'db_name'),
+                vep_species=self.get_vep_species(),
+                vep_version=self.eload_cfg.query(self.config_section, 'variant_load', 'vep', 'version'),
+                vep_cache_version=self.eload_cfg.query(self.config_section, 'variant_load', 'vep', 'cache_version')
+        )
         load_config = {
             'valid_vcfs': [str(f) for f in self.valid_vcf_filenames],
             # TODO implement proper merge check or get from validation
             'needs_merge': self.eload_cfg.query(self.config_section, 'aggregation') == 'none',
-            'job_props': self.get_load_job_properties(),
+            'job_props': job_props,
             'project_accession': self.project_accession,
             'logs_dir': os.path.join(self.project_dir, project_dirs['logs']),
             'eva_pipeline_props': cfg['eva_pipeline_props'],

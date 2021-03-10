@@ -63,6 +63,7 @@ process create_properties {
     props = new Properties()
     props.putAll(params.accession_job_props)
     props.setProperty("parameters.vcf", vcf_file.toString())
+    props.setProperty("parameters.outputVcf", params.public_dir + "/" + vcf_file.getFileName())
     // need to explicitly store in workDir so next process can pick it up
     // see https://github.com/nextflow-io/nextflow/issues/942#issuecomment-441536175
     props_file = new File("${task.workDir}/${vcf_file}_accessioning.properties")
