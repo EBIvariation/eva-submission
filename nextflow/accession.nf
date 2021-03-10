@@ -78,7 +78,7 @@ process create_properties {
  * Accession VCFs
  */
 process accession_vcf {
-    clusterOptions '-g /accession/instance-$params.instance_id'
+    clusterOptions "-g /accession/instance-${params.instance_id}"
 
     memory '8 GB'
 
