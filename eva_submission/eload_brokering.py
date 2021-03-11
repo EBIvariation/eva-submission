@@ -60,7 +60,7 @@ class EloadBrokering(Eload):
             ena_uploader.upload_xml_files_to_ena(submission_file, project_file, analysis_file)
             self.eload_cfg.set('brokering', 'ena', value=ena_uploader.results)
             self.eload_cfg.set('brokering', 'ena', 'date', value=self.now)
-            self.eload_cfg.set('brokering', 'ena', 'pass', value=not bool(ena_uploader.results['error']))
+            self.eload_cfg.set('brokering', 'ena', 'pass', value=not bool(ena_uploader.results.get('errors')))
         else:
             self.info('Brokering to ENA has already been run, Skip!')
 
