@@ -56,26 +56,10 @@ process merge_vcfs {
     path file_list from vcfs_to_merge.collectFile(name: 'all_files.list', newLine: true)
 
     output:
-    path "${params.project_accession}_merged.vcf" into merged_vcf
+    path "${params.project_accession}_merged.vcf.gz" into merged_vcf
 
     """
-    $params.executable.bcftools merge --merge all --file-list $file_list --threads 3 -o ${params.project_accession}_merged.vcf
-    """
-}
-
-
-/*
- * Compress merged VCF file.
- */
-process compress_vcf {
-    input:
-    path vcf_file from merged_vcf
-
-    output:
-    path "${vcf_file}.gz" into compressed_vcf
-
-    """
-    $params.executable.bgzip -c $vcf_file > ${vcf_file}.gz
+    $params.executable.bcftools merge --merge all --file-list $file_list --threads 3 -O z -o ${params.project_accession}_merged.vcf.gz
     """
 }
 
@@ -86,7 +70,7 @@ process compress_vcf {
 process create_properties {
     input:
     // note one of these channels is always empty
-    path vcf_file from unmerged_vcfs.mix(compressed_vcf)
+    path vcf_file from unmerged_vcfs.mix(merged_vcf)
 
     output:
     path "load_${vcf_file}.properties" into variant_load_props
