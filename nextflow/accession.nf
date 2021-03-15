@@ -5,17 +5,19 @@ def helpMessage() {
     Accession variant files and copy to public FTP.
 
     Inputs:
-            --accession_props       properties files for accessioning
+            --valid_vcfs            valid vcfs to load
             --project_accession     project accession
             --instance_id           instance id to run accessioning
+            --accession_job_props   job-specific properties, passed as a map
             --public_dir            directory for files to be made public
             --logs_dir              logs directory
     """
 }
 
-params.accession_props = null
+params.valid_vcfs = null
 params.project_accession = null
 params.instance_id = null
+params.accession_job_props = null
 params.public_dir = null
 params.logs_dir = null
 // executables
@@ -29,31 +31,59 @@ params.help = null
 if (params.help) exit 0, helpMessage()
 
 // Test input files
-if (!params.accession_props || !params.project_accession || !params.instance_id) {
-    if (!params.accession_props)    log.warn('Provide an accessions properties file using --accession_props')
-    if (!params.project_accession)  log.warn('Provide a project accession using --project_accession')
-    if (!params.instance_id)        log.warn('Provide an instance id using --instance_id')
+if (!params.valid_vcfs || !params.project_accession || !params.instance_id || !params.accession_job_props || !params.public_dir || !params.logs_dir) {
+    if (!params.valid_vcfs) log.warn('Provide validated vcfs using --valid_vcfs')
+    if (!params.project_accession) log.warn('Provide a project accession using --project_accession')
+    if (!params.instance_id) log.warn('Provide an instance id using --instance_id')
+    if (!params.accession_job_props) log.warn('Provide job-specific properties using --accession_job_props')
+    if (!params.public_dir) log.warn('Provide public directory using --public_dir')
+    if (!params.logs_dir) log.warn('Provide logs directory using --logs_dir')
     exit 1, helpMessage()
 }
 
-accession_props = Channel.fromPath(params.accession_props)
-num_props = Channel.fromPath(params.accession_props).count().value
-// Watches public dir for the same number of vcf files as there are property files.
+valid_vcfs = Channel.fromPath(params.valid_vcfs)
+num_vcfs = Channel.fromPath(params.valid_vcfs).count().value
+// Watches public dir for the same number of accessioned vcf files as there are valid files.
 // Note that this will ignore any files already in the public directory but not vcfs that are added
 // while the pipeline is running.
-accessioned_vcfs = Channel.watchPath(params.public_dir + '/*.vcf').take(num_props)
+accessioned_vcfs = Channel.watchPath(params.public_dir + '/*.vcf').take(num_vcfs)
+
+
+/*
+ * Create properties files for accession.
+ */
+process create_properties {
+    input:
+    path vcf_file from valid_vcfs
+
+    output:
+    path "${vcf_file}_accessioning.properties" into accession_props
+
+    exec:
+    props = new Properties()
+    props.putAll(params.accession_job_props)
+    props.setProperty("parameters.vcf", vcf_file.toString())
+    props.setProperty("parameters.outputVcf", params.public_dir + "/" + vcf_file.getFileName())
+    // need to explicitly store in workDir so next process can pick it up
+    // see https://github.com/nextflow-io/nextflow/issues/942#issuecomment-441536175
+    props_file = new File("${task.workDir}/${vcf_file}_accessioning.properties")
+    props_file.createNewFile()
+    props_file.withWriter { w ->
+	props.store(w, null)
+    }
+}
 
 
 /*
  * Accession VCFs
  */
 process accession_vcf {
-    clusterOptions '-g /accession/instance-$params.instance_id'
+    clusterOptions "-g /accession/instance-${params.instance_id}"
 
     memory '8 GB'
 
     input:
-        path accession_properties from accession_props
+    path accession_properties from accession_props
 
     """
     filename=\$(basename $accession_properties)
@@ -73,12 +103,11 @@ process compress_vcf {
 	mode: 'copy'
 
     input:
-        path vcf_file from accessioned_vcfs
+    path vcf_file from accessioned_vcfs
 
     output:
-        // used by both tabix and csi indexing processes
-        path "${vcf_file}.gz" into compressed_vcf1
-        path "${vcf_file}.gz" into compressed_vcf2
+    // used by both tabix and csi indexing processes
+    path "${vcf_file}.gz" into compressed_vcf1, compressed_vcf2
 
     """
     $params.executable.bgzip -c $vcf_file > ${vcf_file}.gz
@@ -94,10 +123,10 @@ process tabix_index_vcf {
 	mode: 'copy'
 
     input:
-        path compressed_vcf from compressed_vcf1
+    path compressed_vcf from compressed_vcf1
 
     output:
-        path "${compressed_vcf}.tbi" into tbi_indexed_vcf
+    path "${compressed_vcf}.tbi" into tbi_indexed_vcf
 
     """
     $params.executable.tabix -p vcf $compressed_vcf
@@ -110,10 +139,10 @@ process csi_index_vcf {
 	mode: 'copy'
 
     input:
-        path compressed_vcf from compressed_vcf2
+    path compressed_vcf from compressed_vcf2
 
     output:
-        path "${compressed_vcf}.csi" into csi_indexed_vcf
+    path "${compressed_vcf}.csi" into csi_indexed_vcf
 
     """
     $params.executable.bcftools index -c $compressed_vcf
@@ -126,9 +155,9 @@ process csi_index_vcf {
  */
  process copy_to_ftp {
     input:
-        // ensures that all indices are done before we copy
-        file csi_indices from csi_indexed_vcf.toList()
-        file tbi_indices from tbi_indexed_vcf.toList()
+    // ensures that all indices are done before we copy
+    file csi_indices from csi_indexed_vcf.toList()
+    file tbi_indices from tbi_indexed_vcf.toList()
 
     """
     cd $params.public_dir

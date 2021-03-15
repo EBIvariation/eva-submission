@@ -1,3 +1,4 @@
 #!/bin/bash
 
-echo "bgzip $*"
+# bgzip command eats stdout
+>&2 echo "bgzip $*"

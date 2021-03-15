@@ -1,5 +1,6 @@
 import os
 from unittest import TestCase
+from unittest.mock import patch
 from xml.etree.ElementTree import ElementTree
 
 from eva_submission.ENA_submission.xlsx_to_ENA_xml import add_project, new_project, new_analysis, add_analysis, \
@@ -43,7 +44,9 @@ class TestXlsToXml(TestCase):
 
     def test_add_project(self):
         root = new_project()
-        add_project(root, self.project_row)
+        with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_ensembl') as m_sci_name:
+            m_sci_name.return_value = 'Oncorhynchus mykiss'
+            add_project(root, self.project_row)
         print(prettify(ElementTree(root)))
 
     def test_add_analysis(self):
@@ -54,5 +57,7 @@ class TestXlsToXml(TestCase):
     def test_process_metadata_spreadsheet(self):
         brokering_folder = os.path.join(os.path.dirname(__file__), 'resources', 'brokering')
         metadata_file = os.path.join(brokering_folder, 'metadata_sheet.xlsx')
-        process_metadata_spreadsheet(metadata_file, brokering_folder, 'TEST1')
+        with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_ensembl') as m_sci_name:
+            m_sci_name.return_value = 'Oncorhynchus mykiss'
+            process_metadata_spreadsheet(metadata_file, brokering_folder, 'TEST1')
 
