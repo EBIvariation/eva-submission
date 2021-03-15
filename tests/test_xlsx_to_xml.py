@@ -80,7 +80,6 @@ class TestXlsToXml(TestCase):
 
     def test_add_project(self):
         root = ET.Element('PROJECT_SET')
-        add_project(root, self.project_row)
         expected_project = '''
 <PROJECT_SET>
   <PROJECT alias="TechFish" center_name="Laboratory of Aquatic Pathobiology">
@@ -161,7 +160,7 @@ class TestXlsToXml(TestCase):
         metadata_file = os.path.join(self.brokering_folder, 'metadata_sheet.xlsx')
         with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_ensembl') as m_sci_name:
             m_sci_name.return_value = 'Oncorhynchus mykiss'
-            process_metadata_spreadsheet(metadata_file, brokering_folder, 'TEST1')
+            process_metadata_spreadsheet(metadata_file, self.brokering_folder, 'TEST1')
         assert os.path.isfile(os.path.join(self.brokering_folder, 'TEST1.Submission.xml'))
         assert os.path.isfile(os.path.join(self.brokering_folder, 'TEST1.Project.xml'))
         assert os.path.isfile(os.path.join(self.brokering_folder, 'TEST1.Analysis.xml'))
