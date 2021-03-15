@@ -21,7 +21,7 @@ nextflow run ${SOURCE_DIR}/variant_load.nf -params-file test_ingestion_config.ya
 printf "\e[32m====== Files made public ======\e[0m\n"
 ls project/public
 printf "\n\e[32m======== Commands run ========\e[0m\n"
-find work/ -name '*.out' -exec cat {} \;
+find work/ \( -name '*.out' -o -name '*.err' \) -exec cat {} \;
 cat project/logs/*.log
 
 # clean up

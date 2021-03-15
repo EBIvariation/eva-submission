@@ -51,12 +51,12 @@ process check_vcf_valid {
             mode: "copy"
 
     input:
-        path vcf_file from vcf_channel1
+    path vcf_file from vcf_channel1
 
     output:
-        path "vcf_format/*.errors.*.db" into vcf_validation_db
-        path "vcf_format/*.errors.*.txt" into vcf_validation_txt
-        path "vcf_format/*.vcf_format.log" into vcf_validation_log
+    path "vcf_format/*.errors.*.db" into vcf_validation_db
+    path "vcf_format/*.errors.*.txt" into vcf_validation_txt
+    path "vcf_format/*.vcf_format.log" into vcf_validation_log
 
     validExitStatus 0,1
 
@@ -78,14 +78,14 @@ process check_vcf_reference {
             mode: "copy"
 
     input:
-        path "reference.fa" from params.reference_fasta
-        path "reference.report" from params.reference_report
-        path vcf_file from vcf_channel2
+    path "reference.fa" from params.reference_fasta
+    path "reference.report" from params.reference_report
+    path vcf_file from vcf_channel2
 
     output:
-        path "assembly_check/*valid_assembly_report*" into vcf_assembly_valid
-        path "assembly_check/*text_assembly_report*" into assembly_check_report
-        path "assembly_check/*.assembly_check.log" into assembly_check_log
+    path "assembly_check/*valid_assembly_report*" into vcf_assembly_valid
+    path "assembly_check/*text_assembly_report*" into assembly_check_report
+    path "assembly_check/*.assembly_check.log" into assembly_check_log
 
     validExitStatus 0,1,139
 

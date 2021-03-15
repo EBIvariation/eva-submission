@@ -4,6 +4,7 @@ from unittest import TestCase
 import xml.etree.ElementTree as ET
 from unittest.mock import patch
 
+
 from eva_submission.ENA_submission.xlsx_to_ENA_xml import add_project, new_project, add_analysis,\
     process_metadata_spreadsheet, prettify, add_submission
 
@@ -118,6 +119,9 @@ class TestXlsToXml(TestCase):
   </PROJECT>
 </PROJECT_SET>
 '''
+        with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_ensembl') as m_sci_name:
+            m_sci_name.return_value = 'Oncorhynchus mykiss'
+            add_project(root, self.project_row)
         assert elements_equal(root, ET.fromstring(expected_project))
 
     def test_add_analysis(self):
@@ -155,7 +159,9 @@ class TestXlsToXml(TestCase):
 
     def test_process_metadata_spreadsheet(self):
         metadata_file = os.path.join(self.brokering_folder, 'metadata_sheet.xlsx')
-        process_metadata_spreadsheet(metadata_file, self.brokering_folder, 'TEST1')
+        with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_ensembl') as m_sci_name:
+            m_sci_name.return_value = 'Oncorhynchus mykiss'
+            process_metadata_spreadsheet(metadata_file, brokering_folder, 'TEST1')
         assert os.path.isfile(os.path.join(self.brokering_folder, 'TEST1.Submission.xml'))
         assert os.path.isfile(os.path.join(self.brokering_folder, 'TEST1.Project.xml'))
         assert os.path.isfile(os.path.join(self.brokering_folder, 'TEST1.Analysis.xml'))
