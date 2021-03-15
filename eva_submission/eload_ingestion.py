@@ -185,7 +185,7 @@ class EloadIngestion(Eload):
         return mongo_host, mongo_user, mongo_pass
 
     def get_pg_creds(self):
-        properties = get_properties_from_xml_file('development', self.settings_xml_file)
+        properties = get_properties_from_xml_file(cfg['environment'], self.settings_xml_file)
         pg_url = properties['eva.evapro.jdbc.url']
         pg_user = properties['eva.evapro.user']
         pg_pass = properties['eva.evapro.password']
@@ -239,7 +239,7 @@ class EloadIngestion(Eload):
         accession_config_file = os.path.join(self.project_dir, 'accession_config_file.yaml')
         with open(accession_config_file, 'w') as open_file:
             yaml.safe_dump(accession_config, open_file)
-        accession_script = os.path.join(ROOT_DIR, 'nextflow', 'ingestion.nf')
+        accession_script = os.path.join(ROOT_DIR, 'nextflow', 'accession.nf')
         try:
             command_utils.run_command_with_output(
                 'Nextflow Accessioning process',
