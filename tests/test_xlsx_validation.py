@@ -1,5 +1,6 @@
 import os
 from unittest import TestCase
+from unittest.mock import patch
 
 from eva_submission import ROOT_DIR
 from eva_submission.xlsx.xlsx_validation import EvaXlsxValidator
@@ -36,5 +37,7 @@ class TestEvaXlsValidator(TestCase):
         self.assertEqual(self.validator_fail.error_list, expected_errors)
 
     def test_validate(self):
-        self.validator.validate()
+        with patch('eva_submission.xlsx.xlsx_validation.get_scientific_name_from_ensembl') as m_sci_name:
+            m_sci_name.return_value = 'Homo sapiens'
+            self.validator.validate()
         assert self.validator.error_list == []
