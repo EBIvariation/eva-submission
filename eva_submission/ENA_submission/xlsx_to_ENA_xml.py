@@ -1,5 +1,6 @@
 import os
 import re
+from datetime import datetime, timedelta
 from io import BytesIO
 from xml.dom import minidom
 from xml.etree.ElementTree import Element, ElementTree
@@ -7,6 +8,10 @@ from xml.etree.ElementTree import Element, ElementTree
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
+
+
+def today():
+    return datetime.today()
 
 
 def add_attributes(element, **kwargs):
@@ -258,8 +263,12 @@ def add_submission(root, files_to_submit, action, project_row):
                     schema=file_dict['schema'])
 
     if 'Hold Date' in project_row and project_row.get('Hold Date'):
-        action_elemt = add_element(actions_elemt, 'ACTION')
-        add_element(action_elemt, 'HOLD', HoldUntilDate=project_row.get('Hold Date').strftime('%Y-%m-%d'))
+        hold_date = project_row.get('Hold Date')
+    else:
+        hold_date = today() + timedelta(days=3)
+
+    action_elemt = add_element(actions_elemt, 'ACTION')
+    add_element(action_elemt, 'HOLD', HoldUntilDate=hold_date.strftime('%Y-%m-%d'))
 
 
 def prettify(etree):

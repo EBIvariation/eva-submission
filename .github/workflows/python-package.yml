@@ -36,4 +36,9 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
+        # reduce the default SSL security level to get around a misconfiguration in the Ensembl server
+        # https://github.com/Ensembl/ensembl-rest/issues/427
+        # See https://askubuntu.com/a/1233456
+        sed 's/DEFAULT@SECLEVEL=2/DEFAULT@SECLEVEL=1/' /usr/lib/ssl/openssl.cnf > openssl_sec1.cnf
+        export OPENSSL_CONF=openssl_sec1.cnf
         PYTHONPATH=. pytest tests
