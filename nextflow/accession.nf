@@ -43,6 +43,7 @@ if (!params.valid_vcfs || !params.project_accession || !params.instance_id || !p
 
 valid_vcfs = Channel.fromPath(params.valid_vcfs)
 num_vcfs = Channel.fromPath(params.valid_vcfs).count().value
+println num_vcfs  // TODO sometimes null...
 // Watches public dir for the same number of accessioned vcf files as there are valid files.
 // Note that this will ignore any files already in the public directory but not vcfs that are added
 // while the pipeline is running.
@@ -54,22 +55,25 @@ accessioned_vcfs = Channel.watchPath(params.public_dir + '/*.vcf').take(num_vcfs
  */
 process create_properties {
     input:
-    path vcf_file from valid_vcfs
+    val vcf_file from valid_vcfs
 
     output:
-    path "${vcf_file}_accessioning.properties" into accession_props
+    path "${vcf_file.getFileName()}_accessioning.properties" into accession_props
 
     exec:
     props = new Properties()
-    props.putAll(params.accession_job_props)
+    params.accession_job_props.each { k, v ->
+        props.setProperty(k, v.toString())
+    }
     props.setProperty("parameters.vcf", vcf_file.toString())
-    props.setProperty("parameters.outputVcf", params.public_dir + "/" + vcf_file.getFileName())
+    vcf_filename = vcf_file.getFileName()
+    props.setProperty("parameters.outputVcf", params.public_dir + "/" + vcf_filename)
     // need to explicitly store in workDir so next process can pick it up
     // see https://github.com/nextflow-io/nextflow/issues/942#issuecomment-441536175
-    props_file = new File("${task.workDir}/${vcf_file}_accessioning.properties")
+    props_file = new File("${task.workDir}/${vcf_filename}_accessioning.properties")
     props_file.createNewFile()
     props_file.withWriter { w ->
-	props.store(w, null)
+	props.store(w, null)  // TODO escapes colons :(
     }
 }
 

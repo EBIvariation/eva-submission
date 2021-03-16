@@ -276,7 +276,7 @@ class EloadIngestion(Eload):
             'valid_vcfs': [str(f) for f in self.valid_vcf_filenames],
             # TODO implement proper merge check or get from validation
             'needs_merge': self.eload_cfg.query(self.config_section, 'aggregation') == 'none',
-            'job_props': job_props,
+            'load_job_props': job_props,
             'project_accession': self.project_accession,
             'logs_dir': os.path.join(self.project_dir, project_dirs['logs']),
             'eva_pipeline_props': cfg['eva_pipeline_props'],
