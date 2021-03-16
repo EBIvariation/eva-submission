@@ -2,11 +2,9 @@ import os
 from datetime import datetime
 from unittest import TestCase
 import xml.etree.ElementTree as ET
-from unittest.mock import patch
+from unittest.mock import patch, Mock, PropertyMock
 
-
-from eva_submission.ENA_submission.xlsx_to_ENA_xml import add_project, new_project, add_analysis,\
-    process_metadata_spreadsheet, prettify, add_submission
+from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsConverter
 
 
 def elements_equal(e1, e2):
@@ -29,7 +27,7 @@ def elements_equal(e1, e2):
     return all(elements_equal(c1, c2) for c1, c2 in zip(sorted(e1, key=lambda x: x.tag), sorted(e2, key=lambda x: x.tag)))
 
 
-class TestXlsToXml(TestCase):
+class TestEnaXlsConverter(TestCase):
 
     def setUp(self) -> None:
         self.brokering_folder = os.path.join(os.path.dirname(__file__), 'resources', 'brokering')
@@ -68,6 +66,9 @@ class TestXlsToXml(TestCase):
              'File Type': 'tabix', 'MD5': '4b61e00524cc1f4c98e932b0ee27d94e'},
         ]
 
+        metadata_file = os.path.join(self.brokering_folder, 'metadata_sheet.xlsx')
+        self.converter = EnaXlsConverter(metadata_file, self.brokering_folder, 'TEST1')
+
     @staticmethod
     def _delete_file(file_path):
         if os.path.exists(file_path):
@@ -78,8 +79,7 @@ class TestXlsToXml(TestCase):
         self._delete_file(os.path.join(self.brokering_folder, 'TEST1.Project.xml'))
         self._delete_file(os.path.join(self.brokering_folder, 'TEST1.Analysis.xml'))
 
-    def test_add_project(self):
-        root = ET.Element('PROJECT_SET')
+    def test_create_project(self):
         expected_project = '''
 <PROJECT_SET>
   <PROJECT alias="TechFish" center_name="Laboratory of Aquatic Pathobiology">
@@ -118,14 +118,17 @@ class TestXlsToXml(TestCase):
   </PROJECT>
 </PROJECT_SET>
 '''
+        self.converter.reader = Mock(project=self.project_row)
         with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_ensembl') as m_sci_name:
             m_sci_name.return_value = 'Oncorhynchus mykiss'
-            add_project(root, self.project_row)
-        assert elements_equal(root, ET.fromstring(expected_project))
+            root = self.converter._create_project_xml()
+            expected_root = ET.fromstring(expected_project)
+            # For some reason the attributes from the first elements are not parsed
+            expected_root.attrib['xmlns:xsi'] = 'http://www.w3.org/2001/XMLSchema-instance'
+            assert elements_equal(root, expected_root)
 
     def test_add_analysis(self):
         root = ET.Element('ANALYSIS_SET')
-        add_analysis(root, self.analysis_row, self.project_row, self.sample_rows, self.file_rows)
         expected_analysis = '''
 <ANALYSIS_SET>
   <ANALYSIS alias="GRM" center_name="Laboratory of Aquatic Pathobiology">
@@ -154,18 +157,18 @@ class TestXlsToXml(TestCase):
   </ANALYSIS>
 </ANALYSIS_SET>
 '''
+        self.converter._add_analysis(root, self.analysis_row, self.project_row, self.sample_rows, self.file_rows)
         assert elements_equal(root, ET.fromstring(expected_analysis))
 
     def test_process_metadata_spreadsheet(self):
-        metadata_file = os.path.join(self.brokering_folder, 'metadata_sheet.xlsx')
         with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_ensembl') as m_sci_name:
             m_sci_name.return_value = 'Oncorhynchus mykiss'
-            process_metadata_spreadsheet(metadata_file, self.brokering_folder, 'TEST1')
+            self.converter.create_submission_files()
         assert os.path.isfile(os.path.join(self.brokering_folder, 'TEST1.Submission.xml'))
         assert os.path.isfile(os.path.join(self.brokering_folder, 'TEST1.Project.xml'))
         assert os.path.isfile(os.path.join(self.brokering_folder, 'TEST1.Analysis.xml'))
 
-    def test_add_submission(self):
+    def test_create_submission(self):
         expected_submission = '''
 <SUBMISSION_SET>
   <SUBMISSION alias="TechFish" center_name="Laboratory of Aquatic Pathobiology">
@@ -183,17 +186,18 @@ class TestXlsToXml(TestCase):
   </SUBMISSION>
 </SUBMISSION_SET>
 '''
-        root = ET.Element('SUBMISSION_SET')
         files_to_submit = [
             {'file_name': 'path/to/project.xml', 'schema': 'project'},
             {'file_name': 'path/to/analysis.xml', 'schema': 'analysis'}
         ]
         with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.today',
                    return_value=datetime(year=2021, month=1, day=1)):
-            add_submission(root, files_to_submit, 'ADD', self.project_row)
-        assert elements_equal(root, ET.fromstring(expected_submission))
+            root = self.converter._create_submission_xml(files_to_submit, 'ADD', self.project_row)
+            expected_root = ET.fromstring(expected_submission)
+            expected_root.attrib['xmlns:xsi'] = 'http://www.w3.org/2001/XMLSchema-instance'
+        assert elements_equal(root, expected_root)
 
-    def test_add_submission_with_date(self):
+    def test_create_submission_with_date(self):
         self.project_row['Hold Date'] = datetime(year=2023, month=6, day=25)
         expected_submission = '''
 <SUBMISSION_SET>
@@ -217,5 +221,7 @@ class TestXlsToXml(TestCase):
             {'file_name': 'path/to/project.xml', 'schema': 'project'},
             {'file_name': 'path/to/analysis.xml', 'schema': 'analysis'}
         ]
-        add_submission(root, files_to_submit, 'ADD', self.project_row)
-        assert elements_equal(root, ET.fromstring(expected_submission))
+        root = self.converter._create_submission_xml(files_to_submit, 'ADD', self.project_row)
+        expected_root = ET.fromstring(expected_submission)
+        expected_root.attrib['xmlns:xsi'] = 'http://www.w3.org/2001/XMLSchema-instance'
+        assert elements_equal(root, expected_root)
