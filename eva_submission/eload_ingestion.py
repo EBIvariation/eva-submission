@@ -191,6 +191,13 @@ class EloadIngestion(Eload):
         pg_pass = properties['eva.evapro.password']
         return pg_url, pg_user, pg_pass
 
+    def get_accession_pg_creds(self):
+        properties = get_properties_from_xml_file(cfg['environment'], self.settings_xml_file)
+        pg_url = properties['eva.accession.jdbc.url']
+        pg_user = properties['eva.accession.user']
+        pg_pass = properties['eva.accession.password']
+        return pg_url, pg_user, pg_pass
+
     def get_pg_conn(self):
         pg_url, pg_user, pg_pass = self.get_pg_creds()
         return psycopg2.connect(urlsplit(pg_url).path, user=pg_user, password=pg_pass)
@@ -210,7 +217,7 @@ class EloadIngestion(Eload):
     def run_accession_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
         mongo_host, mongo_user, mongo_pass = self.get_mongo_creds()
-        pg_url, pg_user, pg_pass = self.get_pg_creds()
+        pg_url, pg_user, pg_pass = self.get_accession_pg_creds()
         job_props = accession_props_template(
             assembly_accession=self.eload_cfg.query('submission', 'assembly_accession'),
             taxonomy_id=self.eload_cfg.query('submission', 'taxonomy_id'),
@@ -275,7 +282,7 @@ class EloadIngestion(Eload):
         load_config = {
             'valid_vcfs': [str(f) for f in self.valid_vcf_filenames],
             # TODO implement proper merge check or get from validation
-            'needs_merge': self.eload_cfg.query(self.config_section, 'aggregation') == 'none',
+            'needs_merge': self.needs_merge,
             'load_job_props': job_props,
             'project_accession': self.project_accession,
             'logs_dir': os.path.join(self.project_dir, project_dirs['logs']),
@@ -302,6 +309,10 @@ class EloadIngestion(Eload):
             self.error('See .nextflow.log for more details')
             raise e
         return output_dir
+
+    @cached_property
+    def needs_merge(self):
+        return len(self.valid_vcf_filenames) > 1 and self.eload_cfg.query(self.config_section, 'aggregation') == 'none'
 
     @cached_property
     def valid_vcf_filenames(self):
