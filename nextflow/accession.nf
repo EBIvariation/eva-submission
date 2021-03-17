@@ -66,8 +66,9 @@ process create_properties {
         props.setProperty(k, v.toString())
     }
     props.setProperty("parameters.vcf", vcf_file.toString())
-    vcf_filename = vcf_file.getFileName()
-    props.setProperty("parameters.outputVcf", params.public_dir + "/" + vcf_filename)  // TODO needs to end accessioned.vcf
+    vcf_filename = vcf_file.getFileName().toString()
+    accessioned_filename = vcf_filename.take(vcf_filename.indexOf(".vcf")) + ".accessioned.vcf"
+    props.setProperty("parameters.outputVcf", "${params.public_dir}/${accessioned_filename}")
     // need to explicitly store in workDir so next process can pick it up
     // see https://github.com/nextflow-io/nextflow/issues/942#issuecomment-441536175
     props_file = new File("${task.workDir}/${vcf_filename}_accessioning.properties")
@@ -94,7 +95,7 @@ process accession_vcf {
     """
     filename=\$(basename $accession_properties)
     filename=\${filename%.*}
-    java -Xmx7g -jar $params.jar.accession_pipeline --spring.config.name=$accession_properties \
+    java -Xmx7g -jar $params.jar.accession_pipeline --spring.config.name=\$filename \
         > $params.logs_dir/accessioning.\${filename}.log \
         2> $params.logs_dir/accessioning.\${filename}.err
     """
