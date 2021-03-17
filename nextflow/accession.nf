@@ -21,7 +21,7 @@ params.accession_job_props = null
 params.public_dir = null
 params.logs_dir = null
 // executables
-params.executable = ["bgzip": "bgzip", "tabix": "tabix", "copy_to_ftp": "copy_to_ftp"]
+params.executable = ["bcftools": "bcftools", "tabix": "tabix", "copy_to_ftp": "copy_to_ftp"]
 // java jars
 params.jar = ["accession_pipeline": "accession_pipeline"]
 // help
@@ -100,9 +100,9 @@ process accession_vcf {
 
 
 /*
- * Compress accessioned VCFs
+ * Sort and compress accessioned VCFs
  */
-process compress_vcf {
+process sort_and_compress_vcf {
     publishDir params.public_dir,
 	mode: 'copy'
 
@@ -115,7 +115,7 @@ process compress_vcf {
     path "${vcf_file}.gz" into compressed_vcf1, compressed_vcf2
 
     """
-    $params.executable.bgzip -c $vcf_file > ${vcf_file}.gz
+    $params.executable.bcftools sort -O z -o ${vcf_file}.gz $vcf_file
     """
 }
 
