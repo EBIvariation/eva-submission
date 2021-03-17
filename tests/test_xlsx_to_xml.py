@@ -4,7 +4,7 @@ from unittest import TestCase
 import xml.etree.ElementTree as ET
 from unittest.mock import patch, Mock, PropertyMock
 
-from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsConverter
+from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsxConverter
 
 
 def elements_equal(e1, e2):
@@ -67,7 +67,7 @@ class TestEnaXlsConverter(TestCase):
         ]
 
         metadata_file = os.path.join(self.brokering_folder, 'metadata_sheet.xlsx')
-        self.converter = EnaXlsConverter(metadata_file, self.brokering_folder, 'TEST1')
+        self.converter = EnaXlsxConverter(metadata_file, self.brokering_folder, 'TEST1')
 
     @staticmethod
     def _delete_file(file_path):

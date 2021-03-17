@@ -79,7 +79,7 @@ def add_attribute_elements(analysis_elemt, data_row, object_type):
     return attributes_elemt
 
 
-class EnaXlsConverter(AppLogger):
+class EnaXlsxConverter(AppLogger):
 
     def __init__(self, metadata_file, output_folder, name):
         self.metadata_file = metadata_file

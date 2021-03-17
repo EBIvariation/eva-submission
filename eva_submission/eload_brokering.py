@@ -11,7 +11,7 @@ from eva_submission.ENA_submission.upload_to_ENA import ENAUploader
 from eva_submission.biosamples_submission import SampleMetadataSubmitter
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import read_md5
-from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsConverter
+from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsxConverter
 
 
 class EloadBrokering(Eload):
@@ -48,7 +48,7 @@ class EloadBrokering(Eload):
         if not self.eload_cfg.query('brokering', 'ena', 'PROJECT') or force:
             ena_spreadsheet = os.path.join(self._get_dir('ena'), 'metadata_spreadsheet.xlsx')
             self.update_metadata_from_config(self.eload_cfg['validation']['valid']['metadata_spreadsheet'], ena_spreadsheet)
-            converter = EnaXlsConverter(ena_spreadsheet, self._get_dir('ena'), self.eload)
+            converter = EnaXlsxConverter(ena_spreadsheet, self._get_dir('ena'), self.eload)
             submission_file, project_file, analysis_file = converter.create_submission_files()
 
             # Upload the VCF to ENA FTP
