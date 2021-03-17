@@ -67,13 +67,15 @@ process create_properties {
     }
     props.setProperty("parameters.vcf", vcf_file.toString())
     vcf_filename = vcf_file.getFileName()
-    props.setProperty("parameters.outputVcf", params.public_dir + "/" + vcf_filename)
+    props.setProperty("parameters.outputVcf", params.public_dir + "/" + vcf_filename)  // TODO needs to end accessioned.vcf
     // need to explicitly store in workDir so next process can pick it up
     // see https://github.com/nextflow-io/nextflow/issues/942#issuecomment-441536175
     props_file = new File("${task.workDir}/${vcf_filename}_accessioning.properties")
     props_file.createNewFile()
     props_file.withWriter { w ->
-	props.store(w, null)  // TODO escapes colons :(
+        props.each { k, v ->
+            w.write("$k=$v\n")
+        }
     }
 }
 

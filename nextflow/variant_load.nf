@@ -86,7 +86,9 @@ process create_properties {
     props_file = new File("${task.workDir}/load_${vcf_file.getFileName()}.properties")
     props_file.createNewFile()
     props_file.withWriter { w ->
-	props.store(w, null)
+        props.each { k, v ->
+            w.write("$k=$v\n")
+        }
     }
 }
 
