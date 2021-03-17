@@ -42,12 +42,6 @@ if (!params.valid_vcfs || !params.project_accession || !params.instance_id || !p
 }
 
 valid_vcfs = Channel.fromPath(params.valid_vcfs)
-num_vcfs = Channel.fromPath(params.valid_vcfs).count().value
-println num_vcfs  // TODO sometimes null...
-// Watches public dir for the same number of accessioned vcf files as there are valid files.
-// Note that this will ignore any files already in the public directory but not vcfs that are added
-// while the pipeline is running.
-accessioned_vcfs = Channel.watchPath(params.public_dir + '/*.vcf').take(num_vcfs)
 
 
 /*
@@ -92,6 +86,9 @@ process accession_vcf {
     input:
     path accession_properties from accession_props
 
+    output:
+    val true into accession_done
+
     """
     filename=\$(basename $accession_properties)
     filename=\${filename%.*}
@@ -110,7 +107,8 @@ process compress_vcf {
 	mode: 'copy'
 
     input:
-    path vcf_file from accessioned_vcfs
+    val flag from accession_done
+    path vcf_file from Channel.fromPath(params.public_dir + '/*.vcf')
 
     output:
     // used by both tabix and csi indexing processes
@@ -134,6 +132,7 @@ process tabix_index_vcf {
 
     output:
     path "${compressed_vcf}.tbi" into tbi_indexed_vcf
+    val true into tabix_done
 
     """
     $params.executable.tabix -p vcf $compressed_vcf
@@ -150,6 +149,7 @@ process csi_index_vcf {
 
     output:
     path "${compressed_vcf}.csi" into csi_indexed_vcf
+    val true into csi_done
 
     """
     $params.executable.bcftools index -c $compressed_vcf
@@ -163,8 +163,8 @@ process csi_index_vcf {
  process copy_to_ftp {
     input:
     // ensures that all indices are done before we copy
-    file csi_indices from csi_indexed_vcf.toList()
-    file tbi_indices from tbi_indexed_vcf.toList()
+    val flag1 from tabix_done
+    val flag2 from csi_done
 
     """
     cd $params.public_dir

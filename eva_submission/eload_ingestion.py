@@ -171,9 +171,13 @@ class EloadIngestion(Eload):
         vcf_dict = self.eload_cfg.query('brokering', 'vcf_files')
         for key, val in vcf_dict.items():
             vcf_path = Path(key)
-            shutil.copyfile(vcf_path, valid_dir.joinpath(vcf_path.name))
+            target_path = valid_dir.joinpath(vcf_path.name)
+            if not target_path.exists():
+                shutil.copyfile(vcf_path, target_path)
             index_path = Path(val['index'])
-            shutil.copyfile(index_path, valid_dir.joinpath(index_path.name))
+            target_path = valid_dir.joinpath(index_path.name)
+            if not target_path.exists():
+                shutil.copyfile(index_path, target_path)
         self.eload_cfg.set(self.config_section, 'project_dir', value=str(project_dir))
         return project_dir
 
