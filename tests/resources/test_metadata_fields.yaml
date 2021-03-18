@@ -49,3 +49,6 @@ Sample:
     - Sampleset Accession
     - Sample Name
     - Title
+
+  cast:
+    Sample Name: string

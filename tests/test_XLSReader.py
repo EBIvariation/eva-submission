@@ -43,7 +43,7 @@ class TestXlsxReader(TestCase):
             'Analysis Alias': 'GAE',
             'Sample Accession': None,
             'Sample ID': None,
-            'Sample Name': 'S1',
+            'Sample Name': '1',
             'Sampleset Accession': None,
             'Title': 'Sample 1',
             'row_num': 4
