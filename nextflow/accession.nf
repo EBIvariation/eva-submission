@@ -137,7 +137,6 @@ process tabix_index_vcf {
 
     output:
     path "${compressed_vcf}.tbi" into tbi_indexed_vcf
-    val true into tabix_done
 
     """
     $params.executable.tabix -p vcf $compressed_vcf
@@ -154,7 +153,6 @@ process csi_index_vcf {
 
     output:
     path "${compressed_vcf}.csi" into csi_indexed_vcf
-    val true into csi_done
 
     """
     $params.executable.bcftools index -c $compressed_vcf
@@ -168,8 +166,8 @@ process csi_index_vcf {
  process copy_to_ftp {
     input:
     // ensures that all indices are done before we copy
-    val flag1 from tabix_done.toList()
-    val flag2 from csi_done.toList()
+    file csi_indices from csi_indexed_vcf.toList()
+    file tbi_indices from tbi_indexed_vcf.toList()
 
     """
     cd $params.public_dir
