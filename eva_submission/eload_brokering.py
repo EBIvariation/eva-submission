@@ -11,7 +11,7 @@ from eva_submission.ENA_submission.upload_to_ENA import ENAUploader
 from eva_submission.biosamples_submission import SampleMetadataSubmitter
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import read_md5
-from eva_submission.ENA_submission.xlsx_to_ENA_xml import process_metadata_spreadsheet
+from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsxConverter
 
 
 class EloadBrokering(Eload):
@@ -48,8 +48,9 @@ class EloadBrokering(Eload):
         if not self.eload_cfg.query('brokering', 'ena', 'PROJECT') or force:
             ena_spreadsheet = os.path.join(self._get_dir('ena'), 'metadata_spreadsheet.xlsx')
             self.update_metadata_from_config(self.eload_cfg['validation']['valid']['metadata_spreadsheet'], ena_spreadsheet)
-            submission_file, project_file, analysis_file = process_metadata_spreadsheet(ena_spreadsheet,
-                                                                                        self._get_dir('ena'), self.eload)
+            converter = EnaXlsxConverter(ena_spreadsheet, self._get_dir('ena'), self.eload)
+            submission_file, project_file, analysis_file = converter.create_submission_files()
+
             # Upload the VCF to ENA FTP
             ena_uploader = ENAUploader(self.eload)
             files_to_upload = [vcf_file for vcf_file in self.eload_cfg['brokering']['vcf_files']] + \
@@ -60,6 +61,7 @@ class EloadBrokering(Eload):
             ena_uploader.upload_xml_files_to_ena(submission_file, project_file, analysis_file)
             self.eload_cfg.set('brokering', 'ena', value=ena_uploader.results)
             self.eload_cfg.set('brokering', 'ena', 'date', value=self.now)
+            self.eload_cfg.set('brokering', 'ena', 'hold_date', value=converter.hold_date)
             self.eload_cfg.set('brokering', 'ena', 'pass', value=not bool(ena_uploader.results['error']))
         else:
             self.info('Brokering to ENA has already been run, Skip!')
@@ -144,14 +146,16 @@ class EloadBrokering(Eload):
         reports = []
         results = self.eload_cfg.query('brokering', 'ena', ret_default={})
         report_data = {
-            'samples_to_accessions': '\n'.join(['%s: %s' % (t, results.get(t))
-                                                for t in ['PROJECT','SUBMISSION', 'ANALYSIS'] if t in results]),
+            'ena_accessions': '\n'.join(['%s: %s' % (t, results.get(t))
+                                         for t in ['PROJECT','SUBMISSION', 'ANALYSIS'] if t in results]),
+            'hold_date': results.get('hold_date', ''),
             'pass': 'PASS' if results.get('pass') else 'FAIL',
             'errors': '\n'.join(results.get('errors', [])),
             'receipt': results.get('receipt', '')
         }
         reports.append("""  * ENA: {pass}
-    - Accessions: {samples_to_accessions}
+    - Hold date: {hold_date}
+    - Accessions: {ena_accessions}
     - Errors: {errors}
     - receipt: {receipt}
 """.format(**report_data))
