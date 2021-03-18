@@ -43,6 +43,9 @@ class TestEloadIngestion(TestCase):
             'eva.evapro.jdbc.url': 'jdbc:postgresql://pg.fake:9999',
             'eva.evapro.user': 'fakeuser',
             'eva.evapro.password': 'fakepass',
+            'eva.accession.jdbc.url': 'jdbc:postgresql://pg.fake:9999',
+            'eva.accession.user': 'fakeuser',
+            'eva.accession.password': 'fakepass',
             'eva.mongo.host': 'mongo-01.test:9999,mongo-02.test:9999',
             'eva.mongo.user': 'mongouser',
             'eva.mongo.passwd': 'mongopass'
