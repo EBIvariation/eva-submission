@@ -53,6 +53,7 @@ process create_properties {
 
     output:
     path "${vcf_file.getFileName()}_accessioning.properties" into accession_props
+    val accessioned_filename into accessioned_filenames
 
     exec:
     props = new Properties()
@@ -63,6 +64,7 @@ process create_properties {
     vcf_filename = vcf_file.getFileName().toString()
     accessioned_filename = vcf_filename.take(vcf_filename.indexOf(".vcf")) + ".accessioned.vcf"
     props.setProperty("parameters.outputVcf", "${params.public_dir}/${accessioned_filename}")
+
     // need to explicitly store in workDir so next process can pick it up
     // see https://github.com/nextflow-io/nextflow/issues/942#issuecomment-441536175
     props_file = new File("${task.workDir}/${vcf_filename}_accessioning.properties")
@@ -85,9 +87,10 @@ process accession_vcf {
 
     input:
     path accession_properties from accession_props
+    val accessioned_filename from accessioned_filenames
 
     output:
-    val true into accession_done
+    path "${accessioned_filename}.tmp" into accession_done
 
     """
     filename=\$(basename $accession_properties)
@@ -95,6 +98,7 @@ process accession_vcf {
     java -Xmx7g -jar $params.jar.accession_pipeline --spring.config.name=\$filename \
         > $params.logs_dir/accessioning.\${filename}.log \
         2> $params.logs_dir/accessioning.\${filename}.err
+    echo "done" > ${accessioned_filename}.tmp
     """
 }
 
@@ -107,15 +111,16 @@ process sort_and_compress_vcf {
 	mode: 'copy'
 
     input:
-    val flag from accession_done
-    path vcf_file from Channel.fromPath(params.public_dir + '/*.vcf')
+    path tmp_file from accession_done
 
     output:
     // used by both tabix and csi indexing processes
-    path "${vcf_file}.gz" into compressed_vcf1, compressed_vcf2
+    path "*.gz" into compressed_vcf1, compressed_vcf2
 
     """
-    $params.executable.bcftools sort -O z -o ${vcf_file}.gz $vcf_file
+    filename=\$(basename $tmp_file)
+    filename=\${filename%.*}
+    $params.executable.bcftools sort -O z -o \${filename}.gz ${params.public_dir}/\${filename}
     """
 }
 
@@ -163,8 +168,8 @@ process csi_index_vcf {
  process copy_to_ftp {
     input:
     // ensures that all indices are done before we copy
-    val flag1 from tabix_done
-    val flag2 from csi_done
+    val flag1 from tabix_done.toList()
+    val flag2 from csi_done.toList()
 
     """
     cd $params.public_dir

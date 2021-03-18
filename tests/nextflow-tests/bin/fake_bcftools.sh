@@ -8,6 +8,9 @@ if [[ $1 == "merge" ]]; then
     printf "> Files merged:\n"
     cat all_files.list
     printf "\n"
+elif [[ $1 == "sort" ]]; then
+    filename=${*: -2}
+    touch $filename
 else
     filename=$3
     touch ${filename}.csi
