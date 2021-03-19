@@ -115,6 +115,10 @@ Sample:
     - serotype
     - serovar
     - Novel attribute(s)
+  cast:
+    Sample ID: string
+    Sample Name: string
+
 
 Files:
   required:

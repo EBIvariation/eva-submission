@@ -31,6 +31,7 @@ WORKSHEETS_KEY_NAME = 'worksheets'
 REQUIRED_HEADERS_KEY_NAME = 'required'
 OPTIONAL_HEADERS_KEY_NAME = 'optional'
 HEADERS_KEY_ROW = 'header_row'
+CAST_KEY_NAME = 'cast'
 
 
 class XlsxBaseParser(AppLogger):
@@ -126,6 +127,14 @@ class XlsxBaseParser(AppLogger):
 
         return self.valid
 
+    @staticmethod
+    def cast_value(value, type_name):
+        # Do not cast None values
+        if type_name and value is not None:
+            if type_name == 'string':
+                return str(value)
+        return value
+
 
 class XlsxReader(XlsxBaseParser):
     """
@@ -185,8 +194,7 @@ class XlsxReader(XlsxBaseParser):
                 cell = row[header_index]
                 if cell.value is not None:
                     has_notnull = True
-
-                data[header] = cell.value
+                data[header] = self.cast_value(cell.value, self.xls_conf[worksheet].get(CAST_KEY_NAME, {}).get(header))
 
             if has_notnull:
                 data['row_num'] = self.row_offset[worksheet]
