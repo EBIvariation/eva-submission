@@ -75,7 +75,7 @@ def variant_load_props_template(
         'spring.batch.job.names': 'genotyped-vcf-job' if aggregation == 'none' else 'aggregated-vcf-job',
         'input.study.id': project_accession,
         'input.vcf.id': analysis_accession,
-        'input.vcf.aggregation': aggregation,
+        'input.vcf.aggregation': aggregation.upper(),
         'input.study.name': study_name,
         'input.study.type': 'COLLECTION',
         'input.fasta': fasta,

@@ -21,7 +21,7 @@ params.accession_job_props = null
 params.public_dir = null
 params.logs_dir = null
 // executables
-params.executable = ["bgzip": "bgzip", "tabix": "tabix", "copy_to_ftp": "copy_to_ftp"]
+params.executable = ["bcftools": "bcftools", "tabix": "tabix", "copy_to_ftp": "copy_to_ftp"]
 // java jars
 params.jar = ["accession_pipeline": "accession_pipeline"]
 // help
@@ -42,11 +42,6 @@ if (!params.valid_vcfs || !params.project_accession || !params.instance_id || !p
 }
 
 valid_vcfs = Channel.fromPath(params.valid_vcfs)
-num_vcfs = Channel.fromPath(params.valid_vcfs).count().value
-// Watches public dir for the same number of accessioned vcf files as there are valid files.
-// Note that this will ignore any files already in the public directory but not vcfs that are added
-// while the pipeline is running.
-accessioned_vcfs = Channel.watchPath(params.public_dir + '/*.vcf').take(num_vcfs)
 
 
 /*
@@ -54,22 +49,30 @@ accessioned_vcfs = Channel.watchPath(params.public_dir + '/*.vcf').take(num_vcfs
  */
 process create_properties {
     input:
-    path vcf_file from valid_vcfs
+    val vcf_file from valid_vcfs
 
     output:
-    path "${vcf_file}_accessioning.properties" into accession_props
+    path "${vcf_file.getFileName()}_accessioning.properties" into accession_props
+    val accessioned_filename into accessioned_filenames
 
     exec:
     props = new Properties()
-    props.putAll(params.accession_job_props)
+    params.accession_job_props.each { k, v ->
+        props.setProperty(k, v.toString())
+    }
     props.setProperty("parameters.vcf", vcf_file.toString())
-    props.setProperty("parameters.outputVcf", params.public_dir + "/" + vcf_file.getFileName())
+    vcf_filename = vcf_file.getFileName().toString()
+    accessioned_filename = vcf_filename.take(vcf_filename.indexOf(".vcf")) + ".accessioned.vcf"
+    props.setProperty("parameters.outputVcf", "${params.public_dir}/${accessioned_filename}")
+
     // need to explicitly store in workDir so next process can pick it up
     // see https://github.com/nextflow-io/nextflow/issues/942#issuecomment-441536175
-    props_file = new File("${task.workDir}/${vcf_file}_accessioning.properties")
+    props_file = new File("${task.workDir}/${vcf_filename}_accessioning.properties")
     props_file.createNewFile()
     props_file.withWriter { w ->
-	props.store(w, null)
+        props.each { k, v ->
+            w.write("$k=$v\n")
+        }
     }
 }
 
@@ -84,33 +87,40 @@ process accession_vcf {
 
     input:
     path accession_properties from accession_props
+    val accessioned_filename from accessioned_filenames
+
+    output:
+    path "${accessioned_filename}.tmp" into accession_done
 
     """
     filename=\$(basename $accession_properties)
     filename=\${filename%.*}
-    java -Xmx7g -jar $params.jar.accession_pipeline --spring.config.name=$accession_properties \
+    java -Xmx7g -jar $params.jar.accession_pipeline --spring.config.name=\$filename \
         > $params.logs_dir/accessioning.\${filename}.log \
         2> $params.logs_dir/accessioning.\${filename}.err
+    echo "done" > ${accessioned_filename}.tmp
     """
 }
 
 
 /*
- * Compress accessioned VCFs
+ * Sort and compress accessioned VCFs
  */
-process compress_vcf {
+process sort_and_compress_vcf {
     publishDir params.public_dir,
 	mode: 'copy'
 
     input:
-    path vcf_file from accessioned_vcfs
+    path tmp_file from accession_done
 
     output:
     // used by both tabix and csi indexing processes
-    path "${vcf_file}.gz" into compressed_vcf1, compressed_vcf2
+    path "*.gz" into compressed_vcf1, compressed_vcf2
 
     """
-    $params.executable.bgzip -c $vcf_file > ${vcf_file}.gz
+    filename=\$(basename $tmp_file)
+    filename=\${filename%.*}
+    $params.executable.bcftools sort -O z -o \${filename}.gz ${params.public_dir}/\${filename}
     """
 }
 

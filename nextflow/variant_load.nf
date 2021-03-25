@@ -70,21 +70,25 @@ process merge_vcfs {
 process create_properties {
     input:
     // note one of these channels is always empty
-    path vcf_file from unmerged_vcfs.mix(merged_vcf)
+    val vcf_file from unmerged_vcfs.mix(merged_vcf)
 
     output:
-    path "load_${vcf_file}.properties" into variant_load_props
+    path "load_${vcf_file.getFileName()}.properties" into variant_load_props
 
     exec:
     props = new Properties()
-    props.putAll(params.load_job_props)
+    params.load_job_props.each { k, v ->
+        props.setProperty(k, v.toString())
+    }
     props.setProperty("input.vcf", vcf_file.toString())
     // need to explicitly store in workDir so next process can pick it up
     // see https://github.com/nextflow-io/nextflow/issues/942#issuecomment-441536175
-    props_file = new File("${task.workDir}/load_${vcf_file}.properties")
+    props_file = new File("${task.workDir}/load_${vcf_file.getFileName()}.properties")
     props_file.createNewFile()
     props_file.withWriter { w ->
-	props.store(w, null)
+        props.each { k, v ->
+            w.write("$k=$v\n")
+        }
     }
 }
 
