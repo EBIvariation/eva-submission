@@ -39,10 +39,10 @@ class EloadIngestion(Eload):
 
     def __init__(self, eload_number):
         super().__init__(eload_number)
-        self.settings_xml_file = cfg['maven_settings_file']
+        self.settings_xml_file = cfg['maven']['settings_file']
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
         self.project_dir = self.setup_project_dir()
-        self.mongo_uri = get_mongo_uri_for_eva_profile(cfg['environment'], self.settings_xml_file)
+        self.mongo_uri = get_mongo_uri_for_eva_profile(cfg['maven']['environment'], self.settings_xml_file)
 
     def ingest(
             self,
@@ -182,21 +182,21 @@ class EloadIngestion(Eload):
         return project_dir
 
     def get_mongo_creds(self):
-        properties = get_properties_from_xml_file(cfg['environment'], self.settings_xml_file)
+        properties = get_properties_from_xml_file(cfg['maven']['environment'], self.settings_xml_file)
         mongo_host = split_hosts(properties['eva.mongo.host'])[0][0]
         mongo_user = properties['eva.mongo.user']
         mongo_pass = properties['eva.mongo.passwd']
         return mongo_host, mongo_user, mongo_pass
 
     def get_pg_creds(self):
-        properties = get_properties_from_xml_file(cfg['environment'], self.settings_xml_file)
+        properties = get_properties_from_xml_file(cfg['maven']['environment'], self.settings_xml_file)
         pg_url = properties['eva.evapro.jdbc.url']
         pg_user = properties['eva.evapro.user']
         pg_pass = properties['eva.evapro.password']
         return pg_url, pg_user, pg_pass
 
     def get_accession_pg_creds(self):
-        properties = get_properties_from_xml_file(cfg['environment'], self.settings_xml_file)
+        properties = get_properties_from_xml_file(cfg['maven']['environment'], self.settings_xml_file)
         pg_url = properties['eva.accession.jdbc.url']
         pg_user = properties['eva.accession.user']
         pg_pass = properties['eva.accession.password']
