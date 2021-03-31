@@ -136,7 +136,8 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
             m_properties.return_value = self._fake_properties_dict()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
-            m_get_results.return_value = [('Test Study Name')]
+            # first call is for browsable files, second is for study name
+            m_get_results.side_effect = [[(1, 'filename_1'), (2, 'filename_2')], [('Test Study Name')]]
             self.eload.ingest('NONE', 1, 82, 82, db_name='eva_hsapiens_grch38')
 
     def test_ingest_metadata_load(self):
@@ -151,10 +152,12 @@ class TestEloadIngestion(TestCase):
     def test_ingest_accession(self):
         with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True) as m_properties, \
                 patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
             m_properties.return_value = self._fake_properties_dict()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
+            m_get_results.return_value = [(1, 'filename_1'), (2, 'filename_2')]
             self.eload.ingest(
                 aggregation='NONE',
                 instance_id=1,
