@@ -87,6 +87,10 @@ class EloadIngestion(Eload):
         if self.project_accession is None:
             self.error('No project accession in submission config, check that brokering to ENA is done. ')
             raise ValueError('No project accession in submission config.')
+        if self.eload_cfg.query('brokering', 'ena', 'hold_date') is None:
+            self.error('No release date found, check that brokering to ENA is done.')
+            raise ValueError('No release date found in submission config.')
+            
 
     def get_db_name(self):
         """
