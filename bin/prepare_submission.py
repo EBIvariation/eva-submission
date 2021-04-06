@@ -37,6 +37,11 @@ def main():
     argparse.add_argument('--submitter', required=False, type=str,
                           help='the name of the directory for that submitter. Required to copy the data from the FTP')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
+    argparse.add_argument('--taxid', required=False, type=str,
+                          help='Override and replace the taxonomy id provided in the metadata spreadsheet.')
+    argparse.add_argument('--reference', required=False, type=str,
+                          help='Override and replace the reference sequence accession provided in the metadata '
+                               'spreadsheet.')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
     args = argparse.parse_args()
@@ -51,6 +56,8 @@ def main():
     eload = EloadPreparation(args.eload)
     if args.ftp_box and args.submitter:
         eload.copy_from_ftp(args.ftp_box, args.submitter)
+    if args.taxid or args.reference:
+        eload.replace_values_in_metadata(args.taxid, args.reference)
     eload.detect_all()
 
 

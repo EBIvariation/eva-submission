@@ -144,6 +144,28 @@ class EloadPreparation(Eload):
         for other_file in box.other_files:
             self.warning('File %s will not be treated', other_file)
 
+    def replace_values_in_metadata(self, taxid=None, reference_accession=None):
+        """Find and Replace the value in the metadata spreadsheet with the one provided """
+        # This might have been run before any detection occurred
+        if not self.eload_cfg.query('submission', 'metadata_spreadsheet'):
+            self.detect_submitted_metadata()
+        input_spreadsheet = self.eload_cfg.query('submission', 'metadata_spreadsheet')
+        reader = EvaXlsxReader(input_spreadsheet)
+
+        # This will write the spreadsheet in place of the existing one
+        eva_xls_writer = EvaXlsxWriter(input_spreadsheet)
+        if taxid:
+            project = reader.project
+            project['Tax ID'] = taxid
+            eva_xls_writer.set_project(project)
+        if reference_accession:
+            analysis_rows = []
+            for analysis in reader.analysis:
+                analysis['Reference'] = reference_accession
+                analysis_rows.append(analysis)
+            eva_xls_writer.set_analysis(analysis_rows)
+        eva_xls_writer.save()
+
     def detect_all(self):
         self.detect_submitted_metadata()
         self.detect_submitted_vcf()
