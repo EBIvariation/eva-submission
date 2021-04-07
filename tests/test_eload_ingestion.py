@@ -187,3 +187,18 @@ class TestEloadIngestion(TestCase):
             assert os.path.exists(
                 os.path.join(self.resources_folder, 'projects/PRJEB12345/load_config_file.yaml')
             )
+
+    def test_insert_browsable_files(self):
+        with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True) as m_properties, \
+                patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
+                patch('eva_submission.eload_ingestion.execute_query') as m_execute:
+            m_properties.return_value = self._fake_properties_dict()
+            m_get_results.side_effect = [[], [(1, 'filename_1'), (2, 'filename_2')], [(1, 'filename_1'), (2, 'filename_2')]]
+            self.eload.insert_browsable_files()
+            m_execute.assert_called()
+
+            # calling insert again doesn't execute anything
+            m_execute.call_count = 0
+            self.eload.insert_browsable_files()
+            m_execute.assert_not_called()

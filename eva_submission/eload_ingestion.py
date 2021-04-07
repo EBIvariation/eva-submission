@@ -322,8 +322,15 @@ class EloadIngestion(Eload):
 
     def insert_browsable_files(self):
         with self.get_pg_conn() as conn:
-            # insert into browsable file table
-            insert_query = "insert into browsable_file (file_id,ena_submission_file_id,filename,project_accession,assembly_set_id) " \
+            # insert into browsable file table, if files not already there
+            files_query = f"select file_id, filename from evapro.browsable_file " \
+                          f"where project_accession = '{self.project_accession}';"
+            rows = get_all_results_for_query(conn, files_query)
+            if len(rows) > 0:
+                self.info('Browsable files already inserted, skipping')
+                return
+            self.info('Inserting browsable files...')
+            insert_query = "insert into evapro.browsable_file (file_id,ena_submission_file_id,filename,project_accession,assembly_set_id) " \
                            "select file.file_id,ena_submission_file_id,filename,project_accession,assembly_set_id " \
                            "from (select * from analysis_file af " \
                            "join analysis a on a.analysis_accession = af.analysis_accession " \
@@ -340,8 +347,6 @@ class EloadIngestion(Eload):
             execute_query(conn, release_update)
 
             # update FTP file paths
-            files_query = f"select file_id, filename from evapro.browsable_file " \
-                          f"where project_accession = '{self.project_accession}';"
             rows = get_all_results_for_query(conn, files_query)
             if len(rows) == 0:
                 raise ValueError('Something went wrong with loading from ENA')
