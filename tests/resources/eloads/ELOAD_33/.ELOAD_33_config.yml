@@ -1,6 +1,7 @@
 brokering:
   ena:
     PROJECT: PRJEB12345
+    hold_date: 2021-01-04
   vcf_files:
     tests/resources/eloads/ELOAD_33/18_brokering/ena/test1.vcf.gz:
       index: tests/resources/eloads/ELOAD_33/18_brokering/ena/test1.vcf.gz.tbi

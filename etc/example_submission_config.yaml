@@ -1,13 +1,15 @@
-environment: 'internal'
 ftp_dir: '/path/to/ftp/dir'
 eloads_dir: '/path/to/eload/dir'
 projects_dir: '/path/to/project/dir'
 eutils_api_key: 1234556lkxflk
-maven_settings_file: '/path/to/settings/file'
+
 eva_pipeline_props: '/path/to/pipeline/properties'
 vep_path: '/path/to/vep'
 vep_cache_path: '/path/to/vep/cache'
 
+maven:
+  environment: 'internal'
+  settings_file: '/path/to/settings/file'
 
 genome_downloader:
   output_directory: '/path/to/reference/sequences'

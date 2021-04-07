@@ -1,11 +1,13 @@
-environment: 'internal'
 ftp_dir: 'tests/resources/ftpboxes'
 eloads_dir: 'tests/resources/eloads'
 projects_dir: 'tests/resources/projects'
-maven_settings_file: 'path/to/settings/file'
 eva_pipeline_props: '/path/to/pipeline/properties'
 vep_path: '/path/to/vep'
 vep_cache_path: '/path/to/vep/cache'
+
+maven:
+  environment: 'internal'
+  settings_file: 'path/to/settings/file'
 
 executable:
   nextflow: /path/to/nextflow

@@ -10,7 +10,7 @@ from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile, get_properties_from_xml_file
 from ebi_eva_common_pyutils.metadata_utils import get_variant_warehouse_db_name_from_assembly_and_taxonomy
-from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
+from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
 import psycopg2
 import pymongo
 from pymongo.uri_parser import split_hosts
@@ -39,10 +39,10 @@ class EloadIngestion(Eload):
 
     def __init__(self, eload_number):
         super().__init__(eload_number)
-        self.settings_xml_file = cfg['maven_settings_file']
+        self.settings_xml_file = cfg['maven']['settings_file']
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
         self.project_dir = self.setup_project_dir()
-        self.mongo_uri = get_mongo_uri_for_eva_profile(cfg['environment'], self.settings_xml_file)
+        self.mongo_uri = get_mongo_uri_for_eva_profile(cfg['maven']['environment'], self.settings_xml_file)
 
     def ingest(
             self,
@@ -72,6 +72,8 @@ class EloadIngestion(Eload):
         if do_accession:
             self.eload_cfg.set(self.config_section, 'accession', 'instance_id', value=instance_id)
             self.run_accession_workflow()
+            self.insert_browsable_files()
+            self.refresh_study_browser()
 
         if do_variant_load:
             self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'version', value=vep_version)
@@ -85,6 +87,10 @@ class EloadIngestion(Eload):
         if self.project_accession is None:
             self.error('No project accession in submission config, check that brokering to ENA is done. ')
             raise ValueError('No project accession in submission config.')
+        if self.eload_cfg.query('brokering', 'ena', 'hold_date') is None:
+            self.error('No release date found, check that brokering to ENA is done.')
+            raise ValueError('No release date found in submission config.')
+            
 
     def get_db_name(self):
         """
@@ -182,21 +188,21 @@ class EloadIngestion(Eload):
         return project_dir
 
     def get_mongo_creds(self):
-        properties = get_properties_from_xml_file(cfg['environment'], self.settings_xml_file)
+        properties = get_properties_from_xml_file(cfg['maven']['environment'], self.settings_xml_file)
         mongo_host = split_hosts(properties['eva.mongo.host'])[0][0]
         mongo_user = properties['eva.mongo.user']
         mongo_pass = properties['eva.mongo.passwd']
         return mongo_host, mongo_user, mongo_pass
 
     def get_pg_creds(self):
-        properties = get_properties_from_xml_file(cfg['environment'], self.settings_xml_file)
+        properties = get_properties_from_xml_file(cfg['maven']['environment'], self.settings_xml_file)
         pg_url = properties['eva.evapro.jdbc.url']
         pg_user = properties['eva.evapro.user']
         pg_pass = properties['eva.evapro.password']
         return pg_url, pg_user, pg_pass
 
     def get_accession_pg_creds(self):
-        properties = get_properties_from_xml_file(cfg['environment'], self.settings_xml_file)
+        properties = get_properties_from_xml_file(cfg['maven']['environment'], self.settings_xml_file)
         pg_url = properties['eva.accession.jdbc.url']
         pg_user = properties['eva.accession.user']
         pg_pass = properties['eva.accession.password']
@@ -313,6 +319,47 @@ class EloadIngestion(Eload):
             self.error('See .nextflow.log for more details')
             raise e
         return output_dir
+
+    def insert_browsable_files(self):
+        with self.get_pg_conn() as conn:
+            # insert into browsable file table, if files not already there
+            files_query = f"select file_id, filename from evapro.browsable_file " \
+                          f"where project_accession = '{self.project_accession}';"
+            rows = get_all_results_for_query(conn, files_query)
+            if len(rows) > 0:
+                self.info('Browsable files already inserted, skipping')
+                return
+            self.info('Inserting browsable files...')
+            insert_query = "insert into browsable_file (file_id,ena_submission_file_id,filename,project_accession,assembly_set_id) " \
+                           "select file.file_id,ena_submission_file_id,filename,project_accession,assembly_set_id " \
+                           "from (select * from analysis_file af " \
+                           "join analysis a on a.analysis_accession = af.analysis_accession " \
+                           "join project_analysis pa on af.analysis_accession = pa.analysis_accession " \
+                           f"where pa.project_accession = '{self.project_accession}' ) myfiles " \
+                           "join file on file.file_id = myfiles.file_id where file.file_type ilike 'vcf';"
+            execute_query(conn, insert_query)
+
+            # update loaded and release date
+            # TODO get release date from ENA directly
+            release_date = self.eload_cfg.query('brokering', 'ena', 'hold_date')
+            release_update = f"update evapro.browsable_file " \
+                             f"set loaded = true, eva_release = '{release_date.strftime('%Y%m%d')}' " \
+                             f"where project_accession = '{self.project_accession}';"
+            execute_query(conn, release_update)
+
+            # update FTP file paths
+            rows = get_all_results_for_query(conn, files_query)
+            if len(rows) == 0:
+                raise ValueError('Something went wrong with loading from ENA')
+            for file_id, filename in rows:
+                ftp_update = f"update evapro.file " \
+                             f"set ftp_file = '/ftp.ebi.ac.uk/pub/databases/eva/{self.project_accession}/{filename}' " \
+                             f"where file_id = '{file_id}';"
+                execute_query(conn, ftp_update)
+
+    def refresh_study_browser(self):
+        with self.get_pg_conn() as conn:
+            execute_query(conn, 'refresh materialized view study_browser;')
 
     @cached_property
     def needs_merge(self):

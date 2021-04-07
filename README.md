@@ -77,3 +77,25 @@ You can specify a list of VCF and/or a metadata file on the command line to over
 python broker_submission.py --eload 677 --vcf_files /path/to/vcf1.vcf /path/to/vcf2.vcf --metadata_file /path/to/metadata.xlsx
 ```
 
+### Data ingestion
+
+After validation and brokering are done, the data can be loaded into our databases and made publicly available.
+This involves three main steps:
+
+1. Loading submission metadata from ENA into EVAPRO (`metadata_load`)
+2. Accessioning VCF files (`accession`)
+3. Loading into the variant warehouse (`variant_load`)
+
+By default, the script will run all of these tasks, though you may specify a subset using the flag `--tasks`.
+Note that as some steps are long-running the script is best run in a screen/tmux session.
+
+```bash
+# To run everything
+python ingest_submission.py --eload 765 --instance 1 --vep_version 89 --vep_cache_version 89 --aggregation NONE
+
+# Only accessioning - VEP versions not needed
+python ingest_submission.py --eload 765 --instance 1 --aggregation NONE --tasks accession
+
+# Only variant load - accession instance id not needed
+python ingest_submission.py --eload 765 --vep_version 89 --vep_cache_version 89 --aggregation NONE --tasks variant_load
+```
