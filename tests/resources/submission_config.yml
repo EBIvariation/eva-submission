@@ -1,4 +1,5 @@
 ftp_dir: 'tests/resources/ftpboxes'
+public_ftp_dir: '/path/to/public/ftp'
 eloads_dir: 'tests/resources/eloads'
 projects_dir: 'tests/resources/projects'
 eva_pipeline_props: '/path/to/pipeline/properties'
