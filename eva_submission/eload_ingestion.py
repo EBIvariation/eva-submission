@@ -248,6 +248,7 @@ class EloadIngestion(Eload):
             'project_accession': self.project_accession,
             'instance_id': self.eload_cfg.query(self.config_section, 'accession', 'instance_id'),
             'accession_job_props': job_props,
+            'public_ftp_dir': cfg['public_ftp_dir'],
             'public_dir': os.path.join(self.project_dir, project_dirs['public']),
             'logs_dir': os.path.join(self.project_dir, project_dirs['logs']),
             'executable': cfg['executable'],

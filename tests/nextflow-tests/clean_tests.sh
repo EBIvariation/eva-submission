@@ -7,5 +7,5 @@ cwd=${PWD}
 cd ${SCRIPT_DIR}
 
 rm -rf work .nextflow*
-rm -r project
+rm -r project ftp
 cd ${cwd}

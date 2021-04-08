@@ -1,5 +1,6 @@
 project_accession: PRJEB12345
 instance_id: 1
+public_ftp_dir: ../../ftp
 logs_dir: ../../../project/logs
 public_dir: ../../../project/public
 valid_vcfs:
@@ -19,7 +20,6 @@ executable:
   bcftools: ../../../bin/fake_bcftools.sh
   bgzip: ../../../bin/fake_bgzip.sh
   tabix: ../../../bin/fake_tabix.sh
-  copy_to_ftp: ../../bin/fake_copy.sh
 jar:
   accession_pipeline: ../../../java/accession.jar
   eva_pipeline: ../../../java/variant-load.jar

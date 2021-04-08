@@ -1,4 +1,5 @@
 ftp_dir: '/path/to/ftp/dir'
+public_ftp_dir: '/path/to/public/ftp/dir'
 eloads_dir: '/path/to/eload/dir'
 projects_dir: '/path/to/project/dir'
 eutils_api_key: 1234556lkxflk

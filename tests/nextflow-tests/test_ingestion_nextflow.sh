@@ -7,7 +7,7 @@ SOURCE_DIR="$(dirname $(dirname $SCRIPT_DIR))/nextflow"
 
 cwd=${PWD}
 cd ${SCRIPT_DIR}
-mkdir project project/logs project/public
+mkdir project project/logs project/public ftp
 
 # run accession and variant load
 # note public_dir needs to be an absolute path, unlike others in config
@@ -26,5 +26,5 @@ cat project/logs/*.log
 
 # clean up
 rm -rf work .nextflow*
-rm -r project
+rm -r project ftp
 cd ${cwd}
