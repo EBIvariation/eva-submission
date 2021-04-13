@@ -120,7 +120,6 @@ class EloadValidation(Eload):
     def _run_validation_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory()
         validation_config = {
-            'metadata_file': self.eload_cfg.query('submission', 'metadata_spreadsheet'),
             'vcf_files': self.eload_cfg.query('submission', 'vcf_files'),
             'reference_fasta': self.eload_cfg.query('submission', 'assembly_fasta'),
             'reference_report': self.eload_cfg.query('submission', 'assembly_report'),

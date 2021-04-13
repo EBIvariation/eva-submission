@@ -1,23 +1,21 @@
 import os
 import shutil
 import subprocess
-from urllib.parse import urlsplit
 from pathlib import Path
 
 import yaml
 from cached_property import cached_property
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
-from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile, get_properties_from_xml_file
+from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile
 from ebi_eva_common_pyutils.metadata_utils import get_variant_warehouse_db_name_from_assembly_and_taxonomy
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
-import psycopg2
 import pymongo
-from pymongo.uri_parser import split_hosts
 
 from eva_submission import ROOT_DIR
 from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy
 from eva_submission.eload_submission import Eload
+from eva_submission.eload_utils import get_metadata_conn, get_mongo_creds, get_accession_pg_creds
 from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
 
 project_dirs = {
@@ -39,10 +37,9 @@ class EloadIngestion(Eload):
 
     def __init__(self, eload_number):
         super().__init__(eload_number)
-        self.settings_xml_file = cfg['maven']['settings_file']
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
         self.project_dir = self.setup_project_dir()
-        self.mongo_uri = get_mongo_uri_for_eva_profile(cfg['maven']['environment'], self.settings_xml_file)
+        self.mongo_uri = get_mongo_uri_for_eva_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
 
     def ingest(
             self,
@@ -90,7 +87,6 @@ class EloadIngestion(Eload):
         if self.eload_cfg.query('brokering', 'ena', 'hold_date') is None:
             self.error('No release date found, check that brokering to ENA is done.')
             raise ValueError('No release date found in submission config.')
-            
 
     def get_db_name(self):
         """
@@ -99,7 +95,7 @@ class EloadIngestion(Eload):
         assm_accession = self.eload_cfg.query('submission', 'assembly_accession')
         taxon_id = self.eload_cfg.query('submission', 'taxonomy_id')
         # query EVAPRO for db name based on taxonomy id and accession
-        with self.get_pg_conn() as conn:
+        with get_metadata_conn() as conn:
             db_name = get_variant_warehouse_db_name_from_assembly_and_taxonomy(conn, assm_accession, taxon_id)
         if not db_name:
             self.error(f'Database for taxonomy id {taxon_id} and assembly {assm_accession} not found in EVAPRO.')
@@ -118,7 +114,7 @@ class EloadIngestion(Eload):
         if not db_name:
             db_name = self.get_db_name()
         else:
-            with self.get_pg_conn() as conn:
+            with get_metadata_conn() as conn:
                 # warns but doesn't crash if assembly set already exists
                 insert_new_assembly_and_taxonomy(
                     assembly_accession=self.eload_cfg.query('submission', 'assembly_accession'),
@@ -187,33 +183,8 @@ class EloadIngestion(Eload):
         self.eload_cfg.set(self.config_section, 'project_dir', value=str(project_dir))
         return project_dir
 
-    def get_mongo_creds(self):
-        properties = get_properties_from_xml_file(cfg['maven']['environment'], self.settings_xml_file)
-        mongo_host = split_hosts(properties['eva.mongo.host'])[0][0]
-        mongo_user = properties['eva.mongo.user']
-        mongo_pass = properties['eva.mongo.passwd']
-        return mongo_host, mongo_user, mongo_pass
-
-    def get_pg_creds(self):
-        properties = get_properties_from_xml_file(cfg['maven']['environment'], self.settings_xml_file)
-        pg_url = properties['eva.evapro.jdbc.url']
-        pg_user = properties['eva.evapro.user']
-        pg_pass = properties['eva.evapro.password']
-        return pg_url, pg_user, pg_pass
-
-    def get_accession_pg_creds(self):
-        properties = get_properties_from_xml_file(cfg['maven']['environment'], self.settings_xml_file)
-        pg_url = properties['eva.accession.jdbc.url']
-        pg_user = properties['eva.accession.user']
-        pg_pass = properties['eva.accession.password']
-        return pg_url, pg_user, pg_pass
-
-    def get_pg_conn(self):
-        pg_url, pg_user, pg_pass = self.get_pg_creds()
-        return psycopg2.connect(urlsplit(pg_url).path, user=pg_user, password=pg_pass)
-
     def get_study_name(self):
-        with self.get_pg_conn() as conn:
+        with get_metadata_conn() as conn:
             query = f"SELECT title FROM evapro.project WHERE project_accession='{self.project_accession}';"
             rows = get_all_results_for_query(conn, query)
         if len(rows) != 1:
@@ -226,8 +197,8 @@ class EloadIngestion(Eload):
 
     def run_accession_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
-        mongo_host, mongo_user, mongo_pass = self.get_mongo_creds()
-        pg_url, pg_user, pg_pass = self.get_accession_pg_creds()
+        mongo_host, mongo_user, mongo_pass = get_mongo_creds()
+        pg_url, pg_user, pg_pass = get_accession_pg_creds()
         job_props = accession_props_template(
             assembly_accession=self.eload_cfg.query('submission', 'assembly_accession'),
             taxonomy_id=self.eload_cfg.query('submission', 'taxonomy_id'),
@@ -280,6 +251,7 @@ class EloadIngestion(Eload):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
         job_props = variant_load_props_template(
                 project_accession=self.project_accession,
+                # TODO currently there is only ever one of these in the config, even if multiple analyses/files
                 analysis_accession=self.eload_cfg.query('brokering', 'ena', 'ANALYSIS'),
                 aggregation=self.eload_cfg.query(self.config_section, 'aggregation'),
                 study_name=self.get_study_name(),
@@ -326,7 +298,7 @@ class EloadIngestion(Eload):
         return output_dir
 
     def insert_browsable_files(self):
-        with self.get_pg_conn() as conn:
+        with get_metadata_conn() as conn:
             # insert into browsable file table, if files not already there
             files_query = f"select file_id, filename from evapro.browsable_file " \
                           f"where project_accession = '{self.project_accession}';"
@@ -363,7 +335,7 @@ class EloadIngestion(Eload):
                 execute_query(conn, ftp_update)
 
     def refresh_study_browser(self):
-        with self.get_pg_conn() as conn:
+        with get_metadata_conn() as conn:
             execute_query(conn, 'refresh materialized view study_browser;')
 
     @cached_property
