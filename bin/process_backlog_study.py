@@ -22,7 +22,6 @@ from argparse import ArgumentParser
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
 from eva_submission.eload_backlog import EloadBacklog
-from eva_submission.eload_ingestion import EloadIngestion
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from eva_submission.eload_validation import EloadValidation
@@ -32,7 +31,7 @@ logger = log_cfg.get_logger(__name__)
 
 
 def main():
-    argparse = ArgumentParser(description='Process backlog study.')
+    argparse = ArgumentParser(description='Prepare to process backlog study and validate VCFs.')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
@@ -47,18 +46,13 @@ def main():
     load_config()
 
     preparation = EloadBacklog(args.eload)
-    preparation.fill_in_params()
+    preparation.fill_in_config()
 
     validation = EloadValidation(args.eload)
     validation_tasks = ['assembly_check', 'vcf_check']
     validation.validate(validation_tasks)
-    # TODO stop if validation fails?
 
-    ingestion = EloadIngestion(args.eload)
-    ingestion_tasks = ['accession', 'variant_load']
-    # TODO also needs: instance, vep versions, aggregation
-    # TODO skip accessioning for human studies
-    ingestion.ingest(tasks=ingestion_tasks)
+    logger.info('Preparation complete, if files are valid please run ingestion as normal.')
 
 
 if __name__ == "__main__":
