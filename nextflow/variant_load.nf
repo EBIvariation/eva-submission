@@ -10,6 +10,7 @@ def helpMessage() {
             --project_accession     project accession
             --load_job_props        job-specific properties, passed as a map
             --eva_pipeline_props    main properties file for eva pipeline
+            --project_dir           project directory
             --logs_dir              logs directory
     """
 }
@@ -19,6 +20,7 @@ params.needs_merge = null
 params.project_accession = null
 params.load_job_props = null
 params.eva_pipeline_props = null
+params.project_dir = null
 params.logs_dir = null
 // executables
 params.executable = ["bgzip": "bgzip", "bcftools": "bcftools"]
@@ -31,11 +33,12 @@ params.help = null
 if (params.help) exit 0, helpMessage()
 
 // Test inputs
-if (!params.valid_vcfs || !params.project_accession || !params.load_job_props || !params.eva_pipeline_props || !params.logs_dir) {
+if (!params.valid_vcfs || !params.project_accession || !params.load_job_props || !params.eva_pipeline_props || !params.project_dir || !params.logs_dir) {
     if (!params.valid_vcfs) log.warn('Provide validated vcfs using --valid_vcfs')
     if (!params.project_accession) log.warn('Provide project accession using --project_accession')
     if (!params.load_job_props) log.warn('Provide job-specific properties using --load_job_props')
     if (!params.eva_pipeline_props) log.warn('Provide an EVA Pipeline properties file using --eva_pipeline_props')
+    if (!params.project_dir) log.warn('Provide project directory using --project_dir')
     if (!params.logs_dir) log.warn('Provide logs directory using --logs_dir')
     exit 1, helpMessage()
 }
@@ -90,6 +93,8 @@ process create_properties {
             w.write("$k=$v\n")
         }
     }
+    // make a copy for debugging purposes
+    new File("${params.project_dir}/load_${vcf_file.getFileName()}.properties") << props_file.asWritable()
 }
 
 
