@@ -80,7 +80,7 @@ process create_properties {
             w.write("$k=$v\n")
         }
     }
-    // make a copy for the debugging purposes
+    // make a copy for debugging purposes
     new File("${params.accessions_dir}/${vcf_filename}_accessioning.properties") << props_file.asWritable()
 }
 
@@ -89,7 +89,9 @@ process create_properties {
  * Accession VCFs
  */
 process accession_vcf {
-    clusterOptions "-g /accession/instance-${params.instance_id}"
+    clusterOptions "-g /accession/instance-${params.instance_id} \
+                    -o $params.logs_dir/accessioning.${accession_properties.getFileName()}.log \
+                    -e $params.logs_dir/accessioning.${accession_properties.getFileName()}.err"
 
     memory '8 GB'
 
@@ -103,9 +105,7 @@ process accession_vcf {
     """
     filename=\$(basename $accession_properties)
     filename=\${filename%.*}
-    java -Xmx7g -jar $params.jar.accession_pipeline --spring.config.name=\$filename \
-        > $params.logs_dir/accessioning.\${filename}.log \
-        2> $params.logs_dir/accessioning.\${filename}.err
+    java -Xmx7g -jar $params.jar.accession_pipeline --spring.config.name=\$filename
     echo "done" > ${accessioned_filename}.tmp
     """
 }

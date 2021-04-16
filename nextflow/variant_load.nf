@@ -102,16 +102,15 @@ process create_properties {
  * Load into variant db.
  */
 process load_vcf {
+    clusterOptions "-o $params.logs_dir/pipeline.${variant_load_properties.getFileName()}.log \
+                    -e $params.logs_dir/pipeline.${variant_load_properties.getFileName()}.err"
+
     input:
     path variant_load_properties from variant_load_props
 
     memory '5 GB'
 
     """
-    filename=\$(basename $variant_load_properties)
-    filename=\${filename%.*}
-    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.eva_pipeline_props --parameters.path=$variant_load_properties \
-        > $params.logs_dir/pipeline.\${filename}.log \
-        2> $params.logs_dir/pipeline.\${filename}.err
+    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.eva_pipeline_props --parameters.path=$variant_load_properties
     """
 }
