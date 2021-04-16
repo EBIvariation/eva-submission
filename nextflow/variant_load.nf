@@ -102,8 +102,12 @@ process create_properties {
  * Load into variant db.
  */
 process load_vcf {
-    clusterOptions "-o $params.logs_dir/pipeline.${variant_load_properties.getFileName()}.log \
-                    -e $params.logs_dir/pipeline.${variant_load_properties.getFileName()}.err"
+    clusterOptions {
+        log_filename = variant_load_properties.getFileName().toString()
+        log_filename = log_filename.substring(5, log_filename.indexOf('.properties'))
+        return "-o $params.logs_dir/pipeline.${log_filename}.log \
+                -e $params.logs_dir/pipeline.${log_filename}.err"
+    }
 
     input:
     path variant_load_properties from variant_load_props

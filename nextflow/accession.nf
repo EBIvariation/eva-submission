@@ -89,9 +89,13 @@ process create_properties {
  * Accession VCFs
  */
 process accession_vcf {
-    clusterOptions "-g /accession/instance-${params.instance_id} \
-                    -o $params.logs_dir/accessioning.${accession_properties.getFileName()}.log \
-                    -e $params.logs_dir/accessioning.${accession_properties.getFileName()}.err"
+    clusterOptions {
+        log_filename = accession_properties.getFileName().toString()
+        log_filename = log_filename.take(log_filename.indexOf('_accessioning.properties'))
+        return "-g /accession/instance-${params.instance_id} \
+                -o $params.logs_dir/accessioning.${log_filename}.log \
+                -e $params.logs_dir/accessioning.${log_filename}.err"
+    }
 
     memory '8 GB'
 
