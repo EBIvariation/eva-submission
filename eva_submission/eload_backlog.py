@@ -1,7 +1,11 @@
 import os
+from xml.etree import ElementTree as ET
 
 from cached_property import cached_property
+from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
+import requests
+from requests.auth import HTTPBasicAuth
 
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import get_metadata_conn, get_genome_fasta_and_report
@@ -14,6 +18,7 @@ class EloadBacklog(Eload):
         self.eload_cfg.set('brokering', 'ena', 'PROJECT', value=self.project_accession)
         self.get_species_info()
         self.get_analysis_info()
+        self.get_hold_date()
         self.eload_cfg.write()
 
     @cached_property
@@ -23,6 +28,15 @@ class EloadBacklog(Eload):
             rows = get_all_results_for_query(conn, query)
         if len(rows) != 1:
             raise ValueError(f'No project accession for {self.eload} found in metadata DB.')
+        return rows[0][0]
+
+    @cached_property
+    def project_alias(self):
+        with get_metadata_conn() as conn:
+            query = f"select alias from evapro.project where project_accession={self.project_accession};"
+            rows = get_all_results_for_query(conn, query)
+        if len(rows) != 1:
+            raise ValueError(f'No project alias for {self.project_accession} found in metadata DB.')
         return rows[0][0]
 
     def get_species_info(self):
@@ -68,7 +82,7 @@ class EloadBacklog(Eload):
                 full_path = os.path.join(self._get_dir('vcf'), fn)
                 if not os.path.exists(full_path):
                     raise ValueError(f'File not found: {full_path}')
-                if full_path.endswith('tbi'):  # TODO csi indices as well?
+                if full_path.endswith('tbi'):
                     index_file = full_path
                 else:
                     vcf_file = full_path
@@ -77,3 +91,27 @@ class EloadBacklog(Eload):
             # TODO is it necessary that brokering and submission vcfs be different paths?
             self.eload_cfg.set('submission', 'vcf_files', vcf_file, 'index', value=index_file)
             self.eload_cfg.set('brokering', 'vcf_files', vcf_file, 'index', value=index_file)
+
+    def get_hold_date(self):
+        """Gets hold date from ENA and adds to the config."""
+        xml_request = f"""<SUBMISSION_SET>
+            <SUBMISSION>
+                <ACTIONS>
+                    <ACTION>
+                        <RECEIPT target="{self.project_alias}"/>
+                   </ACTION>
+               </ACTIONS>
+            </SUBMISSION>
+        </SUBMISSION_SET>"""
+        response = requests.post(
+            cfg.query('ena', 'submit_url'),
+            auth=HTTPBasicAuth(cfg.query('ena', 'username'), cfg.query('ena', 'password')),
+            files={'SUBMISSION': xml_request}
+        )
+        receipt = ET.fromstring(response.text)
+        try:
+            project_elt = receipt.findall('PROJECT')[0]
+            hold_date = project_elt.attrib['holdUntilDate']
+        except (IndexError, KeyError):
+            raise ValueError(f"Couldn't get hold date from ENA for {self.project_accession} ({self.project_alias})")
+        self.eload_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
