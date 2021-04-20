@@ -43,7 +43,6 @@ class EloadBacklog(Eload):
         """Adds species info into the config: taxonomy id and scientific name,
         and assembly accession, fasta, and report."""
         with get_metadata_conn() as conn:
-            # TODO note this will get assembly info based on the taxonomy
             query = f"select a.taxonomy_id, b.scientific_name, d.assembly_accession " \
                     f"from project_taxonomy a " \
                     f"join taxonomy b on a.taxonomy_id=b.taxonomy_id " \
@@ -72,7 +71,7 @@ class EloadBacklog(Eload):
                     f"where a.project_accession='{self.project_accession}' " \
                     f"group by a.analysis_accession;"
             rows = get_all_results_for_query(conn, query)
-        if len(rows) == 1:
+        if len(rows) == 0:
             raise ValueError(f'No analyses for {self.project_accession} found in metadata DB.')
 
         for analysis_accession, filenames in rows:
@@ -88,13 +87,12 @@ class EloadBacklog(Eload):
                     vcf_file = full_path
             if not index_file or not vcf_file:
                 raise ValueError(f'VCF file or index file is missing for analysis {analysis_accession}')
-            # TODO is it necessary that brokering and submission vcfs be different paths?
             self.eload_cfg.set('submission', 'vcf_files', vcf_file, 'index', value=index_file)
             self.eload_cfg.set('brokering', 'vcf_files', vcf_file, 'index', value=index_file)
 
     def get_hold_date(self):
         """Gets hold date from ENA and adds to the config."""
-        xml_request = f"""<SUBMISSION_SET>
+        xml_request = f'''<SUBMISSION_SET>
             <SUBMISSION>
                 <ACTIONS>
                     <ACTION>
@@ -102,7 +100,7 @@ class EloadBacklog(Eload):
                    </ACTION>
                </ACTIONS>
             </SUBMISSION>
-        </SUBMISSION_SET>"""
+        </SUBMISSION_SET>'''
         response = requests.post(
             cfg.query('ena', 'submit_url'),
             auth=HTTPBasicAuth(cfg.query('ena', 'username'), cfg.query('ena', 'password')),
@@ -110,8 +108,8 @@ class EloadBacklog(Eload):
         )
         receipt = ET.fromstring(response.text)
         try:
-            project_elt = receipt.findall('PROJECT')[0]
-            hold_date = project_elt.attrib['holdUntilDate']
+            hold_date = receipt.findall('PROJECT')[0].attrib['holdUntilDate']
+            self.eload_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
         except (IndexError, KeyError):
             raise ValueError(f"Couldn't get hold date from ENA for {self.project_accession} ({self.project_alias})")
-        self.eload_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
+            # TODO if there's no hold date because the study is already public, this should be okay
