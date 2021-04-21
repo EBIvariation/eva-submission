@@ -10,6 +10,7 @@ def helpMessage() {
             --instance_id           instance id to run accessioning
             --accession_job_props   job-specific properties, passed as a map
             --public_ftp_dir        public FTP directory
+            --accessions_dir        accessions directory (for properties files)
             --public_dir            directory for files to be made public
             --logs_dir              logs directory
     """
@@ -20,6 +21,7 @@ params.project_accession = null
 params.instance_id = null
 params.accession_job_props = null
 params.public_ftp_dir = null
+params.accessions_dir = null
 params.public_dir = null
 params.logs_dir = null
 // executables
@@ -33,12 +35,13 @@ params.help = null
 if (params.help) exit 0, helpMessage()
 
 // Test input files
-if (!params.valid_vcfs || !params.project_accession || !params.instance_id || !params.accession_job_props || !params.public_ftp_dir || !params.public_dir || !params.logs_dir) {
+if (!params.valid_vcfs || !params.project_accession || !params.instance_id || !params.accession_job_props || !params.public_ftp_dir || !params.accessions_dir || !params.public_dir || !params.logs_dir) {
     if (!params.valid_vcfs) log.warn('Provide validated vcfs using --valid_vcfs')
     if (!params.project_accession) log.warn('Provide a project accession using --project_accession')
     if (!params.instance_id) log.warn('Provide an instance id using --instance_id')
     if (!params.accession_job_props) log.warn('Provide job-specific properties using --accession_job_props')
     if (!params.public_ftp_dir) log.warn('Provide public FTP directory using --public_ftp_dir')
+    if (!params.accessions_dir) log.warn('Provide accessions directory using --accessions_dir')
     if (!params.public_dir) log.warn('Provide public directory using --public_dir')
     if (!params.logs_dir) log.warn('Provide logs directory using --logs_dir')
     exit 1, helpMessage()
@@ -77,6 +80,8 @@ process create_properties {
             w.write("$k=$v\n")
         }
     }
+    // make a copy for debugging purposes
+    new File("${params.accessions_dir}/${vcf_filename}_accessioning.properties") << props_file.asWritable()
 }
 
 
@@ -84,7 +89,13 @@ process create_properties {
  * Accession VCFs
  */
 process accession_vcf {
-    clusterOptions "-g /accession/instance-${params.instance_id}"
+    clusterOptions {
+        log_filename = accession_properties.getFileName().toString()
+        log_filename = log_filename.take(log_filename.indexOf('_accessioning.properties'))
+        return "-g /accession/instance-${params.instance_id} \
+                -o $params.logs_dir/accessioning.${log_filename}.log \
+                -e $params.logs_dir/accessioning.${log_filename}.err"
+    }
 
     memory '8 GB'
 
@@ -98,9 +109,7 @@ process accession_vcf {
     """
     filename=\$(basename $accession_properties)
     filename=\${filename%.*}
-    java -Xmx7g -jar $params.jar.accession_pipeline --spring.config.name=\$filename \
-        > $params.logs_dir/accessioning.\${filename}.log \
-        2> $params.logs_dir/accessioning.\${filename}.err
+    java -Xmx7g -jar $params.jar.accession_pipeline --spring.config.name=\$filename
     echo "done" > ${accessioned_filename}.tmp
     """
 }

@@ -249,6 +249,7 @@ class EloadIngestion(Eload):
             'instance_id': self.eload_cfg.query(self.config_section, 'accession', 'instance_id'),
             'accession_job_props': job_props,
             'public_ftp_dir': cfg['public_ftp_dir'],
+            'accessions_dir': os.path.join(self.project_dir, project_dirs['accessions']),
             'public_dir': os.path.join(self.project_dir, project_dirs['public']),
             'logs_dir': os.path.join(self.project_dir, project_dirs['logs']),
             'executable': cfg['executable'],
@@ -269,8 +270,9 @@ class EloadIngestion(Eload):
                 ))
             )
         except subprocess.CalledProcessError as e:
-            self.error('Nextflow accessioning pipeline failed: results might not be complete')
-            self.error('See .nextflow.log for more details')
+            self.error('Nextflow accessioning pipeline failed: results might not be complete.')
+            self.error(f"See Nextflow logs in {self.eload_dir}/.nextflow.log or accessioning logs "
+                       f"in {self.project_dir.joinpath(project_dirs['logs'])} for more details.")
             raise e
         return output_dir
 
@@ -296,6 +298,7 @@ class EloadIngestion(Eload):
             'needs_merge': self.needs_merge,
             'load_job_props': job_props,
             'project_accession': self.project_accession,
+            'project_dir': str(self.project_dir),
             'logs_dir': os.path.join(self.project_dir, project_dirs['logs']),
             'eva_pipeline_props': cfg['eva_pipeline_props'],
             'executable': cfg['executable'],
@@ -317,7 +320,8 @@ class EloadIngestion(Eload):
             )
         except subprocess.CalledProcessError as e:
             self.error('Nextflow variant load pipeline failed: results might not be complete')
-            self.error('See .nextflow.log for more details')
+            self.error(f"See Nextflow logs in {self.eload_dir}/.nextflow.log or pipeline logs "
+                       f"in {self.project_dir.joinpath(project_dirs['logs'])} for more details.")
             raise e
         return output_dir
 

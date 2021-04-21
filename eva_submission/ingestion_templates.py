@@ -50,6 +50,8 @@ def accession_props_template(
         'spring.data.mongodb.authentication-database': 'admin',
         'mongodb.read-preference': 'primaryPreferred',
         'spring.main.web-environment': False,
+        'spring.main.allow-bean-definition-overriding': True,
+        'spring.jpa.properties.hibernate.jdbc.lob.non_contextual_creation': True,
     }
 
 
