@@ -18,7 +18,11 @@ class TestEloadBacklog(TestCase):
         self.eload = EloadBacklog(44)
 
     def tearDown(self):
-        del self.eload  # forces the eload config to be written and hence deleted
+        # necessary because test instances are retained during a run and content is a class variable
+        from eva_submission.submission_config import EloadConfig
+        EloadConfig.content = {}
+        # forces the eload config to be written and hence deleted
+        del self.eload
         os.remove(os.path.join(self.resources_folder, 'eloads/ELOAD_44/.ELOAD_44_config.yml'))
 
     def test_fill_in_config(self):
