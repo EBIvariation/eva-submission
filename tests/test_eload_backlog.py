@@ -18,7 +18,7 @@ class TestEloadBacklog(TestCase):
         self.eload = EloadBacklog(44)
 
     def tearDown(self):
-        # apparently __del__ happens after teardown, so this doesn't work...
+        del self.eload  # forces the eload config to be written and hence deleted
         os.remove(os.path.join(self.resources_folder, 'eloads/ELOAD_44/.ELOAD_44_config.yml'))
 
     def test_fill_in_config(self):
