@@ -26,13 +26,11 @@ class TestEloadBacklog(TestCase):
         os.remove(os.path.join(self.resources_folder, 'eloads/ELOAD_44/.ELOAD_44_config.yml'))
 
     def test_fill_in_config(self):
-        expected_vcfs = {
-            os.path.join(self.resources_folder, 'eloads/ELOAD_44/10_submitted/vcf_files/file.vcf'):
-                {'index': os.path.join(self.resources_folder, 'eloads/ELOAD_44/10_submitted/vcf_files/file.vcf.tbi')}
-        }
+        expected_vcf = os.path.join(self.resources_folder, 'eloads/ELOAD_44/10_submitted/vcf_files/file.vcf')
+        expected_index = os.path.join(self.resources_folder, 'eloads/ELOAD_44/10_submitted/vcf_files/file.vcf.tbi')
         expected_config = {
             'submission': {
-                'vcf_files': expected_vcfs,
+                'vcf_files': [expected_vcf],
                 'assembly_fasta': 'assembly.fa',
                 'assembly_report': 'assembly.txt',
                 'assembly_accession': 'GCA_000003025.4',
@@ -40,7 +38,7 @@ class TestEloadBacklog(TestCase):
                 'taxonomy_id': 9823,
             },
             'brokering': {
-                'vcf_files': expected_vcfs,
+                'vcf_files': {expected_vcf: {'index': expected_index}},
                 'ena': {
                     'hold_date':  '2021-01-01+01:00',
                     'ANALYSIS': 'ERZ999999',
@@ -54,8 +52,8 @@ class TestEloadBacklog(TestCase):
                 patch('eva_submission.eload_backlog.requests.post') as m_post:
             m_get_results.side_effect = [
                 [['PRJEB12345']],
-                [(9823, 'Sus scrofa', 'GCA_000003025.4')],
                 [('ERZ999999', ('file.vcf', 'file.vcf.tbi'))],
+                [(9823, 'Sus scrofa', 'GCA_000003025.4')],
                 [['alias']],
             ]
             m_get_genome.return_value = ('assembly.fa', 'assembly.txt')
@@ -69,4 +67,25 @@ class TestEloadBacklog(TestCase):
      <ACTIONS>RECEIPT</ACTIONS>
 </RECEIPT>'''
             self.eload.fill_in_config()
+            self.assertEqual(self.eload.eload_cfg.content, expected_config)
+
+    def test_file_not_found(self):
+        expected_config = {
+            'brokering': {
+                'ena': {
+                    'ANALYSIS': 'ERZ999999',
+                    'PROJECT': 'PRJEB12345',
+                }
+            }
+        }
+        with patch('eva_submission.eload_backlog.get_metadata_conn', autospec=True), \
+                patch('eva_submission.eload_backlog.get_all_results_for_query') as m_get_results:
+            m_get_results.side_effect = [
+                [['PRJEB12345']],
+                [('ERZ999999', ('something_else.vcf', 'file.vcf.tbi'))]
+            ]
+            with self.assertRaises(FileNotFoundError):
+                self.eload.fill_in_config()
+            # incomplete config should still exist, even though filling config failed
+            self.eload = EloadBacklog(44)
             self.assertEqual(self.eload.eload_cfg.content, expected_config)

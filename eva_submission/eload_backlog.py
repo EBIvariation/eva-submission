@@ -16,8 +16,8 @@ class EloadBacklog(Eload):
     def fill_in_config(self):
         """Fills in config params from metadata DB and ENA, enabling later parts of pipeline to run."""
         self.eload_cfg.set('brokering', 'ena', 'PROJECT', value=self.project_accession)
-        self.get_species_info()
         self.get_analysis_info()
+        self.get_species_info()
         self.get_hold_date()
         self.eload_cfg.write()
 
@@ -74,21 +74,25 @@ class EloadBacklog(Eload):
         if len(rows) == 0:
             raise ValueError(f'No analyses for {self.project_accession} found in metadata DB.')
 
+        submitted_vcfs = []
         for analysis_accession, filenames in rows:
             # TODO for now we assume a single analysis per project as that's what the eload config supports
             self.eload_cfg.set('brokering', 'ena', 'ANALYSIS', value=analysis_accession)
             for fn in filenames:
                 full_path = os.path.join(self._get_dir('vcf'), fn)
                 if not os.path.exists(full_path):
-                    raise ValueError(f'File not found: {full_path}')
+                    self.error(f'File not found: {full_path}')
+                    self.error(f'Please check that all VCF and index files are present before retrying.')
+                    raise FileNotFoundError(f'File not found: {full_path}')
                 if full_path.endswith('tbi'):
                     index_file = full_path
                 else:
                     vcf_file = full_path
             if not index_file or not vcf_file:
-                raise ValueError(f'VCF file or index file is missing for analysis {analysis_accession}')
-            self.eload_cfg.set('submission', 'vcf_files', vcf_file, 'index', value=index_file)
+                raise ValueError(f'VCF or index file is missing from metadata DB for analysis {analysis_accession}')
+            submitted_vcfs.append(vcf_file)
             self.eload_cfg.set('brokering', 'vcf_files', vcf_file, 'index', value=index_file)
+        self.eload_cfg.set('submission', 'vcf_files', value=submitted_vcfs)
 
     def get_hold_date(self):
         """Gets hold date from ENA and adds to the config."""
