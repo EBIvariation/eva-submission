@@ -5,8 +5,7 @@ def helpMessage() {
     Validate a set of VCF files and metadata to check if they are valid to be submitted to EVA.
 
     Inputs:
-            --vcf_files           list of vcf files that are meant to be validated
-            --metadata_file      spreadsheet meant to be validated
+            --vcf_files          list of vcf files that are meant to be validated
             --reference_fasta    input fasta file used to verify the reference allele provided with --reference_fasta [required]
             --reference_report   input report providing the known chromosome name aliases provided with --reference_report [required]
             --output_dir         output_directory where the reports will be ouptut
@@ -14,7 +13,6 @@ def helpMessage() {
 }
 
 params.vcf_files = null
-params.metadata_file = null
 params.reference_fasta = null
 params.reference_report = null
 params.output_dir = null
@@ -28,9 +26,8 @@ params.help = null
 if (params.help) exit 0, helpMessage()
 
 // Test input files
-if (!params.vcf_files || !params.metadata_file || !params.reference_fasta || !params.reference_report || !params.output_dir) {
+if (!params.vcf_files || !params.reference_fasta || !params.reference_report || !params.output_dir) {
     if (!params.vcf_files)    log.warn('Provide a input vcf file using --vcf_files')
-    if (!params.metadata_file)  log.warn('Provide a spreadsheet with --metadata_file')
     if (!params.reference_fasta)    log.warn('Provide a fasta file for the genome using --reference_fasta')
     if (!params.reference_report)    log.warn('Provide a assembly report file for the genome using --reference_report')
     if (!params.output_dir)    log.warn('Provide an output directory where the reports will be copied using --output_dir')

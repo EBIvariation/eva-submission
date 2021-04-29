@@ -27,3 +27,4 @@ ena:
   username: demo
   password: password
 
+eutils_api_key: test

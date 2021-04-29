@@ -60,8 +60,8 @@ class TestEloadIngestion(TestCase):
             self.eload.check_brokering_done()
 
     def test_check_variant_db(self):
-        with patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
-                patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True) as m_properties, \
+        with patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
+                patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
                 patch('eva_submission.eload_ingestion.get_variant_warehouse_db_name_from_assembly_and_taxonomy',
                       autospec=True) as m_get_results, \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo:
@@ -77,8 +77,8 @@ class TestEloadIngestion(TestCase):
             assert self.eload.eload_cfg.query('ingestion', 'database', 'exists')
 
     def test_check_variant_db_not_in_evapro(self):
-        with patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
-                patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True) as m_properties, \
+        with patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
+                patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
                 patch('eva_submission.eload_ingestion.get_variant_warehouse_db_name_from_assembly_and_taxonomy',
                       autospec=True) as m_get_results, \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo:
@@ -89,8 +89,8 @@ class TestEloadIngestion(TestCase):
                 self.eload.check_variant_db()
 
     def test_check_variant_db_name_provided(self):
-        with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True) as m_properties, \
-                patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
+        with patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
+                patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo:
             m_properties.return_value = self._fake_properties_dict()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
@@ -102,8 +102,8 @@ class TestEloadIngestion(TestCase):
             assert self.eload.eload_cfg.query('ingestion', 'database', 'exists')
 
     def test_check_variant_db_missing(self):
-        with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True) as m_properties, \
-                patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
+        with patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
+                patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo:
             m_properties.return_value = self._fake_properties_dict()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
@@ -129,8 +129,8 @@ class TestEloadIngestion(TestCase):
             m_execute.assert_called_once()
 
     def test_ingest_all_tasks(self):
-        with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True) as m_properties, \
-                patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
+        with patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
+                patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
@@ -141,8 +141,8 @@ class TestEloadIngestion(TestCase):
             self.eload.ingest('NONE', 1, 82, 82, db_name='eva_hsapiens_grch38')
 
     def test_ingest_metadata_load(self):
-        with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True) as m_properties, \
-                patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
+        with patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
+                patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
             m_properties.return_value = self._fake_properties_dict()
@@ -150,8 +150,8 @@ class TestEloadIngestion(TestCase):
             self.eload.ingest(tasks=['metadata_load'], db_name='eva_hsapiens_grch38')
 
     def test_ingest_accession(self):
-        with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True) as m_properties, \
-                patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
+        with patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
+                patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
@@ -169,8 +169,8 @@ class TestEloadIngestion(TestCase):
             )
 
     def test_ingest_variant_load(self):
-        with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True) as m_properties, \
-                patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
+        with patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
+                patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
@@ -189,8 +189,8 @@ class TestEloadIngestion(TestCase):
             )
 
     def test_insert_browsable_files(self):
-        with patch('eva_submission.eload_ingestion.get_properties_from_xml_file', autospec=True) as m_properties, \
-                patch('eva_submission.eload_ingestion.psycopg2.connect', autospec=True), \
+        with patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
+                patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.execute_query') as m_execute:
             m_properties.return_value = self._fake_properties_dict()
