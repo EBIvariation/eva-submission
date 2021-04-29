@@ -60,6 +60,7 @@ process create_properties {
     output:
     path "${vcf_file.getFileName()}_accessioning.properties" into accession_props
     val accessioned_filename into accessioned_filenames
+    val log_filename into log_filenames
 
     exec:
     props = new Properties()
@@ -69,6 +70,7 @@ process create_properties {
     props.setProperty("parameters.vcf", vcf_file.toString())
     vcf_filename = vcf_file.getFileName().toString()
     accessioned_filename = vcf_filename.take(vcf_filename.indexOf(".vcf")) + ".accessioned.vcf"
+    log_filename = "accessioning.${vcf_filename}"
     props.setProperty("parameters.outputVcf", "${params.public_dir}/${accessioned_filename}")
 
     // need to explicitly store in workDir so next process can pick it up
@@ -89,19 +91,16 @@ process create_properties {
  * Accession VCFs
  */
 process accession_vcf {
-    clusterOptions {
-        log_filename = accession_properties.getFileName().toString()
-        log_filename = log_filename.take(log_filename.indexOf('_accessioning.properties'))
-        return "-g /accession/instance-${params.instance_id} \
-                -o $params.logs_dir/accessioning.${log_filename}.log \
-                -e $params.logs_dir/accessioning.${log_filename}.err"
-    }
+    clusterOptions "-g /accession/instance-${params.instance_id} \
+                    -o $params.logs_dir/${log_filename}.log \
+                    -e $params.logs_dir/${log_filename}.err"
 
     memory '8 GB'
 
     input:
     path accession_properties from accession_props
     val accessioned_filename from accessioned_filenames
+    val log_filename from log_filenames
 
     output:
     path "${accessioned_filename}.tmp" into accession_done
@@ -109,7 +108,11 @@ process accession_vcf {
     """
     filename=\$(basename $accession_properties)
     filename=\${filename%.*}
-    java -Xmx7g -jar $params.jar.accession_pipeline --spring.config.name=\$filename
+    java -Xmx7g -jar $params.jar.accession_pipeline --spring.config.name=\$filename || \
+    # If accessioning fails due to missing variants, but the only missing variants are structural variants,
+    # then we should treat this as a success from the perspective of the automation.
+        [[ \$(grep -o 'Skipped processing structural variant' ${params.logs_dir}/${log_filename}.log | wc -l) \
+           == \$(grep -oP '\\d+(?= unaccessioned variants need to be checked)' ${params.logs_dir}/${log_filename}.log) ]]
     echo "done" > ${accessioned_filename}.tmp
     """
 }
