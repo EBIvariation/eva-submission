@@ -111,6 +111,7 @@ process accession_vcf {
     (java -Xmx7g -jar $params.jar.accession_pipeline --spring.config.name=\$filename) || \
     # If accessioning fails due to missing variants, but the only missing variants are structural variants,
     # then we should treat this as a success from the perspective of the automation.
+    # TODO revert once accessioning pipeline properly registers structural variants
         [[ \$(grep -o 'Skipped processing structural variant' ${params.logs_dir}/${log_filename}.log | wc -l) \
            == \$(grep -oP '\\d+(?= unaccessioned variants need to be checked)' ${params.logs_dir}/${log_filename}.log) ]]
     echo "done" > ${accessioned_filename}.tmp
