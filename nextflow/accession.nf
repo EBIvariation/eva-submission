@@ -108,7 +108,7 @@ process accession_vcf {
     """
     filename=\$(basename $accession_properties)
     filename=\${filename%.*}
-    java -Xmx7g -jar $params.jar.accession_pipeline --spring.config.name=\$filename || \
+    (java -Xmx7g -jar $params.jar.accession_pipeline --spring.config.name=\$filename) || \
     # If accessioning fails due to missing variants, but the only missing variants are structural variants,
     # then we should treat this as a success from the perspective of the automation.
         [[ \$(grep -o 'Skipped processing structural variant' ${params.logs_dir}/${log_filename}.log | wc -l) \
