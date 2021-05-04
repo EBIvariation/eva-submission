@@ -88,7 +88,7 @@ process create_properties {
     // see https://github.com/nextflow-io/nextflow/issues/942#issuecomment-441536175
     props_file = new File("${task.workDir}/load_${vcf_file.getFileName()}.properties")
     props_file.createNewFile()
-    props_file.withWriter { w ->
+    props_file.newWriter().withWriter { w ->
         props.each { k, v ->
             w.write("$k=$v\n")
         }
