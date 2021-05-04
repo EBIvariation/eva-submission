@@ -48,7 +48,7 @@ if (!params.valid_vcfs || !params.project_accession || !params.instance_id || !p
     exit 1, helpMessage()
 }
 
-is_human_study = (params.accession_job_props.taxonomy_id== 9606)
+is_human_study = (params.accession_job_props.taxonomy_id == 9606)
 (valid_vcfs, tabix_vcfs, csi_vcfs) = ( is_human_study
                      ? [ Channel.empty(), Channel.fromPath(params.valid_vcfs), Channel.fromPath(params.valid_vcfs) ]
                      : [ Channel.fromPath(params.valid_vcfs), Channel.empty(), Channel.empty() ] )
