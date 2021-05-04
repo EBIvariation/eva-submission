@@ -35,11 +35,12 @@ params.help = null
 if (params.help) exit 0, helpMessage()
 
 // Test input files
-if (!params.valid_vcfs || !params.project_accession || !params.instance_id || !params.accession_job_props || !params.public_ftp_dir || !params.accessions_dir || !params.public_dir || !params.logs_dir) {
+if (!params.valid_vcfs || !params.project_accession || !params.instance_id || !params.accession_job_props || !params.public_ftp_dir || !params.accessions_dir || !params.public_dir || !params.logs_dir || !params.accession_job_props.vep_species) {
     if (!params.valid_vcfs) log.warn('Provide validated vcfs using --valid_vcfs')
     if (!params.project_accession) log.warn('Provide a project accession using --project_accession')
     if (!params.instance_id) log.warn('Provide an instance id using --instance_id')
     if (!params.accession_job_props) log.warn('Provide job-specific properties using --accession_job_props')
+    if (!params.accession_job_props.vep_species) log.warn('Provide species name in the job-specific properties using vep_species')
     if (!params.public_ftp_dir) log.warn('Provide public FTP directory using --public_ftp_dir')
     if (!params.accessions_dir) log.warn('Provide accessions directory using --accessions_dir')
     if (!params.public_dir) log.warn('Provide public directory using --public_dir')
@@ -47,8 +48,10 @@ if (!params.valid_vcfs || !params.project_accession || !params.instance_id || !p
     exit 1, helpMessage()
 }
 
-valid_vcfs = Channel.fromPath(params.valid_vcfs)
-
+is_human_study = (params.accession_job_props.vep_species == 'eva_human')
+(valid_vcfs, tabix_vcfs, csi_vcfs) = ( is_human_study
+                     ? [ Channel.empty(), Channel.fromPath(params.valid_vcfs), Channel.fromPath(params.valid_vcfs) ]
+                     : [ Channel.fromPath(params.valid_vcfs), Channel.empty(), Channel.empty() ] )
 
 /*
  * Create properties files for accession.
@@ -97,7 +100,7 @@ process accession_vcf {
                 -e $params.logs_dir/accessioning.${log_filename}.err"
     }
 
-    memory '8 GB'
+    memory '4 GB'
 
     input:
     path accession_properties from accession_props
@@ -145,7 +148,7 @@ process tabix_index_vcf {
 	mode: 'copy'
 
     input:
-    path compressed_vcf from compressed_vcf1
+    path compressed_vcf from tabix_vcfs.mix(compressed_vcf1)
 
     output:
     path "${compressed_vcf}.tbi" into tbi_indexed_vcf
@@ -161,7 +164,7 @@ process csi_index_vcf {
 	mode: 'copy'
 
     input:
-    path compressed_vcf from compressed_vcf2
+    path compressed_vcf from csi_vcfs.mix(compressed_vcf2)
 
     output:
     path "${compressed_vcf}.csi" into csi_indexed_vcf
