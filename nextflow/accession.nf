@@ -35,12 +35,12 @@ params.help = null
 if (params.help) exit 0, helpMessage()
 
 // Test input files
-if (!params.valid_vcfs || !params.project_accession || !params.instance_id || !params.accession_job_props || !params.public_ftp_dir || !params.accessions_dir || !params.public_dir || !params.logs_dir || !params.accession_job_props.vep_species) {
+if (!params.valid_vcfs || !params.project_accession || !params.instance_id || !params.accession_job_props || !params.public_ftp_dir || !params.accessions_dir || !params.public_dir || !params.logs_dir || !params.accession_job_props.taxonomy_id) {
     if (!params.valid_vcfs) log.warn('Provide validated vcfs using --valid_vcfs')
     if (!params.project_accession) log.warn('Provide a project accession using --project_accession')
     if (!params.instance_id) log.warn('Provide an instance id using --instance_id')
     if (!params.accession_job_props) log.warn('Provide job-specific properties using --accession_job_props')
-    if (!params.accession_job_props.vep_species) log.warn('Provide species name in the job-specific properties using vep_species')
+    if (!params.accession_job_props.taxonomy_id) log.warn('Provide taxonomy_id in the job-specific properties (--accession_job_props) using field taxonomy_id')
     if (!params.public_ftp_dir) log.warn('Provide public FTP directory using --public_ftp_dir')
     if (!params.accessions_dir) log.warn('Provide accessions directory using --accessions_dir')
     if (!params.public_dir) log.warn('Provide public directory using --public_dir')
@@ -48,7 +48,7 @@ if (!params.valid_vcfs || !params.project_accession || !params.instance_id || !p
     exit 1, helpMessage()
 }
 
-is_human_study = (params.accession_job_props.vep_species == 'eva_human')
+is_human_study = (params.accession_job_props.taxonomy_id== 9606)
 (valid_vcfs, tabix_vcfs, csi_vcfs) = ( is_human_study
                      ? [ Channel.empty(), Channel.fromPath(params.valid_vcfs), Channel.fromPath(params.valid_vcfs) ]
                      : [ Channel.fromPath(params.valid_vcfs), Channel.empty(), Channel.empty() ] )
