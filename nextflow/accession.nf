@@ -187,6 +187,8 @@ process csi_index_vcf {
 
     """
     cd $params.public_dir
+    # remove the uncompressed vcf file
+    rm *.vcf
     rsync -va * ${params.public_ftp_dir}/${params.project_accession}
     ls -l ${params.public_ftp_dir}/${params.project_accession}/*
     """
