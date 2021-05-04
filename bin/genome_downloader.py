@@ -20,7 +20,7 @@ import sys
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.eload_utils import get_genome_fasta_and_report
+from eva_submission.eload_utils import get_reference_fasta_and_report
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from eva_submission.submission_config import load_config
@@ -54,7 +54,7 @@ def main():
     load_config()
 
     try:
-        assembly_fasta_path, assembly_report_path = get_genome_fasta_and_report(
+        assembly_fasta_path, assembly_report_path = get_reference_fasta_and_report(
             args.species_name, args.assembly_accession, args.output_directory, args.clear
         )
         logger.info('FASTA: ' + assembly_fasta_path)

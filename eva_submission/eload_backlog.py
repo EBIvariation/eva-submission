@@ -8,7 +8,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import get_metadata_conn, get_genome_fasta_and_report
+from eva_submission.eload_utils import get_metadata_conn, get_reference_fasta_and_report
 
 
 class EloadBacklog(Eload):
@@ -57,7 +57,7 @@ class EloadBacklog(Eload):
         self.eload_cfg.set('submission', 'scientific_name', value=sci_name)
         self.eload_cfg.set('submission', 'assembly_accession', value=asm_accession)
 
-        fasta_path, report_path = get_genome_fasta_and_report(sci_name, asm_accession)
+        fasta_path, report_path = get_reference_fasta_and_report(sci_name, asm_accession)
         self.eload_cfg.set('submission', 'assembly_fasta', value=fasta_path)
         self.eload_cfg.set('submission', 'assembly_report', value=report_path)
 
