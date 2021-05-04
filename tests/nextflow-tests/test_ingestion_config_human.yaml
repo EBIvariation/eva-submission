@@ -10,7 +10,7 @@ valid_vcfs:
 accession_job_props:
   test.prop1: x
   test.prop2: y
-  vep_species: eva_human
+  taxonomy_id: 9606
 needs_merge: true
 eva_pipeline_props: test_eva_pipeline.properties
 load_job_props:
