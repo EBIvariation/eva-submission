@@ -207,6 +207,7 @@ class EloadIngestion(Eload):
             fasta=self.eload_cfg.query('submission', 'assembly_fasta'),
             report=self.eload_cfg.query('submission', 'assembly_report'),
             instance_id=self.eload_cfg.query(self.config_section, 'accession', 'instance_id'),
+            vep_species=self.get_vep_species(),
             mongo_host=mongo_host,
             mongo_user=mongo_user,
             mongo_pass=mongo_pass,
