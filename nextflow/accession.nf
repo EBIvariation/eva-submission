@@ -88,7 +88,7 @@ process create_properties {
 
     output:
     path "${vcf_file.getFileName()}_accessioning.properties" into accession_props
-    val accessioned_filename into accessioned_filenames
+    val accessioned_filename into accessioned_filenames, accessioned_files_to_rm
     val log_filename into log_filenames
 
     exec:
@@ -106,7 +106,7 @@ process create_properties {
     // see https://github.com/nextflow-io/nextflow/issues/942#issuecomment-441536175
     props_file = new File("${task.workDir}/${vcf_filename}_accessioning.properties")
     props_file.createNewFile()
-    props_file.withWriter { w ->
+    props_file.newWriter().withWriter { w ->
         props.each { k, v ->
             w.write("$k=$v\n")
         }
@@ -213,9 +213,12 @@ process csi_index_vcf {
     // ensures that all indices are done before we copy
     file csi_indices from csi_indexed_vcf.toList()
     file tbi_indices from tbi_indexed_vcf.toList()
+    val accessioned_vcfs from accessioned_files_to_rm.toList()
 
     """
     cd $params.public_dir
+    # remove the uncompressed vcf file
+    rm ${accessioned_vcfs.join(' ')}
     rsync -va * ${params.public_ftp_dir}/${params.project_accession}
     ls -l ${params.public_ftp_dir}/${params.project_accession}/*
     """
