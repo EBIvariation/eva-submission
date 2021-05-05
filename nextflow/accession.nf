@@ -59,7 +59,7 @@ process create_properties {
 
     output:
     path "${vcf_file.getFileName()}_accessioning.properties" into accession_props
-    val accessioned_filename into accessioned_filenames
+    val accessioned_filename into accessioned_filenames, accessioned_files_to_rm
     val log_filename into log_filenames
 
     exec:
@@ -184,11 +184,12 @@ process csi_index_vcf {
     // ensures that all indices are done before we copy
     file csi_indices from csi_indexed_vcf.toList()
     file tbi_indices from tbi_indexed_vcf.toList()
+    val accessioned_vcfs from accessioned_files_to_rm.toList()
 
     """
     cd $params.public_dir
     # remove the uncompressed vcf file
-    rm *.vcf
+    rm ${accessioned_vcfs.join(' ')}
     rsync -va * ${params.public_ftp_dir}/${params.project_accession}
     ls -l ${params.public_ftp_dir}/${params.project_accession}/*
     """
