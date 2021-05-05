@@ -48,6 +48,32 @@ if (!params.valid_vcfs || !params.project_accession || !params.instance_id || !p
     exit 1, helpMessage()
 }
 
+/*
+Sequence of processes in case of:
+    non-human study:
+                create_properties -> accession_vcf -> sort_and_compress_vcf -> tabix_index_vcf and csi_index_vcf -> copy_to_ftp
+    human study (skip accessioning):
+                tabix_index_vcf and csi_index_vcf -> copy_to_ftp
+
+process                     input channels
+create_properties   ->      valid_vcfs
+tabix_index_vcf     ->      tabix_vcfs and compressed_vcf1
+csi_index_vcf       ->      csi_vcfs and compressed_vcf2
+
+1. Check if the study we are working with is a human study or non-human by comparing the taxonomy_id of the study with human taxonomy_id (9606).
+2. Provide values to the appropriate channels enabling them to start the corresponding processes. In case of non-human studies we want to start process
+   "create_properties" while in case of human studies we want to start processes "tabix_index_vcf" and "csi_index_vcf".
+
+non-human study:
+  - Initialize valid_vcfs channel with value so that it can start the process "create_properties".
+  - Initialize tabix_vcfs and csi_vcfs channels as empty. This makes sure the processes "tabix_index_vcf" and "csi_index_vcf" are not started at the outset.
+    These processes will only be able to start after the process "sort_and_compress_vcf" finishes and create channels compresses_vcf1 and compressed_vcf2 with values.
+
+human study:
+  - Initialize valid_vcfs channel as empty, ensuring the process "create_properties" is not started and in turn accessioning part is also skipped,  as the process
+    "accession_vcf" depends on the output channels created by the process create_properties.
+  - Initialize tabix_vcfs and csi_vcfs with values enabling them to start the processes "tabix_index_vcf" and "csi_index_vcf".
+*/
 is_human_study = (params.accession_job_props.taxonomy_id == 9606)
 (valid_vcfs, tabix_vcfs, csi_vcfs) = ( is_human_study
                      ? [ Channel.empty(), Channel.fromPath(params.valid_vcfs), Channel.fromPath(params.valid_vcfs) ]
