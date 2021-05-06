@@ -37,23 +37,17 @@ def resolve_accession_from_text(reference_text):
     :return:
     """
     # first Check if it is an reference genome
-    try:
-        NCBIAssembly.check_assembly_accession_format(reference_text)
-        return reference_text
-    except ValueError:
-        pass
-
+    if NCBIAssembly.is_assembly_accession_format(reference_text):
+        return [reference_text]
     # Search for a reference genome that resolve this text
     accession = retrieve_genbank_assembly_accessions_from_ncbi(reference_text)
     if accession:
         return accession
 
     # then check if this is a single INSDC accession
-    try:
-        NCBISequence.check_genbank_accession_format(reference_text)
+    if NCBISequence.is_genbank_accession_format(reference_text):
+        return [reference_text]
 
-    except ValueError:
-        pass
     return None
 
 

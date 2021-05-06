@@ -9,7 +9,6 @@ from datetime import datetime
 from cached_property import cached_property
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
-from ebi_eva_common_pyutils.reference import NCBIAssembly, NCBISequence
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 
 from eva_submission.eload_utils import get_reference_fasta_and_report, resolve_accession_from_text
@@ -225,9 +224,11 @@ class EloadPreparation(Eload):
         reference_accession = self.eload_cfg.query('submission', 'assembly_accession')
         if scientific_name and reference_accession:
                 assembly_fasta_path, assembly_report_path = get_reference_fasta_and_report(scientific_name, reference_accession)
+                if assembly_report_path:
+                    self.eload_cfg.set('submission', 'assembly_report', value=assembly_report_path)
+                else:
+                    self.warning(f'Assembly report was not set for {reference_accession}')
                 self.eload_cfg.set('submission', 'assembly_fasta', value=assembly_fasta_path)
-                self.eload_cfg.set('submission', 'assembly_report', value=assembly_report_path)
-
         else:
             self.error(f'Genome cannot be downloaded because for scientific_name: {scientific_name} and '
                        f'assembly_accession: {reference_accession}')
