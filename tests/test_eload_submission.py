@@ -75,4 +75,4 @@ class TestEload(TestCase):
         self.eload.eload_cfg.set('submission', 'assembly_accession', value='AJ312413.2')
         self.eload.find_genome()
         assert self.eload.eload_cfg['submission']['assembly_fasta'] == 'tests/resources/genomes/thingy_thingus/AJ312413.2/AJ312413.2.fa'
-        assert self.eload.eload_cfg['submission']['assembly_report'] is None
+        assert 'assembly_report' not in self.eload.eload_cfg['submission']
