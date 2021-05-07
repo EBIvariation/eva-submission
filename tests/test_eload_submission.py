@@ -3,6 +3,8 @@ import os
 import shutil
 from unittest import TestCase
 
+from ebi_eva_common_pyutils.config import cfg
+
 from eva_submission import ROOT_DIR
 from eva_submission.eload_submission import EloadPreparation
 from eva_submission.submission_config import load_config
@@ -67,3 +69,10 @@ class TestEload(TestCase):
         assert reader.project['Tax ID'] == 10000
         assert reader.analysis[0]['Reference'] == 'GCA_000009999.9'
 
+    def test_find_genome_single_sequence(self):
+        cfg.content['eutils_api_key'] = None
+        self.eload.eload_cfg.set('submission', 'scientific_name', value='Thingy thingus')
+        self.eload.eload_cfg.set('submission', 'assembly_accession', value='AJ312413.2')
+        self.eload.find_genome()
+        assert self.eload.eload_cfg['submission']['assembly_fasta'] == 'tests/resources/genomes/thingy_thingus/AJ312413.2/AJ312413.2.fa'
+        assert 'assembly_report' not in self.eload.eload_cfg['submission']

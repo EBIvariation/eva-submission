@@ -10,9 +10,8 @@ from cached_property import cached_property
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
-from ebi_eva_common_pyutils.variation.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
 
-from eva_submission.eload_utils import get_genome_fasta_and_report
+from eva_submission.eload_utils import get_reference_fasta_and_report, resolve_accession_from_text
 from eva_submission.submission_config import EloadConfig
 from eva_submission.submission_in_ftp import FtpDepositBox
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
@@ -191,18 +190,21 @@ class EloadPreparation(Eload):
 
     def detect_metadata_attributes(self):
         eva_metadata = EvaXlsxReader(self.eload_cfg.query('submission', 'metadata_spreadsheet'))
-        reference_gca = set()
+        reference_set = set()
         for analysis in eva_metadata.analysis:
             reference_txt = analysis.get('Reference')
-            reference_gca.update(retrieve_genbank_assembly_accessions_from_ncbi(reference_txt))
+            if reference_txt:
+                reference_set.update(resolve_accession_from_text(reference_txt))
+            else:
+                self.warning('Reference is missing for Analysis %s', analysis.get('Analysis Alias'))
 
-        if len(reference_gca) > 1:
-            self.warning('Multiple assemblies in project: %s', ', '.join(reference_gca))
+        if len(reference_set) > 1:
+            self.warning('Multiple assemblies in project: %s', ', '.join(reference_set))
             self.warning('Will look for the most recent assembly.')
-            reference_gca = [sorted(reference_gca)[-1]]
+            reference_set = {sorted(reference_set)[-1]}
 
-        if reference_gca:
-            self.eload_cfg.set('submission', 'assembly_accession', value=reference_gca.pop())
+        if reference_set:
+            self.eload_cfg.set('submission', 'assembly_accession', value=reference_set.pop())
         else:
             self.error('No genbank accession could be found for %s', reference_txt)
 
@@ -219,11 +221,14 @@ class EloadPreparation(Eload):
 
     def find_genome(self):
         scientific_name = self.eload_cfg.query('submission', 'scientific_name')
-        assembly_accession = self.eload_cfg.query('submission', 'assembly_accession')
-        if scientific_name and assembly_accession:
-            assembly_fasta_path, assembly_report_path = get_genome_fasta_and_report(scientific_name, assembly_accession)
-            self.eload_cfg.set('submission', 'assembly_fasta', value=assembly_fasta_path)
-            self.eload_cfg.set('submission', 'assembly_report', value=assembly_report_path)
+        reference_accession = self.eload_cfg.query('submission', 'assembly_accession')
+        if scientific_name and reference_accession:
+                assembly_fasta_path, assembly_report_path = get_reference_fasta_and_report(scientific_name, reference_accession)
+                if assembly_report_path:
+                    self.eload_cfg.set('submission', 'assembly_report', value=assembly_report_path)
+                else:
+                    self.warning(f'Assembly report was not set for {reference_accession}')
+                self.eload_cfg.set('submission', 'assembly_fasta', value=assembly_fasta_path)
         else:
             self.error(f'Genome cannot be downloaded because for scientific_name: {scientific_name} and '
-                       f'assembly_accession: {assembly_accession}')
+                       f'assembly_accession: {reference_accession}')

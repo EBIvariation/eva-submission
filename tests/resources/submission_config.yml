@@ -6,6 +6,9 @@ eva_pipeline_props: '/path/to/pipeline/properties'
 vep_path: '/path/to/vep'
 vep_cache_path: '/path/to/vep/cache'
 
+genome_downloader:
+  output_directory: 'tests/resources/genomes'
+
 maven:
   environment: 'internal'
   settings_file: 'path/to/settings/file'

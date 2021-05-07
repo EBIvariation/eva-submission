@@ -2,25 +2,53 @@ import glob
 import os
 from urllib.parse import urlsplit
 
-from ebi_eva_common_pyutils.assembly import NCBIAssembly
+from ebi_eva_common_pyutils.reference import NCBIAssembly, NCBISequence
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.config_utils import get_properties_from_xml_file
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 import psycopg2
+from ebi_eva_common_pyutils.variation.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
 from pymongo.uri_parser import split_hosts
 
 logger = log_cfg.get_logger(__name__)
 
 
-def get_genome_fasta_and_report(species_name, assembly_accession, output_directory=None, overwrite=False):
+def get_reference_fasta_and_report(species_name, reference_accession, output_directory=None, overwrite=False):
     output_directory = output_directory or cfg.query('genome_downloader', 'output_directory')
-    assembly = NCBIAssembly(
-        assembly_accession, species_name, output_directory,
-        eutils_api_key=cfg['eutils_api_key']
-    )
-    if not os.path.isfile(assembly.assembly_fasta_path) or not os.path.isfile(assembly.assembly_report_path) or overwrite:
-        assembly.download_or_construct(overwrite=overwrite)
-    return assembly.assembly_fasta_path, assembly.assembly_report_path
+    if NCBIAssembly.is_assembly_accession_format(reference_accession):
+        assembly = NCBIAssembly(
+            reference_accession, species_name, output_directory,
+            eutils_api_key=cfg['eutils_api_key']
+        )
+        if not os.path.isfile(assembly.assembly_fasta_path) or not os.path.isfile(assembly.assembly_report_path) or overwrite:
+            assembly.download_or_construct(overwrite=overwrite)
+        return assembly.assembly_fasta_path, assembly.assembly_report_path
+    elif NCBISequence.is_genbank_accession_format(reference_accession):
+        reference = NCBISequence(reference_accession, species_name, output_directory,
+                                 eutils_api_key=cfg['eutils_api_key'])
+        if not os.path.isfile(reference.sequence_fasta_path) or overwrite:
+            reference.download_contig_sequence_from_ncbi(genbank_only=True)
+        return reference.sequence_fasta_path, None
+
+
+def resolve_accession_from_text(reference_text):
+    """
+    :param reference_text:
+    :return:
+    """
+    # first Check if it is an reference genome
+    if NCBIAssembly.is_assembly_accession_format(reference_text):
+        return [reference_text]
+    # Search for a reference genome that resolve this text
+    accession = retrieve_genbank_assembly_accessions_from_ncbi(reference_text)
+    if accession:
+        return accession
+
+    # then check if this is a single INSDC accession
+    if NCBISequence.is_genbank_accession_format(reference_text):
+        return [reference_text]
+
+    return None
 
 
 def resolve_single_file_path(file_path):
