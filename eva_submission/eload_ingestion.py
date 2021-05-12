@@ -164,6 +164,8 @@ class EloadIngestion(Eload):
         target_path = target_dir.joinpath(source_path.name)
         if not target_path.exists():
             shutil.copyfile(source_path, target_path)
+        else:
+            self.warning(f'{source_path.name} already exists in {target_dir}, not copying.')
 
     def setup_project_dir(self):
         """

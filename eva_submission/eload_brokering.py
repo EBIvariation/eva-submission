@@ -125,7 +125,7 @@ class EloadBrokering(Eload):
 
             # .csi index not supported by ENA, so we just save it to be made public later
             csi_file = os.path.join(output_dir, vcf_file_name + '.csi')
-            output_csi_file = os.path.join(self._get_dir('scratch'), vcf_file_name + '.csi')
+            output_csi_file = os.path.join(self._get_dir('ena'), vcf_file_name + '.csi')
             os.rename(csi_file, output_csi_file)
             os.rename(csi_file + '.md5', output_csi_file + '.md5')
 

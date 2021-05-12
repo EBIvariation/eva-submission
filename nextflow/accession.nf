@@ -215,11 +215,19 @@ process csi_index_vcf {
     file tbi_indices from tbi_indexed_vcf.toList()
     val accessioned_vcfs from accessioned_files_to_rm.toList()
 
-    """
-    cd $params.public_dir
-    # remove the uncompressed accessioned vcf file, if present
-    ${accessioned_vcfs.size() > 0 ? "rm ${accessioned_vcfs.join(' ')}" : ""}
-    rsync -va * ${params.public_ftp_dir}/${params.project_accession}
-    ls -l ${params.public_ftp_dir}/${params.project_accession}/*
-    """
+    script:
+    if( accessioned_vcfs.size() > 0 )
+        """
+        cd $params.public_dir
+        # remove the uncompressed accessioned vcf file
+        rm ${accessioned_vcfs.join(' ')}
+        rsync -va * ${params.public_ftp_dir}/${params.project_accession}
+        ls -l ${params.public_ftp_dir}/${params.project_accession}/*
+        """
+    else
+        """
+        cd $params.public_dir
+        rsync -va * ${params.public_ftp_dir}/${params.project_accession}
+        ls -l ${params.public_ftp_dir}/${params.project_accession}/*
+        """
  }
