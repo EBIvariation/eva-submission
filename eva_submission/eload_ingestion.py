@@ -184,9 +184,13 @@ class EloadIngestion(Eload):
             tbi_path = Path(val['index'])
             self._copy_file(tbi_path, valid_dir)
             self._copy_file(tbi_path, public_dir)
-            csi_path = Path(val['csi'])
-            self._copy_file(csi_path, valid_dir)
-            self._copy_file(csi_path, public_dir)
+            try:
+                csi_path = Path(val['csi'])
+                self._copy_file(csi_path, valid_dir)
+                self._copy_file(csi_path, public_dir)
+            # for now this won't be available for older studies, we can remove the try/except at a later date
+            except KeyError:
+                self.warning('No csi filepath found in config, will not make a csi index public.')
         self.eload_cfg.set(self.config_section, 'project_dir', value=str(project_dir))
         return project_dir
 
