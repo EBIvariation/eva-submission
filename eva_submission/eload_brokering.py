@@ -123,11 +123,19 @@ class EloadBrokering(Eload):
             os.rename(index_file, output_index_file)
             os.rename(index_file + '.md5', output_index_file + '.md5')
 
+            # .csi index not supported by ENA, so we just save it to be made public later
+            csi_file = os.path.join(output_dir, vcf_file_name + '.csi')
+            output_csi_file = os.path.join(self._get_dir('ena'), vcf_file_name + '.csi')
+            os.rename(csi_file, output_csi_file)
+            os.rename(csi_file + '.md5', output_csi_file + '.md5')
+
             self.eload_cfg.set('brokering', 'vcf_files', output_vcf_file, value={
                 'original_vcf': vcf_file,
-                'md5': read_md5(output_vcf_file+'.md5'),
+                'md5': read_md5(output_vcf_file + '.md5'),
                 'index': output_index_file,
-                'index_md5': read_md5(output_index_file+'.md5'),
+                'index_md5': read_md5(output_index_file + '.md5'),
+                'csi': output_csi_file,
+                'csi_md5': read_md5(output_csi_file + '.md5')
             })
 
     def _biosamples_report(self):

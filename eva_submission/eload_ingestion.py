@@ -160,6 +160,13 @@ class EloadIngestion(Eload):
             self.eload_cfg.set(self.config_section, 'ena_load', value='failure')
             raise e
 
+    def _copy_file(self, source_path, target_dir):
+        target_path = target_dir.joinpath(source_path.name)
+        if not target_path.exists():
+            shutil.copyfile(source_path, target_path)
+        else:
+            self.warning(f'{source_path.name} already exists in {target_dir}, not copying.')
+
     def setup_project_dir(self):
         """
         Sets up project directory and copies VCF files from the eload directory.
@@ -168,18 +175,24 @@ class EloadIngestion(Eload):
         os.makedirs(project_dir, exist_ok=True)
         for v in project_dirs.values():
             os.makedirs(project_dir.joinpath(v), exist_ok=True)
-        # copy valid vcfs + index to 'valid' folder
+        # copy valid vcfs + index to 'valid' folder and 'public' folder
         valid_dir = project_dir.joinpath(project_dirs['valid'])
+        public_dir = project_dir.joinpath(project_dirs['public'])
         vcf_dict = self.eload_cfg.query('brokering', 'vcf_files')
         for key, val in vcf_dict.items():
             vcf_path = Path(key)
-            target_path = valid_dir.joinpath(vcf_path.name)
-            if not target_path.exists():
-                shutil.copyfile(vcf_path, target_path)
-            index_path = Path(val['index'])
-            target_path = valid_dir.joinpath(index_path.name)
-            if not target_path.exists():
-                shutil.copyfile(index_path, target_path)
+            self._copy_file(vcf_path, valid_dir)
+            self._copy_file(vcf_path, public_dir)
+            tbi_path = Path(val['index'])
+            self._copy_file(tbi_path, valid_dir)
+            self._copy_file(tbi_path, public_dir)
+            try:
+                csi_path = Path(val['csi'])
+                self._copy_file(csi_path, valid_dir)
+                self._copy_file(csi_path, public_dir)
+            # for now this won't be available for older studies, we can remove the try/except at a later date
+            except KeyError:
+                self.warning('No csi filepath found in config, will not make a csi index public.')
         self.eload_cfg.set(self.config_section, 'project_dir', value=str(project_dir))
         return project_dir
 

@@ -4,8 +4,10 @@ brokering:
     hold_date: 2021-01-04
   vcf_files:
     tests/resources/eloads/ELOAD_33/18_brokering/ena/test1.vcf.gz:
+      csi: tests/resources/eloads/ELOAD_33/18_brokering/ena/test1.vcf.gz.csi
       index: tests/resources/eloads/ELOAD_33/18_brokering/ena/test1.vcf.gz.tbi
     tests/resources/eloads/ELOAD_33/18_brokering/ena/test2.vcf.gz:
+      csi: tests/resources/eloads/ELOAD_33/18_brokering/ena/test2.vcf.gz.csi
       index: tests/resources/eloads/ELOAD_33/18_brokering/ena/test2.vcf.gz.tbi
 ingestion:
   project_dir: tests/resources/projects/PRJEB12345

@@ -85,7 +85,8 @@ class TestEloadBrokering(TestCase):
         os.makedirs(output_dir)
         for f in ['vcf_file1.vcf.gz']:
             touch(os.path.join(output_dir, f))
-        for f in ['vcf_file1.vcf.gz.md5', 'vcf_file1.vcf.gz.tbi', 'vcf_file1.vcf.gz.tbi.md5']:
+        for f in ['vcf_file1.vcf.gz.md5', 'vcf_file1.vcf.gz.tbi', 'vcf_file1.vcf.gz.tbi.md5', 'vcf_file1.vcf.gz.csi',
+                  'vcf_file1.vcf.gz.csi.md5']:
             touch(os.path.join(tmp_dir, f), content=f'md5checksum {f}')
         self.eload.eload_cfg.set('validation', 'valid', 'vcf_files', value={
             'vcf_file1.vcf': ''
@@ -93,6 +94,7 @@ class TestEloadBrokering(TestCase):
         self.eload._collect_brokering_prep_results(tmp_dir)
         vcf_file1 = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.gz')
         vcf_file1_index = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.gz.tbi')
+        vcf_file1_csi = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.gz.csi')
         assert os.path.isfile(vcf_file1)
         assert os.path.isfile(vcf_file1_index)
         assert self.eload.eload_cfg['brokering']['vcf_files'] == {
@@ -100,7 +102,9 @@ class TestEloadBrokering(TestCase):
                 'original_vcf': 'vcf_file1.vcf',
                 'md5': 'md5checksum',
                 'index': vcf_file1_index,
-                'index_md5': 'md5checksum'
+                'index_md5': 'md5checksum',
+                'csi': vcf_file1_csi,
+                'csi_md5': 'md5checksum'
             }
         }
 
