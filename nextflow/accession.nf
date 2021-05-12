@@ -217,8 +217,8 @@ process csi_index_vcf {
 
     """
     cd $params.public_dir
-    # remove the uncompressed vcf file
-    rm ${accessioned_vcfs.join(' ')}
+    # remove the uncompressed accessioned vcf file, if present
+    ${accessioned_vcfs.size() > 0 ? "rm ${accessioned_vcfs.join(' ')}" : ""}
     rsync -va * ${params.public_ftp_dir}/${params.project_accession}
     ls -l ${params.public_ftp_dir}/${params.project_accession}/*
     """
