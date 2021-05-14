@@ -99,3 +99,14 @@ python ingest_submission.py --eload 765 --instance 1 --aggregation NONE --tasks 
 # Only variant load - accession instance id not needed
 python ingest_submission.py --eload 765 --vep_version 89 --vep_cache_version 89 --aggregation NONE --tasks variant_load
 ```
+
+### Backlog automation
+
+Older studies that have been manually brokered will need to have a preparation script run before ingestion automation.
+This will create the config file and run validation on the VCF files (without metadata validation) to ensure they are up to current standards.
+
+```bash
+python prepare_backlog.py --eload 506
+```
+
+If the files are valid then ingestion can be run as usual.
