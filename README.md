@@ -106,7 +106,7 @@ Older studies that have been manually brokered will need to have a preparation s
 This will create the config file and run validation on the VCF files (without metadata validation) to ensure they are up to current standards.
 
 ```bash
-python prepare_backlog.py --eload 506
+python prepare_backlog_study.py --eload 506
 ```
 
 If the files are valid then ingestion can be run as usual.
