@@ -21,9 +21,9 @@ from argparse import ArgumentParser
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.eload_backlog import EloadBacklog
-
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+from eva_submission.eload_backlog import EloadBacklog
 from eva_submission.eload_validation import EloadValidation
 from eva_submission.submission_config import load_config
 
