@@ -8,7 +8,7 @@ requirements = [l.strip() for l in open(requirements_txt) if l and not l.startsw
 setup(
     name='eva_submission',
     packages=['eva_submission'],
-    version='0.5.3',
+    version='0.5.4',
     license='Apache',
     description='EBI EVA - submission processing tools',
     url='https://github.com/EBIVariation/eva-submission',
