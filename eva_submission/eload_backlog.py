@@ -7,6 +7,7 @@ from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
 import requests
 from requests.auth import HTTPBasicAuth
 
+from eva_submission.assembly_taxonomy_insertion import download_xml_from_ena
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import get_metadata_conn, get_reference_fasta_and_report
 
@@ -33,7 +34,7 @@ class EloadBacklog(Eload):
     @cached_property
     def project_alias(self):
         with get_metadata_conn() as conn:
-            query = f"select alias from evapro.project where project_accession={self.project_accession};"
+            query = f"select alias from evapro.project where project_accession='{self.project_accession}';"
             rows = get_all_results_for_query(conn, query)
         if len(rows) != 1:
             raise ValueError(f'No project alias for {self.project_accession} found in metadata DB.')
@@ -113,7 +114,14 @@ class EloadBacklog(Eload):
         receipt = ET.fromstring(response.text)
         try:
             hold_date = receipt.findall('PROJECT')[0].attrib['holdUntilDate']
-            self.eload_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
         except (IndexError, KeyError):
-            raise ValueError(f"Couldn't get hold date from ENA for {self.project_accession} ({self.project_alias})")
-            # TODO if there's no hold date because the study is already public, this should be okay
+            # if there's no hold date, assume it's already been made public
+            xml_root = download_xml_from_ena(f'https://www.ebi.ac.uk/ena/browser/api/xml/{self.project_accession}')
+            attributes = xml_root.xpath('/PROJECT_SET/PROJECT/PROJECT_ATTRIBUTES/PROJECT_ATTRIBUTE')
+            for attr in attributes:
+                if attr.findall('TAG') == 'ENA-FIRST-PUBLIC':
+                    hold_date = attr.findall('VALUE')[0]
+                    break
+            if not hold_date:
+                raise ValueError(f"Couldn't get hold date from ENA for {self.project_accession} ({self.project_alias})")
+        self.eload_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
