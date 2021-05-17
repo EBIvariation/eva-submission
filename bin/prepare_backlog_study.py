@@ -47,6 +47,7 @@ def main():
 
     preparation = EloadBacklog(args.eload)
     preparation.fill_in_config()
+    preparation.report()
 
     validation = EloadValidation(args.eload)
     validation_tasks = ['assembly_check', 'vcf_check']

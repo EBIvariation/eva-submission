@@ -125,3 +125,22 @@ class EloadBacklog(Eload):
             if not hold_date:
                 raise ValueError(f"Couldn't get hold date from ENA for {self.project_accession} ({self.project_alias})")
         self.eload_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
+
+    def report(self):
+        """Collect information from the config and write the report."""
+        report_data = {
+            'project': self.eload_cfg.query('brokering', 'ena', 'PROJECT'),
+            'analysis': self.eload_cfg.query('brokering', 'ena', 'ANALYSIS'),
+            'vcf': self.eload_cfg.query('submission', 'vcf_files'),
+            'assembly': self.eload_cfg.query('submission', 'assembly_accession'),
+            'fasta': self.eload_cfg.query('submission', 'assembly_fasta')
+        }
+
+        report = """Results of backlog study preparation:
+Project accession: {project}
+Assembly: {assembly}
+    Fasta file: {fasta}
+Analysis accession: {analysis}
+    VCF file: {vcf}
+"""
+        print(report.format(**report_data))
