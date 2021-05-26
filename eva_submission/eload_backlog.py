@@ -112,6 +112,7 @@ class EloadBacklog(Eload):
             files={'SUBMISSION': xml_request}
         )
         receipt = ET.fromstring(response.text)
+        hold_date = None
         try:
             hold_date = receipt.findall('PROJECT')[0].attrib['holdUntilDate']
         except (IndexError, KeyError):
@@ -119,8 +120,8 @@ class EloadBacklog(Eload):
             xml_root = download_xml_from_ena(f'https://www.ebi.ac.uk/ena/browser/api/xml/{self.project_accession}')
             attributes = xml_root.xpath('/PROJECT_SET/PROJECT/PROJECT_ATTRIBUTES/PROJECT_ATTRIBUTE')
             for attr in attributes:
-                if attr.findall('TAG') == 'ENA-FIRST-PUBLIC':
-                    hold_date = attr.findall('VALUE')[0]
+                if attr.findall('TAG')[0].text == 'ENA-FIRST-PUBLIC':
+                    hold_date = attr.findall('VALUE')[0].text
                     break
             if not hold_date:
                 raise ValueError(f"Couldn't get hold date from ENA for {self.project_accession} ({self.project_alias})")
