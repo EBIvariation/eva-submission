@@ -1,12 +1,7 @@
 import argparse
 import logging
-import os
-import sys
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
-
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
 from eva_submission.submission_config import load_config
 from eva_submission.samples_checker import compare_spreadsheet_and_vcf
 

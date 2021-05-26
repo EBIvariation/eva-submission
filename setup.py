@@ -2,13 +2,14 @@ import glob
 from distutils.core import setup
 from os.path import join, abspath, dirname
 
-requirements_txt = join(abspath(dirname(__file__)), 'requirements.txt')
+base_dir = abspath(dirname(__file__))
+requirements_txt = join(base_dir, 'requirements.txt')
 requirements = [l.strip() for l in open(requirements_txt) if l and not l.startswith('#')]
 
 setup(
     name='eva_submission',
-    packages=['eva_submission'],
-    version='0.5.5',
+    packages=['eva_submission', 'eva_submission.ENA_submission', 'eva_submission.xlsx'],
+    version='0.5.6',
     license='Apache',
     description='EBI EVA - submission processing tools',
     url='https://github.com/EBIVariation/eva-submission',

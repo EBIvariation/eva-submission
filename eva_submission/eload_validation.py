@@ -282,7 +282,7 @@ class EloadValidation(Eload):
                 'pass': 'PASS' if results.get('nb_error') == 0 and results.get('nb_mismatch') == 0 else 'FAIL',
                 '10_error_list': '\n'.join(results['error_list']),
                 '10_mismatch_list': '\n'.join(results['mismatch_list']),
-                'perc': results.get('ref_match') / (results.get('nb_variant') or 1)
+                'perc': (results.get('ref_match') or 0) / (results.get('nb_variant') or 1)
             }
             report_data.update(results)
             reports.append("""  * {vcf_file}: {pass}
@@ -309,7 +309,6 @@ class EloadValidation(Eload):
     - Samples that appear in the Metadata sheet but not in the VCF file(s): {in_metadata_not_in_VCF}
 """.format(**report_data))
         return '\n'.join(reports)
-
 
     def report(self):
         """Collect information from the config and write the report."""
