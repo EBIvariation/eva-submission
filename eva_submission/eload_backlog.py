@@ -16,6 +16,7 @@ class EloadBacklog(Eload):
 
     def fill_in_config(self):
         """Fills in config params from metadata DB and ENA, enabling later parts of pipeline to run."""
+        self.eload_cfg.clear()
         self.eload_cfg.set('brokering', 'ena', 'PROJECT', value=self.project_accession)
         self.get_analysis_info()
         self.get_species_info()
