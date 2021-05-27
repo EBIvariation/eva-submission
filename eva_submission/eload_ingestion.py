@@ -15,7 +15,8 @@ import pymongo
 from eva_submission import ROOT_DIR
 from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import get_metadata_conn, get_mongo_creds, get_accession_pg_creds
+from eva_submission.eload_utils import get_metadata_conn, get_mongo_creds, get_accession_pg_creds, \
+    get_hold_date_from_ena
 from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
 
 project_dirs = {
@@ -51,6 +52,7 @@ class EloadIngestion(Eload):
             tasks=None
     ):
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
+        self.update_config_with_hold_date()
         self.check_brokering_done()
         self.check_variant_db(db_name)
 
@@ -76,6 +78,10 @@ class EloadIngestion(Eload):
             self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'version', value=vep_version)
             self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', value=vep_cache_version)
             self.run_variant_load_workflow()
+
+    def update_config_with_hold_date(self):
+        hold_date = get_hold_date_from_ena(self.project_accession)
+        self.eload_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
 
     def check_brokering_done(self):
         if self.eload_cfg.query('brokering', 'vcf_files') is None:

@@ -1,14 +1,20 @@
 import glob
 import os
 from urllib.parse import urlsplit
+from xml.etree import ElementTree as ET
 
-from ebi_eva_common_pyutils.reference import NCBIAssembly, NCBISequence
+import psycopg2
+import requests
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.config_utils import get_properties_from_xml_file
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
-import psycopg2
+from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
+from ebi_eva_common_pyutils.reference import NCBIAssembly, NCBISequence
 from ebi_eva_common_pyutils.variation.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
 from pymongo.uri_parser import split_hosts
+from requests.auth import HTTPBasicAuth
+
+from eva_submission.assembly_taxonomy_insertion import download_xml_from_ena
 
 logger = log_cfg.get_logger(__name__)
 
@@ -111,3 +117,48 @@ def get_accession_pg_creds():
     pg_user = properties['eva.accession.user']
     pg_pass = properties['eva.accession.password']
     return pg_url, pg_user, pg_pass
+
+
+def get_project_alias(project_accession):
+    with get_metadata_conn() as conn:
+        query = f"select alias from evapro.project where project_accession='{project_accession}';"
+        rows = get_all_results_for_query(conn, query)
+    if len(rows) != 1:
+        raise ValueError(f'No project alias for {project_accession} found in metadata DB.')
+    return rows[0][0]
+
+
+def get_hold_date_from_ena(project_accession, project_alias=None):
+    if not project_alias:
+        project_alias = get_project_alias(project_accession)
+
+    """Gets hold date from ENA and adds to the config."""
+    xml_request = f'''<SUBMISSION_SET>
+           <SUBMISSION>
+               <ACTIONS>
+                   <ACTION>
+                       <RECEIPT target="{project_alias}"/>
+                  </ACTION>
+              </ACTIONS>
+           </SUBMISSION>
+       </SUBMISSION_SET>'''
+    response = requests.post(
+        cfg.query('ena', 'submit_url'),
+        auth=HTTPBasicAuth(cfg.query('ena', 'username'), cfg.query('ena', 'password')),
+        files={'SUBMISSION': xml_request}
+    )
+    receipt = ET.fromstring(response.text)
+    hold_date = None
+    try:
+        hold_date = receipt.findall('PROJECT')[0].attrib['holdUntilDate']
+    except (IndexError, KeyError):
+        # if there's no hold date, assume it's already been made public
+        xml_root = download_xml_from_ena(f'https://www.ebi.ac.uk/ena/browser/api/xml/{project_accession}')
+        attributes = xml_root.xpath('/PROJECT_SET/PROJECT/PROJECT_ATTRIBUTES/PROJECT_ATTRIBUTE')
+        for attr in attributes:
+            if attr.findall('TAG')[0].text == 'ENA-FIRST-PUBLIC':
+                hold_date = attr.findall('VALUE')[0].text
+                break
+        if not hold_date:
+            raise ValueError(f"Couldn't get hold date from ENA for {project_accession} ({project_alias})")
+    return hold_date
