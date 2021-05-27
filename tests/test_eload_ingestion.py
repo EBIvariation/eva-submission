@@ -133,7 +133,12 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
-                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
+                patch('eva_submission.eload_utils.get_metadata_conn', autospec=True), \
+                patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
+                patch('eva_submission.eload_utils.requests.post') as m_post:
+            m_get_alias_results.return_value = [['alias']]
+            m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_properties.return_value = self._fake_properties_dict()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             # first call is for browsable files, second is for study name
@@ -144,7 +149,12 @@ class TestEloadIngestion(TestCase):
         with patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
                 patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
-                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
+                patch('eva_submission.eload_utils.get_metadata_conn', autospec=True), \
+                patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
+                patch('eva_submission.eload_utils.requests.post') as m_post:
+            m_get_alias_results.return_value = [['alias']]
+            m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_properties.return_value = self._fake_properties_dict()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             self.eload.ingest(tasks=['metadata_load'], db_name='eva_hsapiens_grch38')
@@ -154,7 +164,12 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
-                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
+                patch('eva_submission.eload_utils.get_metadata_conn', autospec=True), \
+                patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
+                patch('eva_submission.eload_utils.requests.post') as m_post:
+            m_get_alias_results.return_value = [['alias']]
+            m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_properties.return_value = self._fake_properties_dict()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             m_get_results.return_value = [(1, 'filename_1'), (2, 'filename_2')]
@@ -173,7 +188,12 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
-                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True):
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
+                patch('eva_submission.eload_utils.get_metadata_conn', autospec=True), \
+                patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
+                patch('eva_submission.eload_utils.requests.post') as m_post:
+            m_get_alias_results.return_value = [['alias']]
+            m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_properties.return_value = self._fake_properties_dict()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             m_get_results.return_value = [('Test Study Name')]
@@ -202,3 +222,14 @@ class TestEloadIngestion(TestCase):
             m_execute.call_count = 0
             self.eload.insert_browsable_files()
             m_execute.assert_not_called()
+
+    def get_mock_result_for_ena_date(self):
+        return '''<?xml version="1.0" encoding="UTF-8"?>
+            <?xml-stylesheet type="text/xsl" href="receipt.xsl"?>
+            <RECEIPT receiptDate="2021-04-19T18:37:45.129+01:00" submissionFile="SUBMISSION" success="true">
+                 <ANALYSIS accession="ERZ999999" alias="MD" status="PRIVATE"/>
+                 <PROJECT accession="PRJEB12345" alias="alias" status="PRIVATE" holdUntilDate="2021-01-01+01:00"/>
+                 <SUBMISSION accession="ERA3972426" alias="alias"/>
+                 <MESSAGES/>
+                 <ACTIONS>RECEIPT</ACTIONS>
+            </RECEIPT>'''
