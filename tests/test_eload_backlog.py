@@ -87,4 +87,5 @@ class TestEloadBacklog(TestCase):
             with self.assertRaises(FileNotFoundError):
                 self.eload.fill_in_config()
             # incomplete config should still exist, even though filling config failed
+            self.eload = EloadBacklog(44)
             self.assertEqual(self.eload.eload_cfg.content, expected_config)

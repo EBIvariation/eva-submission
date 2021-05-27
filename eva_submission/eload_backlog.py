@@ -16,7 +16,10 @@ class EloadBacklog(Eload):
 
     def fill_in_config(self):
         """Fills in config params from metadata DB and ENA, enabling later parts of pipeline to run."""
-        self.eload_cfg.clear()
+        if not self.eload_cfg.is_empty():
+            self.error(f'Already found a config file for {self.eload} while running backlog preparation')
+            self.error('Please remove the existing config file and try again.')
+            raise ValueError(f'Already found a config file for {self.eload} while running backlog preparation')
         self.eload_cfg.set('brokering', 'ena', 'PROJECT', value=self.project_accession)
         self.get_analysis_info()
         self.get_species_info()

@@ -30,8 +30,8 @@ class EloadConfig(Configuration):
             top_level = top_level[p]
         top_level[path[-1]] = value
 
-    def clear(self):
-        self.content = {}
+    def is_empty(self):
+        return not self.content
 
     def __setitem__(self, item, value):
         """Allow dict-style write access, e.g. config['this']='that'."""
