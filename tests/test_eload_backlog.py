@@ -49,12 +49,14 @@ class TestEloadBacklog(TestCase):
         with patch('eva_submission.eload_backlog.get_metadata_conn', autospec=True), \
                 patch('eva_submission.eload_backlog.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_backlog.get_reference_fasta_and_report') as m_get_genome, \
-                patch('eva_submission.eload_backlog.requests.post') as m_post:
+                patch('eva_submission.eload_utils.get_metadata_conn', autospec=True), \
+                patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
+                patch('eva_submission.eload_utils.requests.post') as m_post:
+            m_get_alias_results.return_value = [['alias']]
             m_get_results.side_effect = [
                 [['PRJEB12345']],
                 [('ERZ999999', ('file.vcf', 'file.vcf.tbi'))],
                 [(9823, 'Sus scrofa', 'GCA_000003025.4')],
-                [['alias']],
             ]
             m_get_genome.return_value = ('assembly.fa', 'assembly.txt')
             m_post.return_value.text = '''<?xml version="1.0" encoding="UTF-8"?>
