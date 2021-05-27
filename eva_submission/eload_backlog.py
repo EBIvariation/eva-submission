@@ -1,15 +1,11 @@
 import os
-from xml.etree import ElementTree as ET
 
 from cached_property import cached_property
-from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
-import requests
-from requests.auth import HTTPBasicAuth
 
-from eva_submission.assembly_taxonomy_insertion import download_xml_from_ena
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import get_metadata_conn, get_reference_fasta_and_report
+from eva_submission.eload_utils import get_metadata_conn, get_reference_fasta_and_report, get_hold_date_from_ena, \
+    get_project_alias
 
 
 class EloadBacklog(Eload):
@@ -23,7 +19,7 @@ class EloadBacklog(Eload):
         self.eload_cfg.set('brokering', 'ena', 'PROJECT', value=self.project_accession)
         self.get_analysis_info()
         self.get_species_info()
-        self.get_hold_date()
+        self.update_config_with_hold_date()
         self.eload_cfg.write()
 
     @cached_property
@@ -37,12 +33,11 @@ class EloadBacklog(Eload):
 
     @cached_property
     def project_alias(self):
-        with get_metadata_conn() as conn:
-            query = f"select alias from evapro.project where project_accession='{self.project_accession}';"
-            rows = get_all_results_for_query(conn, query)
-        if len(rows) != 1:
-            raise ValueError(f'No project alias for {self.project_accession} found in metadata DB.')
-        return rows[0][0]
+        return get_project_alias(self.project_accession)
+
+    def update_config_with_hold_date(self):
+        hold_date = get_hold_date_from_ena(self.project_accession, self.project_alias)
+        self.eload_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
 
     def get_species_info(self):
         """Adds species info into the config: taxonomy id and scientific name,
@@ -98,38 +93,6 @@ class EloadBacklog(Eload):
             submitted_vcfs.append(vcf_file)
             self.eload_cfg.set('brokering', 'vcf_files', vcf_file, 'index', value=index_file)
         self.eload_cfg.set('submission', 'vcf_files', value=submitted_vcfs)
-
-    def get_hold_date(self):
-        """Gets hold date from ENA and adds to the config."""
-        xml_request = f'''<SUBMISSION_SET>
-            <SUBMISSION>
-                <ACTIONS>
-                    <ACTION>
-                        <RECEIPT target="{self.project_alias}"/>
-                   </ACTION>
-               </ACTIONS>
-            </SUBMISSION>
-        </SUBMISSION_SET>'''
-        response = requests.post(
-            cfg.query('ena', 'submit_url'),
-            auth=HTTPBasicAuth(cfg.query('ena', 'username'), cfg.query('ena', 'password')),
-            files={'SUBMISSION': xml_request}
-        )
-        receipt = ET.fromstring(response.text)
-        hold_date = None
-        try:
-            hold_date = receipt.findall('PROJECT')[0].attrib['holdUntilDate']
-        except (IndexError, KeyError):
-            # if there's no hold date, assume it's already been made public
-            xml_root = download_xml_from_ena(f'https://www.ebi.ac.uk/ena/browser/api/xml/{self.project_accession}')
-            attributes = xml_root.xpath('/PROJECT_SET/PROJECT/PROJECT_ATTRIBUTES/PROJECT_ATTRIBUTE')
-            for attr in attributes:
-                if attr.findall('TAG')[0].text == 'ENA-FIRST-PUBLIC':
-                    hold_date = attr.findall('VALUE')[0].text
-                    break
-            if not hold_date:
-                raise ValueError(f"Couldn't get hold date from ENA for {self.project_accession} ({self.project_alias})")
-        self.eload_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
 
     def report(self):
         """Collect information from the config and write the report."""
