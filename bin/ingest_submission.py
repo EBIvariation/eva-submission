@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import logging
-
 from argparse import ArgumentParser
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
