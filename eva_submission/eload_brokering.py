@@ -54,7 +54,10 @@ class EloadBrokering(Eload):
             # Upload the VCF to ENA FTP
             ena_uploader = ENAUploader(self.eload)
             files_to_upload = [vcf_file for vcf_file in self.eload_cfg['brokering']['vcf_files']] + \
-                              [self.eload_cfg['brokering']['vcf_files'][vcf_file]['index'] for vcf_file in self.eload_cfg['brokering']['vcf_files']]
+                              [
+                                  self.eload_cfg['brokering']['vcf_files'][vcf_file]['index']
+                                  for vcf_file in self.eload_cfg['brokering']['vcf_files']
+                              ]
             ena_uploader.upload_vcf_files_to_ena_ftp(files_to_upload)
 
             # Upload XML to ENA
@@ -155,7 +158,7 @@ class EloadBrokering(Eload):
         results = self.eload_cfg.query('brokering', 'ena', ret_default={})
         report_data = {
             'ena_accessions': '\n'.join(['%s: %s' % (t, results.get(t))
-                                         for t in ['PROJECT','SUBMISSION', 'ANALYSIS'] if t in results]),
+                                         for t in ['PROJECT', 'SUBMISSION', 'ANALYSIS'] if t in results]),
             'hold_date': results.get('hold_date', ''),
             'pass': 'PASS' if results.get('pass') else 'FAIL',
             'errors': '\n'.join(results.get('errors', [])),

@@ -15,13 +15,10 @@
 # limitations under the License.
 
 import logging
-import os
-import sys
 from argparse import ArgumentParser
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from eva_submission.eload_validation import EloadValidation
 from eva_submission.submission_config import load_config
 
@@ -39,7 +36,7 @@ def main():
                                'evaluation. This does not affect the actual report but only change the final '
                                'evaluation')
     argparse.add_argument('--report', action='store_true', default=False,
-                      help='Set the script to only report the results based on previously run validation.')
+                          help='Set the script to only report the results based on previously run validation.')
 
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
