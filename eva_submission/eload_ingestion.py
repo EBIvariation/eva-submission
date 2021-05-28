@@ -87,6 +87,10 @@ class EloadIngestion(Eload):
         if self.eload_cfg.query('brokering', 'ena', 'hold_date') is None:
             self.error('No release date found, check that brokering to ENA is done.')
             raise ValueError('No release date found in submission config.')
+        # check there are no vcfs in valid folder that aren't in brokering config
+        for valid_vcf in self.valid_vcf_filenames:
+            if not any(f.endswith(valid_vcf.name) for f in self.eload_cfg.query('brokering', 'vcf_files').keys()):
+                raise ValueError(f'Found {valid_vcf} in valid folder that was not in brokering config')
 
     def get_db_name(self):
         """
