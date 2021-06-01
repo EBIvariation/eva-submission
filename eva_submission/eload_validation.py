@@ -7,7 +7,7 @@ import yaml
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 
-from eva_submission import ROOT_DIR
+from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import resolve_single_file_path
 from eva_submission.samples_checker import compare_spreadsheet_and_vcf
@@ -130,7 +130,7 @@ class EloadValidation(Eload):
         validation_confg_file = os.path.join(self.eload_dir, 'validation_confg_file.yaml')
         with open(validation_confg_file, 'w') as open_file:
             yaml.safe_dump(validation_config, open_file)
-        validation_script = os.path.join(ROOT_DIR, 'nextflow', 'validation.nf')
+        validation_script = os.path.join(NEXTFLOW_DIR, 'validation.nf')
         try:
             command_utils.run_command_with_output(
                 'Nextflow Validation process',

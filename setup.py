@@ -9,7 +9,8 @@ requirements = [l.strip() for l in open(requirements_txt) if l and not l.startsw
 setup(
     name='eva_submission',
     packages=['eva_submission', 'eva_submission.ENA_submission', 'eva_submission.xlsx'],
-    version='0.5.6',
+    package_data={'eva_submission': ['nextflow/*', 'etc/*']},
+    version='0.5.7',
     license='Apache',
     description='EBI EVA - submission processing tools',
     url='https://github.com/EBIVariation/eva-submission',

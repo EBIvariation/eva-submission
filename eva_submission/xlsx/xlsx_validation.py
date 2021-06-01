@@ -7,7 +7,7 @@ from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_en
 from ebi_eva_common_pyutils.variation.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
 from requests import HTTPError
 
-from eva_submission import ROOT_DIR
+from eva_submission import ETC_DIR
 from eva_submission.eload_utils import cast_list
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
@@ -33,7 +33,7 @@ class EvaXlsxValidator(AppLogger):
         Leverage cerberus validation to check the format of the metadata.
         This function adds error statements to the errors attribute
         """
-        config_file = os.path.join(ROOT_DIR, 'etc', 'eva_project_validation.yaml')
+        config_file = os.path.join(ETC_DIR, 'eva_project_validation.yaml')
         with open(config_file) as open_file:
             validation_schema = yaml.safe_load(open_file)
         validator = Validator(validation_schema)

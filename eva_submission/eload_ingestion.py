@@ -12,7 +12,7 @@ from ebi_eva_common_pyutils.metadata_utils import get_variant_warehouse_db_name_
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
 import pymongo
 
-from eva_submission import ROOT_DIR
+from eva_submission import NEXTFLOW_DIR
 from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import get_metadata_conn, get_mongo_creds, get_accession_pg_creds
@@ -246,7 +246,7 @@ class EloadIngestion(Eload):
         accession_config_file = os.path.join(self.project_dir, 'accession_config_file.yaml')
         with open(accession_config_file, 'w') as open_file:
             yaml.safe_dump(accession_config, open_file)
-        accession_script = os.path.join(ROOT_DIR, 'nextflow', 'accession.nf')
+        accession_script = os.path.join(NEXTFLOW_DIR, 'accession.nf')
         try:
             command_utils.run_command_with_output(
                 'Nextflow Accessioning process',
@@ -296,7 +296,7 @@ class EloadIngestion(Eload):
         load_config_file = os.path.join(self.project_dir, 'load_config_file.yaml')
         with open(load_config_file, 'w') as open_file:
             yaml.safe_dump(load_config, open_file)
-        variant_load_script = os.path.join(ROOT_DIR, 'nextflow', 'variant_load.nf')
+        variant_load_script = os.path.join(NEXTFLOW_DIR, 'variant_load.nf')
         try:
             command_utils.run_command_with_output(
                 'Nextflow Variant Load process',

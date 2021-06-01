@@ -6,7 +6,7 @@ from unittest.mock import patch, PropertyMock
 
 from ebi_eva_common_pyutils.config import cfg
 
-from eva_submission import ROOT_DIR
+from eva_submission import NEXTFLOW_DIR
 from eva_submission.biosamples_submission import SampleMetadataSubmitter
 from eva_submission.eload_brokering import EloadBrokering
 from eva_submission.eload_submission import Eload
@@ -68,7 +68,7 @@ class TestEloadBrokering(TestCase):
             'nextflow': 'path_to_nextflow'
         }
         temp_dir = 'temporary_directory'
-        nf_script = os.path.join(ROOT_DIR, 'nextflow', 'prepare_brokering.nf')
+        nf_script = os.path.join(NEXTFLOW_DIR, 'prepare_brokering.nf')
         config_file = os.path.join(self.eload.eload_dir, 'brokering_config_file.yaml')
 
         with patch('eva_submission.eload_brokering.command_utils.run_command_with_output') as m_execute, \
