@@ -28,16 +28,16 @@ class TestFtpDepositBox(TestCase):
 
             expected_report = """#############################
 ftp box: tests/resources/ftpboxes/eva-box-01/upload/john
-last modified: 2020-10-29 19:33:20
+last modified: 2020-10-29 20:33:20
 size: 300 Bytes
 -----
 number of vcf files: 1
-last modified: 2020-10-29 19:33:20
+last modified: 2020-10-29 20:33:20
 size: 100 Bytes
 -----
 number of metadata spreadsheet: 1
 metadata file path: tests/resources/ftpboxes/eva-box-01/upload/john/metadata.xlsx
-last modified: 2020-10-29 19:33:20
+last modified: 2020-10-29 20:33:20
 Project title: Greatest project ever
 Number of analysis: 1
 Reference sequence: GCA_000001405.1

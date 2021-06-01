@@ -97,7 +97,7 @@ class EvaXlsxReader(AppLogger):
 class EvaXlsxWriter(AppLogger):
 
     def __init__(self, metadata_source, metadata_dest=None):
-        conf = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'etc', 'eva_project_conf.yaml')
+        conf = os.path.join(ETC_DIR, 'eva_project_conf.yaml')
         self.writer = XlsxWriter(metadata_source, conf)
         self.metadata_source = metadata_source
         if metadata_dest:
