@@ -11,6 +11,7 @@ from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 
+from eva_submission.eload_utils import get_hold_date_from_ena
 from eva_submission.eload_utils import get_reference_fasta_and_report, resolve_accession_from_text
 from eva_submission.submission_config import EloadConfig
 from eva_submission.submission_in_ftp import FtpDepositBox
@@ -55,6 +56,10 @@ class Eload(AppLogger):
     @cached_property
     def now(self):
         return datetime.now()
+
+    def update_config_with_hold_date(self, project_accession, project_alias=None):
+        hold_date = get_hold_date_from_ena(project_accession, project_alias)
+        self.eload_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
 
     def update_metadata_from_config(self, input_spreadsheet, output_spreadsheet=None):
 
