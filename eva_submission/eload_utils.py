@@ -129,10 +129,10 @@ def get_project_alias(project_accession):
 
 
 def get_hold_date_from_ena(project_accession, project_alias=None):
+    """Gets hold date from ENA"""
     if not project_alias:
         project_alias = get_project_alias(project_accession)
 
-    """Gets hold date from ENA and adds to the config."""
     xml_request = f'''<SUBMISSION_SET>
            <SUBMISSION>
                <ACTIONS>

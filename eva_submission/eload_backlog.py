@@ -4,8 +4,7 @@ from cached_property import cached_property
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
 
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import get_metadata_conn, get_reference_fasta_and_report, get_hold_date_from_ena, \
-    get_project_alias
+from eva_submission.eload_utils import get_metadata_conn, get_reference_fasta_and_report, get_project_alias
 
 
 class EloadBacklog(Eload):
@@ -19,7 +18,7 @@ class EloadBacklog(Eload):
         self.eload_cfg.set('brokering', 'ena', 'PROJECT', value=self.project_accession)
         self.get_analysis_info()
         self.get_species_info()
-        self.update_config_with_hold_date()
+        self.update_config_with_hold_date(self.project_accession, self.project_alias)
         self.eload_cfg.write()
 
     @cached_property
@@ -34,10 +33,6 @@ class EloadBacklog(Eload):
     @cached_property
     def project_alias(self):
         return get_project_alias(self.project_accession)
-
-    def update_config_with_hold_date(self):
-        hold_date = get_hold_date_from_ena(self.project_accession, self.project_alias)
-        self.eload_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
 
     def get_species_info(self):
         """Adds species info into the config: taxonomy id and scientific name,
