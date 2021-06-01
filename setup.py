@@ -10,7 +10,7 @@ setup(
     name='eva_submission',
     packages=['eva_submission', 'eva_submission.ENA_submission', 'eva_submission.xlsx'],
     package_data={'eva_submission': ['nextflow/*', 'etc/*']},
-    version='0.5.6',
+    version='0.5.7',
     license='Apache',
     description='EBI EVA - submission processing tools',
     url='https://github.com/EBIVariation/eva-submission',
