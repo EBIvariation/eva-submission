@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import csv
 import os
 import shutil
 import subprocess
@@ -47,8 +48,16 @@ class EloadValidation(Eload):
             self.eload_cfg.query('validation', validation_task, 'forced', ret_default=False)
             for validation_task in self.all_validation_tasks
         ]):
-            self.eload_cfg.set('validation', 'valid', 'vcf_files', value=self.eload_cfg['submission']['vcf_files'])
+            vcf_files = self._get_vcf_files()
+            self.eload_cfg.set('validation', 'valid', 'vcf_files', value=vcf_files)
             self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet', value=self.eload_cfg['submission']['metadata_spreadsheet'])
+
+    def _get_vcf_files(self):
+        vcf_files = []
+        for analysis_alias in self.eload_cfg.query('submission', 'analyses'):
+            files = self.eload_cfg.query('submission', 'analyses', analysis_alias, 'vcf_files')
+            vcf_files.extend(files) if files else None
+        return vcf_files
 
     def _validate_metadata_format(self):
         validator = EvaXlsxValidator(self.eload_cfg['submission']['metadata_spreadsheet'])
@@ -61,7 +70,7 @@ class EloadValidation(Eload):
         overall_differences, results_per_analysis_alias = compare_spreadsheet_and_vcf(
             eva_files_sheet=self.eload_cfg['submission']['metadata_spreadsheet'],
             vcf_dir=self._get_dir('vcf'),
-            expected_vcf_files=self.eload_cfg['submission']['vcf_files']
+            expected_vcf_files=self._get_vcf_files()
         )
         for analysis_alias in results_per_analysis_alias:
             has_difference, diff_submitted_file_submission, diff_submission_submitted_file = results_per_analysis_alias[analysis_alias]
@@ -117,12 +126,23 @@ class EloadValidation(Eload):
                         error_list.append(line.strip())
         return valid, error_list, error_count, warning_count
 
+    def _generate_csv_mappings(self):
+        vcf_files_csv = os.path.join(self.eload_dir, 'vcf_files.csv')
+        with open(vcf_files_csv, 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(['vcf', 'fasta', 'report'])
+            for analysis_alias in self.eload_cfg.query('submission', 'analyses'):
+                fasta = self.eload_cfg.query('submission', 'analyses', analysis_alias, 'assembly_fasta')
+                report = self.eload_cfg.query('submission', 'analyses', analysis_alias, 'assembly_report')
+                for vcf_file in self.eload_cfg.query('submission', 'analyses', analysis_alias, 'vcf_files'):
+                    writer.writerow([vcf_file, fasta, report])
+        return vcf_files_csv
+
     def _run_validation_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory()
+        vcf_files_csv = self._generate_csv_mappings()
         validation_config = {
-            'vcf_files': self.eload_cfg.query('submission', 'vcf_files'),
-            'reference_fasta': self.eload_cfg.query('submission', 'assembly_fasta'),
-            'reference_report': self.eload_cfg.query('submission', 'assembly_report'),
+            'vcf_files': vcf_files_csv,
             'output_dir': output_dir,
             'executable': cfg['executable']
         }
@@ -157,7 +177,8 @@ class EloadValidation(Eload):
         # Collect information from the output and summarise in the config
         total_error = 0
         # detect output files for vcf check
-        for vcf_file in self.eload_cfg.query('submission', 'vcf_files'):
+        vcf_files = self._get_vcf_files()
+        for vcf_file in vcf_files:
             vcf_name = os.path.basename(vcf_file)
 
             tmp_vcf_check_log = resolve_single_file_path(
@@ -198,7 +219,7 @@ class EloadValidation(Eload):
 
         # detect output files for assembly check
         total_error = 0
-        for vcf_file in self.eload_cfg.query('submission', 'vcf_files'):
+        for vcf_file in vcf_files:
             vcf_name = os.path.basename(vcf_file)
 
             tmp_assembly_check_log = resolve_single_file_path(
