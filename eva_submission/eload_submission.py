@@ -213,11 +213,6 @@ class EloadPreparation(Eload):
                 analysis_reference[analysis_alias]['vcf_files'].append(file_full)
                 self.eload_cfg.set('submission', 'analyses', analysis_alias, 'vcf_files', value=file_full)
 
-        # Check is files in the FTP and in the metadata are the same
-        # vcf_files_ftp = self.eload_cfg.query('submission', 'vcf_files')
-        # if len(vcf_files_ftp) != len(vcf_files):
-        #     raise Exception('Files in the FTP and in the metadata spreadsheet are not the same')
-
         self.eload_cfg.set('submission', 'analyses', value=analysis_reference)
 
         taxonomy_id = eva_metadata.project.get('Tax ID')
