@@ -14,6 +14,10 @@ class BSDTestCase(TestCase):
 
     resources_folder = os.path.join(ROOT_DIR, 'tests', 'resources')
 
+    def tearDown(self):
+        if os.path.exists(os.path.join(self.resources_folder, 'ELOAD_609biosamples_accessioned.txt')):
+            os.remove(os.path.join(self.resources_folder, 'ELOAD_609biosamples_accessioned.txt'))
+
 
 class TestHALCommunicator(BSDTestCase):
 
@@ -168,10 +172,6 @@ class TestBSDSubmitter(BSDTestCase):
         communicator = HALCommunicator(self.config.get('aap_url'), self.config.get('bsd_url'),
                                        self.config.get('username'), self.config.get('password'))
         self.submitter = BSDSubmitter(communicator, self.config.get('domain'))
-
-    def tearDown(self):
-        if os.path.exists(os.path.join(self.resources_folder, 'ELOAD_609biosamples_with_accession.txt')):
-            os.remove(os.path.join(self.resources_folder, 'ELOAD_609biosamples_with_accession.txt'))
 
     def test_validate_in_bsd(self):
         self.submitter.validate_in_bsd(self.sample_data)

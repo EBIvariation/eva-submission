@@ -31,6 +31,9 @@ class TestEload(TestCase):
         eloads = glob.glob(os.path.join(self.resources_folder, 'eloads', 'ELOAD_1'))
         for eload in eloads:
             shutil.rmtree(eload)
+        genomes = glob.glob(os.path.join(self.resources_folder, 'genomes'))
+        for genome in genomes:
+            shutil.rmtree(genome)
 
     def test_copy_from_ftp(self):
         assert os.listdir(os.path.join(self.eload.eload_dir, '10_submitted', 'vcf_files')) == []
