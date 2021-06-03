@@ -71,7 +71,7 @@ class ENAUploader(AppLogger):
                 if child.tag == 'ERROR':
                     results['errors'].append(child.text)
             for child in receipt:
-                # Store mapping from analysis accession to alias.
+                # Store mapping from analysis accession to analysis alias.
                 if child.tag == 'ANALYSIS':
                     results.setdefault(child.tag, {})[child.attrib['accession']] = child.attrib['alias']
                 elif 'accession' in child.attrib:
