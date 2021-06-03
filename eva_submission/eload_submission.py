@@ -172,7 +172,6 @@ class EloadPreparation(Eload):
 
     def detect_all(self):
         self.detect_submitted_metadata()
-        # self.detect_submitted_vcf()
         self.detect_metadata_attributes()
         self.find_genome()
 
@@ -211,8 +210,6 @@ class EloadPreparation(Eload):
                 file_full = os.path.join(self.eload_dir, directory_structure['vcf'], file.get("File Name"))
                 analysis_alias = file.get("Analysis Alias")
                 analysis_reference[analysis_alias]['vcf_files'].append(file_full)
-                self.eload_cfg.set('submission', 'analyses', analysis_alias, 'vcf_files', value=file_full)
-
         self.eload_cfg.set('submission', 'analyses', value=analysis_reference)
 
         taxonomy_id = eva_metadata.project.get('Tax ID')

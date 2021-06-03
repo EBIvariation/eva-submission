@@ -131,7 +131,8 @@ class EloadValidation(Eload):
         with open(vcf_files_csv, 'w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(['vcf', 'fasta', 'report'])
-            for analysis_alias in self.eload_cfg.query('submission', 'analyses'):
+            analyses = self.eload_cfg.query('submission', 'analyses')
+            for analysis_alias in analyses:
                 fasta = self.eload_cfg.query('submission', 'analyses', analysis_alias, 'assembly_fasta')
                 report = self.eload_cfg.query('submission', 'analyses', analysis_alias, 'assembly_report')
                 for vcf_file in self.eload_cfg.query('submission', 'analyses', analysis_alias, 'vcf_files'):
