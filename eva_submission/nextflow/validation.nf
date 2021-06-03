@@ -29,8 +29,10 @@ if (!params.vcf_files_mapping || !params.output_dir) {
 }
 
 // vcf files are used multiple times
-Channel.fromPath(params.vcf_files_mapping).splitCsv(header:true).map{row -> tuple(file(row.vcf), file(row.fasta), file(row.report))}.set{vcf_channel1}
-Channel.fromPath(params.vcf_files_mapping).splitCsv(header:true).map{row -> tuple(file(row.vcf), file(row.fasta), file(row.report))}.set{vcf_channel2}
+Channel.fromPath(params.vcf_files_mapping)
+    .splitCsv(header:true)
+    .map{row -> tuple(file(row.vcf), file(row.fasta), file(row.report))}
+    .into{vcf_channel1; vcf_channel2}
 
 /*
 * Validate the VCF file format
@@ -83,5 +85,4 @@ process check_vcf_reference {
     $params.executable.vcf_assembly_checker -i $vcf -f $fasta -a $report -r summary,text,valid  -o assembly_check --require-genbank > assembly_check/${vcf}.assembly_check.log 2>&1
     """
 }
-
 
