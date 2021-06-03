@@ -74,8 +74,7 @@ class ENAUploader(AppLogger):
                 # Store mapping from analysis accession to alias.
                 if child.tag == 'ANALYSIS':
                     results.setdefault(child.tag, {})[child.attrib['accession']] = child.attrib['alias']
-                    continue
-                if 'accession' in child.attrib:
+                elif 'accession' in child.attrib:
                     results[child.tag] = child.attrib['accession']
         except ET.ParseError:
             self.error('Cannot parse ENA receipt: ' + ena_xml_receipt)
