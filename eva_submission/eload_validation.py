@@ -132,10 +132,10 @@ class EloadValidation(Eload):
             writer = csv.writer(file)
             writer.writerow(['vcf', 'fasta', 'report'])
             analyses = self.eload_cfg.query('submission', 'analyses')
-            for analysis_alias in analyses:
-                fasta = self.eload_cfg.query('submission', 'analyses', analysis_alias, 'assembly_fasta')
-                report = self.eload_cfg.query('submission', 'analyses', analysis_alias, 'assembly_report')
-                for vcf_file in self.eload_cfg.query('submission', 'analyses', analysis_alias, 'vcf_files'):
+            for analysis_alias, analysis_data in analyses.items():
+                fasta = analysis_data['assembly_fasta']
+                report = analysis_data['assembly_report']
+                for vcf_file in analysis_data['vcf_files']:
                     writer.writerow([vcf_file, fasta, report])
         return vcf_files_csv
 
@@ -371,5 +371,4 @@ Sample names check:
 ----------------------------------
 """
         print(report.format(**report_data))
-
 
