@@ -55,7 +55,7 @@ process check_vcf_valid {
 
     """
     mkdir -p vcf_format
-    $params.executable.vcf_validator -i $vcf  -r database,text -o vcf_format --require-evidence > vcf_format/${vcf_file}.vcf_format.log 2>&1
+    $params.executable.vcf_validator -i $vcf  -r database,text -o vcf_format --require-evidence > vcf_format/${vcf}.vcf_format.log 2>&1
     """
 }
 

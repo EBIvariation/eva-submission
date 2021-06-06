@@ -127,23 +127,26 @@ class EloadValidation(Eload):
         return valid, error_list, error_count, warning_count
 
     def _generate_csv_mappings(self):
-        vcf_files_csv = os.path.join(self.eload_dir, 'vcf_files.csv')
-        with open(vcf_files_csv, 'w', newline='') as file:
+        vcf_files_mapping_csv = os.path.join(self.eload_dir, 'vcf_files_mapping.csv')
+        with open(vcf_files_mapping_csv, 'w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(['vcf', 'fasta', 'report'])
             analyses = self.eload_cfg.query('submission', 'analyses')
             for analysis_alias, analysis_data in analyses.items():
                 fasta = analysis_data['assembly_fasta']
                 report = analysis_data['assembly_report']
-                for vcf_file in analysis_data['vcf_files']:
-                    writer.writerow([vcf_file, fasta, report])
-        return vcf_files_csv
+                if analysis_data['vcf_files']:
+                    for vcf_file in analysis_data['vcf_files']:
+                        writer.writerow([vcf_file, fasta, report])
+                else:
+                    self.warning(f"File {vcf_file} not found")
+        return vcf_files_mapping_csv
 
     def _run_validation_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory()
-        vcf_files_csv = self._generate_csv_mappings()
+        vcf_files_mapping_csv = self._generate_csv_mappings()
         validation_config = {
-            'vcf_files': vcf_files_csv,
+            'vcf_files_mapping': vcf_files_mapping_csv,
             'output_dir': output_dir,
             'executable': cfg['executable']
         }
