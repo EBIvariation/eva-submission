@@ -58,7 +58,7 @@ class EloadBacklog(Eload):
         with get_metadata_conn() as conn:
             query = f"select distinct b.vcf_reference_accession " \
                     f"from project_analysis a " \
-                    f"join analysis b on a.analysis_accession=b.analysis_accession" \
+                    f"join analysis b on a.analysis_accession=b.analysis_accession " \
                     f"where a.project_accession='{self.project_accession}';"
             rows = get_all_results_for_query(conn, query)
         if len(rows) < 1:

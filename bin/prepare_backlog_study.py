@@ -44,7 +44,7 @@ def main():
     load_config()
 
     preparation = EloadBacklog(args.eload)
-    preparation.fill_in_config()
+    preparation.fill_in_config(args.force_config)
     preparation.report()
 
     validation = EloadValidation(args.eload)
