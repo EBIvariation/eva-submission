@@ -69,7 +69,7 @@ class TestEloadBacklog(TestCase):
      <MESSAGES/>
      <ACTIONS>RECEIPT</ACTIONS>
 </RECEIPT>'''
-            self.eload.fill_in_config()
+            self.eload.fill_in_config(False)
             self.assertEqual(self.eload.eload_cfg.content, expected_config)
 
     def test_file_not_found(self):

@@ -33,6 +33,9 @@ class EloadConfig(Configuration):
     def is_empty(self):
         return not self.content
 
+    def clear(self):
+        self.content = {}
+
     def __setitem__(self, item, value):
         """Allow dict-style write access, e.g. config['this']='that'."""
         self.content[item] = value

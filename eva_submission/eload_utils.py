@@ -162,3 +162,16 @@ def get_hold_date_from_ena(project_accession, project_alias=None):
         if not hold_date:
             raise ValueError(f"Couldn't get hold date from ENA for {project_accession} ({project_alias})")
     return hold_date
+
+
+def backup_file(file_name):
+    suffix = 1
+    backup_name = file_name + '.' + str(suffix)
+    while os.path.exists(backup_name):
+        suffix += 1
+        backup_name = file_name + '.' + str(suffix)
+
+    for i in range(suffix, 1, -1):
+        os.rename(file_name + '.' + str(i - 1), file_name + '.' + str(i))
+    os.rename(file_name, file_name + '.1')
+

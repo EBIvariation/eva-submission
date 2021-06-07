@@ -4,17 +4,21 @@ from cached_property import cached_property
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
 
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import get_metadata_conn, get_reference_fasta_and_report, get_project_alias
+from eva_submission.eload_utils import get_metadata_conn, get_reference_fasta_and_report, get_project_alias, backup_file
 
 
 class EloadBacklog(Eload):
 
-    def fill_in_config(self):
+    def fill_in_config(self, force_config=False):
         """Fills in config params from metadata DB and ENA, enabling later parts of pipeline to run."""
-        if not self.eload_cfg.is_empty():
+        if not self.eload_cfg.is_empty() and not force_config:
             self.error(f'Already found a config file for {self.eload} while running backlog preparation')
             self.error('Please remove the existing config file and try again.')
             raise ValueError(f'Already found a config file for {self.eload} while running backlog preparation')
+        elif not self.eload_cfg.is_empty():
+            # backup the previous config and remove the existing content
+            backup_file(self.eload_cfg.config_file)
+            self.eload_cfg.clear()
         self.eload_cfg.set('brokering', 'ena', 'PROJECT', value=self.project_accession)
         self.get_analysis_info()
         self.get_species_info()
