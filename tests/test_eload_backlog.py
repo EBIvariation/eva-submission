@@ -56,7 +56,8 @@ class TestEloadBacklog(TestCase):
             m_get_results.side_effect = [
                 [['PRJEB12345']],
                 [('ERZ999999', ('file.vcf', 'file.vcf.tbi'))],
-                [(9823, 'Sus scrofa', 'GCA_000003025.4')],
+                [(9823, 'Sus scrofa')],
+                [('GCA_000003025.4',)]
             ]
             m_get_genome.return_value = ('assembly.fa', 'assembly.txt')
             m_post.return_value.text = '''<?xml version="1.0" encoding="UTF-8"?>
