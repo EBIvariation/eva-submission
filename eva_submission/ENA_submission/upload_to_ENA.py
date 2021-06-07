@@ -71,7 +71,10 @@ class ENAUploader(AppLogger):
                 if child.tag == 'ERROR':
                     results['errors'].append(child.text)
             for child in receipt:
-                if 'accession' in child.attrib:
+                # Store mapping from analysis accession to analysis alias.
+                if child.tag == 'ANALYSIS':
+                    results.setdefault(child.tag, {})[child.attrib['accession']] = child.attrib['alias']
+                elif 'accession' in child.attrib:
                     results[child.tag] = child.attrib['accession']
         except ET.ParseError:
             self.error('Cannot parse ENA receipt: ' + ena_xml_receipt)
