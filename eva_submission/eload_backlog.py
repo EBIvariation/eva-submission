@@ -1,4 +1,5 @@
 import os
+import urllib
 
 from cached_property import cached_property
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
@@ -71,6 +72,26 @@ class EloadBacklog(Eload):
         self.eload_cfg.set('submission', 'assembly_fasta', value=fasta_path)
         self.eload_cfg.set('submission', 'assembly_report', value=report_path)
 
+    def find_local_file(self, fn):
+        full_path = os.path.join(self._get_dir('vcf'), fn)
+        if not os.path.exists(full_path):
+            self.error(f'File not found: {full_path}')
+            self.error(f'Please check that all VCF and index files are present before retrying.')
+            raise FileNotFoundError(f'File not found: {full_path}')
+        return full_path
+
+    def find_file_on_ena(self, fn, analysis):
+        basename = os.path.basename(fn)
+        full_path = os.path.join(self._get_dir('ena'), basename)
+        if not os.path.exists(full_path):
+            try:
+                urllib.request.urlretrieve(f'ftp://ftp.sra.ebi.ac.uk/vol1/{analysis[:6]}/{analysis}/{basename}', full_path)
+                urllib.request.urlcleanup()
+            except urllib.error.URLError:
+                self.error('Could not access file on ENA: most likely does not exist')
+                raise FileNotFoundError(f'File not found: {full_path}')
+        return full_path
+
     def get_analysis_info(self):
         """Adds analysis info into the config: analysis accession(s), and vcf and index files."""
         with get_metadata_conn() as conn:
@@ -88,16 +109,21 @@ class EloadBacklog(Eload):
         for analysis_accession, filenames in rows:
             # TODO for now we assume a single analysis per project as that's what the eload config supports
             self.eload_cfg.set('brokering', 'ena', 'ANALYSIS', value=analysis_accession)
+            index_file = vcf_file = None
             for fn in filenames:
-                full_path = os.path.join(self._get_dir('vcf'), fn)
-                if not os.path.exists(full_path):
-                    self.error(f'File not found: {full_path}')
-                    self.error(f'Please check that all VCF and index files are present before retrying.')
-                    raise FileNotFoundError(f'File not found: {full_path}')
-                if full_path.endswith('tbi'):
+                if not fn.endswith('.vcf.gz') and not fn.endswith('.vcf.gz.tbi'):
+                    self.warning(f'Ignoring {fn} because it is not a VCF or an index')
+                    continue
+                try:
+                    full_path = self.find_local_file(fn)
+                except FileNotFoundError:
+                    full_path = self.find_file_on_ena(fn, analysis_accession)
+
+                if full_path.endswith('.vcf.gz.tbi'):
                     index_file = full_path
                 else:
                     vcf_file = full_path
+
             if not index_file or not vcf_file:
                 raise ValueError(f'VCF or index file is missing from metadata DB for analysis {analysis_accession}')
             submitted_vcfs.append(vcf_file)
