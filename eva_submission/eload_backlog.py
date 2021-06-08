@@ -115,6 +115,8 @@ class EloadBacklog(Eload):
             # TODO for now we assume a single analysis per project as that's what the eload config supports
             self.eload_cfg.set('brokering', 'ena', 'ANALYSIS', value=analysis_accession)
             index_file = vcf_file = None
+            vcf_file_list = []
+            index_file_dict = {}
             for fn in filenames:
                 if not fn.endswith('.vcf.gz') and not fn.endswith('.vcf.gz.tbi'):
                     self.warning(f'Ignoring {fn} because it is not a VCF or an index')
@@ -123,16 +125,22 @@ class EloadBacklog(Eload):
                     full_path = self.find_local_file(fn)
                 except FileNotFoundError:
                     full_path = self.find_file_on_ena(fn, analysis_accession)
-
                 if full_path.endswith('.vcf.gz.tbi'):
-                    index_file = full_path
+                    # Store with the basename of the VCF file for easy retrieval
+                    index_file_dict[os.path.basename(full_path)[:-4]] = full_path
                 else:
-                    vcf_file = full_path
+                    vcf_file_list.append(full_path)
+            for vcf_file in vcf_file_list:
+                basename = os.path.basename(vcf_file)
+                if basename not in index_file_dict:
+                    raise ValueError(f'Index file is missing from metadata DB for vcf {basename} analysis {analysis_accession}')
+                submitted_vcfs.append(vcf_file)
+                self.eload_cfg.set('brokering', 'vcf_files', vcf_file, 'index', value=index_file_dict.pop(basename))
 
-            if not index_file or not vcf_file:
-                raise ValueError(f'VCF or index file is missing from metadata DB for analysis {analysis_accession}')
-            submitted_vcfs.append(vcf_file)
-            self.eload_cfg.set('brokering', 'vcf_files', vcf_file, 'index', value=index_file)
+            # Check if there are any orphaned index
+            if len(index_file_dict) > 0:
+                raise ValueError(f'VCF file is missing from metadata DB for index {", ".join(index_file_dict.values())}'
+                                 f' for analysis {analysis_accession}')
         self.eload_cfg.set('submission', 'vcf_files', value=submitted_vcfs)
 
     def report(self):
