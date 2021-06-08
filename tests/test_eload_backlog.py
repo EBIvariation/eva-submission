@@ -1,6 +1,9 @@
 import os
+from itertools import cycle
 from unittest import TestCase
 from unittest.mock import patch
+
+import retry
 
 from eva_submission.eload_backlog import EloadBacklog
 from eva_submission.submission_config import load_config
@@ -18,7 +21,8 @@ class TestEloadBacklog(TestCase):
         self.eload = EloadBacklog(44)
 
     def tearDown(self):
-        os.remove(os.path.join(self.eload._get_dir('ena'), 'IRIS_313-8755.snp.vcf.gz.tbi'))
+        if os.path.exists(os.path.join(self.eload._get_dir('ena'), 'IRIS_313-8755.snp.vcf.gz.tbi')):
+            os.remove(os.path.join(self.eload._get_dir('ena'), 'IRIS_313-8755.snp.vcf.gz.tbi'))
         # necessary because test instances are retained during a run and content is a class variable
         from eva_submission.submission_config import EloadConfig
         EloadConfig.content = {}
@@ -85,11 +89,12 @@ class TestEloadBacklog(TestCase):
             }
         }
         with patch('eva_submission.eload_backlog.get_metadata_conn', autospec=True), \
-                patch('eva_submission.eload_backlog.get_all_results_for_query') as m_get_results:
-            m_get_results.side_effect = [
+                patch('eva_submission.eload_backlog.get_all_results_for_query') as m_get_results,\
+                patch.object(retry.api.time, 'sleep'):
+            m_get_results.side_effect = cycle([
                 [['PRJEB12345']],
                 [('ERZ999999', ('something_else.vcf.gz', 'file.vcf.gz.tbi'))]
-            ]
+            ])
             with self.assertRaises(FileNotFoundError):
                 self.eload.fill_in_config()
             # incomplete config should still exist, even though filling config failed

@@ -3,6 +3,7 @@ import urllib
 
 from cached_property import cached_property
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
+from retry import retry
 
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import get_metadata_conn, get_reference_fasta_and_report, get_project_alias, backup_file
@@ -76,19 +77,23 @@ class EloadBacklog(Eload):
         full_path = os.path.join(self._get_dir('vcf'), fn)
         if not os.path.exists(full_path):
             self.error(f'File not found: {full_path}')
-            self.error(f'Please check that all VCF and index files are present before retrying.')
             raise FileNotFoundError(f'File not found: {full_path}')
         return full_path
 
     def find_file_on_ena(self, fn, analysis):
+        @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
+        def download_file(url, dest):
+            urllib.request.urlretrieve(url, dest)
+            urllib.request.urlcleanup()
         basename = os.path.basename(fn)
         full_path = os.path.join(self._get_dir('ena'), basename)
         if not os.path.exists(full_path):
             try:
-                urllib.request.urlretrieve(f'ftp://ftp.sra.ebi.ac.uk/vol1/{analysis[:6]}/{analysis}/{basename}', full_path)
-                urllib.request.urlcleanup()
+                self.info(f'Retrieve {basename} in {analysis} from ENA ftp')
+                url = f'ftp://ftp.sra.ebi.ac.uk/vol1/{analysis[:6]}/{analysis}/{basename}'
+                download_file(url, full_path)
             except urllib.error.URLError:
-                self.error('Could not access file on ENA: most likely does not exist')
+                self.error(f'Could not access {url} on ENA: most likely does not exist')
                 raise FileNotFoundError(f'File not found: {full_path}')
         return full_path
 
