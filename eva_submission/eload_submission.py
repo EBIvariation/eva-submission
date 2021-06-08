@@ -84,29 +84,31 @@ class Eload(AppLogger):
         for file_row in reader.files:
             file_to_row[file_row['File Name']] = file_row
 
-        for vcf_file in self.eload_cfg['brokering']['vcf_files']:
-            original_vcf_file = self.eload_cfg['brokering']['vcf_files'][vcf_file]['original_vcf']
-            file_row = file_to_row.get(os.path.basename(original_vcf_file), {})
-            # Add the vcf file
-            file_rows.append({
-                'Analysis Alias': file_row.get('Analysis Alias') or single_analysis_alias,
-                'File Name': self.eload + '/' + os.path.basename(vcf_file),
-                'File Type': 'vcf',
-                'MD5': self.eload_cfg['brokering']['vcf_files'][vcf_file]['md5']
-            })
+        analyses = self.eload_cfg['brokering']['analyses']
+        for analysis in analyses:
+            for vcf_file_name in analyses[analysis]['vcf_files']:
+                vcf_file_info = self.eload_cfg['brokering']['analyses'][analysis]['vcf_files'][vcf_file_name]
+                output_vcf_file = vcf_file_info['output_vcf_file']
+                file_row = file_to_row.get(os.path.basename(output_vcf_file), {})
+                # Add the vcf file
+                file_rows.append({
+                    'Analysis Alias': file_row.get('Analysis Alias') or single_analysis_alias,
+                    'File Name': self.eload + '/' + os.path.basename(output_vcf_file),
+                    'File Type': 'vcf',
+                    'MD5': vcf_file_info['md5']
+                })
 
-            # Add the index file
-            if self.eload_cfg['brokering']['vcf_files'][vcf_file]['index'].endswith('.csi'):
-                file_type = 'csi'
-            else:
-                file_type = 'tabix'
-            file_rows.append({
-                'Analysis Alias': file_row.get('Analysis Alias') or single_analysis_alias,
-                'File Name': self.eload + '/' + os.path.basename(
-                    self.eload_cfg['brokering']['vcf_files'][vcf_file]['index']),
-                'File Type': file_type,
-                'MD5': self.eload_cfg['brokering']['vcf_files'][vcf_file]['index_md5']
-            })
+                # Add the index file
+                if vcf_file_info['index'].endswith('.csi'):
+                    file_type = 'csi'
+                else:
+                    file_type = 'tabix'
+                file_rows.append({
+                    'Analysis Alias': file_row.get('Analysis Alias') or single_analysis_alias,
+                    'File Name': self.eload + '/' + os.path.basename(vcf_file_info['index']),
+                    'File Type': file_type,
+                    'MD5': vcf_file_info['index_md5']
+                })
         if output_spreadsheet:
             eva_xls_writer = EvaXlsxWriter(input_spreadsheet, output_spreadsheet)
         else:

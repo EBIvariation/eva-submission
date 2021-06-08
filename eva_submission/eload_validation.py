@@ -48,8 +48,7 @@ class EloadValidation(Eload):
             self.eload_cfg.query('validation', validation_task, 'forced', ret_default=False)
             for validation_task in self.all_validation_tasks
         ]):
-            vcf_files = self._get_vcf_files()
-            self.eload_cfg.set('validation', 'valid', 'vcf_files', value=vcf_files)
+            self.eload_cfg.set('validation', 'valid', 'analyses', value=self.eload_cfg.query('submission', 'analyses'))
             self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet', value=self.eload_cfg['submission']['metadata_spreadsheet'])
 
     def _get_vcf_files(self):
