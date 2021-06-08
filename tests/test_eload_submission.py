@@ -37,7 +37,7 @@ class TestEload(TestCase):
 
     def create_vcfs(self, num_files=2):
         paths = []
-        for i in range(1, num_files + 1):
+        for i in range(num_files):
             vcf = os.path.join(self.eload.eload_dir, '10_submitted', 'vcf_files', f'file{i}.vcf')
             touch(vcf)
             paths.append(vcf)
@@ -51,10 +51,10 @@ class TestEload(TestCase):
             writer = EvaXlsxWriter(metadata)
             writer.set_analysis([
                 {
-                    header: text
+                    header: f'analysis{i}'
                     for header in
                     ['Analysis Title', 'Analysis Alias', 'Description', 'Project Title', 'Experiment Type', 'Reference']
-                } for text in ['something', 'something completely different']
+                } for i in range(num_analyses)
             ])
             writer.save()
         return metadata
