@@ -48,16 +48,17 @@ class TestEload(TestCase):
         vcf2 = os.path.join(self.eload.eload_dir, '10_submitted', 'vcf_files', 'file2.vcf')
         touch(vcf1)
         touch(vcf2)
+        # TODO this needs to be a real spreadsheet...
         metadata = os.path.join(self.eload.eload_dir, '10_submitted', 'metadata_file', 'metadata.xlsx')
         touch(metadata)
-
-        self.eload.detect_submitted_vcf()
-        # Check that the vcf are in the config file
-        assert sorted(self.eload.eload_cfg.query('submission', 'vcf_files')) == [vcf1, vcf2]
 
         self.eload.detect_submitted_metadata()
         # Check that the metadata spreadsheet is in the config file
         assert self.eload.eload_cfg.query('submission', 'metadata_spreadsheet') == metadata
+
+        self.eload.detect_submitted_vcf()
+        # Check that the vcf are in the config file
+        assert sorted(self.eload.eload_cfg.query('submission', 'vcf_files')) == [vcf1, vcf2]
 
     def test_replace_values_in_metadata(self):
         source_metadata = os.path.join(self.resources_folder, 'metadata.xlsx')
