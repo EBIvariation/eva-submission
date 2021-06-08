@@ -8,7 +8,7 @@ from ebi_eva_common_pyutils.config import cfg
 from eva_submission import ROOT_DIR
 from eva_submission.eload_submission import EloadPreparation
 from eva_submission.submission_config import load_config
-from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
+from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
 
 def touch(filepath, content=None):
@@ -35,6 +35,30 @@ class TestEload(TestCase):
         for genome in genomes:
             shutil.rmtree(genome)
 
+    def create_vcfs(self, num_files=2):
+        paths = []
+        for i in range(1, num_files + 1):
+            vcf = os.path.join(self.eload.eload_dir, '10_submitted', 'vcf_files', f'file{i}.vcf')
+            touch(vcf)
+            paths.append(vcf)
+        return paths
+
+    def create_metadata(self, num_analyses=0):
+        source_metadata = os.path.join(self.resources_folder, 'metadata.xlsx')
+        metadata = os.path.join(self.eload.eload_dir, '10_submitted', 'metadata_file', 'metadata.xlsx')
+        shutil.copyfile(source_metadata, metadata)
+        if num_analyses:
+            writer = EvaXlsxWriter(metadata)
+            writer.set_analysis([
+                {
+                    header: text
+                    for header in
+                    ['Analysis Title', 'Analysis Alias', 'Description', 'Project Title', 'Experiment Type', 'Reference']
+                } for text in ['something', 'something completely different']
+            ])
+            writer.save()
+        return metadata
+
     def test_copy_from_ftp(self):
         assert os.listdir(os.path.join(self.eload.eload_dir, '10_submitted', 'vcf_files')) == []
         assert os.listdir(os.path.join(self.eload.eload_dir, '10_submitted', 'metadata_file')) == []
@@ -43,27 +67,25 @@ class TestEload(TestCase):
         assert os.listdir(os.path.join(self.eload.eload_dir, '10_submitted', 'metadata_file')) == ['metadata.xlsx']
 
     def test_detect_submitted_metadata(self):
-        # create the data
-        vcf1 = os.path.join(self.eload.eload_dir, '10_submitted', 'vcf_files', 'file1.vcf')
-        vcf2 = os.path.join(self.eload.eload_dir, '10_submitted', 'vcf_files', 'file2.vcf')
-        touch(vcf1)
-        touch(vcf2)
-        # TODO this needs to be a real spreadsheet...
-        metadata = os.path.join(self.eload.eload_dir, '10_submitted', 'metadata_file', 'metadata.xlsx')
-        touch(metadata)
+        self.create_vcfs()
+        metadata = self.create_metadata()
 
         self.eload.detect_submitted_metadata()
+        self.eload.detect_submitted_vcf()
         # Check that the metadata spreadsheet is in the config file
         assert self.eload.eload_cfg.query('submission', 'metadata_spreadsheet') == metadata
 
-        self.eload.detect_submitted_vcf()
-        # Check that the vcf are in the config file
-        assert sorted(self.eload.eload_cfg.query('submission', 'vcf_files')) == [vcf1, vcf2]
+    def test_check_submitted_filenames_multiple_analyses(self):
+        # create some extra vcf files and analyses
+        vcfs = self.create_vcfs(num_files=5)
+        self.create_metadata(num_analyses=2)
+
+        self.eload.detect_submitted_metadata()
+        with self.assertRaises(ValueError):
+            self.eload.check_submitted_filenames(vcfs)
 
     def test_replace_values_in_metadata(self):
-        source_metadata = os.path.join(self.resources_folder, 'metadata.xlsx')
-        metadata = os.path.join(self.eload.eload_dir, '10_submitted', 'metadata_file', 'metadata.xlsx')
-        shutil.copyfile(source_metadata, metadata)
+        metadata = self.create_metadata()
 
         reader = EvaXlsxReader(metadata)
         assert reader.project['Tax ID'] == 9606

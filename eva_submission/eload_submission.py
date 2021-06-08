@@ -189,11 +189,11 @@ class EloadPreparation(Eload):
         vcf_files = uncompressed_vcf + compressed_vcf
         if len(vcf_files) < 1:
             raise FileNotFoundError('Could not locate vcf file in %s', vcf_dir)
-        self.compare_vcf_file_names(vcf_files)
+        self.check_submitted_filenames(vcf_files)
 
-    def compare_vcf_file_names(self, submitted_vcfs):
+    def check_submitted_filenames(self, submitted_vcfs):
         """Compares submitted vcf filenames with those in metadata sheet, and amends the metadata when possible."""
-        eva_files_sheet = self.eload_cfg.query('submission', 'metadata_spreadsheet')  # TODO when is this set?
+        eva_files_sheet = self.eload_cfg.query('submission', 'metadata_spreadsheet')
         eva_xls_reader = EvaXlsxReader(eva_files_sheet)
         spreadsheet_vcfs = [os.path.basename(row['File Name']) for row in eva_xls_reader.files]
 

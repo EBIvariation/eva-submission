@@ -176,7 +176,7 @@ class EloadValidation(Eload):
         else:
             return None
 
-    def _collect_validation_worklflow_results(self, output_dir):
+    def _collect_validation_workflow_results(self, output_dir):
         # Collect information from the output and summarise in the config
         total_error = 0
         # detect output files for vcf check
