@@ -26,5 +26,3 @@ class TestEloadUtils(unittest.TestCase):
         assert not os.path.exists(test)
         for i in range(5):
             assert os.path.exists(test + '.' + str(i))
-
-
