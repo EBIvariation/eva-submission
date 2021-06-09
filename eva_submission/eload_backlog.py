@@ -114,7 +114,6 @@ class EloadBacklog(Eload):
         for analysis_accession, filenames in rows:
             # TODO for now we assume a single analysis per project as that's what the eload config supports
             self.eload_cfg.set('brokering', 'ena', 'ANALYSIS', value=analysis_accession)
-            index_file = vcf_file = None
             vcf_file_list = []
             index_file_dict = {}
             for fn in filenames:
