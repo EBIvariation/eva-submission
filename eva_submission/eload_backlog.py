@@ -61,7 +61,7 @@ class EloadBacklog(Eload):
             query = f"select distinct b.vcf_reference_accession " \
                     f"from project_analysis a " \
                     f"join analysis b on a.analysis_accession=b.analysis_accession " \
-                    f"where a.project_accession='{self.project_accession}';"
+                    f"where a.project_accession='{self.project_accession}' and b.hidden_in_eva=0;"
             rows = get_all_results_for_query(conn, query)
         if len(rows) < 1:
             raise ValueError(f'No reference accession for {self.project_accession} found in metadata DB.')
@@ -100,7 +100,7 @@ class EloadBacklog(Eload):
                     f"from project_analysis a " \
                     f"join analysis_file b on a.analysis_accession=b.analysis_accession " \
                     f"join file c on b.file_id=c.file_id " \
-                    f"where a.project_accession='{self.project_accession}' " \
+                    f"where a.project_accession='{self.project_accession}' and a.hidden_in_eva=0" \
                     f"group by a.analysis_accession;"
             rows = get_all_results_for_query(conn, query)
         if len(rows) == 0:
