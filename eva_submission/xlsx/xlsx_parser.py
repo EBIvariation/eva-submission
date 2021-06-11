@@ -205,12 +205,12 @@ class XlsxReader(XlsxBaseParser):
 
         raise StopIteration
 
-    def get_rows(self, max_num: int = -1):
+    def get_rows(self):
         """
-        Retrieve next data row
-        :return: A hash containing all the REQUIRED and OPTIONAL fields as keys
+        Retrieve all the data rows.
+        :return: list of hash containing all the REQUIRED and OPTIONAL fields as keys
                 and the corresponding data as values
-        :rtype: dict
+        :rtype: list
         """
         worksheet = self.active_worksheet
         if worksheet is None:
