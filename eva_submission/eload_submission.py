@@ -194,12 +194,11 @@ class EloadPreparation(Eload):
 
     def detect_metadata_attributes(self):
         eva_metadata = EvaXlsxReader(self.eload_cfg.query('submission', 'metadata_spreadsheet'))
-        reference_set = set()
         analysis_reference = {}
         for analysis in eva_metadata.analysis:
-            assembly_accession = analysis.get('Reference')
+            reference_txt = analysis.get('Reference')
+            assembly_accession = resolve_accession_from_text(reference_txt) if reference_txt else None
             if assembly_accession:
-                reference_set.update(assembly_accession)
                 analysis_reference[analysis.get('Analysis Alias')] = {'assembly_accession': assembly_accession,
                                                                       'vcf_files': []}
             else:
