@@ -197,7 +197,16 @@ class EloadPreparation(Eload):
         analysis_reference = {}
         for analysis in eva_metadata.analysis:
             reference_txt = analysis.get('Reference')
-            assembly_accession = resolve_accession_from_text(reference_txt) if reference_txt else None
+            assembly_accessions = resolve_accession_from_text(reference_txt) if reference_txt else None
+            if not assembly_accessions:
+                assembly_accession = None
+            elif len(assembly_accessions) == 1:
+                assembly_accession = assembly_accessions[0]
+            else:
+                self.warning(f"Multiple assemblies found for {analysis.get('Analysis Alias')}: {', '.join(assembly_accessions)} ")
+                assembly_accession = sorted(assembly_accessions)[-1]
+                self.warning(f"Will use the most recent assembly: {assembly_accession}")
+
             if assembly_accession:
                 analysis_reference[analysis.get('Analysis Alias')] = {'assembly_accession': assembly_accession,
                                                                       'vcf_files': []}
