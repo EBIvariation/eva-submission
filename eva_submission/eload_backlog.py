@@ -66,11 +66,11 @@ class EloadBacklog(Eload):
         if len(rows) < 1:
             raise ValueError(f'No reference accession for {self.project_accession} found in metadata DB.')
         for analysis_accession, asm_accession in rows:
-            print(self.eload_cfg.query('submission', 'analysis', analysis_accession))
-            self.eload_cfg.set('submission', 'analysis', analysis_accession, 'assembly_accession', value=asm_accession)
+            print(self.eload_cfg.query('submission', 'analyses', analysis_accession))
+            self.eload_cfg.set('submission', 'analyses', analysis_accession, 'assembly_accession', value=asm_accession)
             fasta_path, report_path = get_reference_fasta_and_report(sci_name, asm_accession)
-            self.eload_cfg.set('submission', 'analysis', analysis_accession, 'assembly_fasta', value=fasta_path)
-            self.eload_cfg.set('submission', 'analysis', analysis_accession, 'assembly_report', value=report_path)
+            self.eload_cfg.set('submission', 'analyses', analysis_accession, 'assembly_fasta', value=fasta_path)
+            self.eload_cfg.set('submission', 'analyses', analysis_accession, 'assembly_report', value=report_path)
 
     def find_local_file(self, fn):
         full_path = os.path.join(self._get_dir('vcf'), fn)
@@ -128,7 +128,7 @@ class EloadBacklog(Eload):
                 basename = os.path.basename(vcf_file)
                 if basename not in index_file_dict:
                     raise ValueError(f'Index file is missing from metadata DB for vcf {basename} analysis {analysis_accession}')
-                self.eload_cfg.set('brokering', 'analysis', analysis_accession, 'vcf_files', vcf_file, 'index',
+                self.eload_cfg.set('brokering', 'analyses', analysis_accession, 'vcf_files', vcf_file, 'index',
                                    value=index_file_dict.pop(basename))
 
             # Check if there are any orphaned index
@@ -137,23 +137,31 @@ class EloadBacklog(Eload):
                                  f' for analysis {analysis_accession}')
             # Using analysis_accession instead of analysis alias. This should not have any detrimental effect on
             # ingestion
-            self.eload_cfg.set('submission', 'analysis', analysis_accession, 'vcf_files', value=vcf_file_list)
+            self.eload_cfg.set('submission', 'analyses', analysis_accession, 'vcf_files', value=vcf_file_list)
+
+    def _analysis_report(self, all_analysis):
+        reports = []
+        for analysis_accession in all_analysis:
+            assembly = all_analysis.get(analysis_accession).get('assembly_accession', '')
+            fasta = all_analysis.get(analysis_accession).get('assembly_fasta', '')
+            vcf_files = all_analysis.get(analysis_accession).get('vcf_files', '')
+            reports.append(f"""{analysis_accession}
+Assembly: {assembly}
+Fasta file: {fasta}
+VCF file: {vcf_files}""")
+        return '\n'.join(reports)
 
     def report(self):
         """Collect information from the config and write the report."""
         report_data = {
-            'project': self.eload_cfg.query('brokering', 'ena', 'PROJECT'),
-            'analysis': self.eload_cfg.query('brokering', 'ena', 'ANALYSIS'),
-            'vcf': self.eload_cfg.query('submission', 'vcf_files'),
-            'assembly': self.eload_cfg.query('submission', 'assembly_accession'),
-            'fasta': self.eload_cfg.query('submission', 'assembly_fasta')
+            'project': self.eload_cfg.query('brokering', 'ena', 'PROJECT', ret_default=''),
+            'analyses': ', '.join(self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default=[])),
+            'analyses_report': self._analysis_report(self.eload_cfg.query('submission', 'analyses', ret_default=[]))
         }
 
         report = """Results of backlog study preparation:
 Project accession: {project}
-Assembly: {assembly}
-    Fasta file: {fasta}
-Analysis accession: {analysis}
-    VCF file: {vcf}
+Analysis accession(s): {analyses}
+Analysis information: {analyses_report}
 """
         print(report.format(**report_data))

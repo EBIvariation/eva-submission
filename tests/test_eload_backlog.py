@@ -37,7 +37,7 @@ class TestEloadBacklog(TestCase):
         expected_index = os.path.join(self.resources_folder, 'eloads/ELOAD_44/10_submitted/vcf_files/file.vcf.gz.tbi')
         expected_config = {
             'submission': {
-                'analysis': {'ERZ999999': {
+                'analyses': {'ERZ999999': {
                     'vcf_files': [expected_vcf],
                     'assembly_fasta': 'assembly.fa',
                     'assembly_report': 'assembly.txt',
@@ -47,7 +47,7 @@ class TestEloadBacklog(TestCase):
                 'taxonomy_id': 9823,
             },
             'brokering': {
-                'analysis': {'ERZ999999': {'vcf_files': {expected_vcf: {'index': expected_index}}}},
+                'analyses': {'ERZ999999': {'vcf_files': {expected_vcf: {'index': expected_index}}}},
                 'ena': {
                     'hold_date':  '2021-01-01+01:00',
                     'ANALYSIS': {'ERZ999999': 'ERZ999999'},
@@ -106,4 +106,7 @@ class TestEloadBacklog(TestCase):
     def test_find_file_on_ena(self):
         self.eload.find_file_on_ena('IRIS_313-8755.snp.vcf.gz.tbi', 'ERZ325199')
         assert os.path.exists(os.path.join(self.eload._get_dir('ena'), 'IRIS_313-8755.snp.vcf.gz.tbi'))
+
+    def test_report(self):
+        self.eload.report()
 
