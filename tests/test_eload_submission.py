@@ -71,7 +71,7 @@ class TestEload(TestCase):
         metadata = self.create_metadata()
 
         self.eload.detect_submitted_metadata()
-        self.eload.detect_submitted_vcf()
+        self.eload.check_submitted_filenames()
         # Check that the metadata spreadsheet is in the config file
         assert self.eload.eload_cfg.query('submission', 'metadata_spreadsheet') == metadata
 
@@ -82,7 +82,7 @@ class TestEload(TestCase):
 
         self.eload.detect_submitted_metadata()
         with self.assertRaises(ValueError):
-            self.eload.check_submitted_filenames(vcfs)
+            self.eload.check_submitted_filenames()
 
     def test_replace_values_in_metadata(self):
         metadata = self.create_metadata()
