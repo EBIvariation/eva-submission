@@ -58,20 +58,19 @@ class EloadBacklog(Eload):
         self.eload_cfg.set('submission', 'scientific_name', value=sci_name)
 
         with get_metadata_conn() as conn:
-            query = f"select distinct b.vcf_reference_accession " \
+            query = f"select distinct b.analysis_accession, b.vcf_reference_accession " \
                     f"from project_analysis a " \
                     f"join analysis b on a.analysis_accession=b.analysis_accession " \
                     f"where a.project_accession='{self.project_accession}' and b.hidden_in_eva=0;"
             rows = get_all_results_for_query(conn, query)
         if len(rows) < 1:
             raise ValueError(f'No reference accession for {self.project_accession} found in metadata DB.')
-        elif len(rows) > 1:
-            raise ValueError(f'Multiple reference accession for {self.project_accession} found in metadata DB.')
-        asm_accession, = rows[0]
-        self.eload_cfg.set('submission', 'assembly_accession', value=asm_accession)
-        fasta_path, report_path = get_reference_fasta_and_report(sci_name, asm_accession)
-        self.eload_cfg.set('submission', 'assembly_fasta', value=fasta_path)
-        self.eload_cfg.set('submission', 'assembly_report', value=report_path)
+        for analysis_accession, asm_accession in rows:
+            print(self.eload_cfg.query('submission', 'analysis', analysis_accession))
+            self.eload_cfg.set('submission', 'analysis', analysis_accession, 'assembly_accession', value=asm_accession)
+            fasta_path, report_path = get_reference_fasta_and_report(sci_name, asm_accession)
+            self.eload_cfg.set('submission', 'analysis', analysis_accession, 'assembly_fasta', value=fasta_path)
+            self.eload_cfg.set('submission', 'analysis', analysis_accession, 'assembly_report', value=report_path)
 
     def find_local_file(self, fn):
         full_path = os.path.join(self._get_dir('vcf'), fn)
@@ -105,12 +104,11 @@ class EloadBacklog(Eload):
                     f"group by a.analysis_accession;"
             rows = get_all_results_for_query(conn, query)
         if len(rows) == 0:
-            raise ValueError(f'No analyses for {self.project_accession} found in metadata DB.')
+            raise ValueError(f'No analysis for {self.project_accession} found in metadata DB.')
 
-        submitted_vcfs = []
         for analysis_accession, filenames in rows:
-            # TODO for now we assume a single analysis per project as that's what the eload config supports
-            self.eload_cfg.set('brokering', 'ena', 'ANALYSIS', value=analysis_accession)
+            # Uses the analysis accession as analysis alias
+            self.eload_cfg.set('brokering', 'ena', 'ANALYSIS', analysis_accession, value=analysis_accession)
             vcf_file_list = []
             index_file_dict = {}
             for fn in filenames:
@@ -130,14 +128,16 @@ class EloadBacklog(Eload):
                 basename = os.path.basename(vcf_file)
                 if basename not in index_file_dict:
                     raise ValueError(f'Index file is missing from metadata DB for vcf {basename} analysis {analysis_accession}')
-                submitted_vcfs.append(vcf_file)
-                self.eload_cfg.set('brokering', 'vcf_files', vcf_file, 'index', value=index_file_dict.pop(basename))
+                self.eload_cfg.set('brokering', 'analysis', analysis_accession, 'vcf_files', vcf_file, 'index',
+                                   value=index_file_dict.pop(basename))
 
             # Check if there are any orphaned index
             if len(index_file_dict) > 0:
                 raise ValueError(f'VCF file is missing from metadata DB for index {", ".join(index_file_dict.values())}'
                                  f' for analysis {analysis_accession}')
-        self.eload_cfg.set('submission', 'vcf_files', value=submitted_vcfs)
+            # Using analysis_accession instead of analysis alias. This should not have any detrimental effect on
+            # ingestion
+            self.eload_cfg.set('submission', 'analysis', analysis_accession, 'vcf_files', value=vcf_file_list)
 
     def report(self):
         """Collect information from the config and write the report."""
