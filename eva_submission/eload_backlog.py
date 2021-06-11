@@ -144,11 +144,12 @@ class EloadBacklog(Eload):
         for analysis_accession in all_analysis:
             assembly = all_analysis.get(analysis_accession).get('assembly_accession', '')
             fasta = all_analysis.get(analysis_accession).get('assembly_fasta', '')
-            vcf_files = all_analysis.get(analysis_accession).get('vcf_files', '')
+            vcf_files_str = '\n'.join(all_analysis.get(analysis_accession).get('vcf_files', []))
             reports.append(f"""{analysis_accession}
-Assembly: {assembly}
-Fasta file: {fasta}
-VCF file: {vcf_files}""")
+  - Assembly: {assembly}
+  - Fasta file: {fasta}
+  - VCF file: 
+{vcf_files_str}""")
         return '\n'.join(reports)
 
     def report(self):
