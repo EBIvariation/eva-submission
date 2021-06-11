@@ -172,7 +172,6 @@ class EloadPreparation(Eload):
 
     def detect_all(self):
         self.detect_submitted_metadata()
-        self.detect_submitted_vcf()
         self.detect_metadata_attributes()
         self.find_genome()
 
@@ -191,27 +190,35 @@ class EloadPreparation(Eload):
         vcf_files = uncompressed_vcf + compressed_vcf
         if len(vcf_files) < 1:
             raise FileNotFoundError('Could not locate vcf file in in %s', vcf_dir)
-        self.eload_cfg.set('submission','vcf_files', value=vcf_files)
+        self.eload_cfg.set('submission', 'vcf_files', value=vcf_files)
 
     def detect_metadata_attributes(self):
         eva_metadata = EvaXlsxReader(self.eload_cfg.query('submission', 'metadata_spreadsheet'))
-        reference_set = set()
+        analysis_reference = {}
         for analysis in eva_metadata.analysis:
             reference_txt = analysis.get('Reference')
-            if reference_txt:
-                reference_set.update(resolve_accession_from_text(reference_txt))
+            assembly_accessions = resolve_accession_from_text(reference_txt) if reference_txt else None
+            if not assembly_accessions:
+                assembly_accession = None
+            elif len(assembly_accessions) == 1:
+                assembly_accession = assembly_accessions[0]
             else:
-                self.warning('Reference is missing for Analysis %s', analysis.get('Analysis Alias'))
+                self.warning(f"Multiple assemblies found for {analysis.get('Analysis Alias')}: {', '.join(assembly_accessions)} ")
+                assembly_accession = sorted(assembly_accessions)[-1]
+                self.warning(f"Will use the most recent assembly: {assembly_accession}")
 
-        if len(reference_set) > 1:
-            self.warning('Multiple assemblies in project: %s', ', '.join(reference_set))
-            self.warning('Will look for the most recent assembly.')
-            reference_set = {sorted(reference_set)[-1]}
+            if assembly_accession:
+                analysis_reference[analysis.get('Analysis Alias')] = {'assembly_accession': assembly_accession,
+                                                                      'vcf_files': []}
+            else:
+                self.error(f"Reference is missing for Analysis {analysis.get('Analysis Alias')}")
 
-        if reference_set:
-            self.eload_cfg.set('submission', 'assembly_accession', value=reference_set.pop())
-        else:
-            self.error('No genbank accession could be found for %s', reference_txt)
+        for file in eva_metadata.files:
+            if file.get("File Type") == 'vcf':
+                file_full = os.path.join(self.eload_dir, directory_structure['vcf'], file.get("File Name"))
+                analysis_alias = file.get("Analysis Alias")
+                analysis_reference[analysis_alias]['vcf_files'].append(file_full)
+        self.eload_cfg.set('submission', 'analyses', value=analysis_reference)
 
         taxonomy_id = eva_metadata.project.get('Tax ID')
         if taxonomy_id and (isinstance(taxonomy_id, int) or taxonomy_id.isdigit()):
@@ -226,14 +233,15 @@ class EloadPreparation(Eload):
 
     def find_genome(self):
         scientific_name = self.eload_cfg.query('submission', 'scientific_name')
-        reference_accession = self.eload_cfg.query('submission', 'assembly_accession')
-        if scientific_name and reference_accession:
-                assembly_fasta_path, assembly_report_path = get_reference_fasta_and_report(scientific_name, reference_accession)
+        analyses = self.eload_cfg.query('submission', 'analyses')
+        if scientific_name:
+            for analysis_alias in analyses:
+                assembly_accession = self.eload_cfg.query('submission', 'analyses', analysis_alias, 'assembly_accession')
+                assembly_fasta_path, assembly_report_path = get_reference_fasta_and_report(scientific_name, assembly_accession)
                 if assembly_report_path:
-                    self.eload_cfg.set('submission', 'assembly_report', value=assembly_report_path)
+                    self.eload_cfg.set('submission', 'analyses', analysis_alias, 'assembly_report', value=assembly_report_path)
                 else:
-                    self.warning(f'Assembly report was not set for {reference_accession}')
-                self.eload_cfg.set('submission', 'assembly_fasta', value=assembly_fasta_path)
+                    self.warning(f'Assembly report was not set for {assembly_accession}')
+                self.eload_cfg.set('submission', 'analyses', analysis_alias, 'assembly_fasta', value=assembly_fasta_path)
         else:
-            self.error(f'Genome cannot be downloaded because for scientific_name: {scientific_name} and '
-                       f'assembly_accession: {reference_accession}')
+            self.error('No scientific name specified')

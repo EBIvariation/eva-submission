@@ -5,16 +5,12 @@ def helpMessage() {
     Validate a set of VCF files and metadata to check if they are valid to be submitted to EVA.
 
     Inputs:
-            --vcf_files          list of vcf files that are meant to be validated
-            --reference_fasta    input fasta file used to verify the reference allele provided with --reference_fasta [required]
-            --reference_report   input report providing the known chromosome name aliases provided with --reference_report [required]
-            --output_dir         output_directory where the reports will be ouptut
+            --vcf_files_mapping     csv file with the mappings for vcf files, fasta and assembly report
+            --output_dir            output_directory where the reports will be output
     """
 }
 
-params.vcf_files = null
-params.reference_fasta = null
-params.reference_report = null
+params.vcf_files_mapping = null
 params.output_dir = null
 // executables
 params.executable =["vcf_assembly_checker": "vcf_assembly_checker", "vcf_validator": "vcf_validator"]
@@ -26,17 +22,17 @@ params.help = null
 if (params.help) exit 0, helpMessage()
 
 // Test input files
-if (!params.vcf_files || !params.reference_fasta || !params.reference_report || !params.output_dir) {
-    if (!params.vcf_files)    log.warn('Provide a input vcf file using --vcf_files')
-    if (!params.reference_fasta)    log.warn('Provide a fasta file for the genome using --reference_fasta')
-    if (!params.reference_report)    log.warn('Provide a assembly report file for the genome using --reference_report')
+if (!params.vcf_files_mapping || !params.output_dir) {
+    if (!params.vcf_files_mapping)    log.warn('Provide a csv file with the mappings (vcf, fasta, assembly report) --vcf_files_mapping')
     if (!params.output_dir)    log.warn('Provide an output directory where the reports will be copied using --output_dir')
     exit 1, helpMessage()
 }
 
 // vcf files are used multiple times
-vcf_channel1 = Channel.fromPath(params.vcf_files)
-vcf_channel2 = Channel.fromPath(params.vcf_files)
+Channel.fromPath(params.vcf_files_mapping)
+    .splitCsv(header:true)
+    .map{row -> tuple(file(row.vcf), file(row.fasta), file(row.report))}
+    .into{vcf_channel1; vcf_channel2}
 
 /*
 * Validate the VCF file format
@@ -48,7 +44,7 @@ process check_vcf_valid {
             mode: "copy"
 
     input:
-    path vcf_file from vcf_channel1
+    set file(vcf), file(fasta), file(report) from vcf_channel1
 
     output:
     path "vcf_format/*.errors.*.db" into vcf_validation_db
@@ -59,7 +55,7 @@ process check_vcf_valid {
 
     """
     mkdir -p vcf_format
-    $params.executable.vcf_validator -i $vcf_file  -r database,text -o vcf_format --require-evidence > vcf_format/${vcf_file}.vcf_format.log 2>&1
+    $params.executable.vcf_validator -i $vcf  -r database,text -o vcf_format --require-evidence > vcf_format/${vcf}.vcf_format.log 2>&1
     """
 }
 
@@ -75,9 +71,7 @@ process check_vcf_reference {
             mode: "copy"
 
     input:
-    path "reference.fa" from params.reference_fasta
-    path "reference.report" from params.reference_report
-    path vcf_file from vcf_channel2
+    set file(vcf), file(fasta), file(report) from vcf_channel2
 
     output:
     path "assembly_check/*valid_assembly_report*" into vcf_assembly_valid
@@ -88,8 +82,7 @@ process check_vcf_reference {
 
     """
     mkdir -p assembly_check
-    $params.executable.vcf_assembly_checker -i $vcf_file -f reference.fa -a reference.report -r summary,text,valid  -o assembly_check --require-genbank > assembly_check/${vcf_file}.assembly_check.log 2>&1
+    $params.executable.vcf_assembly_checker -i $vcf -f $fasta -a $report -r summary,text,valid  -o assembly_check --require-genbank > assembly_check/${vcf}.assembly_check.log 2>&1
     """
 }
-
 
