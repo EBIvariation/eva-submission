@@ -1,5 +1,6 @@
 import glob
 import os
+import urllib
 from urllib.parse import urlsplit
 from xml.etree import ElementTree as ET
 
@@ -13,6 +14,7 @@ from ebi_eva_common_pyutils.reference import NCBIAssembly, NCBISequence
 from ebi_eva_common_pyutils.variation.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
 from pymongo.uri_parser import split_hosts
 from requests.auth import HTTPBasicAuth
+from retry import retry
 
 from eva_submission.assembly_taxonomy_insertion import download_xml_from_ena
 
@@ -162,3 +164,23 @@ def get_hold_date_from_ena(project_accession, project_alias=None):
         if not hold_date:
             raise ValueError(f"Couldn't get hold date from ENA for {project_accession} ({project_alias})")
     return hold_date
+
+
+def backup_file(file_name):
+    """Rename the provided file by adding a '.1' at the end. If the '.1' file exists it move it to a '.2' and so on."""
+    suffix = 1
+    backup_name = f'{file_name}.{suffix}'
+    while os.path.exists(backup_name):
+        suffix += 1
+        backup_name = f'{file_name}.{suffix}'
+
+    for i in range(suffix, 1, -1):
+        os.rename(f'{file_name}.{i - 1}', f'{file_name}.{i}')
+    os.rename(file_name, file_name + '.1')
+
+
+@retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
+def download_file(url, dest):
+    """Download a public file accessible via http or ftp."""
+    urllib.request.urlretrieve(url, dest)
+    urllib.request.urlcleanup()

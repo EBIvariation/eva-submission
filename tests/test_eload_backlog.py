@@ -1,6 +1,9 @@
 import os
+from itertools import cycle
 from unittest import TestCase
 from unittest.mock import patch
+
+import retry
 
 from eva_submission.eload_backlog import EloadBacklog
 from eva_submission.submission_config import load_config
@@ -18,16 +21,20 @@ class TestEloadBacklog(TestCase):
         self.eload = EloadBacklog(44)
 
     def tearDown(self):
+        if os.path.exists(os.path.join(self.eload._get_dir('ena'), 'IRIS_313-8755.snp.vcf.gz.tbi')):
+            os.remove(os.path.join(self.eload._get_dir('ena'), 'IRIS_313-8755.snp.vcf.gz.tbi'))
         # necessary because test instances are retained during a run and content is a class variable
         from eva_submission.submission_config import EloadConfig
         EloadConfig.content = {}
+        config_file = self.eload.eload_cfg.config_file
         # forces the eload config to be written and hence deleted
         del self.eload
-        os.remove(os.path.join(self.resources_folder, 'eloads/ELOAD_44/.ELOAD_44_config.yml'))
+        if os.path.exists(config_file):
+            os.remove(config_file)
 
     def test_fill_in_config(self):
-        expected_vcf = os.path.join(self.resources_folder, 'eloads/ELOAD_44/10_submitted/vcf_files/file.vcf')
-        expected_index = os.path.join(self.resources_folder, 'eloads/ELOAD_44/10_submitted/vcf_files/file.vcf.tbi')
+        expected_vcf = os.path.join(self.resources_folder, 'eloads/ELOAD_44/10_submitted/vcf_files/file.vcf.gz')
+        expected_index = os.path.join(self.resources_folder, 'eloads/ELOAD_44/10_submitted/vcf_files/file.vcf.gz.tbi')
         expected_config = {
             'submission': {
                 'vcf_files': [expected_vcf],
@@ -55,8 +62,9 @@ class TestEloadBacklog(TestCase):
             m_get_alias_results.return_value = [['alias']]
             m_get_results.side_effect = [
                 [['PRJEB12345']],
-                [('ERZ999999', ('file.vcf', 'file.vcf.tbi'))],
-                [(9823, 'Sus scrofa', 'GCA_000003025.4')],
+                [('ERZ999999', ('file.vcf.gz', 'file.vcf.gz.tbi'))],
+                [(9823, 'Sus scrofa')],
+                [('GCA_000003025.4',)]
             ]
             m_get_genome.return_value = ('assembly.fa', 'assembly.txt')
             m_post.return_value.text = '''<?xml version="1.0" encoding="UTF-8"?>
@@ -68,7 +76,7 @@ class TestEloadBacklog(TestCase):
      <MESSAGES/>
      <ACTIONS>RECEIPT</ACTIONS>
 </RECEIPT>'''
-            self.eload.fill_in_config()
+            self.eload.fill_in_config(False)
             self.assertEqual(self.eload.eload_cfg.content, expected_config)
 
     def test_file_not_found(self):
@@ -81,13 +89,19 @@ class TestEloadBacklog(TestCase):
             }
         }
         with patch('eva_submission.eload_backlog.get_metadata_conn', autospec=True), \
-                patch('eva_submission.eload_backlog.get_all_results_for_query') as m_get_results:
-            m_get_results.side_effect = [
+                patch('eva_submission.eload_backlog.get_all_results_for_query') as m_get_results,\
+                patch.object(retry.api.time, 'sleep'):
+            m_get_results.side_effect = cycle([
                 [['PRJEB12345']],
-                [('ERZ999999', ('something_else.vcf', 'file.vcf.tbi'))]
-            ]
+                [('ERZ999999', ('something_else.vcf.gz', 'file.vcf.gz.tbi'))]
+            ])
             with self.assertRaises(FileNotFoundError):
                 self.eload.fill_in_config()
             # incomplete config should still exist, even though filling config failed
             self.eload = EloadBacklog(44)
             self.assertEqual(self.eload.eload_cfg.content, expected_config)
+
+    def test_find_file_on_ena(self):
+        self.eload.find_file_on_ena('IRIS_313-8755.snp.vcf.gz.tbi', 'ERZ325199')
+        assert os.path.exists(os.path.join(self.eload._get_dir('ena'), 'IRIS_313-8755.snp.vcf.gz.tbi'))
+
