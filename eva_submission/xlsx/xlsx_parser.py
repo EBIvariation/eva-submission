@@ -205,6 +205,56 @@ class XlsxReader(XlsxBaseParser):
 
         raise StopIteration
 
+    def get_rows(self, max_num: int = -1):
+        """
+        Retrieve next data row
+        :return: A hash containing all the REQUIRED and OPTIONAL fields as keys
+                and the corresponding data as values
+        :rtype: dict
+        """
+        worksheet = self.active_worksheet
+        if worksheet is None:
+            self.warning('No worksheet is specified!')
+            return None
+
+        if worksheet not in self.row_offset:
+            self.row_offset[worksheet] = self.base_row_offset(worksheet)
+        self.row_offset[worksheet] += 1
+
+        required_headers = self.xls_conf[worksheet].get(REQUIRED_HEADERS_KEY_NAME, [])
+        optional_headers = self.xls_conf[worksheet].get(OPTIONAL_HEADERS_KEY_NAME, [])
+
+        rows = []
+
+        for row in self.workbook[worksheet].iter_rows(min_row=self.row_offset[worksheet]):
+            num_cells = 0
+            for cell in row:
+                num_cells += 1
+
+            data = {}
+            has_notnull = False
+            for header in required_headers+optional_headers:
+                header_index = num_cells
+                if header in self.headers[worksheet]:
+                    header_index = self.headers[worksheet].index(header)
+                if header_index >= num_cells:
+                    data[header] = None
+                    continue
+
+                cell = row[header_index]
+                if cell.value is not None:
+                    has_notnull = True
+                data[header] = self.cast_value(cell.value, self.xls_conf[worksheet].get(CAST_KEY_NAME, {}).get(header))
+
+            if has_notnull:
+                data['row_num'] = self.row_offset[worksheet]
+                rows.append(data)
+
+            # no data on this row, continue to next
+            self.row_offset[worksheet] += 1
+
+        return rows
+
 
 class XlsxWriter(XlsxBaseParser):
     """
