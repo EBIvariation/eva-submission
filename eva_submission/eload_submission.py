@@ -58,8 +58,7 @@ class Eload(AppLogger):
         return datetime.now()
 
     def update_config_with_hold_date(self, project_accession, project_alias=None):
-        # hold_date = get_hold_date_from_ena(project_accession, project_alias)
-        hold_date = '2021-06-12 11:30:33.550445'
+        hold_date = get_hold_date_from_ena(project_accession, project_alias)
         self.eload_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
 
     def update_metadata_from_config(self, input_spreadsheet, output_spreadsheet=None):

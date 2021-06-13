@@ -60,8 +60,8 @@ class EloadIngestion(Eload):
         if not tasks:
             tasks = self.all_tasks
 
-        # if 'metadata_load' in tasks:
-        #     self.load_from_ena()
+        if 'metadata_load' in tasks:
+            self.load_from_ena()
         do_accession = 'accession' in tasks
         do_variant_load = 'variant_load' in tasks
 
@@ -73,8 +73,8 @@ class EloadIngestion(Eload):
         if do_accession:
             self.eload_cfg.set(self.config_section, 'accession', 'instance_id', value=instance_id)
             self.run_accession_workflow(vcf_files_to_ingest)
-            # self.insert_browsable_files()
-            # self.refresh_study_browser()
+            self.insert_browsable_files()
+            self.refresh_study_browser()
 
         if do_variant_load:
             self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'version', value=vep_version)
@@ -167,7 +167,6 @@ class EloadIngestion(Eload):
                     conn=conn
                 )
 
-
         self.eload_cfg.set(self.config_section, 'database', value=db_names)
 
         with pymongo.MongoClient(self.mongo_uri) as db:
@@ -246,7 +245,6 @@ class EloadIngestion(Eload):
         return project_dir
 
     def get_study_name(self):
-        return 'study test'
         with get_metadata_conn() as conn:
             query = f"SELECT title FROM evapro.project WHERE project_accession='{self.project_accession}';"
             rows = get_all_results_for_query(conn, query)

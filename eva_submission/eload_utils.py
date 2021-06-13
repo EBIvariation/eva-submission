@@ -107,7 +107,7 @@ def get_mongo_creds():
     # Use the primary mongo host from configuration:
     # https://github.com/EBIvariation/configuration/blob/master/eva-maven-settings.xml#L111
     # TODO: revisit once accessioning/variant pipelines can support multiple hosts
-    mongo_host = split_hosts(properties['eva.mongo.host'])[0][0]
+    mongo_host = split_hosts(properties['eva.mongo.host'])[1][0]
     mongo_user = properties['eva.mongo.user']
     mongo_pass = properties['eva.mongo.passwd']
     return mongo_host, mongo_user, mongo_pass
