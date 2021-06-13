@@ -126,11 +126,10 @@ class EloadBrokering(Eload):
         nextflow_vcf_output = os.path.join(output_dir, 'output')
         valid_analyses = self.eload_cfg.query('validation', 'valid', 'analyses')
         for analysis in valid_analyses:
-            analysis_config = dict()
-            analysis_config[analysis] = {'assembly_accession': valid_analyses[analysis]['assembly_accession'],
-                                         'assembly_fasta': valid_analyses[analysis]['assembly_fasta'],
-                                         'assembly_report': valid_analyses[analysis]['assembly_report']}
-            self.eload_cfg.set('brokering', 'analyses', value=analysis_config)
+            analysis_config = {'assembly_accession': valid_analyses[analysis]['assembly_accession'],
+                               'assembly_fasta': valid_analyses[analysis]['assembly_fasta'],
+                               'assembly_report': valid_analyses[analysis]['assembly_report']}
+            self.eload_cfg.set('brokering', 'analyses', analysis, value=analysis_config)
             vcf_files = valid_analyses[analysis]['vcf_files']
             for vcf_file in vcf_files:
                 vcf_file_name = os.path.basename(vcf_file)

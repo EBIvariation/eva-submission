@@ -58,7 +58,8 @@ class Eload(AppLogger):
         return datetime.now()
 
     def update_config_with_hold_date(self, project_accession, project_alias=None):
-        hold_date = get_hold_date_from_ena(project_accession, project_alias)
+        # hold_date = get_hold_date_from_ena(project_accession, project_alias)
+        hold_date = '2021-06-12 11:30:33.550445'
         self.eload_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
 
     def update_metadata_from_config(self, input_spreadsheet, output_spreadsheet=None):
@@ -88,12 +89,12 @@ class Eload(AppLogger):
         for analysis in analyses:
             for vcf_file_name in analyses[analysis]['vcf_files']:
                 vcf_file_info = self.eload_cfg['brokering']['analyses'][analysis]['vcf_files'][vcf_file_name]
-                output_vcf_file = vcf_file_info['output_vcf_file']
-                file_row = file_to_row.get(os.path.basename(output_vcf_file), {})
+                original_vcf_file = vcf_file_info['original_vcf']
+                file_row = file_to_row.get(os.path.basename(original_vcf_file), {})
                 # Add the vcf file
                 file_rows.append({
                     'Analysis Alias': file_row.get('Analysis Alias') or single_analysis_alias,
-                    'File Name': self.eload + '/' + os.path.basename(output_vcf_file),
+                    'File Name': self.eload + '/' + os.path.basename(vcf_file_name),
                     'File Type': 'vcf',
                     'MD5': vcf_file_info['md5']
                 })

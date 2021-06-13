@@ -5,7 +5,7 @@ def helpMessage() {
     Accession variant files and copy to public FTP.
 
     Inputs:
-            --valid_vcfs            valid vcfs to load
+            --valid_vcfs            csv file with the mappings for vcf file, assembly accession, fasta, assembly report, analysis_accession, db_name
             --project_accession     project accession
             --instance_id           instance id to run accessioning
             --accession_job_props   job-specific properties, passed as a map
@@ -36,7 +36,7 @@ if (params.help) exit 0, helpMessage()
 
 // Test input files
 if (!params.valid_vcfs || !params.project_accession || !params.instance_id || !params.accession_job_props || !params.public_ftp_dir || !params.accessions_dir || !params.public_dir || !params.logs_dir || !params.accession_job_props.'parameters.taxonomyAccession') {
-    if (!params.valid_vcfs) log.warn('Provide validated vcfs using --valid_vcfs')
+    if (!params.valid_vcfs) log.warn('Provide a csv file with the mappings (vcf file, assembly accession, fasta, assembly report, analysis_accession, db_name) --valid_vcfs')
     if (!params.project_accession) log.warn('Provide a project accession using --project_accession')
     if (!params.instance_id) log.warn('Provide an instance id using --instance_id')
     if (!params.accession_job_props) log.warn('Provide job-specific properties using --accession_job_props')
@@ -75,16 +75,24 @@ human study:
   - Initialize tabix_vcfs and csi_vcfs with values enabling them to start the processes "tabix_index_vcf" and "csi_index_vcf".
 */
 is_human_study = (params.accession_job_props.'parameters.taxonomyAccession' == 9606)
-(valid_vcfs, tabix_vcfs, csi_vcfs) = ( is_human_study
-                     ? [ Channel.empty(), Channel.fromPath(params.valid_vcfs), Channel.fromPath(params.valid_vcfs) ]
-                     : [ Channel.fromPath(params.valid_vcfs), Channel.empty(), Channel.empty() ] )
+if (is_human_study) {
+    Channel.fromPath(params.valid_vcfs)
+        .splitCsv(header:true)
+        .map{row -> tuple(file(row.vcf))}
+        .into{tabix_vcfs; csi_vcfs}
+} else {
+    Channel.fromPath(params.valid_vcfs)
+        .splitCsv(header:true)
+        .map{row -> tuple(file(row.vcf_file), row.assembly_accession, file(row.fasta), file(row.report))}
+        .into{valid_vcfs}
+}
 
 /*
  * Create properties files for accession.
  */
 process create_properties {
     input:
-    val vcf_file from valid_vcfs
+    set vcf_file, assembly_accession, fasta, report from valid_vcfs
 
     output:
     path "${vcf_file.getFileName()}_accessioning.properties" into accession_props
@@ -96,6 +104,9 @@ process create_properties {
     params.accession_job_props.each { k, v ->
         props.setProperty(k, v.toString())
     }
+    props.setProperty("parameters.assemblyAccession", assembly_accession.toString())
+    props.setProperty("parameters.fasta", fasta.toString())
+    props.setProperty("parameters.assemblyReportUrl", "file:" + report.toString())
     props.setProperty("parameters.vcf", vcf_file.toString())
     vcf_filename = vcf_file.getFileName().toString()
     accessioned_filename = vcf_filename.take(vcf_filename.indexOf(".vcf")) + ".accessioned.vcf"
@@ -116,118 +127,3 @@ process create_properties {
 }
 
 
-/*
- * Accession VCFs
- */
-process accession_vcf {
-    clusterOptions "-g /accession/instance-${params.instance_id} \
-                    -o $params.logs_dir/${log_filename}.log \
-                    -e $params.logs_dir/${log_filename}.err"
-
-    memory '8 GB'
-
-    input:
-    path accession_properties from accession_props
-    val accessioned_filename from accessioned_filenames
-    val log_filename from log_filenames
-
-    output:
-    path "${accessioned_filename}.tmp" into accession_done
-
-    """
-    filename=\$(basename $accession_properties)
-    filename=\${filename%.*}
-    (java -Xmx7g -jar $params.jar.accession_pipeline --spring.config.name=\$filename) || \
-    # If accessioning fails due to missing variants, but the only missing variants are structural variants,
-    # then we should treat this as a success from the perspective of the automation.
-    # TODO revert once accessioning pipeline properly registers structural variants
-        [[ \$(grep -o 'Skipped processing structural variant' ${params.logs_dir}/${log_filename}.log | wc -l) \
-           == \$(grep -oP '\\d+(?= unaccessioned variants need to be checked)' ${params.logs_dir}/${log_filename}.log) ]]
-    echo "done" > ${accessioned_filename}.tmp
-    """
-}
-
-
-/*
- * Sort and compress accessioned VCFs
- */
-process sort_and_compress_vcf {
-    publishDir params.public_dir,
-	mode: 'copy'
-
-    input:
-    path tmp_file from accession_done
-
-    output:
-    // used by both tabix and csi indexing processes
-    path "*.gz" into compressed_vcf1, compressed_vcf2
-
-    """
-    filename=\$(basename $tmp_file)
-    filename=\${filename%.*}
-    $params.executable.bcftools sort -O z -o \${filename}.gz ${params.public_dir}/\${filename}
-    """
-}
-
-
-/*
- * Index the compressed VCF file
- */
-process tabix_index_vcf {
-    publishDir params.public_dir,
-	mode: 'copy'
-
-    input:
-    path compressed_vcf from tabix_vcfs.mix(compressed_vcf1)
-
-    output:
-    path "${compressed_vcf}.tbi" into tbi_indexed_vcf
-
-    """
-    $params.executable.tabix -p vcf $compressed_vcf
-    """
-}
-
-
-process csi_index_vcf {
-    publishDir params.public_dir,
-	mode: 'copy'
-
-    input:
-    path compressed_vcf from csi_vcfs.mix(compressed_vcf2)
-
-    output:
-    path "${compressed_vcf}.csi" into csi_indexed_vcf
-
-    """
-    $params.executable.bcftools index -c $compressed_vcf
-    """
-}
-
-
-/*
- * Copy files from eva_public to FTP folder.
- */
- process copy_to_ftp {
-    input:
-    // ensures that all indices are done before we copy
-    file csi_indices from csi_indexed_vcf.toList()
-    file tbi_indices from tbi_indexed_vcf.toList()
-    val accessioned_vcfs from accessioned_files_to_rm.toList()
-
-    script:
-    if( accessioned_vcfs.size() > 0 )
-        """
-        cd $params.public_dir
-        # remove the uncompressed accessioned vcf file
-        rm ${accessioned_vcfs.join(' ')}
-        rsync -va * ${params.public_ftp_dir}/${params.project_accession}
-        ls -l ${params.public_ftp_dir}/${params.project_accession}/*
-        """
-    else
-        """
-        cd $params.public_dir
-        rsync -va * ${params.public_ftp_dir}/${params.project_accession}
-        ls -l ${params.public_ftp_dir}/${params.project_accession}/*
-        """
- }
