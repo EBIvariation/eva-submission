@@ -72,7 +72,7 @@ process merge_vcfs {
             vcf_file.each { file -> w.write("$file\n")}
         }
         """
-        $params.executable.bcftools merge --merge all --force-samples --file-list ${workflow.workDir}/all_files_${analysis_accession}.list --threads 3 -O z -o ${params.project_accession}_${analysis_accession}_merged.vcf.gz
+        $params.executable.bcftools merge --merge all --file-list ${workflow.workDir}/all_files_${analysis_accession}.list --threads 3 -O z -o ${params.project_accession}_${analysis_accession}_merged.vcf.gz
         """
     } else {
         single_file = vcf_file[0]
