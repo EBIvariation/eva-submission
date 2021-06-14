@@ -66,7 +66,6 @@ class EloadBacklog(Eload):
         if len(rows) < 1:
             raise ValueError(f'No reference accession for {self.project_accession} found in metadata DB.')
         for analysis_accession, asm_accession in rows:
-            print(self.eload_cfg.query('submission', 'analyses', analysis_accession))
             self.eload_cfg.set('submission', 'analyses', analysis_accession, 'assembly_accession', value=asm_accession)
             fasta_path, report_path = get_reference_fasta_and_report(sci_name, asm_accession)
             self.eload_cfg.set('submission', 'analyses', analysis_accession, 'assembly_fasta', value=fasta_path)
