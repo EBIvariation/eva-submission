@@ -136,18 +136,19 @@ class EloadIngestion(Eload):
         If neither is provided, try to guess the database from EVAPRO based on the assembly accession and taxonomy
         """
         assembly_accessions = self._get_assembly_accessions()
-        db_names = {}
+        assembly_to_db_name = {}
         if db_name:
-            for assembly_accession in assembly_accessions:
-                db_names[assembly_accession] = {'db_name': db_name}
+            if len(assembly_accessions) > 1:
+                raise ValueError(f"One database should not be associated to multiple assembly accessions")
+            assembly_to_db_name[assembly_accessions.pop()] = {'db_name': db_name}
         elif db_name_mapping:
             for mapping in db_name_mapping:
                 assembly_db = mapping.split(',')
                 if assembly_db[0] and assembly_db[1]:
-                    db_names[assembly_db[0]] = {'db_name': assembly_db[1]}
+                    assembly_to_db_name[assembly_db[0]] = {'db_name': assembly_db[1]}
                 else:
                     raise ValueError(f"Check the assembly accession to database mapping: {mapping}")
-            assemblies_provided_sorted = sorted(db_names.keys())
+            assemblies_provided_sorted = sorted(assembly_to_db_name.keys())
             assemblies_in_submission_sorted = sorted(assembly_accessions)
             if assemblies_provided_sorted != assemblies_in_submission_sorted:
                 raise ValueError(f"Assemblies provided {assemblies_provided_sorted} do not match assemblies in "
@@ -155,10 +156,10 @@ class EloadIngestion(Eload):
         else:
             for assembly_accession in assembly_accessions:
                 db_name_retrieved = self.get_db_name(assembly_accession)
-                db_names[assembly_accession] = {'db_name': db_name_retrieved}
+                assembly_to_db_name[assembly_accession] = {'db_name': db_name_retrieved}
 
         with get_metadata_conn() as conn:
-            for assembly, db in db_names.items():
+            for assembly, db in assembly_to_db_name.items():
                 # warns but doesn't crash if assembly set already exists
                 insert_new_assembly_and_taxonomy(
                     assembly_accession=assembly,
@@ -167,11 +168,11 @@ class EloadIngestion(Eload):
                     conn=conn
                 )
 
-        self.eload_cfg.set(self.config_section, 'database', value=db_names)
+        self.eload_cfg.set(self.config_section, 'database', value=assembly_to_db_name)
 
         with pymongo.MongoClient(self.mongo_uri) as db:
             names = db.list_database_names()
-            for assembly_accession, db_info in db_names.items():
+            for assembly_accession, db_info in assembly_to_db_name.items():
                 db_name = db_info['db_name']
                 if db_name in names:
                     self.info(f'Found database named {db_name}.')

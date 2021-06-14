@@ -37,10 +37,11 @@ def main():
     argparse.add_argument('--vep_cache_version', required=False, type=int,
                           help='VEP cache version to use for annotation. Only needed if running variant load.')
     argparse.add_argument('--db_name', required=False, type=str,
-                          help='Name of existing variant database in MongoDB. Only needed if adding a new database.')
+                          help='Name of an existing variant database in MongoDB. Submission should have a single '
+                               'assembly accession. Only needed if adding a new database. ex: db_name')
     argparse.add_argument('--db_name_mapping', required=False, type=str, nargs='+',
-                          help='Mapping of assembly accession and existing variant database in MongoDB. '
-                               'Only needed if adding a new database. '
+                          help='List with the mapping for assembly accession and existing variant database in MongoDB.'
+                               'Only needed if adding a new databases.'
                                'ex: GCA_000000001.1,db_name1 GCA_000000002.2,db_name2')
     argparse.add_argument('--tasks', required=False, type=str, nargs='+',
                           default=EloadIngestion.all_tasks, choices=EloadIngestion.all_tasks,
