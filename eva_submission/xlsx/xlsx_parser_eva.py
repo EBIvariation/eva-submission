@@ -31,16 +31,7 @@ class EvaXlsxReader(AppLogger):
 
     def _get_all_rows(self, active_sheet):
         self.reader.active_worksheet = active_sheet
-        rows = []
-        try:
-            r = self.reader.next()
-            while r:
-                rows.append(r)
-                r = self.reader.next()
-            rows.append(r)
-        except StopIteration:
-            pass
-        return rows
+        return self.reader.get_rows()
 
     @cached_property
     def project(self):

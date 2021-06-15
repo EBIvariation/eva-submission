@@ -61,3 +61,19 @@ class TestXlsxReader(TestCase):
             'row_num': 2
         }
 
+    def test_get_rows(self):
+        self.xls_reader.active_worksheet = 'Sample'
+        rows = self.xls_reader.get_rows()
+        assert isinstance(rows, list)
+        assert len(rows) == 100
+        assert rows[0] == {
+            'Analysis Alias': 'GAE',
+            'Sample Accession': None,
+            'Sample ID': None,
+            'Sample Name': '1',
+            'Sampleset Accession': None,
+            'Title': 'Sample 1',
+            'row_num': 4
+        }
+
+
