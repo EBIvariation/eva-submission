@@ -69,8 +69,7 @@ class EloadValidation(Eload):
     def _validate_sample_names(self):
         overall_differences, results_per_analysis_alias = compare_spreadsheet_and_vcf(
             eva_files_sheet=self.eload_cfg['submission']['metadata_spreadsheet'],
-            vcf_dir=self._get_dir('vcf'),
-            expected_vcf_files=self._get_vcf_files()
+            vcf_dir=self._get_dir('vcf')
         )
         for analysis_alias in results_per_analysis_alias:
             has_difference, diff_submitted_file_submission, diff_submission_submitted_file = results_per_analysis_alias[analysis_alias]
@@ -177,7 +176,7 @@ class EloadValidation(Eload):
         else:
             return None
 
-    def _collect_validation_worklflow_results(self, output_dir):
+    def _collect_validation_workflow_results(self, output_dir):
         # Collect information from the output and summarise in the config
         total_error = 0
         # detect output files for vcf check

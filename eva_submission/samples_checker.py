@@ -1,11 +1,10 @@
-import logging
 import os
 
 import pysam
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
 from eva_submission.eload_utils import cast_list
-from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxWriter, EvaXlsxReader
+from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 logger = log_cfg.get_logger(__name__)
 
@@ -30,7 +29,7 @@ def get_sample_names(sample_rows):
         elif 'Sample ID' in row and row['Sample ID']:
             sample_names.append(row['Sample ID'])
         else:
-            logging.warning('Sample Name and sample ID are both missing in row %s', row.get('row_num'))
+            logger.warning('Sample Name and sample ID are both missing in row %s', row.get('row_num'))
 
     return sample_names
 
@@ -78,33 +77,12 @@ def get_vcf_file_paths(file_rows, vcf_dir):
            (file_row.get('File Name') and file_row.get('File Name').endswith('.vcf.gz'))
     ]
 
-    
-def compare_spreadsheet_and_vcf(eva_files_sheet, vcf_dir, expected_vcf_files=None):
+
+def compare_spreadsheet_and_vcf(eva_files_sheet, vcf_dir):
     """
     Take a spreadsheet following EVA standard and compare the samples in it to the ones found in the VCF files
     """
     eva_xls_reader = EvaXlsxReader(eva_files_sheet)
-    vcf_files = [row['File Name'] for row in eva_xls_reader.files]
-    if expected_vcf_files:
-        expected_vcf_files = [os.path.basename(vcf_file) for vcf_file in expected_vcf_files]
-        if sorted(vcf_files) != sorted(expected_vcf_files):
-            logger.warning('VCF files found in the spreadsheet does not match the ones submitted. '
-                           'Submitted VCF will be added to the spreadsheet')
-            analysis_alias = ''
-            if len(eva_xls_reader.analysis) > 0:
-                analysis_alias = eva_xls_reader.analysis[0].get('Analysis Alias') or ''
-            eva_xls_writer = EvaXlsxWriter(eva_files_sheet)
-            eva_xls_writer.set_files([
-                {
-                    'File Name': os.path.basename(vcf_file),
-                    'File Type': 'vcf',
-                    'Analysis Alias': analysis_alias,
-                    'MD5': ''  # Dummy md5 for now
-                } for vcf_file in expected_vcf_files
-            ])
-            eva_xls_writer.save()
-            eva_xls_reader = EvaXlsxReader(eva_files_sheet)
-
     samples_per_analysis = eva_xls_reader.samples_per_analysis
     files_per_analysis = eva_xls_reader.files_per_analysis
     overall_differences = False
@@ -131,4 +109,3 @@ def compare_spreadsheet_and_vcf(eva_files_sheet, vcf_dir, expected_vcf_files=Non
         logger.info('No differences found between the samples in the Metadata sheet and the submitted VCF file(s)!')
     logger.info('Samples checking completed!')
     return overall_differences, results_per_analysis_alias
-

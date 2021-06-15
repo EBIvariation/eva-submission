@@ -62,7 +62,6 @@ class Eload(AppLogger):
         self.eload_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
 
     def update_metadata_from_config(self, input_spreadsheet, output_spreadsheet=None):
-
         reader = EvaXlsxReader(input_spreadsheet)
         single_analysis_alias = None
         if len(reader.analysis) == 1:
@@ -172,6 +171,7 @@ class EloadPreparation(Eload):
 
     def detect_all(self):
         self.detect_submitted_metadata()
+        self.check_submitted_filenames()
         self.detect_metadata_attributes()
         self.find_genome()
 
@@ -183,14 +183,38 @@ class EloadPreparation(Eload):
             raise ValueError('Found %s spreadsheet in %s'% (len(metadata_spreadsheets), metadata_dir))
         self.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata_spreadsheets[0])
 
-    def detect_submitted_vcf(self):
+    def check_submitted_filenames(self):
+        """Compares submitted vcf filenames with those in metadata sheet, and amends the metadata when possible."""
         vcf_dir = os.path.join(self.eload_dir, directory_structure['vcf'])
         uncompressed_vcf = glob.glob(os.path.join(vcf_dir, '*.vcf'))
         compressed_vcf = glob.glob(os.path.join(vcf_dir, '*.vcf.gz'))
-        vcf_files = uncompressed_vcf + compressed_vcf
-        if len(vcf_files) < 1:
-            raise FileNotFoundError('Could not locate vcf file in in %s', vcf_dir)
-        self.eload_cfg.set('submission', 'vcf_files', value=vcf_files)
+        submitted_vcfs = uncompressed_vcf + compressed_vcf
+        if len(submitted_vcfs) < 1:
+            raise FileNotFoundError('Could not locate vcf file in %s', vcf_dir)
+
+        eva_files_sheet = self.eload_cfg.query('submission', 'metadata_spreadsheet')
+        eva_xls_reader = EvaXlsxReader(eva_files_sheet)
+        spreadsheet_vcfs = [os.path.basename(row['File Name']) for row in eva_xls_reader.files]
+
+        if sorted(spreadsheet_vcfs) != sorted(submitted_vcfs):
+            self.warning('VCF files found in the spreadsheet does not match the ones submitted. '
+                         'Submitted VCF will be added to the spreadsheet')
+            analysis_alias = ''
+            if len(eva_xls_reader.analysis) == 1:
+                analysis_alias = eva_xls_reader.analysis[0].get('Analysis Alias') or ''
+            elif len(eva_xls_reader.analysis) > 1:
+                self.error("Multiple analyses found, can't add submitted VCF to spreadsheet")
+                raise ValueError("Multiple analyses found, can't add submitted VCF to spreadsheet")
+            eva_xls_writer = EvaXlsxWriter(eva_files_sheet)
+            eva_xls_writer.set_files([
+                {
+                    'File Name': os.path.basename(vcf_file),
+                    'File Type': 'vcf',
+                    'Analysis Alias': analysis_alias,
+                    'MD5': ''  # Dummy md5 for now
+                } for vcf_file in submitted_vcfs
+            ])
+            eva_xls_writer.save()
 
     def detect_metadata_attributes(self):
         eva_metadata = EvaXlsxReader(self.eload_cfg.query('submission', 'metadata_spreadsheet'))

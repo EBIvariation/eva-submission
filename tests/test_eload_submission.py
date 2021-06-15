@@ -8,7 +8,7 @@ from ebi_eva_common_pyutils.config import cfg
 from eva_submission import ROOT_DIR
 from eva_submission.eload_submission import EloadPreparation
 from eva_submission.submission_config import load_config
-from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
+from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
 
 def touch(filepath, content=None):
@@ -35,6 +35,30 @@ class TestEload(TestCase):
         for genome in genomes:
             shutil.rmtree(genome)
 
+    def create_vcfs(self, num_files=2):
+        paths = []
+        for i in range(num_files):
+            vcf = os.path.join(self.eload.eload_dir, '10_submitted', 'vcf_files', f'file{i}.vcf')
+            touch(vcf)
+            paths.append(vcf)
+        return paths
+
+    def create_metadata(self, num_analyses=0):
+        source_metadata = os.path.join(self.resources_folder, 'metadata.xlsx')
+        metadata = os.path.join(self.eload.eload_dir, '10_submitted', 'metadata_file', 'metadata.xlsx')
+        shutil.copyfile(source_metadata, metadata)
+        if num_analyses:
+            writer = EvaXlsxWriter(metadata)
+            writer.set_analysis([
+                {
+                    header: f'analysis{i}'
+                    for header in
+                    ['Analysis Title', 'Analysis Alias', 'Description', 'Project Title', 'Experiment Type', 'Reference']
+                } for i in range(num_analyses)
+            ])
+            writer.save()
+        return metadata
+
     def test_copy_from_ftp(self):
         assert os.listdir(os.path.join(self.eload.eload_dir, '10_submitted', 'vcf_files')) == []
         assert os.listdir(os.path.join(self.eload.eload_dir, '10_submitted', 'metadata_file')) == []
@@ -43,26 +67,25 @@ class TestEload(TestCase):
         assert os.listdir(os.path.join(self.eload.eload_dir, '10_submitted', 'metadata_file')) == ['metadata.xlsx']
 
     def test_detect_submitted_metadata(self):
-        # create the data
-        vcf1 = os.path.join(self.eload.eload_dir, '10_submitted', 'vcf_files', 'file1.vcf')
-        vcf2 = os.path.join(self.eload.eload_dir, '10_submitted', 'vcf_files', 'file2.vcf')
-        touch(vcf1)
-        touch(vcf2)
-        metadata = os.path.join(self.eload.eload_dir, '10_submitted', 'metadata_file', 'metadata.xlsx')
-        touch(metadata)
-
-        self.eload.detect_submitted_vcf()
-        # Check that the vcf are in the config file
-        assert sorted(self.eload.eload_cfg.query('submission', 'vcf_files')) == [vcf1, vcf2]
+        self.create_vcfs()
+        metadata = self.create_metadata()
 
         self.eload.detect_submitted_metadata()
+        self.eload.check_submitted_filenames()
         # Check that the metadata spreadsheet is in the config file
         assert self.eload.eload_cfg.query('submission', 'metadata_spreadsheet') == metadata
 
+    def test_check_submitted_filenames_multiple_analyses(self):
+        # create some extra vcf files and analyses
+        vcfs = self.create_vcfs(num_files=5)
+        self.create_metadata(num_analyses=2)
+
+        self.eload.detect_submitted_metadata()
+        with self.assertRaises(ValueError):
+            self.eload.check_submitted_filenames()
+
     def test_replace_values_in_metadata(self):
-        source_metadata = os.path.join(self.resources_folder, 'metadata.xlsx')
-        metadata = os.path.join(self.eload.eload_dir, '10_submitted', 'metadata_file', 'metadata.xlsx')
-        shutil.copyfile(source_metadata, metadata)
+        metadata = self.create_metadata()
 
         reader = EvaXlsxReader(metadata)
         assert reader.project['Tax ID'] == 9606
@@ -74,9 +97,9 @@ class TestEload(TestCase):
 
     def test_find_genome_single_sequence(self):
         cfg.content['eutils_api_key'] = None
-        self.eload.eload_cfg.set('submission', 'scientific_name', value='thingy_thingus')
-        self.eload.eload_cfg.set('submission', 'analyses', 'ERZ999999', 'assembly_accession', value='AJ312413.2')
+        self.eload.eload_cfg.set('submission', 'scientific_name', value='Thingy thingus')
+        self.eload.eload_cfg.set('submission', 'analyses', 'alias', 'assembly_accession', value='AJ312413.2')
         self.eload.find_genome()
-        assert self.eload.eload_cfg.query('submission', 'analyses', 'ERZ999999', 'assembly_fasta') == \
-               'tests/resources/genomes/thingy_thingus/AJ312413.2/AJ312413.2.fa'
+        assert self.eload.eload_cfg.query('submission', 'analyses', 'alias', 'assembly_fasta') \
+               == 'tests/resources/genomes/thingy_thingus/AJ312413.2/AJ312413.2.fa'
         assert 'assembly_report' not in self.eload.eload_cfg['submission']
