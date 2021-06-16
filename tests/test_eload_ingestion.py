@@ -72,9 +72,9 @@ class TestEloadIngestion(TestCase):
             self.eload.check_variant_db()
             self.assertEqual(
                 'eva_ecaballus_30',
-                self.eload.eload_cfg.query('ingestion', 'database', 'db_name')
+                self.eload.eload_cfg.query('ingestion', 'database', 'GCA_002863925.1', 'db_name')
             )
-            assert self.eload.eload_cfg.query('ingestion', 'database', 'exists')
+            assert self.eload.eload_cfg.query('ingestion', 'database', 'GCA_002863925.1', 'exists')
 
     def test_check_variant_db_not_in_evapro(self):
         with patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
@@ -96,10 +96,10 @@ class TestEloadIngestion(TestCase):
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             self.eload.check_variant_db(db_name='eva_hsapiens_grch38')
             self.assertEqual(
-                self.eload.eload_cfg.query('ingestion', 'database', 'db_name'),
+                self.eload.eload_cfg.query('ingestion', 'database', 'GCA_002863925.1', 'db_name'),
                 'eva_hsapiens_grch38'
             )
-            assert self.eload.eload_cfg.query('ingestion', 'database', 'exists')
+            assert self.eload.eload_cfg.query('ingestion', 'database', 'GCA_002863925.1', 'exists')
 
     def test_check_variant_db_missing(self):
         with patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
@@ -111,10 +111,10 @@ class TestEloadIngestion(TestCase):
             with self.assertRaises(ValueError):
                 self.eload.check_variant_db(db_name='eva_fcatus_90')
             self.assertEqual(
-                self.eload.eload_cfg.query('ingestion', 'database', 'db_name'),
+                self.eload.eload_cfg.query('ingestion', 'database', 'GCA_002863925.1', 'db_name'),
                 'eva_fcatus_90'
             )
-            assert not self.eload.eload_cfg.query('ingestion', 'database', 'exists')
+            assert not self.eload.eload_cfg.query('ingestion', 'database', 'GCA_002863925.1', 'exists')
 
     def test_load_from_ena(self):
         with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_execute:

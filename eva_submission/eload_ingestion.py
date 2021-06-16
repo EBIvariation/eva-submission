@@ -84,10 +84,11 @@ class EloadIngestion(Eload):
     def _get_vcf_files_from_brokering(self):
         vcf_files = []
         analyses = self.eload_cfg.query('brokering', 'analyses')
-        for analysis_alias, analysis_data in analyses.items():
-            files = analysis_data['vcf_files']
-            vcf_files.extend(files) if files else None
-        return vcf_files
+        if analyses:
+            for analysis_alias, analysis_data in analyses.items():
+                files = analysis_data['vcf_files']
+                vcf_files.extend(files) if files else None
+            return vcf_files
 
     def check_brokering_done(self):
         vcf_files = self._get_vcf_files_from_brokering()
