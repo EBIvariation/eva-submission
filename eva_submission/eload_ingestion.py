@@ -330,7 +330,6 @@ class EloadIngestion(Eload):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
         job_props = variant_load_props_template(
                 project_accession=self.project_accession,
-                # TODO currently there is only ever one of these in the config, even if multiple analyses/files
                 aggregation=self.eload_cfg.query(self.config_section, 'aggregation'),
                 study_name=self.get_study_name(),
                 output_dir=self.project_dir.joinpath(project_dirs['transformed']),
@@ -342,7 +341,6 @@ class EloadIngestion(Eload):
         )
         load_config = {
             'valid_vcfs': vcf_files_to_ingest,
-            # TODO implement proper merge check or get from validation
             'load_job_props': job_props,
             'project_accession': self.project_accession,
             'project_dir': str(self.project_dir),
