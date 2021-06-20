@@ -268,8 +268,7 @@ class EloadIngestion(Eload):
                 assembly_accession = analysis_data['assembly_accession']
                 fasta = analysis_data['assembly_fasta']
                 report = analysis_data['assembly_report']
-                analysis_accession_dict = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
-                analysis_accession = list(analysis_accession_dict.keys())[list(analysis_accession_dict.values()).index(analysis_alias)]
+                analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
                 db_name = self.eload_cfg.query('ingestion', 'database', assembly_accession, 'db_name')
                 if analysis_data['vcf_files']:
                     for vcf_file in analysis_data['vcf_files']:
@@ -342,6 +341,7 @@ class EloadIngestion(Eload):
         )
         load_config = {
             'valid_vcfs': vcf_files_to_ingest,
+            'aggregation_type': self.eload_cfg.query(self.config_section, 'aggregation'),
             'load_job_props': job_props,
             'project_accession': self.project_accession,
             'project_dir': str(self.project_dir),
