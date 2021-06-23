@@ -53,11 +53,15 @@ class EloadBrokering(Eload):
 
             # Upload the VCF to ENA FTP
             ena_uploader = ENAUploader(self.eload)
-            files_to_upload = [vcf_file for vcf_file in self.eload_cfg['brokering']['vcf_files']] + \
-                              [
-                                  self.eload_cfg['brokering']['vcf_files'][vcf_file]['index']
-                                  for vcf_file in self.eload_cfg['brokering']['vcf_files']
-                              ]
+
+            files_to_upload = []
+            analyses = self.eload_cfg['brokering']['analyses']
+            for analysis in analyses:
+                for vcf_file_name in analyses[analysis]['vcf_files']:
+                    vcf_file_info = self.eload_cfg['brokering']['analyses'][analysis]['vcf_files'][vcf_file_name]
+                    files_to_upload.append(vcf_file_info['output_vcf_file'])
+                    files_to_upload.append(vcf_file_info['index'])
+
             ena_uploader.upload_vcf_files_to_ena_ftp(files_to_upload)
 
             # Upload XML to ENA
@@ -83,10 +87,18 @@ class EloadBrokering(Eload):
             self.eload_cfg.set('brokering', 'Biosamples', 'Samples', value=sample_name_to_accession)
             self.eload_cfg.set('brokering', 'Biosamples', 'pass', value=bool(sample_name_to_accession))
 
+    def _get_valid_vcf_files(self):
+        valid_vcf_files = []
+        analyses = self.eload_cfg.query('validation', 'valid', 'analyses')
+        for analysis_alias in analyses:
+            files = analyses[analysis_alias]['vcf_files']
+            valid_vcf_files.extend(files) if files else None
+        return valid_vcf_files
+
     def _run_brokering_prep_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory()
         brokering_config = {
-            'vcf_files': self.eload_cfg.query('validation', 'valid', 'vcf_files'),
+            'vcf_files': self._get_valid_vcf_files(),
             'output_dir': output_dir,
             'executable': cfg['executable']
         }
@@ -112,34 +124,42 @@ class EloadBrokering(Eload):
     def _collect_brokering_prep_results(self, output_dir):
         # Collect information from the output and summarise in the config
         nextflow_vcf_output = os.path.join(output_dir, 'output')
-        for vcf_file in self.eload_cfg.query('validation', 'valid', 'vcf_files'):
-            vcf_file_name = os.path.basename(vcf_file)
-            if not vcf_file_name.endswith('.gz'):
-                vcf_file_name = vcf_file_name + '.gz'
+        valid_analyses = self.eload_cfg.query('validation', 'valid', 'analyses')
+        for analysis in valid_analyses:
+            analysis_config = {'assembly_accession': valid_analyses[analysis]['assembly_accession'],
+                               'assembly_fasta': valid_analyses[analysis]['assembly_fasta'],
+                               'assembly_report': valid_analyses[analysis]['assembly_report']}
+            self.eload_cfg.set('brokering', 'analyses', analysis, value=analysis_config)
+            vcf_files = valid_analyses[analysis]['vcf_files']
+            for vcf_file in vcf_files:
+                vcf_file_name = os.path.basename(vcf_file)
+                if not vcf_file_name.endswith('.gz'):
+                    vcf_file_name = vcf_file_name + '.gz'
 
-            output_vcf_file = os.path.join(self._get_dir('ena'), vcf_file_name)
-            os.rename(os.path.join(nextflow_vcf_output, vcf_file_name), output_vcf_file)
-            os.rename(os.path.join(output_dir, vcf_file_name) + '.md5', output_vcf_file + '.md5')
+                output_vcf_file = os.path.join(self._get_dir('ena'), vcf_file_name)
+                os.rename(os.path.join(nextflow_vcf_output, vcf_file_name), output_vcf_file)
+                os.rename(os.path.join(output_dir, vcf_file_name) + '.md5', output_vcf_file + '.md5')
 
-            index_file = os.path.join(output_dir, vcf_file_name + '.tbi')
-            output_index_file = os.path.join(self._get_dir('ena'), vcf_file_name + '.tbi')
-            os.rename(index_file, output_index_file)
-            os.rename(index_file + '.md5', output_index_file + '.md5')
+                index_file = os.path.join(output_dir, vcf_file_name + '.tbi')
+                output_index_file = os.path.join(self._get_dir('ena'), vcf_file_name + '.tbi')
+                os.rename(index_file, output_index_file)
+                os.rename(index_file + '.md5', output_index_file + '.md5')
 
-            # .csi index not supported by ENA, so we just save it to be made public later
-            csi_file = os.path.join(output_dir, vcf_file_name + '.csi')
-            output_csi_file = os.path.join(self._get_dir('ena'), vcf_file_name + '.csi')
-            os.rename(csi_file, output_csi_file)
-            os.rename(csi_file + '.md5', output_csi_file + '.md5')
+                # .csi index not supported by ENA, so we just save it to be made public later
+                csi_file = os.path.join(output_dir, vcf_file_name + '.csi')
+                output_csi_file = os.path.join(self._get_dir('ena'), vcf_file_name + '.csi')
+                os.rename(csi_file, output_csi_file)
+                os.rename(csi_file + '.md5', output_csi_file + '.md5')
 
-            self.eload_cfg.set('brokering', 'vcf_files', output_vcf_file, value={
-                'original_vcf': vcf_file,
-                'md5': read_md5(output_vcf_file + '.md5'),
-                'index': output_index_file,
-                'index_md5': read_md5(output_index_file + '.md5'),
-                'csi': output_csi_file,
-                'csi_md5': read_md5(output_csi_file + '.md5')
-            })
+                self.eload_cfg.set('brokering', 'analyses', analysis, 'vcf_files', output_vcf_file, value={
+                    'original_vcf': vcf_file,
+                    'output_vcf_file': output_vcf_file,
+                    'md5': read_md5(output_vcf_file + '.md5'),
+                    'index': output_index_file,
+                    'index_md5': read_md5(output_index_file + '.md5'),
+                    'csi': output_csi_file,
+                    'csi_md5': read_md5(output_csi_file + '.md5')
+                })
 
     def _biosamples_report(self):
         reports = []

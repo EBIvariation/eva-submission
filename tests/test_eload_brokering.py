@@ -88,8 +88,11 @@ class TestEloadBrokering(TestCase):
         for f in ['vcf_file1.vcf.gz.md5', 'vcf_file1.vcf.gz.tbi', 'vcf_file1.vcf.gz.tbi.md5', 'vcf_file1.vcf.gz.csi',
                   'vcf_file1.vcf.gz.csi.md5']:
             touch(os.path.join(tmp_dir, f), content=f'md5checksum {f}')
-        self.eload.eload_cfg.set('validation', 'valid', 'vcf_files', value={
-            'vcf_file1.vcf': ''
+        self.eload.eload_cfg.set('validation', 'valid', 'analyses', 'analysis alias 1', value={
+            'assembly_accession': 'GCA_000001000.1',
+            'assembly_fasta': 'fasta.fa',
+            'assembly_report': 'assembly_report.txt',
+            'vcf_files': ['vcf_file1.vcf']
         })
         self.eload._collect_brokering_prep_results(tmp_dir)
         vcf_file1 = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.gz')
@@ -97,14 +100,22 @@ class TestEloadBrokering(TestCase):
         vcf_file1_csi = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.gz.csi')
         assert os.path.isfile(vcf_file1)
         assert os.path.isfile(vcf_file1_index)
-        assert self.eload.eload_cfg['brokering']['vcf_files'] == {
-            vcf_file1: {
-                'original_vcf': 'vcf_file1.vcf',
-                'md5': 'md5checksum',
-                'index': vcf_file1_index,
-                'index_md5': 'md5checksum',
-                'csi': vcf_file1_csi,
-                'csi_md5': 'md5checksum'
+        assert self.eload.eload_cfg['brokering']['analyses'] == {
+            'analysis alias 1': {
+                'assembly_accession': 'GCA_000001000.1',
+                'assembly_fasta': 'fasta.fa',
+                'assembly_report': 'assembly_report.txt',
+                'vcf_files': {
+                    vcf_file1: {
+                        'original_vcf': 'vcf_file1.vcf',
+                        'output_vcf_file': vcf_file1,
+                        'md5': 'md5checksum',
+                        'index': vcf_file1_index,
+                        'index_md5': 'md5checksum',
+                        'csi': vcf_file1_csi,
+                        'csi_md5': 'md5checksum'
+                    }
+                }
             }
         }
 

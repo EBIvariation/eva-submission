@@ -72,8 +72,8 @@ class ENAUploader(AppLogger):
                     results['errors'].append(child.text)
             for child in receipt:
                 # Store mapping from analysis accession to analysis alias.
-                if child.tag == 'ANALYSIS':
-                    results.setdefault(child.tag, {})[child.attrib['accession']] = child.attrib['alias']
+                if child.tag == 'ANALYSIS' and 'accession' in child.attrib:
+                    results.setdefault(child.tag, {})[child.attrib['alias']] = child.attrib['accession']
                 elif 'accession' in child.attrib:
                     results[child.tag] = child.attrib['accession']
         except ET.ParseError:

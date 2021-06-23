@@ -25,7 +25,7 @@ class TestENAUploader(TestCase):
 </RECEIPT>'''
         assert self.uploader.parse_ena_receipt(receipt) == {
             'errors': [],
-            'ANALYSIS': {'ERZ1695006': 'FGV analysis b'},
+            'ANALYSIS': {'FGV analysis b': 'ERZ1695006'},
             'PROJECT': 'PRJEB42220',
             'SUBMISSION': 'ERA3202812'
         }
@@ -69,7 +69,7 @@ class TestENAUploader(TestCase):
 
         assert self.uploader.parse_ena_receipt(receipt) == {
             'errors': [],
-            'ANALYSIS': {'ERZ1695005': 'FGV analysis a', 'ERZ1695006': 'FGV analysis b'},
+            'ANALYSIS': {'FGV analysis a': 'ERZ1695005', 'FGV analysis b': 'ERZ1695006'},
             'PROJECT': 'PRJEB42220',
             'SUBMISSION': 'ERA3202812'
         }

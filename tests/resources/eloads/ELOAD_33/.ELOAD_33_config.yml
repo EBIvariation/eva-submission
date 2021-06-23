@@ -1,16 +1,30 @@
 brokering:
+  analyses:
+    Analysis alias test:
+      assembly_accession: GCA_000001000.1
+      assembly_fasta: fasta.fa
+      assembly_report: assembly_report.txt
+      vcf_files:
+        tests/resources/eloads/ELOAD_33/18_brokering/ena/test1.vcf.gz:
+          csi: tests/resources/eloads/ELOAD_33/18_brokering/ena/test1.vcf.gz.csi
+          index: tests/resources/eloads/ELOAD_33/18_brokering/ena/test1.vcf.gz.tbi
+        tests/resources/eloads/ELOAD_33/18_brokering/ena/test2.vcf.gz:
+          csi: tests/resources/eloads/ELOAD_33/18_brokering/ena/test2.vcf.gz.csi
+          index: tests/resources/eloads/ELOAD_33/18_brokering/ena/test2.vcf.gz.tbi
   ena:
+    ANALYSIS:
+      ERZ2499196: Analysis alias test
     PROJECT: PRJEB12345
     hold_date: 2021-01-04
-  vcf_files:
-    tests/resources/eloads/ELOAD_33/18_brokering/ena/test1.vcf.gz:
-      csi: tests/resources/eloads/ELOAD_33/18_brokering/ena/test1.vcf.gz.csi
-      index: tests/resources/eloads/ELOAD_33/18_brokering/ena/test1.vcf.gz.tbi
-    tests/resources/eloads/ELOAD_33/18_brokering/ena/test2.vcf.gz:
-      csi: tests/resources/eloads/ELOAD_33/18_brokering/ena/test2.vcf.gz.csi
-      index: tests/resources/eloads/ELOAD_33/18_brokering/ena/test2.vcf.gz.tbi
 ingestion:
   project_dir: tests/resources/projects/PRJEB12345
 submission:
-  assembly_accession: GCA_002863925.1
+  analyses:
+    Analysis alias test:
+      assembly_accession: GCA_002863925.1
+      assembly_fasta: fasta.fa
+      assembly_report: assembly_report.txt
+      vcf_files:
+      - tests/resources/eloads/ELOAD_33/18_brokering/ena/test1.vcf.gz
+      - tests/resources/eloads/ELOAD_33/18_brokering/ena/test2.vcf.gz
   scientific_name: Equus caballus
