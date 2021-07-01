@@ -46,7 +46,6 @@ class EloadIngestion(Eload):
             aggregation=None,
             instance_id=None,
             vep_version=None,
-            vep_cache_version=None,
             db_name=None,
             tasks=None
     ):
@@ -75,7 +74,6 @@ class EloadIngestion(Eload):
 
         if do_variant_load:
             self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'version', value=vep_version)
-            self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', value=vep_cache_version)
             self.run_variant_load_workflow()
 
     def check_brokering_done(self):
@@ -265,6 +263,7 @@ class EloadIngestion(Eload):
     def run_variant_load_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
         vep_cache_version = get_vep_cache_version_from_ensembl(self.eload_cfg.query('submission', 'assembly_accession'))
+        self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', value=vep_cache_version)
         job_props = variant_load_props_template(
                 project_accession=self.project_accession,
                 # TODO currently there is only ever one of these in the config, even if multiple analyses/files
@@ -278,7 +277,7 @@ class EloadIngestion(Eload):
                 db_name=self.eload_cfg.query(self.config_section, 'database', 'db_name'),
                 vep_species=self.get_vep_species(),
                 vep_version=self.eload_cfg.query(self.config_section, 'variant_load', 'vep', 'version'),
-                vep_cache_version=vep_cache_version if vep_cache_version is not None else self.eload_cfg.query(self.config_section, 'variant_load', 'vep', 'cache_version'),
+                vep_cache_version=vep_cache_version,
                 annotation_skip=True if vep_cache_version is None else False
         )
         load_config = {

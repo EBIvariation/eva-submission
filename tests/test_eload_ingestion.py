@@ -6,6 +6,8 @@ from copy import deepcopy
 from unittest import TestCase, mock
 from unittest.mock import patch
 
+import yaml
+
 from eva_submission.eload_ingestion import EloadIngestion
 from eva_submission.submission_config import load_config
 
@@ -143,7 +145,7 @@ class TestEloadIngestion(TestCase):
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             # first call is for browsable files, second is for study name
             m_get_results.side_effect = [[(1, 'filename_1'), (2, 'filename_2')], [('Test Study Name')]]
-            self.eload.ingest('NONE', 1, 82, 82, db_name='eva_hsapiens_grch38')
+            self.eload.ingest('NONE', 1, 82, db_name='eva_hsapiens_grch38')
 
     def test_ingest_metadata_load(self):
         with patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
@@ -200,7 +202,6 @@ class TestEloadIngestion(TestCase):
             self.eload.ingest(
                 aggregation='NONE',
                 vep_version=82,
-                vep_cache_version=82,
                 tasks=['variant_load'],
                 db_name='eva_hsapiens_grch38'
             )
@@ -233,3 +234,64 @@ class TestEloadIngestion(TestCase):
                  <MESSAGES/>
                  <ACTIONS>RECEIPT</ACTIONS>
             </RECEIPT>'''
+
+    def test_ingest_variant_load_vep_cache_version_found(self):
+        with patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
+                patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
+                patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
+                patch('eva_submission.eload_utils.get_metadata_conn', autospec=True), \
+                patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
+                patch('eva_submission.eload_ingestion.get_vep_cache_version_from_ensembl') as m_get_vep_cache_version, \
+                patch('eva_submission.eload_utils.requests.post') as m_post:
+            m_get_alias_results.return_value = [['alias']]
+            m_post.return_value.text = self.get_mock_result_for_ena_date()
+            m_properties.return_value = self._fake_properties_dict()
+            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
+            m_get_results.return_value = [('Test Study Name')]
+            m_get_vep_cache_version.return_value = 100
+
+            self.eload.ingest(
+                aggregation='NONE',
+                vep_version=82,
+                tasks=['variant_load'],
+                db_name='eva_hsapiens_grch38'
+            )
+            config_file = os.path.join(self.resources_folder, 'projects/PRJEB12345/load_config_file.yaml')
+            assert os.path.exists(config_file)
+            with open(config_file, 'r') as stream:
+                data_loaded = yaml.safe_load(stream)
+                self.assertEqual(data_loaded["load_job_props"]['annotation.skip'], False)
+                self.assertEqual(data_loaded["load_job_props"]['app.vep.cache.version'], 100)
+
+
+    def test_ingest_variant_load_vep_cache_version_not_found(self):
+        with patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
+                patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
+                patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
+                patch('eva_submission.eload_utils.get_metadata_conn', autospec=True), \
+                patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
+                patch('eva_submission.eload_ingestion.get_vep_cache_version_from_ensembl') as m_get_vep_cache_version, \
+                patch('eva_submission.eload_utils.requests.post') as m_post:
+            m_get_alias_results.return_value = [['alias']]
+            m_post.return_value.text = self.get_mock_result_for_ena_date()
+            m_properties.return_value = self._fake_properties_dict()
+            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
+            m_get_results.return_value = [('Test Study Name')]
+            m_get_vep_cache_version.return_value = None
+
+            self.eload.ingest(
+                aggregation='NONE',
+                vep_version=82,
+                tasks=['variant_load'],
+                db_name='eva_hsapiens_grch38'
+            )
+            config_file = os.path.join(self.resources_folder, 'projects/PRJEB12345/load_config_file.yaml')
+            assert os.path.exists(config_file)
+            with open(config_file, 'r') as stream:
+                data_loaded = yaml.safe_load(stream)
+                self.assertEqual(data_loaded["load_job_props"]['annotation.skip'], True)
+                self.assertEqual(data_loaded["load_job_props"]['app.vep.cache.version'], None)

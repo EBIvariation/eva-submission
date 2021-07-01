@@ -34,8 +34,6 @@ def main():
                           help='The aggregation type (case insensitive).')
     argparse.add_argument('--vep_version', required=False, type=int,
                           help='VEP version to use for annotation. Only needed if running variant load.')
-    argparse.add_argument('--vep_cache_version', required=False, type=int,
-                          help='VEP cache version to use for annotation. Only needed if running variant load.')
     argparse.add_argument('--db_name', required=False, type=str,
                           help='Name of existing variant database in MongoDB. Only needed if adding a new database.')
     argparse.add_argument('--tasks', required=False, type=str, nargs='+',
@@ -58,7 +56,6 @@ def main():
         aggregation=args.aggregation,
         instance_id=args.instance,
         vep_version=args.vep_version,
-        vep_cache_version=args.vep_cache_version,
         db_name=args.db_name,
         tasks=args.tasks
     )
