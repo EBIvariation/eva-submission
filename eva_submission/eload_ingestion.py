@@ -53,7 +53,6 @@ class EloadIngestion(Eload):
             tasks=None
     ):
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
-        self.update_config_with_hold_date(self.project_accession)
         self.check_brokering_done()
         self.check_variant_db(db_name, db_name_mapping)
 
@@ -72,6 +71,7 @@ class EloadIngestion(Eload):
 
         if do_accession:
             self.eload_cfg.set(self.config_section, 'accession', 'instance_id', value=instance_id)
+            self.update_config_with_hold_date(self.project_accession)
             self.run_accession_workflow(vcf_files_to_ingest)
             self.insert_browsable_files()
             self.refresh_study_browser()
@@ -98,9 +98,6 @@ class EloadIngestion(Eload):
         if self.project_accession is None:
             self.error('No project accession in submission config, check that brokering to ENA is done. ')
             raise ValueError('No project accession in submission config.')
-        if self.eload_cfg.query('brokering', 'ena', 'hold_date') is None:
-            self.error('No release date found, check that brokering to ENA is done.')
-            raise ValueError('No release date found in submission config.')
         # check there are no vcfs in valid folder that aren't in brokering config
         for valid_vcf in self.valid_vcf_filenames:
             if not any(f.endswith(valid_vcf.name) for f in vcf_files):
@@ -391,7 +388,6 @@ class EloadIngestion(Eload):
             execute_query(conn, insert_query)
 
             # update loaded and release date
-            # TODO get release date from ENA directly
             release_date = self.eload_cfg.query('brokering', 'ena', 'hold_date')
             release_update = f"update evapro.browsable_file " \
                              f"set loaded = true, eva_release = '{release_date.strftime('%Y%m%d')}' " \
