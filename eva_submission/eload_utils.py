@@ -1,6 +1,7 @@
 import glob
 import os
 import urllib
+import ftplib
 from urllib.parse import urlsplit
 from xml.etree import ElementTree as ET
 
@@ -184,3 +185,55 @@ def download_file(url, dest):
     """Download a public file accessible via http or ftp."""
     urllib.request.urlretrieve(url, dest)
     urllib.request.urlcleanup()
+
+
+def get_vep_cache_version_from_ensembl(assembly_accession):
+    try:
+        logger.info(f'Getting vep_cache_version for assembly_accession : {assembly_accession}')
+        species_assembly = getSpeciesNameAndAssembly(assembly_accession)
+        logger.info(f'Details from Ensembl for species and assembly : {species_assembly}')
+
+        url = "ftp.ensembl.org"
+        ftp = ftplib.FTP(url)
+        ftp.login()
+
+        all_releases = get_releases(ftp)
+        logger.info(f'fetched all releases: {all_releases}')
+
+        for release in sorted(all_releases, reverse=True):
+            logger.info(f'looking for vep_cache_version in release : {all_releases.get(release)}')
+            all_species_files = ftp.nlst(all_releases.get(release) + "/variation/vep")
+            for file in all_species_files:
+                if species_assembly['species'] in file and species_assembly['assembly'] in file:
+                    logger.info(
+                        f'Found vep_cache_version for the species and assembly : {species_assembly}, file: {file}, release: {release}')
+                    return release
+        logger.info(f'could not find vep_cache_version for the given species and assembly: {species_assembly}')
+        return None
+    except Exception as err:
+        logger.info(f'Encountered Error while fetching vep_cache_version : {err}')
+        return None
+
+
+def getSpeciesNameAndAssembly(assembly_accession):
+    url = f'https://rest.ensembl.org/info/genomes/assembly/{assembly_accession}?content-type=application/json'
+    json_response = requests.get(url).json()
+    if "error" in json_response:
+        raise Exception(json_response["error"])
+    elif 'name' not in json_response or 'assembly_name' not in json_response:
+        raise Exception(
+            f'response from Ensembl does not contain required fields [name and assembly_name]: {json_response}')
+    else:
+        return {
+            "species": json_response['name'],
+            "assembly": json_response['assembly_name']
+        }
+
+
+def get_releases(ftp):
+    all_releases = {}
+    for file in ftp.nlst("/pub"):
+        if "release-" in file:
+            release_number = file[file.index("-") + 1:]
+            all_releases.update({int(release_number): file})
+    return all_releases
