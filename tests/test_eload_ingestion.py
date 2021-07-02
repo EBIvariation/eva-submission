@@ -28,6 +28,9 @@ class TestEloadIngestion(TestCase):
         projects = glob.glob(os.path.join(self.resources_folder, 'projects', 'PRJEB12345'))
         for proj in projects:
             shutil.rmtree(proj)
+        ingest_csv = os.path.join(self.eload.eload_dir, 'vcf_files_to_ingest.csv')
+        if os.path.exists(ingest_csv):
+            os.remove(ingest_csv)
         self.eload.eload_cfg.content = self.original_cfg
 
     def _mock_mongodb_client(self):

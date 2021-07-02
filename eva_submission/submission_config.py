@@ -4,6 +4,8 @@ import os
 import yaml
 from ebi_eva_common_pyutils.config import Configuration, cfg
 
+from eva_submission import __version__
+
 
 class EloadConfig(Configuration):
     """Configuration object that allows write to the config file"""
@@ -38,6 +40,9 @@ class EloadConfig(Configuration):
 
     def __setitem__(self, item, value):
         """Allow dict-style write access, e.g. config['this']='that'."""
+        # If we're starting to fill in an empty config, set the version.
+        if self.is_empty():
+            self.content['version'] = __version__
         self.content[item] = value
 
     def __del__(self):
