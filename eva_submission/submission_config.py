@@ -3,8 +3,11 @@ import os
 
 import yaml
 from ebi_eva_common_pyutils.config import Configuration, cfg
+from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
 from eva_submission import __version__
+
+logger = log_cfg.get_logger(__name__)
 
 
 class EloadConfig(Configuration):
@@ -19,6 +22,51 @@ class EloadConfig(Configuration):
             self.config_file = search_path[0]
             pass
 
+    # TODO where do we call this?
+    def upgrade_if_needed(self):
+        """
+        Upgrades unversioned configs (i.e. pre-1.0) to the current version.
+        Currently doesn't perform any other version upgrades.
+        """
+        if 'version' not in self.content:
+            logger.info(f'No version found in config, upgrading to version {__version__}.')
+
+            self.set('version', value=__version__)
+            if 'submission' not in self.content:
+                logger.error('Need submission config section to upgrade')
+                logger.error('Try running prepare_backlog_study.py to build a config from scratch.')
+                raise ValueError('Need submission config section to upgrade')
+
+            # Note: if we're converting an old config, there's only one analysis
+            # TODO get alias from metadata? does this need to be the actual analysis alias???
+            analysis_alias = 'Analysis 1'
+            analysis_data = {
+                'assembly_accession': self.pop('submission', 'assembly_accession'),
+                'assembly_fasta': self.pop('submission', 'assembly_fasta'),
+                'assembly_report': self.pop('submission', 'assembly_report'),
+                'vcf_files': self.pop('submission', 'vcf_files')
+            }
+            analysis_dict = {analysis_alias: analysis_data}
+            self.set('submission', 'analyses', value=analysis_dict)
+
+            if 'validation' in self.content:
+                self.pop('validation', 'valid', 'vcf_files')
+                self.set('validation', 'valid', 'analyses', value=analysis_dict)
+
+            if 'brokering' in self.content:
+                brokering_vcfs = {
+                    vcf_file: index_dict
+                    for vcf_file, index_dict in self.pop('brokering', 'vcf_files').items()
+                }
+                analysis_dict[analysis_alias]['vcf_files'] = brokering_vcfs
+                self.set('brokering', 'analyses', value=analysis_dict)
+                analysis_accession = self.query('brokering', 'ena', 'ANALYSIS')
+                self.set('brokering', 'ena', 'ANALYSIS', analysis_alias, value=analysis_accession)
+
+        else:
+            # TODO think through how complicated this might get...
+            logger.info(f"Config is version {self.query('version')}, not upgrading.")
+
     def write(self):
         if self.config_file and self.content and os.path.isdir(os.path.dirname(self.config_file)):
             with open(self.config_file, 'w') as open_config:
@@ -31,6 +79,15 @@ class EloadConfig(Configuration):
                 top_level[p] = {}
             top_level = top_level[p]
         top_level[path[-1]] = value
+
+    def pop(self, *path, default=None):
+        """Recursive dictionary pop with default"""
+        top_level = self.content
+        for p in path[:-1]:
+            if p not in top_level:
+                return default
+            top_level = top_level[p]
+        return top_level.pop(path[-1], default)
 
     def is_empty(self):
         return not self.content
