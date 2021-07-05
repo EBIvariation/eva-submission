@@ -15,7 +15,7 @@ import pymongo
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import get_metadata_conn, get_mongo_creds, get_accession_pg_creds, get_vep_cache_version_from_ensembl
+from eva_submission.eload_utils import get_metadata_conn, get_mongo_creds, get_accession_pg_creds, get_vep_cache_version
 from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
 
 project_dirs = {
@@ -262,7 +262,9 @@ class EloadIngestion(Eload):
 
     def run_variant_load_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
-        vep_cache_version = get_vep_cache_version_from_ensembl(self.eload_cfg.query('submission', 'assembly_accession'))
+        vep_cache_version = get_vep_cache_version(self.mongo_uri,
+                                                  self.eload_cfg.query(self.config_section, 'database', 'db_name'),
+                                                  self.eload_cfg.query('submission', 'assembly_accession'))
         self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', value=vep_cache_version)
         job_props = variant_load_props_template(
                 project_accession=self.project_accession,

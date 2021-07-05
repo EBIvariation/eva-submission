@@ -6,6 +6,7 @@ from urllib.parse import urlsplit
 from xml.etree import ElementTree as ET
 
 import psycopg2
+import pymongo
 import requests
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.config_utils import get_properties_from_xml_file
@@ -187,22 +188,46 @@ def download_file(url, dest):
     urllib.request.urlcleanup()
 
 
+def get_vep_cache_version(mongo_uri, db_name, assembly_accession):
+    vep_cache_version = get_vep_cache_version_from_db(mongo_uri, db_name)
+    if not vep_cache_version:
+        vep_cache_version = get_vep_cache_version_from_ensembl(assembly_accession)
+    return vep_cache_version
+
+
+def get_vep_cache_version_from_db(mongo_uri, db_name):
+    logger.info(f"Getting vep_cache_version from db: {db_name}")
+    vep_cache_list = []
+    with pymongo.MongoClient(mongo_uri) as db:
+        cursor = db[db_name]['annotationMetadata_2_0'].find({})
+        for document in cursor:
+            vep_cache_list.append(int(document['cachev']))
+
+    if not vep_cache_list:
+        logger.info('Could not find any vep_cache_version from db')
+        return None
+    else:
+        latest_cachev_version = max(vep_cache_list)
+        logger.info(
+            f'Found following vep_cache_versions from DB: {vep_cache_list}. Latest version is {latest_cachev_version}')
+        return latest_cachev_version
+
+
 def get_vep_cache_version_from_ensembl(assembly_accession):
     try:
-        logger.info(f'Getting vep_cache_version for assembly_accession : {assembly_accession}')
-        species_assembly = getSpeciesNameAndAssembly(assembly_accession)
+        logger.info('Getting vep_cache_version from ensembl.')
+        logger.info(f'Getting species and assembly from ensembl using assembly accession: {assembly_accession}')
+        species_assembly = get_species_name_and_assembly(assembly_accession)
         logger.info(f'Details from Ensembl for species and assembly : {species_assembly}')
 
-        url = "ftp.ensembl.org"
-        ftp = ftplib.FTP(url)
-        ftp.login()
+        ftp = get_ftp_connection()
 
         all_releases = get_releases(ftp)
         logger.info(f'fetched all releases: {all_releases}')
 
         for release in sorted(all_releases, reverse=True):
             logger.info(f'looking for vep_cache_version in release : {all_releases.get(release)}')
-            all_species_files = ftp.nlst(all_releases.get(release) + "/variation/vep")
+            all_species_files = get_all_species_files(ftp, all_releases.get(release))
             for file in all_species_files:
                 if species_assembly['species'] in file and species_assembly['assembly'] in file:
                     logger.info(
@@ -215,7 +240,8 @@ def get_vep_cache_version_from_ensembl(assembly_accession):
         return None
 
 
-def getSpeciesNameAndAssembly(assembly_accession):
+@retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
+def get_species_name_and_assembly(assembly_accession):
     url = f'https://rest.ensembl.org/info/genomes/assembly/{assembly_accession}?content-type=application/json'
     json_response = requests.get(url).json()
     if "error" in json_response:
@@ -230,6 +256,15 @@ def getSpeciesNameAndAssembly(assembly_accession):
         }
 
 
+@retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
+def get_ftp_connection():
+    url = "ftp.ensembl.org"
+    ftp = ftplib.FTP(url)
+    ftp.login()
+    return ftp
+
+
+@retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
 def get_releases(ftp):
     all_releases = {}
     for file in ftp.nlst("/pub"):
@@ -237,3 +272,8 @@ def get_releases(ftp):
             release_number = file[file.index("-") + 1:]
             all_releases.update({int(release_number): file})
     return all_releases
+
+
+@retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
+def get_all_species_files(ftp, release):
+    return ftp.nlst(release + "/variation/vep")

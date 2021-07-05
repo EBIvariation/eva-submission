@@ -138,11 +138,13 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_conn', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
+                patch('eva_submission.eload_ingestion.get_vep_cache_version') as m_get_vep_cache_version, \
                 patch('eva_submission.eload_utils.requests.post') as m_post:
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_properties.return_value = self._fake_properties_dict()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
+            m_get_vep_cache_version.return_value = None
             # first call is for browsable files, second is for study name
             m_get_results.side_effect = [[(1, 'filename_1'), (2, 'filename_2')], [('Test Study Name')]]
             self.eload.ingest('NONE', 1, 82, db_name='eva_hsapiens_grch38')
@@ -193,11 +195,13 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_conn', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
+                patch('eva_submission.eload_ingestion.get_vep_cache_version') as m_get_vep_cache_version, \
                 patch('eva_submission.eload_utils.requests.post') as m_post:
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_properties.return_value = self._fake_properties_dict()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
+            m_get_vep_cache_version.return_value = None
             m_get_results.return_value = [('Test Study Name')]
             self.eload.ingest(
                 aggregation='NONE',
@@ -243,7 +247,7 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_conn', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
-                patch('eva_submission.eload_ingestion.get_vep_cache_version_from_ensembl') as m_get_vep_cache_version, \
+                patch('eva_submission.eload_ingestion.get_vep_cache_version') as m_get_vep_cache_version, \
                 patch('eva_submission.eload_utils.requests.post') as m_post:
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
@@ -274,7 +278,7 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_conn', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
-                patch('eva_submission.eload_ingestion.get_vep_cache_version_from_ensembl') as m_get_vep_cache_version, \
+                patch('eva_submission.eload_ingestion.get_vep_cache_version') as m_get_vep_cache_version, \
                 patch('eva_submission.eload_utils.requests.post') as m_post:
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
