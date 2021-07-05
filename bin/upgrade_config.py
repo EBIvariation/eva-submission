@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2020 EMBL - European Bioinformatics Institute
+# Copyright 2021 EMBL - European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,25 +19,16 @@ from argparse import ArgumentParser
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.eload_validation import EloadValidation
+from eva_submission.eload_submission import Eload
 from eva_submission.submission_config import load_config
 
 logger = log_cfg.get_logger(__name__)
 
 
 def main():
-    argparse = ArgumentParser(description='Validate an ELOAD by checking the data and metadata format and semantics.')
+    argparse = ArgumentParser(description='Upgrade ELOAD config to a format compatible with current automation')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
-    argparse.add_argument('--validation_tasks', required=False, type=str, nargs='+',
-                          default=EloadValidation.all_validation_tasks, choices=EloadValidation.all_validation_tasks,
-                          help='task or set of tasks to perform during validation')
-    argparse.add_argument('--set_as_valid', action='store_true', default=False,
-                          help='Set the script to consider all validation tasks performed as valid in the final '
-                               'evaluation. This does not affect the actual report but only change the final '
-                               'evaluation')
-    argparse.add_argument('--report', action='store_true', default=False,
-                          help='Set the script to only report the results based on previously run validation.')
-
+    argparse.add_argument('--analysis_alias', required=False, type=str, help='Analysis alias to use')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
 
@@ -50,11 +41,8 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    eload = EloadValidation(args.eload)
-    eload.upgrade_config_if_needed()
-    if not args.report:
-        eload.validate(args.validation_tasks, args.set_as_valid)
-    eload.report()
+    eload = Eload(args.eload)
+    eload.upgrade_config_if_needed(args.analysis_alias)
 
 
 if __name__ == "__main__":

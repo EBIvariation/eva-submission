@@ -50,6 +50,7 @@ def main():
 
     # Optionally Set the valid VCF and metadata file
     brokering = EloadBrokering(args.eload, args.vcf_files, args.metadata_file)
+    brokering.upgrade_config_if_needed()
     if not args.report:
         brokering.broker(brokering_tasks_to_force=args.force)
     brokering.report()

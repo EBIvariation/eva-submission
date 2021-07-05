@@ -6,6 +6,7 @@ from ebi_eva_common_pyutils.config import Configuration, cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
 from eva_submission import __version__
+from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 logger = log_cfg.get_logger(__name__)
 
@@ -22,8 +23,7 @@ class EloadConfig(Configuration):
             self.config_file = search_path[0]
             pass
 
-    # TODO where do we call this?
-    def upgrade_if_needed(self):
+    def upgrade_if_needed(self, analysis_alias):
         """
         Upgrades unversioned configs (i.e. pre-1.0) to the current version.
         Currently doesn't perform any other version upgrades.
@@ -38,8 +38,8 @@ class EloadConfig(Configuration):
                 raise ValueError('Need submission config section to upgrade')
 
             # Note: if we're converting an old config, there's only one analysis
-            # TODO get alias from metadata? does this need to be the actual analysis alias???
-            analysis_alias = 'Analysis 1'
+            if not analysis_alias:
+                analysis_alias = self._get_analysis_alias_from_metadata()
             analysis_data = {
                 'assembly_accession': self.pop('submission', 'assembly_accession'),
                 'assembly_fasta': self.pop('submission', 'assembly_fasta'),
@@ -66,6 +66,16 @@ class EloadConfig(Configuration):
         else:
             # TODO think through how complicated this might get...
             logger.info(f"Config is version {self.query('version')}, not upgrading.")
+
+    def _get_analysis_alias_from_metadata(self):
+        metadata_spreadsheet = self.query('validation', 'valid', 'metadata_spreadsheet')
+        if metadata_spreadsheet:
+            reader = EvaXlsxReader(metadata_spreadsheet)
+            if len(reader.analysis) != 1:
+                return reader.analysis[0].get('Analysis Alias')
+        logger.error("Can't find an analysis alias for config upgrade.")
+        logger.error("Try running upgrade_config.py and passing an analysis alias explicitly.")
+        raise ValueError("Can't find an analysis alias for config upgrade.")
 
     def write(self):
         if self.config_file and self.content and os.path.isdir(os.path.dirname(self.config_file)):

@@ -8,7 +8,6 @@ requirements = [l.strip() for l in open(requirements_txt) if l and not l.startsw
 
 version = open(join(base_dir, 'VERSION')).read().strip()
 
-
 setup(
     name='eva_submission',
     packages=['eva_submission', 'eva_submission.ENA_submission', 'eva_submission.xlsx'],

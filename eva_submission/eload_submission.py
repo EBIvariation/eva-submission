@@ -57,6 +57,9 @@ class Eload(AppLogger):
     def now(self):
         return datetime.now()
 
+    def upgrade_config_if_needed(self, analysis_alias=None):
+        self.eload_cfg.upgrade_if_needed(analysis_alias)
+
     def update_config_with_hold_date(self, project_accession, project_alias=None):
         hold_date = get_hold_date_from_ena(project_accession, project_alias)
         self.eload_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
