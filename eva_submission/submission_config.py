@@ -25,16 +25,17 @@ class EloadConfig(Configuration):
 
     def upgrade_if_needed(self, analysis_alias):
         """
-        Upgrades unversioned configs (i.e. pre-1.0) to the current version.
-        Currently doesn't perform any other version upgrades.
+        Upgrades unversioned configs (i.e. pre-1.0) to the current version, making a backup first and using the
+        provided analysis alias for all vcf files. Currently doesn't perform any other version upgrades.
         """
         if 'version' not in self.content:
             logger.info(f'No version found in config, upgrading to version {__version__}.')
+            self.backup()
 
             self.set('version', value=__version__)
             if 'submission' not in self.content:
                 logger.error('Need submission config section to upgrade')
-                logger.error('Try running prepare_backlog_study.py to build a config from scratch.')
+                logger.error('Try running prepare_submission or prepare_backlog_study to build a config from scratch.')
                 raise ValueError('Need submission config section to upgrade')
 
             # Note: if we're converting an old config, there's only one analysis
@@ -60,7 +61,7 @@ class EloadConfig(Configuration):
                 }
                 analysis_dict[analysis_alias]['vcf_files'] = brokering_vcfs
                 self.set('brokering', 'analyses', value=analysis_dict)
-                analysis_accession = self.query('brokering', 'ena', 'ANALYSIS')
+                analysis_accession = self.pop('brokering', 'ena', 'ANALYSIS')
                 self.set('brokering', 'ena', 'ANALYSIS', analysis_alias, value=analysis_accession)
 
         else:
@@ -68,14 +69,29 @@ class EloadConfig(Configuration):
             logger.info(f"Config is version {self.query('version')}, not upgrading.")
 
     def _get_analysis_alias_from_metadata(self):
+        """
+        Returns analysis alias only if we find a metadata spreadsheet and it has exactly one analysis.
+        Otherwise provides an error message and raise an error.
+        """
         metadata_spreadsheet = self.query('validation', 'valid', 'metadata_spreadsheet')
         if metadata_spreadsheet:
             reader = EvaXlsxReader(metadata_spreadsheet)
-            if len(reader.analysis) != 1:
+            if len(reader.analysis) == 1:
                 return reader.analysis[0].get('Analysis Alias')
-        logger.error("Can't find an analysis alias for config upgrade.")
-        logger.error("Try running upgrade_config.py and passing an analysis alias explicitly.")
+
+            if len(reader.analysis) > 1:
+                logger.error("Can't assign analysis alias: multiple analyses found in metadata!")
+            else:
+                logger.error("Can't assign analysis alias: no analyses found in metadata!")
+        else:
+            logger.error("Can't assign analysis alias: no metadata found!")
+        logger.error("Try running upgrade_config and passing an analysis alias explicitly.")
         raise ValueError("Can't find an analysis alias for config upgrade.")
+
+    def backup(self):
+        if self.config_file and self.content and os.path.isdir(os.path.dirname(self.config_file)):
+            with open(f'{self.config_file}.old', 'w') as open_config:
+                yaml.safe_dump(self.content, open_config)
 
     def write(self):
         if self.config_file and self.content and os.path.isdir(os.path.dirname(self.config_file)):
