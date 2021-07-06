@@ -2,6 +2,7 @@
 import os
 import random
 import string
+from copy import deepcopy
 from datetime import datetime
 
 from cached_property import cached_property
@@ -62,7 +63,6 @@ class Eload(AppLogger):
             self.info(f'No version found in config, upgrading to version {__version__}.')
             self.eload_cfg.backup()
 
-            self.eload_cfg.set('version', value=__version__)
             if 'submission' not in self.eload_cfg:
                 self.error('Need submission config section to upgrade')
                 self.error('Try running prepare_submission or prepare_backlog_study to build a config from scratch.')
@@ -89,10 +89,14 @@ class Eload(AppLogger):
                     vcf_file: index_dict
                     for vcf_file, index_dict in self.eload_cfg.pop('brokering', 'vcf_files').items()
                 }
-                analysis_dict[analysis_alias]['vcf_files'] = brokering_vcfs
-                self.eload_cfg.set('brokering', 'analyses', value=analysis_dict)
+                brokering_analyses = deepcopy(analysis_dict)
+                brokering_analyses[analysis_alias]['vcf_files'] = brokering_vcfs
+                self.eload_cfg.set('brokering', 'analyses', value=brokering_analyses)
                 analysis_accession = self.eload_cfg.pop('brokering', 'ena', 'ANALYSIS')
                 self.eload_cfg.set('brokering', 'ena', 'ANALYSIS', analysis_alias, value=analysis_accession)
+
+            # Set version once we've successfully upgraded
+            self.eload_cfg.set('version', value=__version__)
         else:
             self.info(f"Config is version {self.eload_cfg.query('version')}, not upgrading.")
 
