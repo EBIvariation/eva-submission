@@ -257,7 +257,9 @@ def get_vep_and_vep_cache_version_from_ensembl(assembly_accession):
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
 def get_species_name_and_assembly(assembly_accession):
     url = f'https://rest.ensembl.org/info/genomes/assembly/{assembly_accession}?content-type=application/json'
-    json_response = requests.get(url).json()
+    response = requests.get(url)
+    response.raise_for_status()
+    json_response = response.json()
     if "error" in json_response:
         raise Exception(json_response["error"])
     elif 'name' not in json_response or 'assembly_name' not in json_response:
