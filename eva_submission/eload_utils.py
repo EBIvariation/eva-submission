@@ -188,34 +188,39 @@ def download_file(url, dest):
     urllib.request.urlcleanup()
 
 
-def get_vep_cache_version(mongo_uri, db_name, assembly_accession):
-    vep_cache_version = get_vep_cache_version_from_db(mongo_uri, db_name)
+def get_vep_and_vep_cache_version(mongo_uri, db_name, assembly_accession):
+    vep_cache_version = get_vep_and_vep_cache_version_from_db(mongo_uri, db_name)
     if not vep_cache_version:
-        vep_cache_version = get_vep_cache_version_from_ensembl(assembly_accession)
+        vep_cache_version = get_vep_and_vep_cache_version_from_ensembl(assembly_accession)
     return vep_cache_version
 
 
-def get_vep_cache_version_from_db(mongo_uri, db_name):
-    logger.info(f"Getting vep_cache_version from db: {db_name}")
-    vep_cache_list = []
+def get_vep_and_vep_cache_version_from_db(mongo_uri, db_name):
+    logger.info(f"Getting vep_version and vep_cache_version from db: {db_name}")
+    vep_version_list = []
     with pymongo.MongoClient(mongo_uri) as db:
         cursor = db[db_name]['annotationMetadata_2_0'].find({})
         for document in cursor:
-            vep_cache_list.append(int(document['cachev']))
-
-    if not vep_cache_list:
-        logger.info('Could not find any vep_cache_version from db')
-        return None
+            vep_version_list.append({
+                "vep_version": int(document['vepv']),
+                "vep_cache_version": int(document['cachev'])
+            })
+    if not vep_version_list:
+        logger.info('Could not find any vep_version and vep_cache_version from db')
+        return {
+                "vep_version": None,
+                "vep_cache_version": None
+            }
     else:
-        latest_cachev_version = max(vep_cache_list)
+        latest_version = max(vep_version_list, key=lambda x: x['vep_cache_version'])
         logger.info(
-            f'Found following vep_cache_versions from DB: {vep_cache_list}. Latest version is {latest_cachev_version}')
-        return latest_cachev_version
+            f'Found following vep_version and vep_cache_versions from DB {vep_version_list}. Latest version is {latest_version}')
+        return latest_version
 
-
-def get_vep_cache_version_from_ensembl(assembly_accession):
+#TODO : add logic to get vep_version also
+def get_vep_and_vep_cache_version_from_ensembl(assembly_accession):
     try:
-        logger.info('Getting vep_cache_version from ensembl.')
+        logger.info('Getting vep and vep_cache_version from ensembl.')
         logger.info(f'Getting species and assembly from ensembl using assembly accession: {assembly_accession}')
         species_assembly = get_species_name_and_assembly(assembly_accession)
         logger.info(f'Details from Ensembl for species and assembly : {species_assembly}')
@@ -232,12 +237,21 @@ def get_vep_cache_version_from_ensembl(assembly_accession):
                 if species_assembly['species'] in file and species_assembly['assembly'] in file:
                     logger.info(
                         f'Found vep_cache_version for the species and assembly : {species_assembly}, file: {file}, release: {release}')
-                    return release
-        logger.info(f'could not find vep_cache_version for the given species and assembly: {species_assembly}')
-        return None
+                    return {
+                        "vep_version": None,
+                        "vep_cache_version": release
+                    }
+        logger.warn(f'could not find vep_cache_version for the given species and assembly: {species_assembly}')
+        return {
+            "vep_version": None,
+            "vep_cache_version": None
+        }
     except Exception as err:
-        logger.info(f'Encountered Error while fetching vep_cache_version : {err}')
-        return None
+        logger.warn(f'Encountered Error while fetching vep_cache_version : {err}')
+        return {
+            "vep_version": None,
+            "vep_cache_version": None
+        }
 
 
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
