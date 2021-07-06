@@ -20,7 +20,7 @@ from argparse import ArgumentParser
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
 from eva_submission.submission_config import load_config
-from eva_submission.eload_submission import EloadPreparation
+from eva_submission.eload_preparation import EloadPreparation
 
 logger = log_cfg.get_logger(__name__)
 

@@ -11,7 +11,7 @@ from eva_submission.biosamples_submission import SampleMetadataSubmitter
 from eva_submission.eload_brokering import EloadBrokering
 from eva_submission.eload_submission import Eload
 from eva_submission.submission_config import load_config
-from tests.test_eload_submission import touch
+from tests.test_eload_preparation import touch
 
 
 class TestEloadBrokering(TestCase):
@@ -61,7 +61,6 @@ class TestEloadBrokering(TestCase):
         self.eload.upload_to_bioSamples()
         # Pass is not set because it is expected to have been set when the samples
         assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'pass') is None
-
 
     def test_run_brokering_prep_workflow(self):
         cfg.content['executable'] = {
