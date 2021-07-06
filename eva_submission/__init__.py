@@ -7,4 +7,4 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # This i
 NEXTFLOW_DIR = os.path.join(os.path.dirname(os.path.abspath(eva_submission.__file__)), 'nextflow')
 ETC_DIR = os.path.join(os.path.dirname(os.path.abspath(eva_submission.__file__)), 'etc')
 
-__version__ = open(os.path.join(ROOT_DIR, 'VERSION')).read().strip()
+__version__ = open(os.path.join(ROOT_DIR, 'eva_submission', 'VERSION')).read().strip()

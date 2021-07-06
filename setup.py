@@ -6,12 +6,12 @@ base_dir = abspath(dirname(__file__))
 requirements_txt = join(base_dir, 'requirements.txt')
 requirements = [l.strip() for l in open(requirements_txt) if l and not l.startswith('#')]
 
-version = open(join(base_dir, 'VERSION')).read().strip()
+version = open(join(base_dir, 'eva_submission', 'VERSION')).read().strip()
 
 setup(
     name='eva_submission',
     packages=['eva_submission', 'eva_submission.ENA_submission', 'eva_submission.xlsx'],
-    package_data={'eva_submission': ['nextflow/*', 'etc/*']},
+    package_data={'eva_submission': ['nextflow/*', 'etc/*', 'VERSION']},
     version=version,
     license='Apache',
     description='EBI EVA - submission processing tools',
