@@ -3,11 +3,8 @@ import os
 
 import yaml
 from ebi_eva_common_pyutils.config import Configuration, cfg
-from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
 from eva_submission import __version__
-
-logger = log_cfg.get_logger(__name__)
 
 
 class EloadConfig(Configuration):
