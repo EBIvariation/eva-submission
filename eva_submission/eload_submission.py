@@ -36,6 +36,8 @@ class Eload(AppLogger):
         self.eload = f'ELOAD_{eload_number}'
         self.eload_dir = os.path.abspath(os.path.join(cfg['eloads_dir'], self.eload))
         self.eload_cfg = EloadConfig(os.path.join(self.eload_dir, '.' + self.eload + '_config.yml'))
+        self.maven_env = cfg['maven']['environment']
+        self.maven_settings_file = cfg['maven']['settings_file']
 
         os.makedirs(self.eload_dir, exist_ok=True)
         for k in directory_structure:
