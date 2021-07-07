@@ -1,6 +1,6 @@
 cached-property
 cerberus
-#ebi_eva_common_pyutils==0.3.12
+ebi_eva_common_pyutils==0.3.14
 humanize
 lxml
 openpyxl
