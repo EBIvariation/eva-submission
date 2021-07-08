@@ -7,7 +7,7 @@ import yaml
 from cached_property import cached_property
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
-from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile, get_mongo_creds_for_profile, \
+from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile, get_primary_mongo_creds_for_profile, \
     get_accession_pg_creds_for_profile
 from ebi_eva_common_pyutils.metadata_utils import get_variant_warehouse_db_name_from_assembly_and_taxonomy, \
     get_metadata_connection_handle
@@ -213,7 +213,7 @@ class EloadIngestion(Eload):
 
     def run_accession_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
-        mongo_host, mongo_user, mongo_pass = get_mongo_creds_for_profile(self.maven_env, self.maven_settings_file)
+        mongo_host, mongo_user, mongo_pass = get_primary_mongo_creds_for_profile(self.maven_env, self.maven_settings_file)
         pg_url, pg_user, pg_pass = get_accession_pg_creds_for_profile(self.maven_env, self.maven_settings_file)
         job_props = accession_props_template(
             assembly_accession=self.eload_cfg.query('submission', 'assembly_accession'),

@@ -109,7 +109,8 @@ class TestEloadIngestion(TestCase):
 
     def test_ingest_all_tasks(self):
         with patch('eva_submission.eload_ingestion.get_metadata_connection_handle', autospec=True), \
-                patch('eva_submission.eload_ingestion.get_mongo_creds_for_profile', autospec=True) as m_mongo_creds, \
+                patch('eva_submission.eload_ingestion.get_primary_mongo_creds_for_profile',
+                      autospec=True) as m_mongo_creds, \
                 patch('eva_submission.eload_ingestion.get_accession_pg_creds_for_profile',
                       autospec=True) as m_pg_creds, \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
@@ -140,7 +141,8 @@ class TestEloadIngestion(TestCase):
 
     def test_ingest_accession(self):
         with patch('eva_submission.eload_ingestion.get_metadata_connection_handle', autospec=True), \
-                patch('eva_submission.eload_ingestion.get_mongo_creds_for_profile', autospec=True) as m_mongo_creds, \
+                patch('eva_submission.eload_ingestion.get_primary_mongo_creds_for_profile',
+                      autospec=True) as m_mongo_creds, \
                 patch('eva_submission.eload_ingestion.get_accession_pg_creds_for_profile', autospec=True) as m_pg_creds, \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
