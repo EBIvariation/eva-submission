@@ -260,29 +260,35 @@ class EloadIngestion(Eload):
 
     def run_variant_load_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
+        job_props = variant_load_props_template(
+            project_accession=self.project_accession,
+            # TODO currently there is only ever one of these in the config, even if multiple analyses/files
+            analysis_accession=self.eload_cfg.query('brokering', 'ena', 'ANALYSIS'),
+            aggregation=self.eload_cfg.query(self.config_section, 'aggregation'),
+            study_name=self.get_study_name(),
+            fasta=self.eload_cfg.query('submission', 'assembly_fasta'),
+            output_dir=self.project_dir.joinpath(project_dirs['transformed']),
+            annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
+            stats_dir=self.project_dir.joinpath(project_dirs['stats']),
+            db_name=self.eload_cfg.query(self.config_section, 'database', 'db_name'),
+            vep_species=self.get_vep_species(),
+            vep_version=-1,
+            vep_cache_version=-1,
+        )
+        coll_name = job_props['db.collections.annotations.name']
         vep = get_vep_and_vep_cache_version(self.mongo_uri,
-                                    self.eload_cfg.query(self.config_section, 'database', 'db_name'),
-                                    self.eload_cfg.query('submission', 'assembly_accession'))
+                                            self.eload_cfg.query(self.config_section, 'database', 'db_name'),
+                                            coll_name,
+                                            self.eload_cfg.query('submission', 'assembly_accession'))
         vep_version = vep['vep_version']
         vep_cache_version = vep['vep_cache_version']
         self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'version', value=vep_version)
         self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', value=vep_cache_version)
-        job_props = variant_load_props_template(
-                project_accession=self.project_accession,
-                # TODO currently there is only ever one of these in the config, even if multiple analyses/files
-                analysis_accession=self.eload_cfg.query('brokering', 'ena', 'ANALYSIS'),
-                aggregation=self.eload_cfg.query(self.config_section, 'aggregation'),
-                study_name=self.get_study_name(),
-                fasta=self.eload_cfg.query('submission', 'assembly_fasta'),
-                output_dir=self.project_dir.joinpath(project_dirs['transformed']),
-                annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
-                stats_dir=self.project_dir.joinpath(project_dirs['stats']),
-                db_name=self.eload_cfg.query(self.config_section, 'database', 'db_name'),
-                vep_species=self.get_vep_species(),
-                vep_version=vep_version,
-                vep_cache_version=vep_cache_version,
-                annotation_skip=True if vep_cache_version is None else False
-        )
+        job_props.update({
+            'app.vep.version': vep_version,
+            'app.vep.cache.version': vep_cache_version,
+            'annotation.skip': True if vep_cache_version is None else False
+        })
         load_config = {
             'valid_vcfs': [str(f) for f in self.valid_vcf_filenames],
             # TODO implement proper merge check or get from validation

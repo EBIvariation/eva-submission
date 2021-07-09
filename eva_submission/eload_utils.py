@@ -188,18 +188,18 @@ def download_file(url, dest):
     urllib.request.urlcleanup()
 
 
-def get_vep_and_vep_cache_version(mongo_uri, db_name, assembly_accession):
-    vep_cache_version = get_vep_and_vep_cache_version_from_db(mongo_uri, db_name)
+def get_vep_and_vep_cache_version(mongo_uri, db_name, coll_name, assembly_accession):
+    vep_cache_version = get_vep_and_vep_cache_version_from_db(mongo_uri, db_name, coll_name)
     if not vep_cache_version:
         vep_cache_version = get_vep_and_vep_cache_version_from_ensembl(assembly_accession)
     return vep_cache_version
 
 
-def get_vep_and_vep_cache_version_from_db(mongo_uri, db_name):
+def get_vep_and_vep_cache_version_from_db(mongo_uri, db_name, coll_name):
     logger.info(f"Getting vep_version and vep_cache_version from db: {db_name}")
     vep_version_list = []
     with pymongo.MongoClient(mongo_uri) as db:
-        cursor = db[db_name]['annotationMetadata_2_0'].find({})
+        cursor = db[db_name][coll_name].find({})
         for document in cursor:
             vep_version_list.append({
                 "vep_version": int(document['vepv']),
