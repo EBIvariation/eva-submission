@@ -110,3 +110,11 @@ python prepare_backlog_study.py --eload 506
 ```
 
 If the files are valid then ingestion can be run as usual.
+
+### Config upgrade
+
+There is also a script to upgrade an existing config file for a submission so that it is compatible with the current version of the submission automation scripts.
+This is automatically invoked when necessary, but it can also be run on its own, e.g. when an analysis alias can't be determined automatically.
+```bash
+python upgrade_config.py --eload 506 --analysis_alias alias
+```
