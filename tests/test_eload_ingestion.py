@@ -38,19 +38,6 @@ class TestEloadIngestion(TestCase):
         ])
         return m_db
 
-    def _fake_properties_dict(self):
-        return {
-            'eva.evapro.jdbc.url': 'jdbc:postgresql://pg.fake:9999',
-            'eva.evapro.user': 'fakeuser',
-            'eva.evapro.password': 'fakepass',
-            'eva.accession.jdbc.url': 'jdbc:postgresql://pg.fake:9999',
-            'eva.accession.user': 'fakeuser',
-            'eva.accession.password': 'fakepass',
-            'eva.mongo.host': 'mongo-01.test:9999,mongo-02.test:9999',
-            'eva.mongo.user': 'mongouser',
-            'eva.mongo.passwd': 'mongopass'
-        }
-
     def test_check_brokering_done(self):
         self.eload.project_accession = None
         with self.assertRaises(ValueError):
@@ -60,12 +47,10 @@ class TestEloadIngestion(TestCase):
             self.eload.check_brokering_done()
 
     def test_check_variant_db(self):
-        with patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
-                patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
+        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_ingestion.get_variant_warehouse_db_name_from_assembly_and_taxonomy',
                       autospec=True) as m_get_results, \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo:
-            m_properties.return_value = self._fake_properties_dict()
             m_get_results.return_value = 'eva_ecaballus_30'
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
 
@@ -77,22 +62,18 @@ class TestEloadIngestion(TestCase):
             assert self.eload.eload_cfg.query('ingestion', 'database', 'exists')
 
     def test_check_variant_db_not_in_evapro(self):
-        with patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
-                patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
-                patch('eva_submission.eload_ingestion.get_variant_warehouse_db_name_from_assembly_and_taxonomy',
-                      autospec=True) as m_get_results, \
+        with patch('eva_submission.eload_ingestion.get_variant_warehouse_db_name_from_assembly_and_taxonomy',
+                   autospec=True) as m_get_results, \
+                patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo:
-            m_properties.return_value = self._fake_properties_dict()
             m_get_results.return_value = None
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             with self.assertRaises(ValueError):
                 self.eload.check_variant_db()
 
     def test_check_variant_db_name_provided(self):
-        with patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
-                patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
+        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo:
-            m_properties.return_value = self._fake_properties_dict()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             self.eload.check_variant_db(db_name='eva_hsapiens_grch38')
             self.assertEqual(
@@ -102,10 +83,8 @@ class TestEloadIngestion(TestCase):
             assert self.eload.eload_cfg.query('ingestion', 'database', 'exists')
 
     def test_check_variant_db_missing(self):
-        with patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
-                patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
+        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo:
-            m_properties.return_value = self._fake_properties_dict()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
 
             with self.assertRaises(ValueError):
@@ -129,48 +108,51 @@ class TestEloadIngestion(TestCase):
             m_execute.assert_called_once()
 
     def test_ingest_all_tasks(self):
-        with patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
-                patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
+        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+                patch('eva_submission.eload_ingestion.get_primary_mongo_creds_for_profile',
+                      autospec=True) as m_mongo_creds, \
+                patch('eva_submission.eload_ingestion.get_accession_pg_creds_for_profile',
+                      autospec=True) as m_pg_creds, \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
-                patch('eva_submission.eload_utils.get_metadata_conn', autospec=True), \
+                patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
                 patch('eva_submission.eload_utils.requests.post') as m_post:
+            m_mongo_creds.return_value = m_pg_creds.return_value = ('host', 'user', 'pass')
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_properties.return_value = self._fake_properties_dict()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             # first call is for browsable files, second is for study name
             m_get_results.side_effect = [[(1, 'filename_1'), (2, 'filename_2')], [('Test Study Name')]]
             self.eload.ingest('NONE', 1, 82, 82, db_name='eva_hsapiens_grch38')
 
     def test_ingest_metadata_load(self):
-        with patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
-                patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
+        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
-                patch('eva_submission.eload_utils.get_metadata_conn', autospec=True), \
+                patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
                 patch('eva_submission.eload_utils.requests.post') as m_post:
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_properties.return_value = self._fake_properties_dict()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             self.eload.ingest(tasks=['metadata_load'], db_name='eva_hsapiens_grch38')
 
     def test_ingest_accession(self):
-        with patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
-                patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
+        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+                patch('eva_submission.eload_ingestion.get_primary_mongo_creds_for_profile',
+                      autospec=True) as m_mongo_creds, \
+                patch('eva_submission.eload_ingestion.get_accession_pg_creds_for_profile', autospec=True) as m_pg_creds, \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
-                patch('eva_submission.eload_utils.get_metadata_conn', autospec=True), \
+                patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
                 patch('eva_submission.eload_utils.requests.post') as m_post:
+            m_mongo_creds.return_value = m_pg_creds.return_value = ('host', 'user', 'pass')
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_properties.return_value = self._fake_properties_dict()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             m_get_results.return_value = [(1, 'filename_1'), (2, 'filename_2')]
             self.eload.ingest(
@@ -184,17 +166,15 @@ class TestEloadIngestion(TestCase):
             )
 
     def test_ingest_variant_load(self):
-        with patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
-                patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
+        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
-                patch('eva_submission.eload_utils.get_metadata_conn', autospec=True), \
+                patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
                 patch('eva_submission.eload_utils.requests.post') as m_post:
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_properties.return_value = self._fake_properties_dict()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             m_get_results.return_value = [('Test Study Name')]
             self.eload.ingest(
@@ -209,11 +189,9 @@ class TestEloadIngestion(TestCase):
             )
 
     def test_insert_browsable_files(self):
-        with patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
-                patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
+        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.execute_query') as m_execute:
-            m_properties.return_value = self._fake_properties_dict()
             m_get_results.side_effect = [[], [(1, 'filename_1'), (2, 'filename_2')], [(1, 'filename_1'), (2, 'filename_2')]]
             self.eload.insert_browsable_files()
             m_execute.assert_called()

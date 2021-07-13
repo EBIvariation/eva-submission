@@ -5,8 +5,7 @@ from cached_property import cached_property
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
 
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import get_metadata_conn, get_reference_fasta_and_report, get_project_alias, \
-    backup_file, download_file
+from eva_submission.eload_utils import get_reference_fasta_and_report, get_project_alias, backup_file, download_file
 
 
 class EloadBacklog(Eload):
@@ -29,7 +28,7 @@ class EloadBacklog(Eload):
 
     @cached_property
     def project_accession(self):
-        with get_metadata_conn() as conn:
+        with self.metadata_connection_handle as conn:
             query = f"select project_accession from evapro.project_eva_submission where eload_id={self.eload_num};"
             rows = get_all_results_for_query(conn, query)
         if len(rows) != 1:
@@ -43,7 +42,7 @@ class EloadBacklog(Eload):
     def get_species_info(self):
         """Adds species info into the config: taxonomy id and scientific name,
         and assembly accession, fasta, and report."""
-        with get_metadata_conn() as conn:
+        with self.metadata_connection_handle as conn:
             query = f"select a.taxonomy_id, b.scientific_name " \
                     f"from project_taxonomy a " \
                     f"join taxonomy b on a.taxonomy_id=b.taxonomy_id " \
@@ -57,7 +56,7 @@ class EloadBacklog(Eload):
         self.eload_cfg.set('submission', 'taxonomy_id', value=tax_id)
         self.eload_cfg.set('submission', 'scientific_name', value=sci_name)
 
-        with get_metadata_conn() as conn:
+        with self.metadata_connection_handle as conn:
             query = f"select distinct b.vcf_reference_accession " \
                     f"from project_analysis a " \
                     f"join analysis b on a.analysis_accession=b.analysis_accession " \
@@ -95,7 +94,7 @@ class EloadBacklog(Eload):
 
     def get_analysis_info(self):
         """Adds analysis info into the config: analysis accession(s), and vcf and index files."""
-        with get_metadata_conn() as conn:
+        with self.metadata_connection_handle as conn:
             query = f"select a.analysis_accession, array_agg(c.filename) " \
                     f"from project_analysis a " \
                     f"join analysis_file b on a.analysis_accession=b.analysis_accession " \

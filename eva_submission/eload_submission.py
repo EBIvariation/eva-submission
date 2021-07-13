@@ -9,6 +9,7 @@ from datetime import datetime
 from cached_property import cached_property
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
+from ebi_eva_common_pyutils.metadata_utils import get_metadata_connection_handle
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 
 from eva_submission.eload_utils import get_hold_date_from_ena
@@ -40,6 +41,10 @@ class Eload(AppLogger):
         os.makedirs(self.eload_dir, exist_ok=True)
         for k in directory_structure:
             os.makedirs(self._get_dir(k), exist_ok=True)
+
+    @property
+    def metadata_connection_handle(self):
+        return get_metadata_connection_handle(cfg['maven']['environment'], cfg['maven']['settings_file'])
 
     def create_nextflow_temp_output_directory(self, base=None):
         random_string = ''.join(random.choice(string.ascii_letters) for i in range(6))
