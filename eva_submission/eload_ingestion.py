@@ -9,8 +9,7 @@ from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile, get_primary_mongo_creds_for_profile, \
     get_accession_pg_creds_for_profile
-from ebi_eva_common_pyutils.metadata_utils import get_variant_warehouse_db_name_from_assembly_and_taxonomy, \
-    get_metadata_connection_handle
+from ebi_eva_common_pyutils.metadata_utils import get_variant_warehouse_db_name_from_assembly_and_taxonomy
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
 import pymongo
 
@@ -40,7 +39,7 @@ class EloadIngestion(Eload):
         super().__init__(eload_number)
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
         self.project_dir = self.setup_project_dir()
-        self.mongo_uri = get_mongo_uri_for_eva_profile(self.maven_env, self.maven_settings_file)
+        self.mongo_uri = get_mongo_uri_for_eva_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
 
     def ingest(
             self,
@@ -98,7 +97,7 @@ class EloadIngestion(Eload):
         assm_accession = self.eload_cfg.query('submission', 'assembly_accession')
         taxon_id = self.eload_cfg.query('submission', 'taxonomy_id')
         # query EVAPRO for db name based on taxonomy id and accession
-        with get_metadata_connection_handle(self.maven_env, self.maven_settings_file) as conn:
+        with self.metadata_connection_handle as conn:
             db_name = get_variant_warehouse_db_name_from_assembly_and_taxonomy(conn, assm_accession, taxon_id)
         if not db_name:
             self.error(f'Database for taxonomy id {taxon_id} and assembly {assm_accession} not found in EVAPRO.')
@@ -117,7 +116,7 @@ class EloadIngestion(Eload):
         if not db_name:
             db_name = self.get_db_name()
         else:
-            with get_metadata_connection_handle(self.maven_env, self.maven_settings_file) as conn:
+            with self.metadata_connection_handle as conn:
                 # warns but doesn't crash if assembly set already exists
                 insert_new_assembly_and_taxonomy(
                     assembly_accession=self.eload_cfg.query('submission', 'assembly_accession'),
@@ -200,7 +199,7 @@ class EloadIngestion(Eload):
         return project_dir
 
     def get_study_name(self):
-        with get_metadata_connection_handle(self.maven_env, self.maven_settings_file) as conn:
+        with self.metadata_connection_handle as conn:
             query = f"SELECT title FROM evapro.project WHERE project_accession='{self.project_accession}';"
             rows = get_all_results_for_query(conn, query)
         if len(rows) != 1:
@@ -213,8 +212,8 @@ class EloadIngestion(Eload):
 
     def run_accession_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
-        mongo_host, mongo_user, mongo_pass = get_primary_mongo_creds_for_profile(self.maven_env, self.maven_settings_file)
-        pg_url, pg_user, pg_pass = get_accession_pg_creds_for_profile(self.maven_env, self.maven_settings_file)
+        mongo_host, mongo_user, mongo_pass = get_primary_mongo_creds_for_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
+        pg_url, pg_user, pg_pass = get_accession_pg_creds_for_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
         job_props = accession_props_template(
             assembly_accession=self.eload_cfg.query('submission', 'assembly_accession'),
             taxonomy_id=self.eload_cfg.query('submission', 'taxonomy_id'),
@@ -314,7 +313,7 @@ class EloadIngestion(Eload):
         return output_dir
 
     def insert_browsable_files(self):
-        with get_metadata_connection_handle(self.maven_env, self.maven_settings_file) as conn:
+        with self.metadata_connection_handle as conn:
             # insert into browsable file table, if files not already there
             files_query = f"select file_id, filename from evapro.browsable_file " \
                           f"where project_accession = '{self.project_accession}';"
@@ -350,7 +349,7 @@ class EloadIngestion(Eload):
                 execute_query(conn, ftp_update)
 
     def refresh_study_browser(self):
-        with get_metadata_connection_handle(self.maven_env, self.maven_settings_file) as conn:
+        with self.metadata_connection_handle as conn:
             execute_query(conn, 'refresh materialized view study_browser;')
 
     @cached_property
