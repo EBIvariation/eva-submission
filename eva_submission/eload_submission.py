@@ -2,7 +2,6 @@
 import os
 import random
 import string
-from copy import deepcopy
 from datetime import datetime
 
 from cached_property import cached_property
@@ -10,6 +9,7 @@ from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 
 from eva_submission import __version__
+from eva_submission.config_migration import upgrade_version_0_1
 from eva_submission.eload_utils import get_hold_date_from_ena
 from eva_submission.submission_config import EloadConfig
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
@@ -56,69 +56,15 @@ class Eload(AppLogger):
 
     def upgrade_config_if_needed(self, analysis_alias=None):
         """
-        Upgrades unversioned configs (i.e. pre-1.0) to the current version, making a backup first and using the
-        provided analysis alias for all vcf files. Currently doesn't perform any other version upgrades.
+        Upgrades configs to the current version, making a backup first and using the provided analysis alias for all
+        vcf files. Currently doesn't perform any other version upgrades.
         """
         if 'version' not in self.eload_cfg:
-            self.info(f'No version found in config, upgrading to version {__version__}.')
+            self.debug(f'No version found in config, upgrading to version {__version__}.')
             self.eload_cfg.backup()
-
-            if 'submission' not in self.eload_cfg:
-                self.error('Need submission config section to upgrade')
-                self.error('Try running prepare_submission or prepare_backlog_study to build a config from scratch.')
-                raise ValueError('Need submission config section to upgrade')
-
-            # Note: if we're converting an old config, there's only one analysis
-            if not analysis_alias:
-                analysis_alias = self._get_analysis_alias_from_metadata()
-            analysis_data = {
-                'assembly_accession': self.eload_cfg.pop('submission', 'assembly_accession'),
-                'assembly_fasta': self.eload_cfg.pop('submission', 'assembly_fasta'),
-                'assembly_report': self.eload_cfg.pop('submission', 'assembly_report'),
-                'vcf_files': self.eload_cfg.pop('submission', 'vcf_files')
-            }
-            analysis_dict = {analysis_alias: analysis_data}
-            self.eload_cfg.set('submission', 'analyses', value=analysis_dict)
-
-            if 'validation' in self.eload_cfg:
-                self.eload_cfg.pop('validation', 'valid', 'vcf_files')
-                self.eload_cfg.set('validation', 'valid', 'analyses', value=analysis_dict)
-
-            if 'brokering' in self.eload_cfg:
-                brokering_vcfs = {
-                    vcf_file: index_dict
-                    for vcf_file, index_dict in self.eload_cfg.pop('brokering', 'vcf_files').items()
-                }
-                brokering_analyses = deepcopy(analysis_dict)
-                brokering_analyses[analysis_alias]['vcf_files'] = brokering_vcfs
-                self.eload_cfg.set('brokering', 'analyses', value=brokering_analyses)
-                analysis_accession = self.eload_cfg.pop('brokering', 'ena', 'ANALYSIS')
-                self.eload_cfg.set('brokering', 'ena', 'ANALYSIS', analysis_alias, value=analysis_accession)
-
-            # Set version once we've successfully upgraded
-            self.eload_cfg.set('version', value=__version__)
+            upgrade_version_0_1(self.eload_cfg, analysis_alias)
         else:
-            self.info(f"Config is version {self.eload_cfg.query('version')}, not upgrading.")
-
-    def _get_analysis_alias_from_metadata(self):
-        """
-        Returns analysis alias only if we find a metadata spreadsheet and it has exactly one analysis.
-        Otherwise provides an error message and raise an error.
-        """
-        metadata_spreadsheet = self.eload_cfg.query('validation', 'valid', 'metadata_spreadsheet')
-        if metadata_spreadsheet:
-            reader = EvaXlsxReader(metadata_spreadsheet)
-            if len(reader.analysis) == 1:
-                return reader.analysis[0].get('Analysis Alias')
-
-            if len(reader.analysis) > 1:
-                self.error("Can't assign analysis alias: multiple analyses found in metadata!")
-            else:
-                self.error("Can't assign analysis alias: no analyses found in metadata!")
-        else:
-            self.error("Can't assign analysis alias: no metadata found!")
-        self.error("Try running upgrade_config and passing an analysis alias explicitly.")
-        raise ValueError("Can't find an analysis alias for config upgrade.")
+            self.debug(f"Config is version {self.eload_cfg.query('version')}, not upgrading.")
 
     def update_config_with_hold_date(self, project_accession, project_alias=None):
         hold_date = get_hold_date_from_ena(project_accession, project_alias)

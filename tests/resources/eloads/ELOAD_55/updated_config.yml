@@ -4,7 +4,7 @@ brokering:
       '107': SAMEA8868451
     date: &id001 2021-05-04 11:48:57.230908
     pass: true
-  analyses: &id002
+  analyses:
     analysis alias:
       assembly_accession: GCA_000002315.5
       assembly_fasta: assembly.fa
@@ -27,7 +27,13 @@ brokering:
     pass: true
     receipt: RECEIPT
 submission:
-  analyses: *id002
+  analyses: &id002
+    analysis alias:
+      assembly_accession: GCA_000002315.5
+      assembly_fasta: assembly.fa
+      assembly_report: assembly_report.txt
+      vcf_files:
+      - file.vcf
   metadata_spreadsheet: metadata.xlsx
   scientific_name: Gallus gallus
   taxonomy_id: 9031
