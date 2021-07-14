@@ -59,6 +59,7 @@ def main():
     load_config()
 
     ingestion = EloadIngestion(args.eload)
+    ingestion.upgrade_config_if_needed()
     ingestion.ingest(
         aggregation=args.aggregation,
         instance_id=args.instance,

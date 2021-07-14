@@ -4,6 +4,8 @@ import os
 import yaml
 from ebi_eva_common_pyutils.config import Configuration, cfg
 
+from eva_submission import __version__
+
 
 class EloadConfig(Configuration):
     """Configuration object that allows write to the config file"""
@@ -16,6 +18,11 @@ class EloadConfig(Configuration):
             # in that case the first search path is set to be the config files
             self.config_file = search_path[0]
             pass
+
+    def backup(self):
+        if self.config_file and self.content and os.path.isdir(os.path.dirname(self.config_file)):
+            with open(f'{self.config_file}.old', 'w') as open_config:
+                yaml.safe_dump(self.content, open_config)
 
     def write(self):
         if self.config_file and self.content and os.path.isdir(os.path.dirname(self.config_file)):
@@ -30,14 +37,29 @@ class EloadConfig(Configuration):
             top_level = top_level[p]
         top_level[path[-1]] = value
 
+    def pop(self, *path, default=None):
+        """Recursive dictionary pop with default"""
+        top_level = self.content
+        for p in path[:-1]:
+            if p not in top_level:
+                return default
+            top_level = top_level[p]
+        return top_level.pop(path[-1], default)
+
     def is_empty(self):
         return not self.content
 
     def clear(self):
         self.content = {}
 
+    def __contains__(self, item):
+        return item in self.content
+
     def __setitem__(self, item, value):
         """Allow dict-style write access, e.g. config['this']='that'."""
+        # If we're starting to fill in an empty config, set the version.
+        if self.is_empty():
+            self.content['version'] = __version__
         self.content[item] = value
 
     def __del__(self):

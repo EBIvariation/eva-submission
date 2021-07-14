@@ -39,7 +39,6 @@ class EloadIngestion(Eload):
     def __init__(self, eload_number):
         super().__init__(eload_number)
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
-        self.project_dir = self.setup_project_dir()
         self.mongo_uri = get_mongo_uri_for_eva_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
 
     def ingest(
@@ -53,6 +52,7 @@ class EloadIngestion(Eload):
             tasks=None
     ):
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
+        self.project_dir = self.setup_project_dir()
         self.check_brokering_done()
         self.check_variant_db(db_name, db_name_mapping)
 
