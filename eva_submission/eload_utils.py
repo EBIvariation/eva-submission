@@ -121,7 +121,7 @@ def get_hold_date_from_ena(project_accession, project_alias=None):
     hold_date = None
     try:
         hold_date = receipt.findall('PROJECT')[0].attrib['holdUntilDate']
-        hold_date = datetime.strptime(hold_date, '%Y-%m-%d%z')
+        hold_date = datetime.strptime(hold_date.replace(':', ''), '%Y-%m-%d%z')
     except (IndexError, KeyError):
         # if there's no hold date, assume it's already been made public
         xml_root = download_xml_from_ena(f'https://www.ebi.ac.uk/ena/browser/api/xml/{project_accession}')
