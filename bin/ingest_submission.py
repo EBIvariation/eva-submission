@@ -44,7 +44,7 @@ def main():
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level.')
     action_skip_annotation = argparse.add_argument('--skip_annotation', action='store_true', default=False,
-                                                   help='Allows the user to specify whether annotation needs to be performed or skipped. Only needed if running variant load.')
+                                                   help='Flag to skip VEP annotation running variant load.')
 
     args = argparse.parse_args()
 
@@ -53,9 +53,12 @@ def main():
         log_cfg.set_log_level(logging.DEBUG)
 
     if args.skip_annotation is True and (args.vep_version is not None or args.vep_cache_version is not None):
-        raise ArgumentError(action_skip_annotation, "Can't provide both \"--skip_annotation\" and \"--ver_version and --vep_cache_version\". Remove one of them and try again.")
-    if (args.vep_version is None and args.vep_cache_version is not None) or (args.vep_version is not None and args.vep_cache_version is None):
-        raise ArgumentError(action_vep_version, "Can't provide value for only one out of \"--ver_version and --vep_cache_version\". Please provide values for both or none.")
+        raise ArgumentError(action_skip_annotation,
+                            "Can't provide both \"--skip_annotation\" and \"--vep_version and --vep_cache_version\". Remove VEP/Cache versions or the skip flag and try again.")
+    if (args.vep_version is None and args.vep_cache_version is not None) or (
+            args.vep_version is not None and args.vep_cache_version is None):
+        raise ArgumentError(action_vep_version,
+                            "Both \"--vep_version and --vep_cache_version\" should be specified together. Skip both arguments for auto-detection of these versions.")
 
     # Load the config_file from default location
     load_config()
