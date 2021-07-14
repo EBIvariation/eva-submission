@@ -1,18 +1,15 @@
 import glob
 import os
 import urllib
-from urllib.parse import urlsplit
 from xml.etree import ElementTree as ET
 
-import psycopg2
 import requests
 from ebi_eva_common_pyutils.config import cfg
-from ebi_eva_common_pyutils.config_utils import get_properties_from_xml_file
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
+from ebi_eva_common_pyutils.metadata_utils import get_metadata_connection_handle
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
 from ebi_eva_common_pyutils.reference import NCBIAssembly, NCBISequence
 from ebi_eva_common_pyutils.variation.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
-from pymongo.uri_parser import split_hosts
 from requests.auth import HTTPBasicAuth
 from retry import retry
 
@@ -89,40 +86,8 @@ def cast_list(l, type_to_cast=str):
         yield type_to_cast(e)
 
 
-def get_metadata_creds():
-    properties = get_properties_from_xml_file(cfg['maven']['environment'], cfg['maven']['settings_file'])
-    pg_url = properties['eva.evapro.jdbc.url']
-    pg_user = properties['eva.evapro.user']
-    pg_pass = properties['eva.evapro.password']
-    return pg_url, pg_user, pg_pass
-
-
-def get_metadata_conn():
-    pg_url, pg_user, pg_pass = get_metadata_creds()
-    return psycopg2.connect(urlsplit(pg_url).path, user=pg_user, password=pg_pass)
-
-
-def get_mongo_creds():
-    properties = get_properties_from_xml_file(cfg['maven']['environment'], cfg['maven']['settings_file'])
-    # Use the primary mongo host from configuration:
-    # https://github.com/EBIvariation/configuration/blob/master/eva-maven-settings.xml#L111
-    # TODO: revisit once accessioning/variant pipelines can support multiple hosts
-    mongo_host = split_hosts(properties['eva.mongo.host'])[1][0]
-    mongo_user = properties['eva.mongo.user']
-    mongo_pass = properties['eva.mongo.passwd']
-    return mongo_host, mongo_user, mongo_pass
-
-
-def get_accession_pg_creds():
-    properties = get_properties_from_xml_file(cfg['maven']['environment'], cfg['maven']['settings_file'])
-    pg_url = properties['eva.accession.jdbc.url']
-    pg_user = properties['eva.accession.user']
-    pg_pass = properties['eva.accession.password']
-    return pg_url, pg_user, pg_pass
-
-
 def get_project_alias(project_accession):
-    with get_metadata_conn() as conn:
+    with get_metadata_connection_handle(cfg['maven']['environment'], cfg['maven']['settings_file']) as conn:
         query = f"select alias from evapro.project where project_accession='{project_accession}';"
         rows = get_all_results_for_query(conn, query)
     if len(rows) != 1:

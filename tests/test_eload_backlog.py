@@ -55,10 +55,10 @@ class TestEloadBacklog(TestCase):
                 }
             }
         }
-        with patch('eva_submission.eload_backlog.get_metadata_conn', autospec=True), \
+        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_backlog.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_backlog.get_reference_fasta_and_report') as m_get_genome, \
-                patch('eva_submission.eload_utils.get_metadata_conn', autospec=True), \
+                patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
                 patch('eva_submission.eload_utils.requests.post') as m_post:
             m_get_alias_results.return_value = [['alias']]
@@ -90,7 +90,7 @@ class TestEloadBacklog(TestCase):
                 }
             }
         }
-        with patch('eva_submission.eload_backlog.get_metadata_conn', autospec=True), \
+        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_backlog.get_all_results_for_query') as m_get_results,\
                 patch.object(retry.api.time, 'sleep'):
             m_get_results.side_effect = cycle([
@@ -109,4 +109,3 @@ class TestEloadBacklog(TestCase):
 
     def test_report(self):
         self.eload.report()
-
