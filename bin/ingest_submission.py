@@ -15,7 +15,7 @@
 # limitations under the License.
 
 import logging
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentError
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from eva_submission.eload_ingestion import EloadIngestion
@@ -32,6 +32,10 @@ def main():
     # TODO infer aggregation from vcf files, VEP version & cache version from species
     argparse.add_argument('--aggregation', required=False, type=str.lower, choices=['basic', 'none'],
                           help='The aggregation type (case insensitive).')
+    action_vep_version = argparse.add_argument('--vep_version', required=False, type=int,
+                                               help='VEP version to use for annotation. Only needed if running variant load.')
+    argparse.add_argument('--vep_cache_version', required=False, type=int,
+                          help='VEP cache version to use for annotation. Only needed if running variant load.')
     argparse.add_argument('--db_name', required=False, type=str,
                           help='Name of existing variant database in MongoDB. Only needed if adding a new database.')
     argparse.add_argument('--tasks', required=False, type=str, nargs='+',
@@ -39,12 +43,19 @@ def main():
                           help='Task or set of tasks to perform during ingestion.')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level.')
+    action_skip_annotation = argparse.add_argument('--skip_annotation', action='store_true', default=False,
+                                                   help='Allows the user to specify whether annotation needs to be performed or skipped. Only needed if running variant load.')
 
     args = argparse.parse_args()
 
     log_cfg.add_stdout_handler()
     if args.debug:
         log_cfg.set_log_level(logging.DEBUG)
+
+    if args.skip_annotation is True and (args.vep_version is not None or args.vep_cache_version is not None):
+        raise ArgumentError(action_skip_annotation, "Can't provide both \"--skip_annotation\" and \"--ver_version and --vep_cache_version\". Remove one of them and try again.")
+    if (args.vep_version is None and args.vep_cache_version is not None) or (args.vep_version is not None and args.vep_cache_version is None):
+        raise ArgumentError(action_vep_version, "Can't provide value for only one out of \"--ver_version and --vep_cache_version\". Please provide values for both or none.")
 
     # Load the config_file from default location
     load_config()
@@ -53,6 +64,9 @@ def main():
     ingestion.ingest(
         aggregation=args.aggregation,
         instance_id=args.instance,
+        vep_version=args.vep_version,
+        vep_cache_version=args.vep_cache_version,
+        skip_annotation=args.skip_annotation,
         db_name=args.db_name,
         tasks=args.tasks
     )

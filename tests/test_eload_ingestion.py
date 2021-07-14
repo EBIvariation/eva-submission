@@ -120,16 +120,14 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
-                patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_and_vep_cache_version, \
                 patch('eva_submission.eload_utils.requests.post') as m_post:
             m_mongo_creds.return_value = m_pg_creds.return_value = ('host', 'user', 'pass')
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
-            m_get_vep_and_vep_cache_version.return_value = {"vep_version":None,"vep_cache_version":None}
             # first call is for browsable files, second is for study name
             m_get_results.side_effect = [[(1, 'filename_1'), (2, 'filename_2')], [('Test Study Name')]]
-            self.eload.ingest('NONE', 1, db_name='eva_hsapiens_grch38')
+            self.eload.ingest('NONE', 1, 82, 82, db_name='eva_hsapiens_grch38')
 
     def test_ingest_metadata_load(self):
         with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
@@ -176,15 +174,15 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
-                patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_and_vep_cache_version, \
                 patch('eva_submission.eload_utils.requests.post') as m_post:
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
-            m_get_vep_and_vep_cache_version.return_value = {"vep_version":None,"vep_cache_version":None}
             m_get_results.return_value = [('Test Study Name')]
             self.eload.ingest(
                 aggregation='NONE',
+                vep_version=82,
+                vep_cache_version=82,
                 tasks=['variant_load'],
                 db_name='eva_hsapiens_grch38'
             )
@@ -216,26 +214,24 @@ class TestEloadIngestion(TestCase):
                  <ACTIONS>RECEIPT</ACTIONS>
             </RECEIPT>'''
 
-    def test_ingest_variant_load_vep_cache_version_found(self):
-        with patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
-                patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
+    def test_ingest_variant_load_vep_cache_version_provided_by_user(self):
+        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
-                patch('eva_submission.eload_utils.get_metadata_conn', autospec=True), \
+                patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
-                patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_and_vep_cache_version, \
                 patch('eva_submission.eload_utils.requests.post') as m_post:
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_properties.return_value = self._fake_properties_dict()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             m_get_results.return_value = [('Test Study Name')]
-            m_get_vep_and_vep_cache_version.return_value = {"vep_version":100,"vep_cache_version":100}
-
             self.eload.ingest(
                 aggregation='NONE',
                 tasks=['variant_load'],
+                vep_version=100,
+                vep_cache_version=100,
+                skip_annotation=False,
                 db_name='eva_hsapiens_grch38'
             )
             config_file = os.path.join(self.resources_folder, 'projects/PRJEB12345/load_config_file.yaml')
@@ -246,33 +242,58 @@ class TestEloadIngestion(TestCase):
                 self.assertEqual(data_loaded["load_job_props"]['app.vep.version'], 100)
                 self.assertEqual(data_loaded["load_job_props"]['app.vep.cache.version'], 100)
 
-
-    def test_ingest_variant_load_vep_cache_version_not_found(self):
-        with patch('eva_submission.eload_utils.get_properties_from_xml_file', autospec=True) as m_properties, \
-                patch('eva_submission.eload_utils.psycopg2.connect', autospec=True), \
+    def test_ingest_variant_load_vep_cache_version_found_in_db(self):
+        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
-                patch('eva_submission.eload_utils.get_metadata_conn', autospec=True), \
+                patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
-                patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_and_vep_cache_version, \
+                patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version_from_db') as get_vep_and_vep_cache_version_from_db, \
                 patch('eva_submission.eload_utils.requests.post') as m_post:
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_properties.return_value = self._fake_properties_dict()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             m_get_results.return_value = [('Test Study Name')]
-            m_get_vep_and_vep_cache_version.return_value = {"vep_version":None,"vep_cache_version":None}
-
+            get_vep_and_vep_cache_version_from_db.return_value = {"vep_version": 100, "vep_cache_version": 100}
             self.eload.ingest(
                 aggregation='NONE',
                 tasks=['variant_load'],
+                vep_version=None,
+                vep_cache_version=None,
+                skip_annotation=False,
                 db_name='eva_hsapiens_grch38'
             )
             config_file = os.path.join(self.resources_folder, 'projects/PRJEB12345/load_config_file.yaml')
             assert os.path.exists(config_file)
             with open(config_file, 'r') as stream:
                 data_loaded = yaml.safe_load(stream)
-                self.assertEqual(data_loaded["load_job_props"]['annotation.skip'], True)
-                self.assertEqual(data_loaded["load_job_props"]['app.vep.version'], None)
-                self.assertEqual(data_loaded["load_job_props"]['app.vep.cache.version'], None)
+                self.assertEqual(data_loaded["load_job_props"]['annotation.skip'], False)
+                self.assertEqual(data_loaded["load_job_props"]['app.vep.version'], 100)
+                self.assertEqual(data_loaded["load_job_props"]['app.vep.cache.version'], 100)
+
+    def test_ingest_variant_load_vep_cache_version_not_found_in_db(self):
+        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
+                patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
+                patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
+                patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
+                patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version_from_db') as get_vep_and_vep_cache_version_from_db, \
+                patch('eva_submission.eload_utils.requests.post') as m_post:
+            m_get_alias_results.return_value = [['alias']]
+            m_post.return_value.text = self.get_mock_result_for_ena_date()
+            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
+            m_get_results.return_value = [('Test Study Name')]
+            get_vep_and_vep_cache_version_from_db.return_value = {"vep_version": None, "vep_cache_version": None}
+            with self.assertRaises(Exception) as ex:
+                self.eload.ingest(
+                    aggregation='NONE',
+                    tasks=['variant_load'],
+                    vep_version=None,
+                    vep_cache_version=None,
+                    skip_annotation=False,
+                    db_name='eva_hsapiens_grch38'
+                )
+            self.assertEqual(ex.exception.__str__(), 'No vep_version and vep_cache_version provided by user and none could be found in DB.'
+                                                     'In case you want to process without annotation, please use --skip_annotation parameter.')
