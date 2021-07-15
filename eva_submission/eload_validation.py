@@ -36,7 +36,7 @@ class EloadValidation(Eload):
 
         if 'vcf_check' in validation_tasks or 'assembly_check' in validation_tasks:
             output_dir = self._run_validation_workflow()
-            self._collect_validation_worklflow_results(output_dir)
+            self._collect_validation_workflow_results(output_dir)
             shutil.rmtree(output_dir)
 
         if set_as_valid is True:
