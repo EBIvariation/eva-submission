@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone, timedelta
 from itertools import cycle
 from unittest import TestCase
 from unittest.mock import patch
@@ -47,7 +48,7 @@ class TestEloadBacklog(TestCase):
             'brokering': {
                 'vcf_files': {expected_vcf: {'index': expected_index}},
                 'ena': {
-                    'hold_date':  '2021-01-01+01:00',
+                    'hold_date':  datetime(2021, 1, 1, 0, 0, tzinfo=timezone(timedelta(seconds=3600))),
                     'ANALYSIS': 'ERZ999999',
                     'PROJECT': 'PRJEB12345',
                 }
