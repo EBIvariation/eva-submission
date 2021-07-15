@@ -137,7 +137,7 @@ class EloadValidation(Eload):
                     for vcf_file in analysis_data['vcf_files']:
                         writer.writerow([vcf_file, fasta, report])
                 else:
-                    self.warning(f"File {vcf_file} not found")
+                    self.warning(f"VCF files for analysis {analysis_alias} not found")
         return vcf_files_mapping_csv
 
     def _run_validation_workflow(self):
