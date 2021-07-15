@@ -273,7 +273,7 @@ class EloadIngestion(Eload):
                     for vcf_file in analysis_data['vcf_files']:
                         writer.writerow([vcf_file, assembly_accession, fasta, report, analysis_accession, db_name])
                 else:
-                    self.warning(f"File {vcf_file} not found")
+                    self.warning(f"VCF files for analysis {analysis_alias} not found")
         return vcf_files_to_ingest
 
     def run_accession_workflow(self, vcf_files_to_ingest):
