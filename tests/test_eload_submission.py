@@ -3,7 +3,7 @@ from copy import deepcopy
 from unittest import TestCase
 from unittest.mock import patch
 
-from eva_submission import ROOT_DIR
+from eva_submission import ROOT_DIR, __version__
 from eva_submission.eload_submission import Eload
 from eva_submission.submission_config import EloadConfig, load_config
 
@@ -20,9 +20,12 @@ class TestEload(TestCase):
         self.updated_config = EloadConfig(os.path.join(self.eload.eload_dir, 'updated_config.yml'))
         # Used to restore test config after each test
         self.original_cfg = deepcopy(self.eload.eload_cfg.content)
+        self.original_updated_cfg = deepcopy(self.updated_config.content)
+        self.updated_config.set('version', value=__version__)
 
     def tearDown(self):
         self.eload.eload_cfg.content = self.original_cfg
+        self.updated_config.content = self.original_updated_cfg
         if os.path.exists(f'{self.eload.eload_cfg.config_file}.old'):
             os.remove(f'{self.eload.eload_cfg.config_file}.old')
 

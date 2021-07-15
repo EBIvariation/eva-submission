@@ -54,7 +54,7 @@ def get_analysis_alias_from_metadata(eload_cfg):
     Returns analysis alias only if we find a metadata spreadsheet and it has exactly one analysis.
     Otherwise provides an error message and raise an error.
     """
-    metadata_spreadsheet = eload_cfg.query('validation', 'valid', 'metadata_spreadsheet')
+    metadata_spreadsheet = eload_cfg.query('submission', 'metadata_spreadsheet')
     if metadata_spreadsheet:
         reader = EvaXlsxReader(metadata_spreadsheet)
         if len(reader.analysis) == 1:
