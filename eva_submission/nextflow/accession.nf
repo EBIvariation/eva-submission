@@ -5,7 +5,7 @@ def helpMessage() {
     Accession variant files and copy to public FTP.
 
     Inputs:
-            --valid_vcfs            valid vcfs to load
+            --valid_vcfs            csv file with the mappings for vcf file, assembly accession, fasta, assembly report, analysis_accession, db_name
             --project_accession     project accession
             --instance_id           instance id to run accessioning
             --accession_job_props   job-specific properties, passed as a map
@@ -36,7 +36,7 @@ if (params.help) exit 0, helpMessage()
 
 // Test input files
 if (!params.valid_vcfs || !params.project_accession || !params.instance_id || !params.accession_job_props || !params.public_ftp_dir || !params.accessions_dir || !params.public_dir || !params.logs_dir || !params.accession_job_props.'parameters.taxonomyAccession') {
-    if (!params.valid_vcfs) log.warn('Provide validated vcfs using --valid_vcfs')
+    if (!params.valid_vcfs) log.warn('Provide a csv file with the mappings (vcf file, assembly accession, fasta, assembly report, analysis_accession, db_name) --valid_vcfs')
     if (!params.project_accession) log.warn('Provide a project accession using --project_accession')
     if (!params.instance_id) log.warn('Provide an instance id using --instance_id')
     if (!params.accession_job_props) log.warn('Provide job-specific properties using --accession_job_props')
@@ -75,16 +75,24 @@ human study:
   - Initialize tabix_vcfs and csi_vcfs with values enabling them to start the processes "tabix_index_vcf" and "csi_index_vcf".
 */
 is_human_study = (params.accession_job_props.'parameters.taxonomyAccession' == 9606)
-(valid_vcfs, tabix_vcfs, csi_vcfs) = ( is_human_study
-                     ? [ Channel.empty(), Channel.fromPath(params.valid_vcfs), Channel.fromPath(params.valid_vcfs) ]
-                     : [ Channel.fromPath(params.valid_vcfs), Channel.empty(), Channel.empty() ] )
+if (is_human_study) {
+    Channel.fromPath(params.valid_vcfs)
+        .splitCsv(header:true)
+        .map{row -> tuple(file(row.vcf))}
+        .into{tabix_vcfs; csi_vcfs}
+} else {
+    Channel.fromPath(params.valid_vcfs)
+        .splitCsv(header:true)
+        .map{row -> tuple(file(row.vcf_file), row.assembly_accession, file(row.fasta), file(row.report))}
+        .into{valid_vcfs}
+}
 
 /*
  * Create properties files for accession.
  */
 process create_properties {
     input:
-    val vcf_file from valid_vcfs
+    set vcf_file, assembly_accession, fasta, report from valid_vcfs
 
     output:
     path "${vcf_file.getFileName()}_accessioning.properties" into accession_props
@@ -96,6 +104,9 @@ process create_properties {
     params.accession_job_props.each { k, v ->
         props.setProperty(k, v.toString())
     }
+    props.setProperty("parameters.assemblyAccession", assembly_accession.toString())
+    props.setProperty("parameters.fasta", fasta.toString())
+    props.setProperty("parameters.assemblyReportUrl", "file:" + report.toString())
     props.setProperty("parameters.vcf", vcf_file.toString())
     vcf_filename = vcf_file.getFileName().toString()
     accessioned_filename = vcf_filename.take(vcf_filename.indexOf(".vcf")) + ".accessioned.vcf"

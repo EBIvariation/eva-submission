@@ -38,18 +38,20 @@ class TestEloadBacklog(TestCase):
         expected_index = os.path.join(self.resources_folder, 'eloads/ELOAD_44/10_submitted/vcf_files/file.vcf.gz.tbi')
         expected_config = {
             'submission': {
-                'vcf_files': [expected_vcf],
-                'assembly_fasta': 'assembly.fa',
-                'assembly_report': 'assembly.txt',
-                'assembly_accession': 'GCA_000003025.4',
+                'analyses': {'ERZ999999': {
+                    'vcf_files': [expected_vcf],
+                    'assembly_fasta': 'assembly.fa',
+                    'assembly_report': 'assembly.txt',
+                    'assembly_accession': 'GCA_000003025.4'
+                }},
                 'scientific_name': 'Sus scrofa',
                 'taxonomy_id': 9823,
             },
             'brokering': {
-                'vcf_files': {expected_vcf: {'index': expected_index}},
+                'analyses': {'ERZ999999': {'vcf_files': {expected_vcf: {'index': expected_index}}}},
                 'ena': {
                     'hold_date':  datetime(2021, 1, 1, 0, 0, tzinfo=timezone(timedelta(seconds=3600))),
-                    'ANALYSIS': 'ERZ999999',
+                    'ANALYSIS': {'ERZ999999': 'ERZ999999'},
                     'PROJECT': 'PRJEB12345',
                 }
             }
@@ -65,7 +67,7 @@ class TestEloadBacklog(TestCase):
                 [['PRJEB12345']],
                 [('ERZ999999', ('file.vcf.gz', 'file.vcf.gz.tbi'))],
                 [(9823, 'Sus scrofa')],
-                [('GCA_000003025.4',)]
+                [('ERZ999999', 'GCA_000003025.4',)]
             ]
             m_get_genome.return_value = ('assembly.fa', 'assembly.txt')
             m_post.return_value.text = '''<?xml version="1.0" encoding="UTF-8"?>
@@ -77,14 +79,14 @@ class TestEloadBacklog(TestCase):
      <MESSAGES/>
      <ACTIONS>RECEIPT</ACTIONS>
 </RECEIPT>'''
-            self.eload.fill_in_config(False)
+            self.eload.fill_in_config(True)
             self.assertEqual(self.eload.eload_cfg.content, expected_config)
 
     def test_file_not_found(self):
         expected_config = {
             'brokering': {
                 'ena': {
-                    'ANALYSIS': 'ERZ999999',
+                    'ANALYSIS': {'ERZ999999': 'ERZ999999'},
                     'PROJECT': 'PRJEB12345',
                 }
             }
@@ -105,3 +107,6 @@ class TestEloadBacklog(TestCase):
     def test_find_file_on_ena(self):
         self.eload.find_file_on_ena('IRIS_313-8755.snp.vcf.gz.tbi', 'ERZ325199')
         assert os.path.exists(os.path.join(self.eload._get_dir('ena'), 'IRIS_313-8755.snp.vcf.gz.tbi'))
+
+    def test_report(self):
+        self.eload.report()

@@ -30,6 +30,9 @@ class TestEloadIngestion(TestCase):
         projects = glob.glob(os.path.join(self.resources_folder, 'projects', 'PRJEB12345'))
         for proj in projects:
             shutil.rmtree(proj)
+        ingest_csv = os.path.join(self.eload.eload_dir, 'vcf_files_to_ingest.csv')
+        if os.path.exists(ingest_csv):
+            os.remove(ingest_csv)
         self.eload.eload_cfg.content = self.original_cfg
 
     def _mock_mongodb_client(self):
@@ -59,9 +62,9 @@ class TestEloadIngestion(TestCase):
             self.eload.check_variant_db()
             self.assertEqual(
                 'eva_ecaballus_30',
-                self.eload.eload_cfg.query('ingestion', 'database', 'db_name')
+                self.eload.eload_cfg.query('ingestion', 'database', 'GCA_002863925.1', 'db_name')
             )
-            assert self.eload.eload_cfg.query('ingestion', 'database', 'exists')
+            assert self.eload.eload_cfg.query('ingestion', 'database', 'GCA_002863925.1', 'exists')
 
     def test_check_variant_db_not_in_evapro(self):
         with patch('eva_submission.eload_ingestion.get_variant_warehouse_db_name_from_assembly_and_taxonomy',
@@ -79,10 +82,10 @@ class TestEloadIngestion(TestCase):
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             self.eload.check_variant_db(db_name='eva_hsapiens_grch38')
             self.assertEqual(
-                self.eload.eload_cfg.query('ingestion', 'database', 'db_name'),
+                self.eload.eload_cfg.query('ingestion', 'database', 'GCA_002863925.1', 'db_name'),
                 'eva_hsapiens_grch38'
             )
-            assert self.eload.eload_cfg.query('ingestion', 'database', 'exists')
+            assert self.eload.eload_cfg.query('ingestion', 'database', 'GCA_002863925.1', 'exists')
 
     def test_check_variant_db_missing(self):
         with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
@@ -92,10 +95,10 @@ class TestEloadIngestion(TestCase):
             with self.assertRaises(ValueError):
                 self.eload.check_variant_db(db_name='eva_fcatus_90')
             self.assertEqual(
-                self.eload.eload_cfg.query('ingestion', 'database', 'db_name'),
+                self.eload.eload_cfg.query('ingestion', 'database', 'GCA_002863925.1', 'db_name'),
                 'eva_fcatus_90'
             )
-            assert not self.eload.eload_cfg.query('ingestion', 'database', 'exists')
+            assert not self.eload.eload_cfg.query('ingestion', 'database', 'GCA_002863925.1', 'exists')
 
     def test_load_from_ena(self):
         with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_execute:

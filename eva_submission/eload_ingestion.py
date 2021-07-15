@@ -1,3 +1,4 @@
+import csv
 import os
 import shutil
 import subprocess
@@ -39,7 +40,6 @@ class EloadIngestion(Eload):
     def __init__(self, eload_number):
         super().__init__(eload_number)
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
-        self.project_dir = self.setup_project_dir()
         self.mongo_uri = get_mongo_uri_for_eva_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
 
     def ingest(
@@ -50,11 +50,13 @@ class EloadIngestion(Eload):
             vep_cache_version=None,
             skip_annotation=False,
             db_name=None,
+            db_name_mapping=None,
             tasks=None
     ):
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
+        self.project_dir = self.setup_project_dir()
         self.check_brokering_done()
-        self.check_variant_db(db_name)
+        self.check_variant_db(db_name, db_name_mapping)
 
         if not tasks:
             tasks = self.all_tasks
@@ -67,21 +69,32 @@ class EloadIngestion(Eload):
         if do_accession or do_variant_load:
             aggregation = aggregation.lower()
             self.eload_cfg.set(self.config_section, 'aggregation', value=aggregation)
+            vcf_files_to_ingest = self._generate_csv_mappings_to_ingest()
 
         if do_accession:
             self.eload_cfg.set(self.config_section, 'accession', 'instance_id', value=instance_id)
             self.update_config_with_hold_date(self.project_accession)
-            self.run_accession_workflow()
+            self.run_accession_workflow(vcf_files_to_ingest)
             self.insert_browsable_files()
             self.refresh_study_browser()
 
         if do_variant_load:
             self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'version', value=vep_version)
             self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', value=vep_cache_version)
-            self.run_variant_load_workflow(vep_version, vep_cache_version, skip_annotation)
+            self.run_variant_load_workflow(vep_version, vep_cache_version, skip_annotation, vcf_files_to_ingest)
+
+    def _get_vcf_files_from_brokering(self):
+        vcf_files = []
+        analyses = self.eload_cfg.query('brokering', 'analyses')
+        if analyses:
+            for analysis_alias, analysis_data in analyses.items():
+                files = analysis_data['vcf_files']
+                vcf_files.extend(files) if files else None
+            return vcf_files
 
     def check_brokering_done(self):
-        if self.eload_cfg.query('brokering', 'vcf_files') is None:
+        vcf_files = self._get_vcf_files_from_brokering()
+        if not vcf_files:
             self.error('No brokered VCF files found, aborting ingestion.')
             raise ValueError('No brokered VCF files found.')
         if self.project_accession is None:
@@ -89,56 +102,87 @@ class EloadIngestion(Eload):
             raise ValueError('No project accession in submission config.')
         # check there are no vcfs in valid folder that aren't in brokering config
         for valid_vcf in self.valid_vcf_filenames:
-            if not any(f.endswith(valid_vcf.name) for f in self.eload_cfg.query('brokering', 'vcf_files').keys()):
+            if not any(f.endswith(valid_vcf.name) for f in vcf_files):
                 raise ValueError(f'Found {valid_vcf} in valid folder that was not in brokering config')
 
-    def get_db_name(self):
+    def get_db_name(self, assembly_accession):
         """
         Constructs the expected database name in mongo, based on assembly info retrieved from EVAPRO.
         """
-        assm_accession = self.eload_cfg.query('submission', 'assembly_accession')
         taxon_id = self.eload_cfg.query('submission', 'taxonomy_id')
         # query EVAPRO for db name based on taxonomy id and accession
         with self.metadata_connection_handle as conn:
-            db_name = get_variant_warehouse_db_name_from_assembly_and_taxonomy(conn, assm_accession, taxon_id)
+            db_name = get_variant_warehouse_db_name_from_assembly_and_taxonomy(conn, assembly_accession, taxon_id)
         if not db_name:
-            self.error(f'Database for taxonomy id {taxon_id} and assembly {assm_accession} not found in EVAPRO.')
+            self.error(f'Database for taxonomy id {taxon_id} and assembly {assembly_accession} not found in EVAPRO.')
             self.error(f'Please insert the appropriate taxonomy and assembly or pass in the database name explicitly.')
             # TODO propose a database name, based on a TBD convention
             # TODO download the VEP cache for new species
-            raise ValueError(f'No database for {taxon_id} and {assm_accession} found')
+            raise ValueError(f'No database for {taxon_id} and {assembly_accession} found')
         return db_name
 
-    def check_variant_db(self, db_name=None):
+    def _get_assembly_accessions(self):
+        assembly_accessions = set()
+        analyses = self.eload_cfg.query('submission', 'analyses')
+        for analysis_alias, analysis_data in analyses.items():
+            assembly_accessions.add(analysis_data['assembly_accession'])
+        return assembly_accessions
+
+    def check_variant_db(self, db_name=None, db_name_mapping=None):
         """
         Checks mongo for the right variant database.
-        If db_name is omitted, looks up the name in metadata DB and checks mongo for that.
-        If db_name is provided, it will also attempt to insert into the metadata DB before checking mongo.
+        If db_name is provided, map every assembly accession to that database
+        If db_name_mapping is provided, attempt to insert every database before checking mongo
+        If neither is provided, try to guess the database from EVAPRO based on the assembly accession and taxonomy
         """
-        if not db_name:
-            db_name = self.get_db_name()
+        assembly_accessions = self._get_assembly_accessions()
+        assembly_to_db_name = {}
+        if db_name:
+            if len(assembly_accessions) > 1:
+                raise ValueError(f"One database should not be associated to multiple assembly accessions")
+            assembly_to_db_name[assembly_accessions.pop()] = {'db_name': db_name}
+        elif db_name_mapping:
+            for mapping in db_name_mapping:
+                assembly_db = mapping.split(',')
+                if assembly_db[0] and assembly_db[1]:
+                    assembly_to_db_name[assembly_db[0]] = {'db_name': assembly_db[1]}
+                else:
+                    raise ValueError(f"Check the assembly accession to database mapping: {mapping}")
+            assemblies_provided_sorted = sorted(assembly_to_db_name.keys())
+            assemblies_in_submission_sorted = sorted(assembly_accessions)
+            if assemblies_provided_sorted != assemblies_in_submission_sorted:
+                raise ValueError(f"Assemblies provided {assemblies_provided_sorted} do not match assemblies in "
+                                 f"submission {assemblies_in_submission_sorted}")
         else:
-            with self.metadata_connection_handle as conn:
+            for assembly_accession in assembly_accessions:
+                db_name_retrieved = self.get_db_name(assembly_accession)
+                assembly_to_db_name[assembly_accession] = {'db_name': db_name_retrieved}
+
+        with self.metadata_connection_handle as conn:
+            for assembly, db in assembly_to_db_name.items():
                 # warns but doesn't crash if assembly set already exists
                 insert_new_assembly_and_taxonomy(
-                    assembly_accession=self.eload_cfg.query('submission', 'assembly_accession'),
+                    assembly_accession=assembly,
                     taxonomy_id=self.eload_cfg.query('submission', 'taxonomy_id'),
-                    db_name=db_name,
+                    db_name=db['db_name'],
                     conn=conn
                 )
-        self.eload_cfg.set(self.config_section, 'database', 'db_name', value=db_name)
+
+        self.eload_cfg.set(self.config_section, 'database', value=assembly_to_db_name)
 
         with pymongo.MongoClient(self.mongo_uri) as db:
             names = db.list_database_names()
-            if db_name in names:
-                self.info(f'Found database named {db_name}.')
-                self.info('If this is incorrect, please cancel and pass in the database name explicitly.')
-                self.eload_cfg.set(self.config_section, 'database', 'exists', value=True)
-            else:
-                self.error(f'Database named {db_name} does not exist in variant warehouse, aborting.')
-                self.error('Please create the database or pass in the appropriate database name explicitly.')
-                self.eload_cfg.set(self.config_section, 'database', 'exists', value=False)
-                raise ValueError(f'No database named {db_name} found.')
+            for assembly_accession, db_info in assembly_to_db_name.items():
+                db_name = db_info['db_name']
+                if db_name in names:
+                    self.info(f'Found database named {db_name}.')
+                    self.info('If this is incorrect, please cancel and pass in the database name explicitly.')
+                    self.eload_cfg.set(self.config_section, 'database', assembly_accession, 'exists', value=True)
+                else:
+                    self.error(f'Database named {db_name} does not exist in variant warehouse, aborting.')
+                    self.error('Please create the database or pass in the appropriate database name explicitly.')
+                    self.eload_cfg.set(self.config_section, 'database', assembly_accession, 'exists', value=False)
+                    raise ValueError(f'No database named {db_name} found.')
 
     def load_from_ena(self):
         """
@@ -182,21 +226,22 @@ class EloadIngestion(Eload):
         # copy valid vcfs + index to 'valid' folder and 'public' folder
         valid_dir = project_dir.joinpath(project_dirs['valid'])
         public_dir = project_dir.joinpath(project_dirs['public'])
-        vcf_dict = self.eload_cfg.query('brokering', 'vcf_files')
-        for key, val in vcf_dict.items():
-            vcf_path = Path(key)
-            self._copy_file(vcf_path, valid_dir)
-            self._copy_file(vcf_path, public_dir)
-            tbi_path = Path(val['index'])
-            self._copy_file(tbi_path, valid_dir)
-            self._copy_file(tbi_path, public_dir)
-            try:
-                csi_path = Path(val['csi'])
-                self._copy_file(csi_path, valid_dir)
-                self._copy_file(csi_path, public_dir)
-            # for now this won't be available for older studies, we can remove the try/except at a later date
-            except KeyError:
-                self.warning('No csi filepath found in config, will not make a csi index public.')
+        analyses = self.eload_cfg.query('brokering', 'analyses')
+        for analysis_alias, analysis_data in analyses.items():
+            for vcf_file, vcf_file_info in analysis_data['vcf_files'].items():
+                vcf_path = Path(vcf_file)
+                self._copy_file(vcf_path, valid_dir)
+                self._copy_file(vcf_path, public_dir)
+                tbi_path = Path(vcf_file_info['index'])
+                self._copy_file(tbi_path, valid_dir)
+                self._copy_file(tbi_path, public_dir)
+                try:
+                    csi_path = Path(vcf_file_info['csi'])
+                    self._copy_file(csi_path, valid_dir)
+                    self._copy_file(csi_path, public_dir)
+                # for now this won't be available for older studies, we can remove the try/except at a later date
+                except KeyError:
+                    self.warning('No csi filepath found in config, will not make a csi index public.')
         self.eload_cfg.set(self.config_section, 'project_dir', value=str(project_dir))
         return project_dir
 
@@ -212,17 +257,33 @@ class EloadIngestion(Eload):
         words = self.eload_cfg.query('submission', 'scientific_name').lower().split()
         return '_'.join(words)
 
-    def run_accession_workflow(self):
+    def _generate_csv_mappings_to_ingest(self):
+        vcf_files_to_ingest = os.path.join(self.eload_dir, 'vcf_files_to_ingest.csv')
+        with open(vcf_files_to_ingest, 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(['vcf_file', 'assembly_accession', 'fasta', 'report', 'analysis_accession', 'db_name'])
+            analyses = self.eload_cfg.query('brokering', 'analyses')
+            for analysis_alias, analysis_data in analyses.items():
+                assembly_accession = analysis_data['assembly_accession']
+                fasta = analysis_data['assembly_fasta']
+                report = analysis_data['assembly_report']
+                analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
+                db_name = self.eload_cfg.query('ingestion', 'database', assembly_accession, 'db_name')
+                if analysis_data['vcf_files']:
+                    for vcf_file in analysis_data['vcf_files']:
+                        writer.writerow([vcf_file, assembly_accession, fasta, report, analysis_accession, db_name])
+                else:
+                    self.warning(f"File {vcf_file} not found")
+        return vcf_files_to_ingest
+
+    def run_accession_workflow(self, vcf_files_to_ingest):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
         mongo_host, mongo_user, mongo_pass = get_primary_mongo_creds_for_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
         pg_url, pg_user, pg_pass = get_accession_pg_creds_for_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
         job_props = accession_props_template(
-            assembly_accession=self.eload_cfg.query('submission', 'assembly_accession'),
             taxonomy_id=self.eload_cfg.query('submission', 'taxonomy_id'),
             project_accession=self.project_accession,
             aggregation=self.eload_cfg.query(self.config_section, 'aggregation'),
-            fasta=self.eload_cfg.query('submission', 'assembly_fasta'),
-            report=self.eload_cfg.query('submission', 'assembly_report'),
             instance_id=self.eload_cfg.query(self.config_section, 'accession', 'instance_id'),
             mongo_host=mongo_host,
             mongo_user=mongo_user,
@@ -232,7 +293,7 @@ class EloadIngestion(Eload):
             postgres_pass=pg_pass
         )
         accession_config = {
-            'valid_vcfs': [str(f) for f in self.valid_vcf_filenames],
+            'valid_vcfs': vcf_files_to_ingest,
             'project_accession': self.project_accession,
             'instance_id': self.eload_cfg.query(self.config_section, 'accession', 'instance_id'),
             'accession_job_props': job_props,
@@ -264,23 +325,19 @@ class EloadIngestion(Eload):
             raise e
         return output_dir
 
-    def run_variant_load_workflow(self, vep_version, vep_cache_version, skip_annotation):
+    def run_variant_load_workflow(self, vep_version, vep_cache_version, skip_annotation, vcf_files_to_ingest):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
         job_props = variant_load_props_template(
-            project_accession=self.project_accession,
-            # TODO currently there is only ever one of these in the config, even if multiple analyses/files
-            analysis_accession=self.eload_cfg.query('brokering', 'ena', 'ANALYSIS'),
-            aggregation=self.eload_cfg.query(self.config_section, 'aggregation'),
-            study_name=self.get_study_name(),
-            fasta=self.eload_cfg.query('submission', 'assembly_fasta'),
-            output_dir=self.project_dir.joinpath(project_dirs['transformed']),
-            annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
-            stats_dir=self.project_dir.joinpath(project_dirs['stats']),
-            db_name=self.eload_cfg.query(self.config_section, 'database', 'db_name'),
-            vep_species=self.get_vep_species(),
-            vep_version=vep_version,
-            vep_cache_version=vep_cache_version,
-            annotation_skip=skip_annotation
+                project_accession=self.project_accession,
+                aggregation=self.eload_cfg.query(self.config_section, 'aggregation'),
+                study_name=self.get_study_name(),
+                output_dir=self.project_dir.joinpath(project_dirs['transformed']),
+                annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
+                stats_dir=self.project_dir.joinpath(project_dirs['stats']),
+                vep_species=self.get_vep_species(),
+                vep_version=vep_version,
+                vep_cache_version=vep_cache_version,
+                annotation_skip=skip_annotation
         )
         if skip_annotation is False and vep_version is None:
             coll_name = job_props['db.collections.annotations.name']
@@ -298,9 +355,8 @@ class EloadIngestion(Eload):
                 'annotation.skip': True if vep_cache_version is None else False
             })
         load_config = {
-            'valid_vcfs': [str(f) for f in self.valid_vcf_filenames],
-            # TODO implement proper merge check or get from validation
-            'needs_merge': self.needs_merge,
+            'valid_vcfs': vcf_files_to_ingest,
+            'aggregation_type': self.eload_cfg.query(self.config_section, 'aggregation'),
             'load_job_props': job_props,
             'project_accession': self.project_accession,
             'project_dir': str(self.project_dir),

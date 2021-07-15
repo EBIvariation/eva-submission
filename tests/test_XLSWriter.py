@@ -7,12 +7,17 @@ from eva_submission.xlsx.xlsx_parser_eva import XlsxWriter, EvaXlsxReader
 
 class TestXlsxWriter(TestCase):
 
-    metadata_file = os.path.join(ROOT_DIR, 'tests', 'resources', 'metadata.xlsx')
-    eva_xls_reader_conf = os.path.join(ROOT_DIR, 'tests', 'resources', 'test_metadata_fields.yaml')
+    resources_folder = os.path.join(ROOT_DIR, 'tests', 'resources')
+    metadata_file = os.path.join(resources_folder, 'metadata.xlsx')
+    eva_xls_reader_conf = os.path.join(resources_folder, 'test_metadata_fields.yaml')
 
     def setUp(self):
         self.xls_writer = XlsxWriter(self.metadata_file, self.eva_xls_reader_conf)
         self.reader = EvaXlsxReader(self.metadata_file)
+
+    def tearDown(self):
+        if os.path.exists(os.path.join(self.resources_folder, 'metadata_copy.xlsx')):
+            os.remove(os.path.join(self.resources_folder, 'metadata_copy.xlsx'))
 
     def test_edit_row(self):
         self.xls_writer.active_worksheet = 'Sample'

@@ -5,8 +5,8 @@ def helpMessage() {
     Load variant files into variant warehouse.
 
     Inputs:
-            --valid_vcfs            valid vcfs to load
-            --needs_merge           whether horizontal merge is required (false by default)
+            --valid_vcfs            csv file with the mappings for vcf file, assembly accession, fasta, assembly report, analysis_accession, db_name
+            --aggregation_type      whether the vcfs have genotypes or allele frequencies
             --project_accession     project accession
             --load_job_props        job-specific properties, passed as a map
             --eva_pipeline_props    main properties file for eva pipeline
@@ -16,7 +16,6 @@ def helpMessage() {
 }
 
 params.valid_vcfs = null
-params.needs_merge = null
 params.project_accession = null
 params.load_job_props = null
 params.eva_pipeline_props = null
@@ -34,7 +33,7 @@ if (params.help) exit 0, helpMessage()
 
 // Test inputs
 if (!params.valid_vcfs || !params.project_accession || !params.load_job_props || !params.eva_pipeline_props || !params.project_dir || !params.logs_dir) {
-    if (!params.valid_vcfs) log.warn('Provide validated vcfs using --valid_vcfs')
+    if (!params.valid_vcfs) log.warn('Provide a csv file with the mappings (vcf file, assembly accession, fasta, assembly report, analysis_accession, db_name) --valid_vcfs')
     if (!params.project_accession) log.warn('Provide project accession using --project_accession')
     if (!params.load_job_props) log.warn('Provide job-specific properties using --load_job_props')
     if (!params.eva_pipeline_props) log.warn('Provide an EVA Pipeline properties file using --eva_pipeline_props')
@@ -43,12 +42,27 @@ if (!params.valid_vcfs || !params.project_accession || !params.load_job_props ||
     exit 1, helpMessage()
 }
 
-// Valid vcfs are redirected to merge step or directly to load
-// See https://nextflow-io.github.io/patterns/index.html#_skip_process_execution
+/*
+If the aggregation type is NONE (genotyped VCF) the csv file with the mapping between vcf file, assembly accession,
+fasta, assembly report, analysis_accession, db_name will be grouped by analysis accession and the vcf files per
+analysis will be counted to determine if a merge is needed. When merge is not needed a symbolic link will be created
+to the input vcf file
+
+If the aggregation type is different from none (SIMPLE = aggregated VCF, with allele frequencies) the files are not
+merged and passed directly to create the properties
+**/
 (vcfs_to_merge, unmerged_vcfs) = (
-    params.needs_merge
-    ? [Channel.from(params.valid_vcfs), Channel.empty()]
-    : [Channel.empty(), Channel.fromPath(params.valid_vcfs)] )
+    params.aggregation_type.toLowerCase().equals("none")
+    ? [Channel.fromPath(params.valid_vcfs)
+            .splitCsv(header:true)
+            .map{row -> tuple(file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name)}
+            .groupTuple(by:2)
+            .map{row -> tuple(row[0], row[0].size(), row[1][0], row[2], row[3][0]) },
+       Channel.empty()]
+    : [Channel.empty(),
+       Channel.fromPath(params.valid_vcfs)
+            .splitCsv(header:true)
+            .map{row -> tuple(file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name)}] )
 
 
 /*
@@ -56,14 +70,25 @@ if (!params.valid_vcfs || !params.project_accession || !params.load_job_props ||
  */
 process merge_vcfs {
     input:
-    path file_list from vcfs_to_merge.collectFile(name: 'all_files.list', newLine: true)
-
+    set vcf_file, file_count, fasta, analysis_accession, db_name from vcfs_to_merge
     output:
-    path "${params.project_accession}_merged.vcf.gz" into merged_vcf
+    tuple "${params.project_accession}_${analysis_accession}_merged.vcf.gz", fasta, analysis_accession, db_name into merged_vcf
 
-    """
-    $params.executable.bcftools merge --merge all --file-list $file_list --threads 3 -O z -o ${params.project_accession}_merged.vcf.gz
-    """
+    script:
+    if (file_count > 1) {
+        file_list = new File("${workflow.workDir}/all_files_${analysis_accession}.list")
+        file_list.newWriter().withWriter{ w ->
+            vcf_file.each { file -> w.write("$file\n")}
+        }
+        """
+        $params.executable.bcftools merge --merge all --file-list ${workflow.workDir}/all_files_${analysis_accession}.list --threads 3 -O z -o ${params.project_accession}_${analysis_accession}_merged.vcf.gz
+        """
+    } else {
+        single_file = vcf_file[0]
+        """
+        ln -sfT ${single_file} ${params.project_accession}_${analysis_accession}_merged.vcf.gz
+        """
+    }
 }
 
 
@@ -72,8 +97,7 @@ process merge_vcfs {
  */
 process create_properties {
     input:
-    // note one of these channels is always empty
-    val vcf_file from unmerged_vcfs.mix(merged_vcf)
+    set file(vcf_file), fasta, analysis_accession, db_name from unmerged_vcfs.mix(merged_vcf)
 
     output:
     path "load_${vcf_file.getFileName()}.properties" into variant_load_props
@@ -84,6 +108,9 @@ process create_properties {
         props.setProperty(k, v.toString())
     }
     props.setProperty("input.vcf", vcf_file.toString())
+    props.setProperty("input.vcf.id", analysis_accession.toString())
+    props.setProperty("parameters.fasta", fasta.toString())
+    props.setProperty("spring.data.mongodb.database", db_name.toString())
     // need to explicitly store in workDir so next process can pick it up
     // see https://github.com/nextflow-io/nextflow/issues/942#issuecomment-441536175
     props_file = new File("${task.workDir}/load_${vcf_file.getFileName()}.properties")
