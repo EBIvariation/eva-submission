@@ -58,7 +58,8 @@ def variant_load_props_template(
         stats_dir,
         vep_species,
         vep_version,
-        vep_cache_version
+        vep_cache_version,
+        annotation_skip=False
 ):
     """
     Get all properties needed for this variant load job, except for the vcf file
@@ -85,7 +86,7 @@ def variant_load_props_template(
         'app.vep.num-forks': 4,
         'app.vep.timeout': 500,
         'statistics.skip': False,
-        'annotation.skip': False,
+        'annotation.skip': annotation_skip,
         'annotation.overwrite': False,
         'config.chunk.size': 200,
     }
