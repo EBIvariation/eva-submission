@@ -34,9 +34,6 @@ class EloadPreparation(Eload):
 
     def replace_values_in_metadata(self, taxid=None, reference_accession=None):
         """Find and Replace the value in the metadata spreadsheet with the one provided """
-        # This might have been run before any detection occurred
-        if not self.eload_cfg.query('submission', 'metadata_spreadsheet'):
-            self.detect_submitted_metadata()
         input_spreadsheet = self.eload_cfg.query('submission', 'metadata_spreadsheet')
         reader = EvaXlsxReader(input_spreadsheet)
 
@@ -54,8 +51,15 @@ class EloadPreparation(Eload):
             eva_xls_writer.set_analysis(analysis_rows)
         eva_xls_writer.save()
 
-    def detect_all(self):
+    def detect_all(self, taxid=None, reference_accession=None):
+        # New detection so the config should be backeup and reset
+        if not self.eload_cfg.is_empty():
+            self.debug('Config will be reset')
+            self.eload_cfg.backup()
+            self.eload_cfg.clear()
         self.detect_submitted_metadata()
+        if taxid or reference_accession:
+            self.replace_values_in_metadata(taxid=taxid, reference_accession=reference_accession)
         self.check_submitted_filenames()
         self.detect_metadata_attributes()
         self.find_genome()

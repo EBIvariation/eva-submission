@@ -17,17 +17,21 @@ class TestEload(TestCase):
         # Need to set the directory so that the relative path set in the config file works from the top directory
         os.chdir(ROOT_DIR)
         self.eload = Eload(55)
+        self.original_config = EloadConfig(os.path.join(self.eload.eload_dir, 'original_config.yml'))
         self.updated_config = EloadConfig(os.path.join(self.eload.eload_dir, 'updated_config.yml'))
-        # Used to restore test config after each test
-        self.original_cfg = deepcopy(self.eload.eload_cfg.content)
+        # Setup the config
+        self.eload.eload_cfg.content = deepcopy(self.original_config.content)
         self.original_updated_cfg = deepcopy(self.updated_config.content)
         self.updated_config.set('version', value=__version__)
 
     def tearDown(self):
-        self.eload.eload_cfg.content = self.original_cfg
         self.updated_config.content = self.original_updated_cfg
-        if os.path.exists(f'{self.eload.eload_cfg.config_file}.old'):
-            os.remove(f'{self.eload.eload_cfg.config_file}.old')
+        # remove the config and its backup
+        for file_path in [self.eload.eload_cfg.config_file, f'{self.eload.eload_cfg.config_file}.1']:
+            print(file_path)
+            print(os.path.exists(file_path))
+            if os.path.exists(file_path):
+                os.remove(file_path)
 
     def test_upgrade_config(self):
         """Tests config upgrade for a post-brokering config."""

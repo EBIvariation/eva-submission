@@ -52,9 +52,7 @@ def main():
     eload = EloadPreparation(args.eload)
     if args.ftp_box and args.submitter:
         eload.copy_from_ftp(args.ftp_box, args.submitter)
-    if args.taxid or args.reference:
-        eload.replace_values_in_metadata(args.taxid, args.reference)
-    eload.detect_all()
+    eload.detect_all(args.taxid, args.reference)
 
 
 if __name__ == "__main__":
