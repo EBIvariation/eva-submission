@@ -298,7 +298,7 @@ class XlsxWriter(XlsxBaseParser):
                 elif header in row_data:
                     self.workbook[worksheet].cell(column=header_index+1, row=row_num, value=row_data[header])
 
-    def set_rows(self, rows):
+    def set_rows(self, rows, empty_remaining_rows=False):
         """
         Write a set of rows from the top of the spreadsheet.
         """
@@ -310,6 +310,8 @@ class XlsxWriter(XlsxBaseParser):
         for i, row in enumerate(rows):
             row['row_num'] = first_row + i
             self.edit_row(row)
+        if empty_remaining_rows:
+            self.workbook[worksheet].delete_rows(first_row + len(rows), amount=self.workbook[worksheet].max_row - first_row + len(rows))
 
     def save(self, filename):
         self.workbook.save(filename)

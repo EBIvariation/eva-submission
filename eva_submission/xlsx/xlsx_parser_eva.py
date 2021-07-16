@@ -98,7 +98,7 @@ class EvaXlsxWriter(AppLogger):
 
     def _set_all_rows(self, active_sheet, rows):
         self.writer.active_worksheet = active_sheet
-        self.writer.set_rows(rows)
+        self.writer.set_rows(rows, empty_remaining_rows=True)
 
     def save(self):
         self.writer.save(self.metadata_dest)

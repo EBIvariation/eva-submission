@@ -52,7 +52,7 @@ class EloadPreparation(Eload):
         eva_xls_writer.save()
 
     def detect_all(self, taxid=None, reference_accession=None):
-        # New detection so the config should be backeup and reset
+        # New detection so the config should be backup and reset
         if not self.eload_cfg.is_empty():
             self.debug('Config will be reset')
             self.eload_cfg.backup()
