@@ -50,7 +50,7 @@ jobs:
         export OPENSSL_CONF=openssl_sec1.cnf
         PYTHONPATH=. pytest tests
     - name: Test nextflow workflows
-        run: |
-          # Run nextflow tests
-          tests/nextflow-tests/run_tests.sh
-          tests/nextflow-tests/run_tests_human.sh
+      run: |
+        # Run nextflow tests
+        tests/nextflow-tests/run_tests.sh
+        tests/nextflow-tests/run_tests_human.sh
