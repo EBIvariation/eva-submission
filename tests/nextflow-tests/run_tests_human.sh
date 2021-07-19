@@ -3,11 +3,11 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-SOURCE_DIR="$(dirname $(dirname $SCRIPT_DIR))/nextflow"
+SOURCE_DIR="$(dirname $(dirname $SCRIPT_DIR))/eva_submission/nextflow"
 
 cwd=${PWD}
 cd ${SCRIPT_DIR}
-mkdir project project/accessions project/public ftp
+mkdir -p project project/accessions project/public ftp
 
 # run accession and variant load
 # note public_dir needs to be an absolute path, unlike others in config

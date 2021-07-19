@@ -20,9 +20,20 @@ class EloadConfig(Configuration):
             pass
 
     def backup(self):
-        if self.config_file and self.content and os.path.isdir(os.path.dirname(self.config_file)):
-            with open(f'{self.config_file}.old', 'w') as open_config:
-                yaml.safe_dump(self.content, open_config)
+        """
+        Rename the config file by adding a '.1' at the end. If the '.1' file exists it move it to a '.2' and so on.
+        """
+        if os.path.isfile(self.config_file):
+            file_name = self.config_file
+            suffix = 1
+            backup_name = f'{file_name}.{suffix}'
+            while os.path.exists(backup_name):
+                suffix += 1
+                backup_name = f'{file_name}.{suffix}'
+
+            for i in range(suffix, 1, -1):
+                os.rename(f'{file_name}.{i - 1}', f'{file_name}.{i}')
+            os.rename(file_name, file_name + '.1')
 
     def write(self):
         if self.config_file and self.content and os.path.isdir(os.path.dirname(self.config_file)):
@@ -30,6 +41,7 @@ class EloadConfig(Configuration):
                 yaml.safe_dump(self.content, open_config)
 
     def set(self, *path, value):
+        self._set_version()
         top_level = self.content
         for p in path[:-1]:
             if p not in top_level:
@@ -52,14 +64,17 @@ class EloadConfig(Configuration):
     def clear(self):
         self.content = {}
 
+    def _set_version(self):
+        # If we're starting to fill in an empty config, set the version.
+        if self.is_empty():
+            self.content['version'] = __version__
+
     def __contains__(self, item):
         return item in self.content
 
     def __setitem__(self, item, value):
         """Allow dict-style write access, e.g. config['this']='that'."""
-        # If we're starting to fill in an empty config, set the version.
-        if self.is_empty():
-            self.content['version'] = __version__
+        self._set_version()
         self.content[item] = value
 
     def __del__(self):

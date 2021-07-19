@@ -47,7 +47,7 @@ class TestENAUploader(TestCase):
     def test_parse_ena_receipt_failed(self):
         receipt = '''This is a random message that cannot be parsed by XML libraries'''
         assert self.uploader.parse_ena_receipt(receipt) == {
-            'errors': 'Cannot parse ENA receipt: This is a random message that cannot be parsed by XML libraries'
+            'errors': ['Cannot parse ENA receipt: This is a random message that cannot be parsed by XML libraries']
         }
 
     def test_parse_ena_receipt_multiple_analyses(self):

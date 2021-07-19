@@ -34,9 +34,6 @@ class EloadPreparation(Eload):
 
     def replace_values_in_metadata(self, taxid=None, reference_accession=None):
         """Find and Replace the value in the metadata spreadsheet with the one provided """
-        # This might have been run before any detection occurred
-        if not self.eload_cfg.query('submission', 'metadata_spreadsheet'):
-            self.detect_submitted_metadata()
         input_spreadsheet = self.eload_cfg.query('submission', 'metadata_spreadsheet')
         reader = EvaXlsxReader(input_spreadsheet)
 
@@ -54,8 +51,15 @@ class EloadPreparation(Eload):
             eva_xls_writer.set_analysis(analysis_rows)
         eva_xls_writer.save()
 
-    def detect_all(self):
+    def detect_all(self, taxid=None, reference_accession=None):
+        # New detection so the config should be backup and reset
+        if not self.eload_cfg.is_empty():
+            self.debug('Config will be reset')
+            self.eload_cfg.backup()
+            self.eload_cfg.clear()
         self.detect_submitted_metadata()
+        if taxid or reference_accession:
+            self.replace_values_in_metadata(taxid=taxid, reference_accession=reference_accession)
         self.check_submitted_filenames()
         self.detect_metadata_attributes()
         self.find_genome()
@@ -73,17 +77,24 @@ class EloadPreparation(Eload):
         vcf_dir = os.path.join(self.eload_dir, directory_structure['vcf'])
         uncompressed_vcf = glob.glob(os.path.join(vcf_dir, '*.vcf'))
         compressed_vcf = glob.glob(os.path.join(vcf_dir, '*.vcf.gz'))
-        submitted_vcfs = uncompressed_vcf + compressed_vcf
+        submitted_vcfs = [os.path.basename(vcf) for vcf in uncompressed_vcf + compressed_vcf]
         if len(submitted_vcfs) < 1:
             raise FileNotFoundError('Could not locate vcf file in %s', vcf_dir)
 
         eva_files_sheet = self.eload_cfg.query('submission', 'metadata_spreadsheet')
         eva_xls_reader = EvaXlsxReader(eva_files_sheet)
-        spreadsheet_vcfs = [os.path.basename(row['File Name']) for row in eva_xls_reader.files]
+        spreadsheet_vcfs = [
+            os.path.basename(row['File Name']) for row in eva_xls_reader.files
+            if row['File Type'] == 'vcf' or row['File Name'].endswith('.vcf') or row['File Name'].endswith('.vcf.gz')
+        ]
 
         if sorted(spreadsheet_vcfs) != sorted(submitted_vcfs):
             self.warning('VCF files found in the spreadsheet does not match the ones submitted. '
                          'Submitted VCF will be added to the spreadsheet')
+            self.debug(f'Difference between spreadsheet vcfs and submitted vcfs: '
+                       f'{", ".join(set(spreadsheet_vcfs).difference(set(submitted_vcfs)))}')
+            self.debug(f'Difference between submitted vcfs and spreadsheet vcfs: '
+                       f'{", ".join(set(submitted_vcfs).difference(set(spreadsheet_vcfs)))}')
             analysis_alias = ''
             if len(eva_xls_reader.analysis) == 1:
                 analysis_alias = eva_xls_reader.analysis[0].get('Analysis Alias') or ''
@@ -93,7 +104,7 @@ class EloadPreparation(Eload):
             eva_xls_writer = EvaXlsxWriter(eva_files_sheet)
             eva_xls_writer.set_files([
                 {
-                    'File Name': os.path.basename(vcf_file),
+                    'File Name': vcf_file,
                     'File Type': 'vcf',
                     'Analysis Alias': analysis_alias,
                     'MD5': ''  # Dummy md5 for now

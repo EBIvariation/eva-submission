@@ -3,9 +3,7 @@ instance_id: 1
 public_ftp_dir: ../../ftp
 logs_dir: ../../../project/logs
 public_dir: ../../../project/public
-valid_vcfs:
-- test1.vcf.gz
-- test2.vcf.gz
+valid_vcfs: vcf_files_to_ingest.csv
 
 accession_job_props:
   test.prop1: x
@@ -16,6 +14,8 @@ eva_pipeline_props: test_eva_pipeline.properties
 load_job_props:
   test.prop1: a
   test.prop2: b
+
+aggregation_type: none
 
 executable:
   bcftools: ../../../bin/fake_bcftools.sh

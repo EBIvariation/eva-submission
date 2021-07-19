@@ -136,25 +136,11 @@ def get_hold_date_from_ena(project_accession, project_alias=None):
     return hold_date
 
 
-def backup_file(file_name):
-    """Rename the provided file by adding a '.1' at the end. If the '.1' file exists it move it to a '.2' and so on."""
-    suffix = 1
-    backup_name = f'{file_name}.{suffix}'
-    while os.path.exists(backup_name):
-        suffix += 1
-        backup_name = f'{file_name}.{suffix}'
-
-    for i in range(suffix, 1, -1):
-        os.rename(f'{file_name}.{i - 1}', f'{file_name}.{i}')
-    os.rename(file_name, file_name + '.1')
-
-
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
 def download_file(url, dest):
     """Download a public file accessible via http or ftp."""
     urllib.request.urlretrieve(url, dest)
     urllib.request.urlcleanup()
-
 
 
 def get_vep_and_vep_cache_version(mongo_uri, db_name, coll_name, assembly_accession):

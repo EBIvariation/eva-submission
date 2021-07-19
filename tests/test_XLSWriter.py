@@ -9,6 +9,7 @@ class TestXlsxWriter(TestCase):
 
     resources_folder = os.path.join(ROOT_DIR, 'tests', 'resources')
     metadata_file = os.path.join(resources_folder, 'metadata.xlsx')
+    metadata_copy_file = os.path.join(resources_folder, 'metadata_copy.xlsx')
     eva_xls_reader_conf = os.path.join(resources_folder, 'test_metadata_fields.yaml')
 
     def setUp(self):
@@ -16,8 +17,9 @@ class TestXlsxWriter(TestCase):
         self.reader = EvaXlsxReader(self.metadata_file)
 
     def tearDown(self):
-        if os.path.exists(os.path.join(self.resources_folder, 'metadata_copy.xlsx')):
-            os.remove(os.path.join(self.resources_folder, 'metadata_copy.xlsx'))
+        pass
+        if os.path.exists(self.metadata_copy_file):
+            os.remove(self.metadata_copy_file)
 
     def test_edit_row(self):
         self.xls_writer.active_worksheet = 'Sample'
@@ -31,7 +33,10 @@ class TestXlsxWriter(TestCase):
                 },
                 remove_when_missing_values=True
             )
-        self.xls_writer.save(os.path.join(os.path.dirname(__file__), 'resources', 'metadata_copy.xlsx'))
+        self.xls_writer.save(self.metadata_copy_file)
+        reader = EvaXlsxReader(self.metadata_copy_file)
+        assert len(reader.samples) == 100
+        assert reader.samples[0]['Sample Accession'] == 'SABCDEF1'
 
     def test_set_rows(self):
         self.xls_writer.active_worksheet = 'Sample'
@@ -40,8 +45,10 @@ class TestXlsxWriter(TestCase):
                 'Analysis Alias': 'GAE',
                 'Sample ID': 'S' + str(sample_num),
                 'Sample Accession': 'SABCDEFGHIJKLMNOP' + str(sample_num),
-            } for sample_num in range(1, 101)
+            } for sample_num in range(1, 51)
         ]
-        self.xls_writer.set_rows(rows)
-        self.xls_writer.save(os.path.join(os.path.dirname(__file__), 'resources', 'metadata_copy.xlsx'))
-
+        self.xls_writer.set_rows(rows, empty_remaining_rows=True)
+        self.xls_writer.save(self.metadata_copy_file)
+        reader = EvaXlsxReader(self.metadata_copy_file)
+        assert len(reader.samples) == 50
+        assert reader.samples[0]['Sample Accession'] == 'SABCDEFGHIJKLMNOP1'

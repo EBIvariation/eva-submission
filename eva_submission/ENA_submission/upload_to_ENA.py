@@ -78,5 +78,5 @@ class ENAUploader(AppLogger):
                     results[child.tag] = child.attrib['accession']
         except ET.ParseError:
             self.error('Cannot parse ENA receipt: ' + ena_xml_receipt)
-            results['errors'] = 'Cannot parse ENA receipt: ' + ena_xml_receipt
+            results['errors'].append('Cannot parse ENA receipt: ' + ena_xml_receipt)
         return results
