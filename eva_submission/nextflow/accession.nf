@@ -76,15 +76,18 @@ human study:
 */
 is_human_study = (params.accession_job_props.'parameters.taxonomyAccession' == 9606)
 if (is_human_study) {
+    valid_vcfs = Channel.empty()
     Channel.fromPath(params.valid_vcfs)
         .splitCsv(header:true)
-        .map{row -> tuple(file(row.vcf))}
+        .map{row -> tuple(file(row.vcf_file))}
         .into{tabix_vcfs; csi_vcfs}
 } else {
+    tabix_vcfs = Channel.empty()
+    csi_vcfs = Channel.empty()
     Channel.fromPath(params.valid_vcfs)
         .splitCsv(header:true)
         .map{row -> tuple(file(row.vcf_file), row.assembly_accession, file(row.fasta), file(row.report))}
-        .into{valid_vcfs}
+        .set{valid_vcfs}
 }
 
 /*
