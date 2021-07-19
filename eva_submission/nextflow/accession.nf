@@ -138,7 +138,7 @@ process accession_vcf {
                     -o $params.logs_dir/${log_filename}.log \
                     -e $params.logs_dir/${log_filename}.err"
 
-    memory '6.8 GB'
+    memory '6.7 GB'
 
     input:
     path accession_properties from accession_props
