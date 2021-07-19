@@ -8,6 +8,7 @@ import retry
 
 from eva_submission.eload_backlog import EloadBacklog
 from eva_submission.submission_config import load_config
+from eva_submission import __version__
 
 
 class TestEloadBacklog(TestCase):
@@ -20,6 +21,7 @@ class TestEloadBacklog(TestCase):
         # Need to set the directory so that the relative path set in the config file works from the top directory
         os.chdir(self.top_dir)
         self.eload = EloadBacklog(44)
+
 
     def tearDown(self):
         if os.path.exists(os.path.join(self.eload._get_dir('ena'), 'IRIS_313-8755.snp.vcf.gz.tbi')):
@@ -54,7 +56,8 @@ class TestEloadBacklog(TestCase):
                     'ANALYSIS': {'ERZ999999': 'ERZ999999'},
                     'PROJECT': 'PRJEB12345',
                 }
-            }
+            },
+            'version': __version__
         }
         with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_backlog.get_all_results_for_query') as m_get_results, \
@@ -89,7 +92,8 @@ class TestEloadBacklog(TestCase):
                     'ANALYSIS': {'ERZ999999': 'ERZ999999'},
                     'PROJECT': 'PRJEB12345',
                 }
-            }
+            },
+            'version': __version__
         }
         with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_backlog.get_all_results_for_query') as m_get_results,\
@@ -101,7 +105,6 @@ class TestEloadBacklog(TestCase):
             with self.assertRaises(FileNotFoundError):
                 self.eload.fill_in_config()
             # incomplete config should still exist, even though filling config failed
-            self.eload = EloadBacklog(44)
             self.assertEqual(self.eload.eload_cfg.content, expected_config)
 
     def test_find_file_on_ena(self):
