@@ -138,7 +138,7 @@ process accession_vcf {
                     -o $params.logs_dir/${log_filename}.log \
                     -e $params.logs_dir/${log_filename}.err"
 
-    memory '8 GB'
+    memory '6.8 GB'
 
     input:
     path accession_properties from accession_props
@@ -151,7 +151,7 @@ process accession_vcf {
     """
     filename=\$(basename $accession_properties)
     filename=\${filename%.*}
-    (java -Xmx7g -jar $params.jar.accession_pipeline --spring.config.name=\$filename) || \
+    (java -Xmx6g -jar $params.jar.accession_pipeline --spring.config.name=\$filename) || \
     # If accessioning fails due to missing variants, but the only missing variants are structural variants,
     # then we should treat this as a success from the perspective of the automation.
     # TODO revert once accessioning pipeline properly registers structural variants
