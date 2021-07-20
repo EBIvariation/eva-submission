@@ -111,7 +111,7 @@ process create_properties {
     }
     props.setProperty("input.vcf", vcf_file.toString())
     props.setProperty("input.vcf.id", analysis_accession.toString())
-    props.setProperty("parameters.fasta", fasta.toString())
+    props.setProperty("input.fasta", fasta.toString())
     props.setProperty("spring.data.mongodb.database", db_name.toString())
     // need to explicitly store in workDir so next process can pick it up
     // see https://github.com/nextflow-io/nextflow/issues/942#issuecomment-441536175
