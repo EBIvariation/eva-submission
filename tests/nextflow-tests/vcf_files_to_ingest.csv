@@ -1,3 +1,4 @@
 vcf_file,assembly_accession,fasta,report,analysis_accession,db_name
-tests/nextflow-tests/test1.vcf.gz,GCA_000001000.1,fasta.fa,assembly_report.txt,,
-tests/nextflow-tests/test2.vcf.gz,GCA_000001000.1,fasta.fa,assembly_report.txt,,
+test1.vcf.gz,GCA_000001000.1,fasta.fa,assembly_report.txt,ERZ12345,
+test2.vcf.gz,GCA_000001000.1,fasta.fa,assembly_report.txt,ERZ12345,
+test3.vcf.gz,GCA_000001000.1,fasta.fa,assembly_report.txt,ERZ12346,

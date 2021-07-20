@@ -70,23 +70,24 @@ merged and passed directly to create the properties
  */
 process merge_vcfs {
     input:
-    set vcf_file, file_count, fasta, analysis_accession, db_name from vcfs_to_merge
+    set vcf_files, file_count, fasta, analysis_accession, db_name from vcfs_to_merge
     output:
-    tuple "${params.project_accession}_${analysis_accession}_merged.vcf.gz", fasta, analysis_accession, db_name into merged_vcf
+    // output will contain the absolute path to the VCF file
+    tuple "${task.workDir}/${params.project_accession}_${analysis_accession}_merged.vcf.gz", fasta, analysis_accession, db_name into merged_vcf
 
     script:
     if (file_count > 1) {
         file_list = new File("${workflow.workDir}/all_files_${analysis_accession}.list")
         file_list.newWriter().withWriter{ w ->
-            vcf_file.each { file -> w.write("$file\n")}
+            vcf_files.each { file -> w.write("$file\n")}
         }
         """
         $params.executable.bcftools merge --merge all --file-list ${workflow.workDir}/all_files_${analysis_accession}.list --threads 3 -O z -o ${params.project_accession}_${analysis_accession}_merged.vcf.gz
         """
     } else {
-        single_file = vcf_file[0]
+        single_file = vcf_files[0]
         """
-        ln -sfT ${single_file} ${params.project_accession}_${analysis_accession}_merged.vcf.gz
+        ln -sf ${single_file} ${params.project_accession}_${analysis_accession}_merged.vcf.gz
         """
     }
 }
@@ -97,7 +98,8 @@ process merge_vcfs {
  */
 process create_properties {
     input:
-    set file(vcf_file), fasta, analysis_accession, db_name from unmerged_vcfs.mix(merged_vcf)
+    // vcf_file contains the absolute path to the merged vcf file
+    tuple vcf_file, fasta, analysis_accession, db_name from merged_vcf
 
     output:
     path "load_${vcf_file.getFileName()}.properties" into variant_load_props
