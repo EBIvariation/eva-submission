@@ -103,7 +103,7 @@ class TestEloadBacklog(TestCase):
                 [('ERZ999999', ('something_else.vcf.gz', 'file.vcf.gz.tbi'))]
             ])
             with self.assertRaises(FileNotFoundError):
-                self.eload.fill_in_config()
+                self.eload.fill_in_config(True)
             # incomplete config should still exist, even though filling config failed
             self.assertEqual(self.eload.eload_cfg.content, expected_config)
 
