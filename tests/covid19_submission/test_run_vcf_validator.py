@@ -2,7 +2,7 @@ import glob
 import os
 import shutil
 
-from covid19_submission.steps.run_vcf_validator import run_vcf_validation
+from eva_submission.covid19_submission.steps.run_vcf_validator import run_vcf_validation
 from eva_submission import ROOT_DIR
 from unittest import TestCase
 
