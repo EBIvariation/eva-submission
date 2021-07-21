@@ -36,6 +36,9 @@ jobs:
         cd -
         # Build java dependencies
         tests/nextflow-tests/build_tests.sh
+    - name: Set up VCF validator and assembly checker
+      run: |
+        sudo bash -c "cd /usr/bin && wget https://github.com/EBIvariation/vcf-validator/releases/download/v${{ matrix.vcf-validator-version }}/vcf_validator_linux && chmod 755 vcf_validator_linux"
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
