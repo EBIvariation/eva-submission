@@ -70,10 +70,9 @@ merged and passed directly to create the properties
  */
 process merge_vcfs {
     input:
-    set vcf_files, file_count, fasta, analysis_accession, db_name from vcfs_to_merge
+    tuple vcf_files, file_count, fasta, analysis_accession, db_name from vcfs_to_merge
     output:
-    // output will contain the absolute path to the VCF file
-    tuple "${task.workDir}/${params.project_accession}_${analysis_accession}_merged.vcf.gz", fasta, analysis_accession, db_name into merged_vcf
+    tuple "${params.project_accession}_${analysis_accession}_merged.vcf.gz", fasta, analysis_accession, db_name into merged_vcf
 
     script:
     if (file_count > 1) {
@@ -87,7 +86,7 @@ process merge_vcfs {
     } else {
         single_file = vcf_files[0]
         """
-        ln -sf ${single_file} ${params.project_accession}_${analysis_accession}_merged.vcf.gz
+        ln -sfT ${single_file} ${params.project_accession}_${analysis_accession}_merged.vcf.gz
         """
     }
 }
@@ -98,8 +97,7 @@ process merge_vcfs {
  */
 process create_properties {
     input:
-    // vcf_file contains the absolute path to the merged vcf file
-    tuple vcf_file, fasta, analysis_accession, db_name from merged_vcf
+    tuple vcf_file, fasta, analysis_accession, db_name from unmerged_vcfs.mix(merged_vcf)
 
     output:
     path "load_${vcf_file.getFileName()}.properties" into variant_load_props

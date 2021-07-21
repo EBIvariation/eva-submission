@@ -20,7 +20,6 @@ def download_xml_from_ena(ena_url):
 
 
 def get_assembly_name_and_taxonomy_id(assembly_accession):
-    print(assembly_accession)
     xml_root = download_xml_from_ena(f'https://www.ebi.ac.uk/ena/browser/api/xml/{assembly_accession}')
     xml_assembly = xml_root.xpath('/ASSEMBLY_SET/ASSEMBLY')
     if len(xml_assembly) == 0:
