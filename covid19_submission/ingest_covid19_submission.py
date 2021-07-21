@@ -132,7 +132,7 @@ def ingest_covid19_submission(download_url: str, snapshot_name: str, project_dir
                                             app_config['assembly_checker_binary'],
                                             app_config['fasta_path'],
                                             app_config['assembly_report_path'],
-                                            os.path.join(toplevel_vcf_dir, "validations")
+                                            os.path.join(project_dir, "validations")
                                             )
     submission_pipeline = combine_all_stages([download_files_stage, vcf_preparation_stage, validation_stage])
     submission_pipeline.run_pipeline(workflow_file_path=os.path.join(app_config['submission_processing_dir'], "vertical_concat.nf"),

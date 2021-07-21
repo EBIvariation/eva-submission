@@ -3,7 +3,7 @@ import unittest
 import yaml
 
 from eva_submission import ROOT_DIR
-from eva_submission.eload_utils import backup_file
+#from eva_submission.eload_utils import backup_file
 from covid19_submission.ingest_covid19_submission import ingest_covid19_submission
 
 
