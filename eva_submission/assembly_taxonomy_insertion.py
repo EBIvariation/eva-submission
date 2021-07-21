@@ -20,7 +20,7 @@ def download_xml_from_ena(ena_url):
 
 
 def get_assembly_name_and_taxonomy_id(assembly_accession):
-    xml_root = download_xml_from_ena(f'https://www.ebi.ac.uk/ena/data/view/{assembly_accession}&display=xml')
+    xml_root = download_xml_from_ena(f'https://www.ebi.ac.uk/ena/browser/api/xml/{assembly_accession}')
     xml_assembly = xml_root.xpath('/ASSEMBLY_SET/ASSEMBLY')
     if len(xml_assembly) == 0:
         raise ValueError(f'Assembly {assembly_accession} not found in ENA')
@@ -30,7 +30,7 @@ def get_assembly_name_and_taxonomy_id(assembly_accession):
 
 
 def get_scientific_name_and_common_name(taxonomy_id):
-    xml_root = download_xml_from_ena(f'https://www.ebi.ac.uk/ena/data/view/Taxon:{taxonomy_id}&display=xml')
+    xml_root = download_xml_from_ena(f'https://www.ebi.ac.uk/ena/browser/api/xml/{taxonomy_id}')
     xml_taxon = xml_root.xpath('/TAXON_SET/taxon')
     if len(xml_taxon) == 0:
         raise ValueError(f'Taxonomy {taxonomy_id} not found in ENA')

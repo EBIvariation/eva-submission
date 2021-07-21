@@ -70,7 +70,7 @@ merged and passed directly to create the properties
  */
 process merge_vcfs {
     input:
-    set vcf_file, file_count, fasta, analysis_accession, db_name from vcfs_to_merge
+    tuple vcf_files, file_count, fasta, analysis_accession, db_name from vcfs_to_merge
     output:
     tuple "${params.project_accession}_${analysis_accession}_merged.vcf.gz", fasta, analysis_accession, db_name into merged_vcf
 
@@ -78,13 +78,13 @@ process merge_vcfs {
     if (file_count > 1) {
         file_list = new File("${workflow.workDir}/all_files_${analysis_accession}.list")
         file_list.newWriter().withWriter{ w ->
-            vcf_file.each { file -> w.write("$file\n")}
+            vcf_files.each { file -> w.write("$file\n")}
         }
         """
         $params.executable.bcftools merge --merge all --file-list ${workflow.workDir}/all_files_${analysis_accession}.list --threads 3 -O z -o ${params.project_accession}_${analysis_accession}_merged.vcf.gz
         """
     } else {
-        single_file = vcf_file[0]
+        single_file = vcf_files[0]
         """
         ln -sfT ${single_file} ${params.project_accession}_${analysis_accession}_merged.vcf.gz
         """
@@ -97,7 +97,7 @@ process merge_vcfs {
  */
 process create_properties {
     input:
-    set file(vcf_file), fasta, analysis_accession, db_name from unmerged_vcfs.mix(merged_vcf)
+    tuple vcf_file, fasta, analysis_accession, db_name from unmerged_vcfs.mix(merged_vcf)
 
     output:
     path "load_${vcf_file.getFileName()}.properties" into variant_load_props
@@ -109,7 +109,7 @@ process create_properties {
     }
     props.setProperty("input.vcf", vcf_file.toString())
     props.setProperty("input.vcf.id", analysis_accession.toString())
-    props.setProperty("parameters.fasta", fasta.toString())
+    props.setProperty("input.fasta", fasta.toString())
     props.setProperty("spring.data.mongodb.database", db_name.toString())
     // need to explicitly store in workDir so next process can pick it up
     // see https://github.com/nextflow-io/nextflow/issues/942#issuecomment-441536175
