@@ -356,7 +356,6 @@ class EloadIngestion(Eload):
             })
         load_config = {
             'valid_vcfs': vcf_files_to_ingest,
-            'aggregation_type': self.eload_cfg.query(self.config_section, 'aggregation'),
             'load_job_props': job_props,
             'project_accession': self.project_accession,
             'project_dir': str(self.project_dir),
@@ -425,10 +424,6 @@ class EloadIngestion(Eload):
     def refresh_study_browser(self):
         with self.metadata_connection_handle as conn:
             execute_query(conn, 'refresh materialized view study_browser;')
-
-    @cached_property
-    def needs_merge(self):
-        return len(self.valid_vcf_filenames) > 1 and self.eload_cfg.query(self.config_section, 'aggregation') == 'none'
 
     @cached_property
     def valid_vcf_filenames(self):

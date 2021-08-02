@@ -101,7 +101,7 @@ class EloadValidation(Eload):
         nb_mismatch = 0
         with open(assembly_check_report) as open_file:
             for line in open_file:
-               if 'does not match the reference sequence' in line:
+                if 'does not match the reference sequence' in line:
                     nb_mismatch += 1
                     if nb_mismatch < 11:
                         mismatch_list.append(line.strip())
