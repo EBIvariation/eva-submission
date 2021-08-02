@@ -5,13 +5,14 @@ import shutil
 import subprocess
 
 import yaml
+from cached_property import cached_property
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import resolve_single_file_path
-from eva_submission.samples_checker import compare_spreadsheet_and_vcf
+from eva_submission.eload_utils import resolve_single_file_path, compare_sample_sets
+from eva_submission.samples_checker import compare_spreadsheet_and_vcf, get_samples_from_vcf
 from eva_submission.xlsx.xlsx_validation import EvaXlsxValidator
 
 
@@ -50,6 +51,20 @@ class EloadValidation(Eload):
         ]):
             self.eload_cfg.set('validation', 'valid', 'analyses', value=self.eload_cfg.query('submission', 'analyses'))
             self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet', value=self.eload_cfg['submission']['metadata_spreadsheet'])
+
+    @cached_property
+    def vcf_merge_type(self):
+        file_to_sample_names = {}
+        # retrieve all the sample_names from the VCF files
+        for file_path in self._get_vcf_files():  # TODO are these valid files?
+            file_to_sample_names[file_path] = get_samples_from_vcf(file_path)
+        # Check that all the samples are the same and in the same order to enable horizontal merging
+        sample_info = compare_sample_sets(file_to_sample_names.values())
+        if sample_info == 'unique sample sets':
+            return 'horizontal merging'
+        elif sample_info == 'single set':
+            return 'vertical merging'
+        return None
 
     def _get_vcf_files(self):
         vcf_files = []
@@ -372,4 +387,3 @@ Sample names check:
 ----------------------------------
 """
         print(report.format(**report_data))
-

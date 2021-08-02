@@ -1,0 +1,4 @@
+vcf,fasta,report
+vcfs/test1.vcf.gz,fasta.fa,assembly_report.txt
+vcfs/test2.vcf.gz,fasta.fa,assembly_report.txt
+vcfs/test3.vcf.gz,fasta.fa,assembly_report.txt
