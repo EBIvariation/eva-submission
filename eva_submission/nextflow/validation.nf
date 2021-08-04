@@ -82,37 +82,3 @@ process check_vcf_reference {
     $params.executable.vcf_assembly_checker -i $vcf -f $fasta -a $report -r summary,text,valid  -o assembly_check --require-genbank > assembly_check/${vcf}.assembly_check.log 2>&1
     """
 }
-
-
-// TODO only merge if valid
-// /*
-//  * Merge VCFs horizontally, i.e. by sample.
-//  */
-// process merge_vcfs {
-//     input:
-//     path file_list from vcfs_to_merge.collectFile(name: 'all_files.list', newLine: true)
-//
-//     set vcf_file, file_count, fasta, analysis_accession, db_name from vcfs_to_merge
-//     output:
-//     path "${params.project_accession}_merged.vcf.gz" into merged_vcf
-//     tuple "${params.project_accession}_${analysis_accession}_merged.vcf.gz", fasta, analysis_accession, db_name into merged_vcf
-//
-//     """
-//     $params.executable.bcftools merge --merge all --file-list $file_list --threads 3 -O z -o ${params.project_accession}_merged.vcf.gz
-//     """
-//     script:
-//     if (file_count > 1) {
-//         file_list = new File("${workflow.workDir}/all_files_${analysis_accession}.list")
-//         file_list.newWriter().withWriter{ w ->
-//             vcf_file.each { file -> w.write("$file\n")}
-//         }
-//         """
-//         $params.executable.bcftools merge --merge all --force-samples --file-list ${workflow.workDir}/all_files_${analysis_accession}.list --threads 3 -O z -o ${params.project_accession}_${analysis_accession}_merged.vcf.gz
-//         """
-//     } else {
-//         single_file = vcf_file[0]
-//         """
-//         ln -sfT ${single_file} ${params.project_accession}_${analysis_accession}_merged.vcf.gz
-//         """
-//     }
-// }

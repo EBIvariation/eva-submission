@@ -21,7 +21,7 @@ params.eva_pipeline_props = null
 params.project_dir = null
 params.logs_dir = null
 // executables
-params.executable = ["bgzip": "bgzip", "bcftools": "bcftools"]
+params.executable = ["bgzip": "bgzip"]
 // java jars
 params.jar = ["eva_pipeline": "eva_pipeline"]
 // help
