@@ -100,5 +100,4 @@ Sample names check:
             self.validation.report()
         mprint.assert_called_once_with(expected_report)
 
-
-
+# TODO test detect_and_optionally_merge

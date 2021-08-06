@@ -7,9 +7,8 @@ import subprocess
 import yaml
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
-from eva_vcf_merge.config import MergeConfig
-from eva_vcf_merge.detect import vcf_merge_type, MergeType
-from eva_vcf_merge.merge import horizontal_merge
+from eva_vcf_merge.detect import detect_merge_type, MergeType
+from eva_vcf_merge.merge import VCFMerger
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
@@ -93,11 +92,12 @@ class EloadValidation(Eload):
         self.eload_cfg.set('validation', 'sample_check', 'pass', value=not overall_differences)
 
     def detect_and_optionally_merge(self, merge_per_analysis):
+        """Detects merge type for each analysis, but performs merge only when merge_per_analysis is True."""
         vcfs_by_analysis = self._get_valid_vcf_files_by_analysis()
         vcfs_to_horizontal_merge = {}
         vcfs_to_vertical_concat = {}
         for analysis_alias, vcf_files in vcfs_by_analysis.items():
-            merge_type = vcf_merge_type(vcf_files)
+            merge_type = detect_merge_type(vcf_files)
             self.eload_cfg.set('validation', 'merge_type', analysis_alias, value=merge_type)
             if merge_type == MergeType.HORIZONTAL:
                 vcfs_to_horizontal_merge[analysis_alias] = vcf_files
@@ -107,15 +107,20 @@ class EloadValidation(Eload):
                 self.debug('Unsupported merge type!')
 
         if merge_per_analysis:
-            merge_config = MergeConfig(
+            merger = VCFMerger(
                 bcftools_binary=cfg['executable']['bcftools'],
+                bgzip_binary=cfg['executable']['bgzip'],
                 nextflow_binary=cfg['executable']['nextflow'],
-                output_dir='',  # TODO is there a directory for this?
+                nextflow_config=None,  # TODO do we have a nextflow config?
+                output_dir=self._get_dir('merge')
             )
-            horizontal_merge(vcfs_to_horizontal_merge, merge_config)
+            if vcfs_to_horizontal_merge:
+                merged_files = merger.horizontal_merge(vcfs_to_horizontal_merge)
+                # Overwrite valid vcf files in config for just these analyses
+                for alias, files in merged_files.items():
+                    self.eload_cfg.set('validation', 'valid', 'analyses', alias, 'vcf_files', value=files)
             if vcfs_to_vertical_concat:
                 self.debug('Vertical concatenation not yet supported.')
-            # TODO record the new final files
 
     def parse_assembly_check_log(self, assembly_check_log):
         error_list = []
