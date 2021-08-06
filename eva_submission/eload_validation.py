@@ -66,7 +66,7 @@ class EloadValidation(Eload):
         valid_analysis_dict = self.eload_cfg.query('validation', 'valid', 'analyses')
         if valid_analysis_dict:
             for analysis_alias in valid_analysis_dict:
-                vcf_files[analysis_alias] = valid_analysis_dict['vcf_files']
+                vcf_files[analysis_alias] = valid_analysis_dict[analysis_alias]['vcf_files']
         return vcf_files
 
     def _validate_metadata_format(self):
@@ -117,8 +117,8 @@ class EloadValidation(Eload):
             if vcfs_to_horizontal_merge:
                 merged_files = merger.horizontal_merge(vcfs_to_horizontal_merge)
                 # Overwrite valid vcf files in config for just these analyses
-                for alias, files in merged_files.items():
-                    self.eload_cfg.set('validation', 'valid', 'analyses', alias, 'vcf_files', value=files)
+                for alias, merged_file in merged_files.items():
+                    self.eload_cfg.set('validation', 'valid', 'analyses', alias, 'vcf_files', value=[merged_file])
             if vcfs_to_vertical_concat:
                 self.debug('Vertical concatenation not yet supported.')
 
