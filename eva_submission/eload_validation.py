@@ -97,6 +97,8 @@ class EloadValidation(Eload):
         vcfs_to_horizontal_merge = {}
         vcfs_to_vertical_concat = {}
         for analysis_alias, vcf_files in vcfs_by_analysis.items():
+            if len(vcf_files) < 2:
+                continue
             merge_type = detect_merge_type(vcf_files)
             self.eload_cfg.set('validation', 'merge_type', analysis_alias, value=merge_type.value)
             if merge_type == MergeType.HORIZONTAL:
