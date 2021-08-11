@@ -116,7 +116,7 @@ class EloadValidation(Eload):
             )
             merged_files = {}
             if vcfs_to_horizontal_merge:
-               merged_files.update(merger.horizontal_merge(vcfs_to_horizontal_merge))
+                merged_files.update(merger.horizontal_merge(vcfs_to_horizontal_merge))
             if vcfs_to_vertical_concat:
                 merged_files.update(merger.vertical_merge(vcfs_to_vertical_concat))
             # Overwrite valid vcf files in config for just these analyses
