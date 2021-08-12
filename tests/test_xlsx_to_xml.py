@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 from unittest import TestCase
 import xml.etree.ElementTree as ET
-from unittest.mock import patch, Mock, PropertyMock
+from unittest.mock import patch, Mock
 
 from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsxConverter
 
@@ -38,7 +38,8 @@ class TestEnaXlsConverter(TestCase):
             'Description': 'Identification of a major QTL for resistance to Vibrio anguillarum in rainbow trout',
             'Center': 'Laboratory of Aquatic Pathobiology',
             'Tax ID': 8022,
-            'Publication(s)': 'PubMed:123456,PubMed:987654'
+            'Publication(s)': 'PubMed:123456,PubMed:987654',
+            'Link(s)': 'https://www.biorxiv.org/content/example/manuscript|preprint url'
         }
 
         self.analysis_row = {
@@ -114,10 +115,19 @@ class TestEnaXlsConverter(TestCase):
         <SCIENTIFIC_NAME>Oncorhynchus mykiss</SCIENTIFIC_NAME>
       </ORGANISM>
     </SUBMISSION_PROJECT>
+    <PROJECT_LINKS>
+        <PROJECT_LINK>
+            <URL_LINK>
+                <LABEL>preprint url</LABEL>
+                <URL>https://www.biorxiv.org/content/example/manuscript</URL>
+            </URL_LINK>
+        </PROJECT_LINK>
+    </PROJECT_LINKS>
     <PROJECT_ATTRIBUTES/>
   </PROJECT>
 </PROJECT_SET>
 '''
+        ''''''
         self.converter.reader = Mock(project=self.project_row)
         with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_ensembl') as m_sci_name:
             m_sci_name.return_value = 'Oncorhynchus mykiss'

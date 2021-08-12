@@ -45,16 +45,15 @@ def add_element(parent_element, element_name, element_text=None, content_require
 
 def add_links(links_elemt, links, link_type=None):
     for link in links:
+        link_type_elemt = add_element(links_elemt, link_type)
         if re.match('^(ftp:|http:|file:|https:)', link):
             # TODO: requirement in the format
             url, label = link.split('|')
-            if not link_type:
-                link_type = 'URL_LINK'
-            url_link_elemt = add_element(links_elemt, link_type)
+            url_link_elemt = add_element(link_type_elemt, 'URL_LINK')
             add_element(url_link_elemt, 'LABEL', element_text=label)
             add_element(url_link_elemt, 'URL', element_text=url)
         else:
-            xlink_elemt = add_element(links_elemt, 'XREF_LINK')
+            xlink_elemt = add_element(link_type_elemt, 'XREF_LINK')
             # TODO: requirement in the format
             # TODO: Verify the format of the LINK because there is a mismatch between the perl code
             #  and the help in the metadata spreadhseet
