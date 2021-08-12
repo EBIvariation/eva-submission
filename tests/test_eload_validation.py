@@ -99,6 +99,11 @@ Sample names check:
     - Samples that appear in the Metadata sheet but not in the VCF file(s): 
 
 ----------------------------------
+
+VCF merge:
+  * a1: horizontal
+
+----------------------------------
 '''
         with patch('builtins.print') as mprint:
             self.validation.report()
@@ -117,7 +122,7 @@ Sample names check:
             self.validation.detect_and_optionally_merge(False)
             self.assertEqual(
                 self.validation.eload_cfg.query('validation', 'merge_type', analysis_alias),
-                MergeType.HORIZONTAL
+                MergeType.HORIZONTAL.value
             )
             self.assertEqual(
                 self.validation.eload_cfg.query('validation', 'valid', 'analyses', analysis_alias, 'vcf_files'),

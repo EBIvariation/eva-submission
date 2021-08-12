@@ -98,13 +98,13 @@ class EloadValidation(Eload):
         vcfs_to_vertical_concat = {}
         for analysis_alias, vcf_files in vcfs_by_analysis.items():
             merge_type = detect_merge_type(vcf_files)
-            self.eload_cfg.set('validation', 'merge_type', analysis_alias, value=merge_type)
+            self.eload_cfg.set('validation', 'merge_type', analysis_alias, value=merge_type.value)
             if merge_type == MergeType.HORIZONTAL:
                 vcfs_to_horizontal_merge[analysis_alias] = vcf_files
             elif merge_type == MergeType.VERTICAL:
                 vcfs_to_vertical_concat[analysis_alias] = vcf_files
             else:
-                self.debug('Unsupported merge type!')
+                self.error('Unsupported merge type!')
 
         if merge_per_analysis:
             merger = VCFMerger(
@@ -375,6 +375,15 @@ class EloadValidation(Eload):
 """.format(**report_data))
         return '\n'.join(reports)
 
+    def _vcf_merge_report(self):
+        analysis_merge_dict = self.eload_cfg.query('validation', 'merge_type')
+        if not analysis_merge_dict:
+            return '  No mergeable VCFs\n'
+        reports = []
+        for analysis_alias, merge_type in analysis_merge_dict.items():
+            reports.append(f'  * {analysis_alias}: {merge_type}')
+        return '\n'.join(reports)
+
     def report(self):
         """Collect information from the config and write the report."""
 
@@ -387,7 +396,8 @@ class EloadValidation(Eload):
             'metadata_check_report': self._metadata_check_report(),
             'vcf_check_report': self._vcf_check_report(),
             'assembly_check_report': self._assembly_check_report(),
-            'sample_check_report': self._sample_check_report()
+            'sample_check_report': self._sample_check_report(),
+            'vcf_merge_report': self._vcf_merge_report()
         }
 
         report = """Validation performed on {validation_date}
@@ -411,6 +421,11 @@ Assembly check:
 
 Sample names check:
 {sample_check_report}
+----------------------------------
+
+VCF merge:
+{vcf_merge_report}
+
 ----------------------------------
 """
         print(report.format(**report_data))

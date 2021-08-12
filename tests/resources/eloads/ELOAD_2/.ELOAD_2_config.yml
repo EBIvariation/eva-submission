@@ -10,6 +10,8 @@ validation:
         nb_variant: 20
         ref_match: 20
     pass: true
+  merge_type:
+    a1: horizontal
   metadata_check:
     errors: []
     metadata_spreadsheet: /path/to/spreadsheet
