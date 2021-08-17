@@ -127,7 +127,6 @@ class TestEnaXlsConverter(TestCase):
   </PROJECT>
 </PROJECT_SET>
 '''
-        ''''''
         self.converter.reader = Mock(project=self.project_row)
         with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_ensembl') as m_sci_name:
             m_sci_name.return_value = 'Oncorhynchus mykiss'
