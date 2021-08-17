@@ -43,16 +43,17 @@ def add_element(parent_element, element_name, element_text=None, content_require
     return elemt
 
 
-def add_links(links_elemt, links):
+def add_links(links_elemt, links, link_type=None):
     for link in links:
+        link_type_elemt = add_element(links_elemt, link_type)
         if re.match('^(ftp:|http:|file:|https:)', link):
             # TODO: requirement in the format
             url, label = link.split('|')
-            url_link_elemt = add_element(links_elemt, 'URL_LINK')
+            url_link_elemt = add_element(link_type_elemt, 'URL_LINK')
             add_element(url_link_elemt, 'LABEL', element_text=label)
             add_element(url_link_elemt, 'URL', element_text=url)
         else:
-            xlink_elemt = add_element(links_elemt, 'XREF_LINK')
+            xlink_elemt = add_element(link_type_elemt, 'XREF_LINK')
             # TODO: requirement in the format
             # TODO: Verify the format of the LINK because there is a mismatch between the perl code
             #  and the help in the metadata spreadhseet
@@ -166,7 +167,7 @@ class EnaXlsxConverter(AppLogger):
         if 'Link(s)' in project_row and project_row.get('Link(s)'):
             links_elemt = add_element(project_elemt, 'PROJECT_LINKS')
             project_links = project_row.get('Link(s)').split(',')
-            add_links(links_elemt, project_links)
+            add_links(links_elemt, project_links, link_type='PROJECT_LINK')
 
         # TODO: Is this still relevant because it is not documented in the metadata template
         add_attribute_elements(project_elemt, project_row, object_type='PROJECT')
@@ -265,7 +266,7 @@ class EnaXlsxConverter(AppLogger):
         if 'Link(s)' in analysis_row and analysis_row.get('Link(s)'):
             analysis_links_elemt = add_element(analysis_elemt, 'ANALYSIS_LINKS')
             analysis_links = analysis_row.get('Link(s)').strip().split(',')
-            add_links(analysis_links_elemt, analysis_links)
+            add_links(analysis_links_elemt, analysis_links, link_type='ANALYSIS_LINK')
 
         # TODO: Is this still relevant because it is not documented in the metadata template
         analysis_attributes_elemt = add_attribute_elements(analysis_elemt, analysis_row, object_type='ANALYSIS')
