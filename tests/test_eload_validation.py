@@ -1,6 +1,10 @@
 import os
+from copy import deepcopy
 from unittest import TestCase
 from unittest.mock import patch
+
+from eva_vcf_merge.detect import MergeType
+from eva_vcf_merge.merge import VCFMerger
 
 from eva_submission import ROOT_DIR
 from eva_submission.eload_validation import EloadValidation
@@ -95,10 +99,39 @@ Sample names check:
     - Samples that appear in the Metadata sheet but not in the VCF file(s): 
 
 ----------------------------------
+
+VCF merge:
+  * a1: horizontal
+
+----------------------------------
 '''
         with patch('builtins.print') as mprint:
             self.validation.report()
         mprint.assert_called_once_with(expected_report)
 
+    def test_detect_and_optionally_merge(self):
+        original_content = deepcopy(self.validation.eload_cfg.content)
+        analysis_alias = 'alias'
+        valid_files = ['file1', 'file2']
+        merged_files = {analysis_alias: 'merged.vcf.gz'}
+        self.validation.eload_cfg.set('validation', 'valid', 'analyses', analysis_alias, 'vcf_files', value=valid_files)
 
-
+        with patch('eva_submission.eload_validation.detect_merge_type', return_value=MergeType.HORIZONTAL), \
+                patch.object(VCFMerger, 'horizontal_merge', return_value=merged_files):
+            # Should detect merge type but not actually merge
+            self.validation.detect_and_optionally_merge(False)
+            self.assertEqual(
+                self.validation.eload_cfg.query('validation', 'merge_type', analysis_alias),
+                MergeType.HORIZONTAL.value
+            )
+            self.assertEqual(
+                self.validation.eload_cfg.query('validation', 'valid', 'analyses', analysis_alias, 'vcf_files'),
+                valid_files
+            )
+            # Should perform the merge
+            self.validation.detect_and_optionally_merge(True)
+            self.assertEqual(
+                self.validation.eload_cfg.query('validation', 'valid', 'analyses', analysis_alias, 'vcf_files'),
+                ['merged.vcf.gz']
+            )
+        self.validation.eload_cfg.content = original_content

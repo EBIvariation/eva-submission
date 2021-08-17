@@ -7,6 +7,8 @@ import subprocess
 import yaml
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
+from eva_vcf_merge.detect import detect_merge_type, MergeType
+from eva_vcf_merge.merge import VCFMerger
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
@@ -19,7 +21,7 @@ class EloadValidation(Eload):
 
     all_validation_tasks = ['metadata_check', 'assembly_check', 'vcf_check', 'sample_check']
 
-    def validate(self, validation_tasks=None, set_as_valid=False):
+    def validate(self, validation_tasks=None, set_as_valid=False, merge_per_analysis=False):
         if not validation_tasks:
             validation_tasks = self.all_validation_tasks
 
@@ -50,12 +52,21 @@ class EloadValidation(Eload):
         ]):
             self.eload_cfg.set('validation', 'valid', 'analyses', value=self.eload_cfg.query('submission', 'analyses'))
             self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet', value=self.eload_cfg['submission']['metadata_spreadsheet'])
+            self.detect_and_optionally_merge(merge_per_analysis)
 
     def _get_vcf_files(self):
         vcf_files = []
         for analysis_alias in self.eload_cfg.query('submission', 'analyses'):
             files = self.eload_cfg.query('submission', 'analyses', analysis_alias, 'vcf_files')
             vcf_files.extend(files) if files else None
+        return vcf_files
+
+    def _get_valid_vcf_files_by_analysis(self):
+        vcf_files = {}
+        valid_analysis_dict = self.eload_cfg.query('validation', 'valid', 'analyses')
+        if valid_analysis_dict:
+            for analysis_alias in valid_analysis_dict:
+                vcf_files[analysis_alias] = valid_analysis_dict[analysis_alias]['vcf_files']
         return vcf_files
 
     def _validate_metadata_format(self):
@@ -80,6 +91,37 @@ class EloadValidation(Eload):
             })
         self.eload_cfg.set('validation', 'sample_check', 'pass', value=not overall_differences)
 
+    def detect_and_optionally_merge(self, merge_per_analysis):
+        """Detects merge type for each analysis, but performs merge only when merge_per_analysis is True."""
+        vcfs_by_analysis = self._get_valid_vcf_files_by_analysis()
+        vcfs_to_horizontal_merge = {}
+        vcfs_to_vertical_concat = {}
+        for analysis_alias, vcf_files in vcfs_by_analysis.items():
+            merge_type = detect_merge_type(vcf_files)
+            self.eload_cfg.set('validation', 'merge_type', analysis_alias, value=merge_type.value)
+            if merge_type == MergeType.HORIZONTAL:
+                vcfs_to_horizontal_merge[analysis_alias] = vcf_files
+            elif merge_type == MergeType.VERTICAL:
+                vcfs_to_vertical_concat[analysis_alias] = vcf_files
+            else:
+                self.error('Unsupported merge type!')
+
+        if merge_per_analysis:
+            merger = VCFMerger(
+                bcftools_binary=cfg['executable']['bcftools'],
+                bgzip_binary=cfg['executable']['bgzip'],
+                nextflow_binary=cfg['executable']['nextflow'],
+                nextflow_config=None,  # TODO do we have a nextflow config?
+                output_dir=self._get_dir('merge')
+            )
+            if vcfs_to_horizontal_merge:
+                merged_files = merger.horizontal_merge(vcfs_to_horizontal_merge)
+                # Overwrite valid vcf files in config for just these analyses
+                for alias, merged_file in merged_files.items():
+                    self.eload_cfg.set('validation', 'valid', 'analyses', alias, 'vcf_files', value=[merged_file])
+            if vcfs_to_vertical_concat:
+                self.debug('Vertical concatenation not yet supported.')
+
     def parse_assembly_check_log(self, assembly_check_log):
         error_list = []
         nb_error, nb_mismatch = 0, 0
@@ -101,7 +143,7 @@ class EloadValidation(Eload):
         nb_mismatch = 0
         with open(assembly_check_report) as open_file:
             for line in open_file:
-               if 'does not match the reference sequence' in line:
+                if 'does not match the reference sequence' in line:
                     nb_mismatch += 1
                     if nb_mismatch < 11:
                         mismatch_list.append(line.strip())
@@ -333,6 +375,15 @@ class EloadValidation(Eload):
 """.format(**report_data))
         return '\n'.join(reports)
 
+    def _vcf_merge_report(self):
+        analysis_merge_dict = self.eload_cfg.query('validation', 'merge_type')
+        if not analysis_merge_dict:
+            return '  No mergeable VCFs\n'
+        reports = []
+        for analysis_alias, merge_type in analysis_merge_dict.items():
+            reports.append(f'  * {analysis_alias}: {merge_type}')
+        return '\n'.join(reports)
+
     def report(self):
         """Collect information from the config and write the report."""
 
@@ -345,7 +396,8 @@ class EloadValidation(Eload):
             'metadata_check_report': self._metadata_check_report(),
             'vcf_check_report': self._vcf_check_report(),
             'assembly_check_report': self._assembly_check_report(),
-            'sample_check_report': self._sample_check_report()
+            'sample_check_report': self._sample_check_report(),
+            'vcf_merge_report': self._vcf_merge_report()
         }
 
         report = """Validation performed on {validation_date}
@@ -370,6 +422,10 @@ Assembly check:
 Sample names check:
 {sample_check_report}
 ----------------------------------
+
+VCF merge:
+{vcf_merge_report}
+
+----------------------------------
 """
         print(report.format(**report_data))
-

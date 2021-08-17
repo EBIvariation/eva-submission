@@ -1,0 +1,6 @@
+vcf_files_mapping: vcf_files_to_validate.csv
+output_dir: output
+
+executable:
+  vcf_validator: ../../../bin/fake_vcf_validator.sh
+  vcf_assembly_checker: ../../../bin/fake_assembly_checker.sh

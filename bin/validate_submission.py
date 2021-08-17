@@ -35,9 +35,10 @@ def main():
                           help='Set the script to consider all validation tasks performed as valid in the final '
                                'evaluation. This does not affect the actual report but only change the final '
                                'evaluation')
+    argparse.add_argument('--merge_per_analysis', action='store_true', default=False,
+                          help='Whether to merge vcf files per analysis if possible.')
     argparse.add_argument('--report', action='store_true', default=False,
                           help='Set the script to only report the results based on previously run validation.')
-
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
 
@@ -53,7 +54,7 @@ def main():
     eload = EloadValidation(args.eload)
     eload.upgrade_config_if_needed()
     if not args.report:
-        eload.validate(args.validation_tasks, args.set_as_valid)
+        eload.validate(args.validation_tasks, args.set_as_valid, args.merge_per_analysis)
     eload.report()
 
 

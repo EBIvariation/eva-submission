@@ -54,3 +54,4 @@ jobs:
         # Run nextflow tests
         tests/nextflow-tests/run_tests.sh
         tests/nextflow-tests/run_tests_human.sh
+        tests/nextflow-tests/run_tests_validation.sh
