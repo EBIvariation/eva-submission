@@ -97,8 +97,11 @@ class EloadValidation(Eload):
         vcfs_to_horizontal_merge = {}
         vcfs_to_vertical_concat = {}
         for analysis_alias, vcf_files in vcfs_by_analysis.items():
+            if len(vcf_files) < 2:
+                continue
             merge_type = detect_merge_type(vcf_files)
-            self.eload_cfg.set('validation', 'merge_type', analysis_alias, value=merge_type.value)
+            if merge_type:
+                self.eload_cfg.set('validation', 'merge_type', analysis_alias, value=merge_type.value)
             if merge_type == MergeType.HORIZONTAL:
                 vcfs_to_horizontal_merge[analysis_alias] = vcf_files
             elif merge_type == MergeType.VERTICAL:
@@ -114,13 +117,14 @@ class EloadValidation(Eload):
                 nextflow_config=None,  # TODO do we have a nextflow config?
                 output_dir=self._get_dir('merge')
             )
+            merged_files = {}
             if vcfs_to_horizontal_merge:
-                merged_files = merger.horizontal_merge(vcfs_to_horizontal_merge)
-                # Overwrite valid vcf files in config for just these analyses
-                for alias, merged_file in merged_files.items():
-                    self.eload_cfg.set('validation', 'valid', 'analyses', alias, 'vcf_files', value=[merged_file])
+                merged_files.update(merger.horizontal_merge(vcfs_to_horizontal_merge))
             if vcfs_to_vertical_concat:
-                self.debug('Vertical concatenation not yet supported.')
+                merged_files.update(merger.vertical_merge(vcfs_to_vertical_concat))
+            # Overwrite valid vcf files in config for just these analyses
+            for alias, merged_file in merged_files.items():
+                self.eload_cfg.set('validation', 'valid', 'analyses', alias, 'vcf_files', value=[merged_file])
 
     def parse_assembly_check_log(self, assembly_check_log):
         error_list = []

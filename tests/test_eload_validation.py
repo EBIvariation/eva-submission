@@ -135,3 +135,35 @@ VCF merge:
                 ['merged.vcf.gz']
             )
         self.validation.eload_cfg.content = original_content
+
+    def test_merge_multiple_analyses(self):
+        original_content = deepcopy(self.validation.eload_cfg.content)
+        valid_files = {
+            'horizontal': ['h1', 'h2'],
+            'vertical': ['v1', 'v2'],
+            'neither': ['n1', 'n2']
+        }
+        detections = [MergeType.HORIZONTAL, MergeType.VERTICAL, None]
+        horiz_merged_files = {'horizontal': 'h.vcf.gz'}
+        vert_merged_files = {'vertical': 'v.vcf.gz'}
+        for analysis_alias, vcf_files in valid_files.items():
+            self.validation.eload_cfg.set('validation', 'valid', 'analyses',
+                                          analysis_alias, 'vcf_files', value=vcf_files)
+
+        with patch('eva_submission.eload_validation.detect_merge_type', side_effect=detections), \
+                patch.object(VCFMerger, 'horizontal_merge', return_value=horiz_merged_files), \
+                patch.object(VCFMerger, 'vertical_merge', return_value=vert_merged_files):
+            self.validation.detect_and_optionally_merge(True)
+            self.assertEqual(
+                self.validation.eload_cfg.query('validation', 'valid', 'analyses', 'horizontal', 'vcf_files'),
+                ['h.vcf.gz']
+            )
+            self.assertEqual(
+                self.validation.eload_cfg.query('validation', 'valid', 'analyses', 'vertical', 'vcf_files'),
+                ['v.vcf.gz']
+            )
+            self.assertEqual(
+                self.validation.eload_cfg.query('validation', 'valid', 'analyses', 'neither', 'vcf_files'),
+                ['n1', 'n2']
+            )
+        self.validation.eload_cfg.content = original_content
