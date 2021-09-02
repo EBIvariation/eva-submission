@@ -74,14 +74,16 @@ class EloadIngestion(Eload):
         if do_accession:
             self.eload_cfg.set(self.config_section, 'accession', 'instance_id', value=instance_id)
             self.update_config_with_hold_date(self.project_accession)
-            self.run_accession_workflow(vcf_files_to_ingest)
+            output_dir = self.run_accession_workflow(vcf_files_to_ingest)
+            shutil.rmtree(output_dir)
             self.insert_browsable_files()
             self.refresh_study_browser()
 
         if do_variant_load:
             self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'version', value=vep_version)
             self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', value=vep_cache_version)
-            self.run_variant_load_workflow(vep_version, vep_cache_version, skip_annotation, vcf_files_to_ingest)
+            output_dir = self.run_variant_load_workflow(vep_version, vep_cache_version, skip_annotation, vcf_files_to_ingest)
+            shutil.rmtree(output_dir)
 
     def _get_vcf_files_from_brokering(self):
         vcf_files = []
