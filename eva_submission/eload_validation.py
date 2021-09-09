@@ -112,7 +112,7 @@ class EloadValidation(Eload):
 
         if merge_per_analysis:
             if not validate_aliases(vcfs_by_analysis.keys()):
-                self.error('Analysis aliases not valid as merged filenames, will not merge.')
+                self.error('Analysis aliases not valid as unique merged filenames, will not merge.')
                 return
             merger = VCFMerger(
                 bcftools_binary=cfg['executable']['bcftools'],
