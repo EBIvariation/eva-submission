@@ -69,6 +69,9 @@ class EloadBacklog(Eload):
             fasta_path, report_path = get_reference_fasta_and_report(sci_name, asm_accession)
             self.eload_cfg.set('submission', 'analyses', analysis_accession, 'assembly_fasta', value=fasta_path)
             self.eload_cfg.set('submission', 'analyses', analysis_accession, 'assembly_report', value=report_path)
+            self.eload_cfg.set('brokering', 'analyses', analysis_accession, 'assembly_accession', value=asm_accession)
+            self.eload_cfg.set('brokering', 'analyses', analysis_accession, 'assembly_fasta', value=fasta_path)
+            self.eload_cfg.set('brokering', 'analyses', analysis_accession, 'assembly_report', value=report_path)
 
     def find_local_file(self, fn):
         full_path = os.path.join(self._get_dir('vcf'), fn)
