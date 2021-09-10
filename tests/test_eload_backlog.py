@@ -50,7 +50,12 @@ class TestEloadBacklog(TestCase):
                 'taxonomy_id': 9823,
             },
             'brokering': {
-                'analyses': {'ERZ999999': {'vcf_files': {expected_vcf: {'index': expected_index}}}},
+                'analyses': {'ERZ999999': {
+                    'assembly_accession': 'GCA_000003025.4',
+                    'assembly_fasta': 'assembly.fa',
+                    'assembly_report': 'assembly.txt',
+                    'vcf_files': {expected_vcf: {'index': expected_index}}
+                }},
                 'ena': {
                     'hold_date':  datetime(2021, 1, 1, 0, 0, tzinfo=timezone(timedelta(seconds=3600))),
                     'ANALYSIS': {'ERZ999999': 'ERZ999999'},
