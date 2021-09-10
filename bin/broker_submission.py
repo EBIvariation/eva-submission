@@ -32,6 +32,9 @@ def main():
                           help='Set the script to output logging information at debug level')
     argparse.add_argument('--vcf_files', required=False, type=str, help='VCF files to use in the brokering', nargs='+')
     argparse.add_argument('--metadata_file', required=False, type=str, help='VCF files to use in the brokering')
+    argparse.add_argument('--project_accession', required=False, type=str,
+                          help='Use this option to set an existing project accession that will be used to attach the '
+                               'new analyses from this ELOAD.')
     argparse.add_argument('--force', required=False, type=str, nargs='+', default=[],
                           choices=EloadBrokering.all_brokering_tasks,
                           help='When not set, the script only performs the tasks that were not successful. Can be '
@@ -52,7 +55,7 @@ def main():
     brokering = EloadBrokering(args.eload, args.vcf_files, args.metadata_file)
     brokering.upgrade_config_if_needed()
     if not args.report:
-        brokering.broker(brokering_tasks_to_force=args.force)
+        brokering.broker(brokering_tasks_to_force=args.force, existing_project=args.project_accession)
     brokering.report()
 
 

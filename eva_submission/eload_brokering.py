@@ -29,12 +29,12 @@ class EloadBrokering(Eload):
             if metadata_file:
                 self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet', value=os.path.abspath(metadata_file))
 
-    def broker(self, brokering_tasks_to_force=None):
+    def broker(self, brokering_tasks_to_force=None, existing_project=None):
         """Run the brokering process"""
         self.eload_cfg.set('brokering', 'brokering_date', value=self.now)
         self.prepare_brokering(force=('preparation' in brokering_tasks_to_force))
         self.upload_to_bioSamples(force=('biosamples' in brokering_tasks_to_force))
-        self.broker_to_ena(force=('ena' in brokering_tasks_to_force))
+        self.broker_to_ena(force=('ena' in brokering_tasks_to_force), existing_project=existing_project)
 
     def prepare_brokering(self, force=False):
         if not self.eload_cfg.query('brokering', 'vcf_files') or force:
@@ -44,9 +44,11 @@ class EloadBrokering(Eload):
         else:
             self.info('Preparation has already been run, Skip!')
 
-    def broker_to_ena(self, force=False):
+    def broker_to_ena(self, force=False, existing_project=None):
         if not self.eload_cfg.query('brokering', 'ena', 'PROJECT') or force:
             ena_spreadsheet = os.path.join(self._get_dir('ena'), 'metadata_spreadsheet.xlsx')
+            self.eload_cfg.set('brokering', 'ena', 'PROJECT', value=existing_project)
+            self.eload_cfg.set('brokering', 'ena', 'existing_project', value=True)
             self.update_metadata_from_config(self.eload_cfg['validation']['valid']['metadata_spreadsheet'], ena_spreadsheet)
             converter = EnaXlsxConverter(ena_spreadsheet, self._get_dir('ena'), self.eload)
             submission_file, project_file, analysis_file = converter.create_submission_files()

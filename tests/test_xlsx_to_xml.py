@@ -3,8 +3,10 @@ from datetime import datetime
 from unittest import TestCase
 import xml.etree.ElementTree as ET
 from unittest.mock import patch, Mock
+from xml.etree.ElementTree import ElementTree
 
-from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsxConverter
+from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsxConverter, prettify
+from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxWriter
 
 
 def elements_equal(e1, e2):
@@ -28,6 +30,35 @@ def elements_equal(e1, e2):
 
 
 class TestEnaXlsConverter(TestCase):
+
+    expected_analysis = '''
+    <ANALYSIS_SET>
+      <ANALYSIS alias="GRM" center_name="Laboratory of Aquatic Pathobiology">
+        <TITLE>Genomic Relationship Matrix</TITLE>
+        <DESCRIPTION>A genomic relationship matrix (GRM) was computed</DESCRIPTION>
+        <STUDY_REF refname="TechFish"/>
+        <SAMPLE_REF accession="SAMEA7851610" label="201903VIBRIO1185679118"/>
+        <SAMPLE_REF accession="SAMEA7851611" label="201903VIBRIO1185679119"/>
+        <SAMPLE_REF accession="SAMEA7851612" label="201903VIBRIO1185679120"/>
+        <SAMPLE_REF accession="SAMEA7851613" label="201903VIBRIO1185679121"/>
+        <SAMPLE_REF accession="SAMEA7851614" label="201903VIBRIO1185679122"/>
+        <ANALYSIS_TYPE>
+          <SEQUENCE_VARIATION>
+            <ASSEMBLY>
+              <STANDARD accession="GCA_002163495.1"/>
+            </ASSEMBLY>
+            <EXPERIMENT_TYPE>Genotyping by array</EXPERIMENT_TYPE>
+            <PROGRAM>software package GCTA, Burrows-Wheeler Alignment tool (BWA), HTSeq-python package</PROGRAM>
+          </SEQUENCE_VARIATION>
+        </ANALYSIS_TYPE>
+        <FILES>
+          <FILE filename="Vibrio.chrom.fix2.final.debug.gwassnps.vcf.gz" filetype="vcf" checksum_method="MD5" checksum="c263a486e9b273d6e1e4c5f46ca5ccb8"/>
+          <FILE filename="Vibrio.chrom.fix2.final.debug.gwassnps.vcf.gz.tbi" filetype="tabix" checksum_method="MD5" checksum="4b61e00524cc1f4c98e932b0ee27d94e"/>
+        </FILES>
+        <ANALYSIS_ATTRIBUTES/>
+      </ANALYSIS>
+    </ANALYSIS_SET>
+    '''
 
     def setUp(self) -> None:
         self.brokering_folder = os.path.join(os.path.dirname(__file__), 'resources', 'brokering')
@@ -67,8 +98,8 @@ class TestEnaXlsConverter(TestCase):
              'File Type': 'tabix', 'MD5': '4b61e00524cc1f4c98e932b0ee27d94e'},
         ]
 
-        metadata_file = os.path.join(self.brokering_folder, 'metadata_sheet.xlsx')
-        self.converter = EnaXlsxConverter(metadata_file, self.brokering_folder, 'TEST1')
+        self.metadata_file = os.path.join(self.brokering_folder, 'metadata_sheet.xlsx')
+        self.converter = EnaXlsxConverter(self.metadata_file, self.brokering_folder, 'TEST1')
 
     @staticmethod
     def _delete_file(file_path):
@@ -138,36 +169,18 @@ class TestEnaXlsConverter(TestCase):
 
     def test_add_analysis(self):
         root = ET.Element('ANALYSIS_SET')
-        expected_analysis = '''
-<ANALYSIS_SET>
-  <ANALYSIS alias="GRM" center_name="Laboratory of Aquatic Pathobiology">
-    <TITLE>Genomic Relationship Matrix</TITLE>
-    <DESCRIPTION>A genomic relationship matrix (GRM) was computed</DESCRIPTION>
-    <STUDY_REF refname="TechFish"/>
-    <SAMPLE_REF accession="SAMEA7851610" label="201903VIBRIO1185679118"/>
-    <SAMPLE_REF accession="SAMEA7851611" label="201903VIBRIO1185679119"/>
-    <SAMPLE_REF accession="SAMEA7851612" label="201903VIBRIO1185679120"/>
-    <SAMPLE_REF accession="SAMEA7851613" label="201903VIBRIO1185679121"/>
-    <SAMPLE_REF accession="SAMEA7851614" label="201903VIBRIO1185679122"/>
-    <ANALYSIS_TYPE>
-      <SEQUENCE_VARIATION>
-        <ASSEMBLY>
-          <STANDARD accession="GCA_002163495.1"/>
-        </ASSEMBLY>
-        <EXPERIMENT_TYPE>Genotyping by array</EXPERIMENT_TYPE>
-        <PROGRAM>software package GCTA, Burrows-Wheeler Alignment tool (BWA), HTSeq-python package</PROGRAM>
-      </SEQUENCE_VARIATION>
-    </ANALYSIS_TYPE>
-    <FILES>
-      <FILE filename="Vibrio.chrom.fix2.final.debug.gwassnps.vcf.gz" filetype="vcf" checksum_method="MD5" checksum="c263a486e9b273d6e1e4c5f46ca5ccb8"/>
-      <FILE filename="Vibrio.chrom.fix2.final.debug.gwassnps.vcf.gz.tbi" filetype="tabix" checksum_method="MD5" checksum="4b61e00524cc1f4c98e932b0ee27d94e"/>
-    </FILES>
-    <ANALYSIS_ATTRIBUTES/>
-  </ANALYSIS>
-</ANALYSIS_SET>
-'''
         self.converter._add_analysis(root, self.analysis_row, self.project_row, self.sample_rows, self.file_rows)
-        assert elements_equal(root, ET.fromstring(expected_analysis))
+        assert elements_equal(root, ET.fromstring(self.expected_analysis))
+
+    def test_add_analysis_to_existing_project(self):
+        name = 'test'
+        self.project_row['Project Alias'] = 'PRJEB00001'
+
+        root = ET.Element('ANALYSIS_SET')
+        self.converter._add_analysis(root, self.analysis_row, self.project_row, self.sample_rows, self.file_rows)
+        assert elements_equal(root, ET.fromstring(
+            self.expected_analysis.replace('<STUDY_REF refname="TechFish"/>','<STUDY_REF accession="PRJEB00001"/>')
+        ))
 
     def test_process_metadata_spreadsheet(self):
         with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_ensembl') as m_sci_name:

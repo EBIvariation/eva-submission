@@ -247,3 +247,16 @@ def get_releases(ftp):
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
 def get_all_species_files(ftp, release):
     return ftp.nlst(release + "/variation/vep")
+
+
+def check_existing_project(project_accession):
+    """
+    Check if a project accession exists and is public in ENA
+    :param project_accession:
+    :return:
+    """
+    try:
+        download_xml_from_ena(f'https://www.ebi.ac.uk/ena/browser/api/xml/{project_accession}')
+    except requests.exceptions.HTTPError:
+        return False
+    return True
