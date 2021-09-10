@@ -71,10 +71,10 @@ Once the validation pass and VCF files and metadata are marked as valid, the bro
 python broker_submission.py --eload 677
 ```
 
-You can specify a list of VCF and/or a metadata file on the command line to override the one set in the config file by the validation step.
+You can specify a project accession to add the analysis to this ENA project. The project must exist and be writable.
 
  ```bash
-python broker_submission.py --eload 677 --vcf_files /path/to/vcf1.vcf /path/to/vcf2.vcf --metadata_file /path/to/metadata.xlsx
+python broker_submission.py --eload 677 --project_accession PRJEB00001
 ```
 
 ### Data ingestion
