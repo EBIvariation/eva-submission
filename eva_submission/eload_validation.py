@@ -113,6 +113,10 @@ class EloadValidation(Eload):
         if merge_per_analysis:
             if not validate_aliases(vcfs_by_analysis.keys()):
                 self.error('Analysis aliases not valid as unique merged filenames, will not merge.')
+                self.eload_cfg.set(
+                    'validation', 'merge_errors',
+                    value=['Analysis aliases not valid as unique merged filenames']
+                )
                 return
             merger = VCFMerger(
                 bcftools_binary=cfg['executable']['bcftools'],
@@ -387,9 +391,15 @@ class EloadValidation(Eload):
         analysis_merge_dict = self.eload_cfg.query('validation', 'merge_type')
         if not analysis_merge_dict:
             return '  No mergeable VCFs\n'
-        reports = []
+        reports = ['  Merge types:']
         for analysis_alias, merge_type in analysis_merge_dict.items():
             reports.append(f'  * {analysis_alias}: {merge_type}')
+
+        errors = self.eload_cfg.query('validation', 'merge_errors')
+        if errors:
+            reports.append('  Errors:')
+            for error in errors:
+                reports.append(f'  * {error}')
         return '\n'.join(reports)
 
     def report(self):

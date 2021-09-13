@@ -106,6 +106,7 @@ Sample names check:
 ----------------------------------
 
 VCF merge:
+  Merge types:
   * a1: horizontal
 
 ----------------------------------
