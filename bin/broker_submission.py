@@ -27,7 +27,7 @@ logger = log_cfg.get_logger(__name__)
 
 
 def ENA_Project(project):
-    # Helper class to validate early that the project provided exist in ENA and is public
+    # Helper function to validate early that the project provided exist in ENA and is public
     if not check_existing_project(str(project)):
         logger.warning(f'Project {project} provided does not exist in ENA.')
         raise ValueError
