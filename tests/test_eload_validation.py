@@ -20,6 +20,11 @@ class TestEloadValidation(TestCase):
         # Need to set the directory so that the relative path set in the config file works from the top directory
         os.chdir(ROOT_DIR)
         self.validation = EloadValidation(2)
+        # Used to restore test config after each test
+        self.original_cfg = deepcopy(self.validation.eload_cfg.content)
+
+    def tearDown(self):
+        self.validation.eload_cfg.content = self.original_cfg
 
     def test_parse_assembly_check_log_failed(self):
         assembly_check_log = os.path.join(self.resources_folder, 'validations', 'failed_assembly_check.log')
@@ -101,6 +106,7 @@ Sample names check:
 ----------------------------------
 
 VCF merge:
+  Merge types:
   * a1: horizontal
 
 ----------------------------------
@@ -137,7 +143,6 @@ VCF merge:
         self.validation.eload_cfg.content = original_content
 
     def test_merge_multiple_analyses(self):
-        original_content = deepcopy(self.validation.eload_cfg.content)
         valid_files = {
             'horizontal': ['h1', 'h2'],
             'vertical': ['v1', 'v2'],
@@ -166,4 +171,25 @@ VCF merge:
                 self.validation.eload_cfg.query('validation', 'valid', 'analyses', 'neither', 'vcf_files'),
                 ['n1', 'n2']
             )
-        self.validation.eload_cfg.content = original_content
+
+    def test_merge_multiple_analyses_same_name(self):
+        valid_files = {
+            'a!': ['h1', 'h2'],
+            'a@': ['v1', 'v2'],
+            'a2': ['n1', 'n2']
+        }
+        detections = [MergeType.HORIZONTAL, MergeType.VERTICAL, None]
+        analyses_dict = {
+            analysis_alias: {'vcf_files': vcf_files}
+            for analysis_alias, vcf_files in valid_files.items()
+        }
+        self.validation.eload_cfg.set('validation', 'valid', 'analyses', value=analyses_dict)
+
+        with patch('eva_submission.eload_validation.detect_merge_type', side_effect=detections):
+            self.validation.detect_and_optionally_merge(True)
+            # Valid files should be unchanged even though merge is detected
+            self.assertEqual(self.validation.eload_cfg.query('validation', 'valid', 'analyses'), analyses_dict)
+            self.assertEqual(
+                self.validation.eload_cfg.query('validation', 'merge_errors'),
+                ['Analysis aliases not valid as unique merged filenames']
+            )

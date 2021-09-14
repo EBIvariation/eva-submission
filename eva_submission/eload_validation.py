@@ -9,6 +9,7 @@ from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 from eva_vcf_merge.detect import detect_merge_type, MergeType
 from eva_vcf_merge.merge import VCFMerger
+from eva_vcf_merge.utils import validate_aliases
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
@@ -110,11 +111,18 @@ class EloadValidation(Eload):
                 self.error('Unsupported merge type!')
 
         if merge_per_analysis:
+            if not validate_aliases(vcfs_by_analysis.keys()):
+                self.error('Analysis aliases not valid as unique merged filenames, will not merge.')
+                self.eload_cfg.set(
+                    'validation', 'merge_errors',
+                    value=['Analysis aliases not valid as unique merged filenames']
+                )
+                return
             merger = VCFMerger(
                 bcftools_binary=cfg['executable']['bcftools'],
                 bgzip_binary=cfg['executable']['bgzip'],
                 nextflow_binary=cfg['executable']['nextflow'],
-                nextflow_config=None,  # TODO do we have a nextflow config?
+                nextflow_config=None,  # uses default Nextflow config
                 output_dir=self._get_dir('merge')
             )
             merged_files = {}
@@ -383,9 +391,15 @@ class EloadValidation(Eload):
         analysis_merge_dict = self.eload_cfg.query('validation', 'merge_type')
         if not analysis_merge_dict:
             return '  No mergeable VCFs\n'
-        reports = []
+        reports = ['  Merge types:']
         for analysis_alias, merge_type in analysis_merge_dict.items():
             reports.append(f'  * {analysis_alias}: {merge_type}')
+
+        errors = self.eload_cfg.query('validation', 'merge_errors')
+        if errors:
+            reports.append('  Errors:')
+            for error in errors:
+                reports.append(f'  * {error}')
         return '\n'.join(reports)
 
     def report(self):

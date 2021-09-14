@@ -1,7 +1,7 @@
 cached-property
 cerberus
 ebi_eva_common_pyutils==0.3.15
-eva-vcf-merge
+eva-vcf-merge==0.0.2
 humanize
 lxml
 openpyxl
