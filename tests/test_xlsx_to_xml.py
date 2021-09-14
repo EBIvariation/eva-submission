@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 from unittest.mock import patch, Mock
 from xml.etree.ElementTree import ElementTree
 
-from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsxConverter, prettify
+from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsxConverter
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxWriter
 
 
@@ -173,7 +173,6 @@ class TestEnaXlsConverter(TestCase):
         assert elements_equal(root, ET.fromstring(self.expected_analysis))
 
     def test_add_analysis_to_existing_project(self):
-        name = 'test'
         self.project_row['Project Alias'] = 'PRJEB00001'
 
         root = ET.Element('ANALYSIS_SET')

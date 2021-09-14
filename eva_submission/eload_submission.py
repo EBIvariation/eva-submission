@@ -126,7 +126,7 @@ class Eload(AppLogger):
                 })
 
         project_row = reader.project
-        if self.eload_cfg.query('brokering', 'ena', 'existing_project') is True:
+        if self.eload_cfg.query('brokering', 'ena', 'existing_project'):
             project_row['Project Alias'] = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
 
         if output_spreadsheet:

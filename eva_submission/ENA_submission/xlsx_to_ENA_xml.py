@@ -102,6 +102,7 @@ class EnaXlsxConverter(AppLogger):
             return check_existing_project(prj_alias)
         elif re.match(r'^PRJ(EB|NA)', prj_title):
             return check_existing_project(prj_title)
+        return False
 
     def _create_project_xml(self):
         """
