@@ -189,3 +189,7 @@ VCF merge:
             self.validation.detect_and_optionally_merge(True)
             # Valid files should be unchanged even though merge is detected
             self.assertEqual(self.validation.eload_cfg.query('validation', 'valid', 'analyses'), analyses_dict)
+            self.assertEqual(
+                self.validation.eload_cfg.query('validation', 'merge_errors'),
+                ['Analysis aliases not valid as unique merged filenames']
+            )
