@@ -249,6 +249,7 @@ def get_all_species_files(ftp, release):
     return ftp.nlst(release + "/variation/vep")
 
 
+@retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
 def check_existing_project(project_accession):
     """
     Check if a project accession exists and is public in ENA
