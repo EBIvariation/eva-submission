@@ -124,10 +124,16 @@ class Eload(AppLogger):
                     'File Type': file_type,
                     'MD5': vcf_file_info['index_md5']
                 })
+
+        project_row = reader.project
+        if self.eload_cfg.query('brokering', 'ena', 'existing_project'):
+            project_row['Project Alias'] = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
+
         if output_spreadsheet:
             eva_xls_writer = EvaXlsxWriter(input_spreadsheet, output_spreadsheet)
         else:
             eva_xls_writer = EvaXlsxWriter(input_spreadsheet)
+        eva_xls_writer.set_project(project_row)
         eva_xls_writer.set_samples(sample_rows)
         eva_xls_writer.set_files(file_rows)
         eva_xls_writer.save()

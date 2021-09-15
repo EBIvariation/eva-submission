@@ -1,6 +1,7 @@
 import os
 import re
 from datetime import datetime, timedelta
+from functools import cached_property
 from io import BytesIO
 from xml.dom import minidom
 from xml.etree.ElementTree import Element, ElementTree
@@ -8,6 +9,7 @@ from xml.etree.ElementTree import Element, ElementTree
 from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 
+from eva_submission.eload_utils import check_existing_project
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 
@@ -91,6 +93,16 @@ class EnaXlsxConverter(AppLogger):
         self.project_file = os.path.join(self.output_folder, self.name + '.Project.xml')
         self.analysis_file = os.path.join(self.output_folder, self.name + '.Analysis.xml')
         self.submission_file = os.path.join(self.output_folder, self.name + '.Submission.xml')
+
+    @cached_property
+    def is_existing_project(self):
+        prj_alias = self.reader.project.get('Project Alias', '')
+        prj_title = self.reader.project.get('Project Title', '')
+        if re.match(r'^PRJ(EB|NA)', prj_alias):
+            return check_existing_project(prj_alias)
+        elif re.match(r'^PRJ(EB|NA)', prj_title):
+            return check_existing_project(prj_title)
+        return False
 
     def _create_project_xml(self):
         """
@@ -306,18 +318,21 @@ class EnaXlsxConverter(AppLogger):
             open_file.write(prettify(etree))
 
     def create_submission_files(self):
-        projects_elemt = self._create_project_xml()
-        self.write_xml_to_file(projects_elemt, self.project_file)
+        files_to_submit = []
+        if not self.is_existing_project:
+            files_to_submit.append(
+                {'file_name': os.path.basename(self.project_file), 'schema': 'project'}
+            )
+            projects_elemt = self._create_project_xml()
+            self.write_xml_to_file(projects_elemt, self.project_file)
 
         analysis_elemt = self._create_analysis_xml()
         self.write_xml_to_file(analysis_elemt, self.analysis_file)
+        files_to_submit.append(
+            {'file_name': os.path.basename(self.analysis_file), 'schema': 'analysis'}
+        )
 
         action = 'ADD'
-
-        files_to_submit = [
-            {'file_name': os.path.basename(self.project_file), 'schema': 'project'},
-            {'file_name': os.path.basename(self.analysis_file), 'schema': 'analysis'}
-        ]
-        submission_elemt = self._create_submission_xml( files_to_submit, action, self.reader.project)
+        submission_elemt = self._create_submission_xml(files_to_submit, action, self.reader.project)
         self.write_xml_to_file(submission_elemt, self.submission_file)
         return self.submission_file, self.project_file, self.analysis_file
