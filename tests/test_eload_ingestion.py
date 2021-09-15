@@ -6,6 +6,7 @@ from copy import deepcopy
 from unittest import TestCase, mock
 from unittest.mock import patch
 
+import pytest
 import yaml
 
 from eva_submission.eload_ingestion import EloadIngestion
@@ -129,7 +130,12 @@ class TestEloadIngestion(TestCase):
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             # first call is for browsable files, second is for study name
-            m_get_results.side_effect = [[(1, 'filename_1'), (2, 'filename_2')], [('Test Study Name')]]
+            m_get_results.side_effect = [
+                [(1, 'filename_1'), (2, 'filename_2')],  # insert_browsable_files
+                [(1, 'filename_1'), (2, 'filename_2')],  # update_files_with_ftp_path
+                [('Test Study Name')],                   # get_study_name
+                [(1, 'filename_1'), (2, 'filename_2')]   # update_loaded_assembly_in_browsable_files
+            ]
             self.eload.ingest('NONE', 1, 82, 82, db_name='eva_hsapiens_grch38')
 
     def test_ingest_metadata_load(self):
@@ -181,7 +187,7 @@ class TestEloadIngestion(TestCase):
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
-            m_get_results.return_value = [('Test Study Name')]
+            m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
             self.eload.ingest(
                 aggregation='NONE',
                 vep_version=82,
@@ -197,7 +203,7 @@ class TestEloadIngestion(TestCase):
         with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.execute_query') as m_execute:
-            m_get_results.side_effect = [[], [(1, 'filename_1'), (2, 'filename_2')], [(1, 'filename_1'), (2, 'filename_2')]]
+            m_get_results.side_effect = [[], [(1, 'filename_1'), (2, 'filename_2')]]
             self.eload.insert_browsable_files()
             m_execute.assert_called()
 
@@ -205,6 +211,28 @@ class TestEloadIngestion(TestCase):
             m_execute.call_count = 0
             self.eload.insert_browsable_files()
             m_execute.assert_not_called()
+
+    def test_update_browsable_files_with_date(self):
+
+        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+                patch('eva_submission.eload_ingestion.execute_query') as m_execute:
+            self.eload.update_browsable_files_with_date()
+            m_execute.assert_called()
+
+    def test_update_files_with_ftp_path(self):
+        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
+                patch('eva_submission.eload_ingestion.execute_query') as m_execute:
+            m_get_results.side_effect = [[(1, 'filename_1')], []]
+            self.eload.update_files_with_ftp_path()
+            m_execute.assert_called()
+
+            # calling insert again fail because no files are present
+            m_execute.call_count = 0
+            with pytest.raises(ValueError):
+                self.eload.update_files_with_ftp_path()
+            m_execute.assert_not_called()
+
 
     def get_mock_result_for_ena_date(self):
         return '''<?xml version="1.0" encoding="UTF-8"?>
@@ -228,7 +256,7 @@ class TestEloadIngestion(TestCase):
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
-            m_get_results.return_value = [('Test Study Name')]
+            m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
             self.eload.ingest(
                 aggregation='NONE',
                 tasks=['variant_load'],
@@ -257,7 +285,8 @@ class TestEloadIngestion(TestCase):
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
-            m_get_results.return_value = [('Test Study Name')]
+            m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
+
             get_vep_and_vep_cache_version_from_db.return_value = {"vep_version": 100, "vep_cache_version": 100}
             self.eload.ingest(
                 aggregation='NONE',
@@ -287,7 +316,7 @@ class TestEloadIngestion(TestCase):
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
-            m_get_results.return_value = [('Test Study Name')]
+            m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
             get_vep_and_vep_cache_version_from_db.return_value = {"vep_version": None, "vep_cache_version": None}
             with self.assertRaises(Exception) as ex:
                 self.eload.ingest(

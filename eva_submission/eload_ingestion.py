@@ -77,6 +77,8 @@ class EloadIngestion(Eload):
             output_dir = self.run_accession_workflow(vcf_files_to_ingest)
             shutil.rmtree(output_dir)
             self.insert_browsable_files()
+            self.update_browsable_files_with_date()
+            self.update_files_with_ftp_path()
             self.refresh_study_browser()
 
         if do_variant_load:
@@ -407,6 +409,8 @@ class EloadIngestion(Eload):
                                "join file on file.file_id = myfiles.file_id where file.file_type ilike 'vcf';"
                 execute_query(conn, insert_query)
 
+    def update_browsable_files_with_date(self):
+        with self.metadata_connection_handle as conn:
             # update loaded and release date
             release_date = self.eload_cfg.query('brokering', 'ena', 'hold_date')
             release_update = f"update evapro.browsable_file " \
@@ -414,6 +418,10 @@ class EloadIngestion(Eload):
                              f"where project_accession = '{self.project_accession}';"
             execute_query(conn, release_update)
 
+    def update_files_with_ftp_path(self):
+        files_query = f"select file_id, filename from evapro.browsable_file " \
+                      f"where project_accession = '{self.project_accession}';"
+        with self.metadata_connection_handle as conn:
             # update FTP file paths
             rows = get_all_results_for_query(conn, files_query)
             if len(rows) == 0:
