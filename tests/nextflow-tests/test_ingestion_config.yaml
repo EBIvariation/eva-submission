@@ -9,10 +9,13 @@ accession_job_props:
   test.prop1: x
   test.prop2: y
   parameters.taxonomyAccession: 1234
+needs_merge: true
 eva_pipeline_props: test_eva_pipeline.properties
 load_job_props:
   test.prop1: a
   test.prop2: b
+
+aggregation_type: none
 
 executable:
   bcftools: ../../../bin/fake_bcftools.sh
