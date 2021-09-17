@@ -107,7 +107,7 @@ process create_properties {
     params.load_job_props.each { k, v ->
         props.setProperty(k, v.toString())
     }
-    props.setProperty("input.vcf", vcf_file.toString())
+    props.setProperty("input.vcf", vcf_file.toRealPath().toString())
     props.setProperty("input.vcf.id", analysis_accession.toString())
     props.setProperty("input.fasta", fasta.toString())
     props.setProperty("spring.data.mongodb.database", db_name.toString())
