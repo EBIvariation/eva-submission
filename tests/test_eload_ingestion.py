@@ -6,7 +6,6 @@ from copy import deepcopy
 from unittest import TestCase, mock
 from unittest.mock import patch
 
-import pytest
 import yaml
 
 from eva_submission.eload_ingestion import EloadIngestion
@@ -227,7 +226,7 @@ class TestEloadIngestion(TestCase):
 
             # calling insert again fail because no files are present
             m_execute.call_count = 0
-            with pytest.raises(ValueError):
+            with self.assertRaises(ValueError):
                 self.eload.update_files_with_ftp_path()
             m_execute.assert_not_called()
 
