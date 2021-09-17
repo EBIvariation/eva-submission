@@ -434,7 +434,7 @@ class EloadIngestion(Eload):
 
     def update_loaded_assembly_in_browsable_files(self):
         # find assembly associated with each browseable file and copy it to the browsable file table
-        query = ('select bf.file_id a.vcf_reference_accession ' 
+        query = ('select bf.file_id, a.vcf_reference_accession ' 
                  'from analysis a '
                  'join analysis_file af on a.analysis_accession=af.analysis_accession '
                  'join browsable_file bf on af.file_id=bf.file_id '

@@ -129,7 +129,6 @@ class TestEloadIngestion(TestCase):
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
-            # first call is for browsable files, second is for study name
             m_get_results.side_effect = [
                 [(1, 'filename_1'), (2, 'filename_2')],  # insert_browsable_files
                 [(1, 'filename_1'), (2, 'filename_2')],  # update_files_with_ftp_path
@@ -213,7 +212,6 @@ class TestEloadIngestion(TestCase):
             m_execute.assert_not_called()
 
     def test_update_browsable_files_with_date(self):
-
         with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_ingestion.execute_query') as m_execute:
             self.eload.update_browsable_files_with_date()
