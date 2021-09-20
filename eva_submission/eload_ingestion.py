@@ -77,6 +77,8 @@ class EloadIngestion(Eload):
             output_dir = self.run_accession_workflow(vcf_files_to_ingest)
             shutil.rmtree(output_dir)
             self.insert_browsable_files()
+            self.update_browsable_files_with_date()
+            self.update_files_with_ftp_path()
             self.refresh_study_browser()
 
         if do_variant_load:
@@ -84,6 +86,7 @@ class EloadIngestion(Eload):
             self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', value=vep_cache_version)
             output_dir = self.run_variant_load_workflow(vep_version, vep_cache_version, skip_annotation, vcf_files_to_ingest)
             shutil.rmtree(output_dir)
+            self.update_loaded_assembly_in_browsable_files()
 
     def _get_vcf_files_from_brokering(self):
         vcf_files = []
@@ -395,17 +398,19 @@ class EloadIngestion(Eload):
             rows = get_all_results_for_query(conn, files_query)
             if len(rows) > 0:
                 self.info('Browsable files already inserted, skipping')
-                return
-            self.info('Inserting browsable files...')
-            insert_query = "insert into browsable_file (file_id,ena_submission_file_id,filename,project_accession,assembly_set_id) " \
-                           "select file.file_id,ena_submission_file_id,filename,project_accession,assembly_set_id " \
-                           "from (select * from analysis_file af " \
-                           "join analysis a on a.analysis_accession = af.analysis_accession " \
-                           "join project_analysis pa on af.analysis_accession = pa.analysis_accession " \
-                           f"where pa.project_accession = '{self.project_accession}' ) myfiles " \
-                           "join file on file.file_id = myfiles.file_id where file.file_type ilike 'vcf';"
-            execute_query(conn, insert_query)
+            else:
+                self.info('Inserting browsable files...')
+                insert_query = "insert into browsable_file (file_id,ena_submission_file_id,filename,project_accession,assembly_set_id) " \
+                               "select file.file_id,ena_submission_file_id,filename,project_accession,assembly_set_id " \
+                               "from (select * from analysis_file af " \
+                               "join analysis a on a.analysis_accession = af.analysis_accession " \
+                               "join project_analysis pa on af.analysis_accession = pa.analysis_accession " \
+                               f"where pa.project_accession = '{self.project_accession}' ) myfiles " \
+                               "join file on file.file_id = myfiles.file_id where file.file_type ilike 'vcf';"
+                execute_query(conn, insert_query)
 
+    def update_browsable_files_with_date(self):
+        with self.metadata_connection_handle as conn:
             # update loaded and release date
             release_date = self.eload_cfg.query('brokering', 'ena', 'hold_date')
             release_update = f"update evapro.browsable_file " \
@@ -413,6 +418,10 @@ class EloadIngestion(Eload):
                              f"where project_accession = '{self.project_accession}';"
             execute_query(conn, release_update)
 
+    def update_files_with_ftp_path(self):
+        files_query = f"select file_id, filename from evapro.browsable_file " \
+                      f"where project_accession = '{self.project_accession}';"
+        with self.metadata_connection_handle as conn:
             # update FTP file paths
             rows = get_all_results_for_query(conn, files_query)
             if len(rows) == 0:
@@ -420,6 +429,25 @@ class EloadIngestion(Eload):
             for file_id, filename in rows:
                 ftp_update = f"update evapro.file " \
                              f"set ftp_file = '/ftp.ebi.ac.uk/pub/databases/eva/{self.project_accession}/{filename}' " \
+                             f"where file_id = '{file_id}';"
+                execute_query(conn, ftp_update)
+
+    def update_loaded_assembly_in_browsable_files(self):
+        # find assembly associated with each browseable file and copy it to the browsable file table
+        query = ('select bf.file_id, a.vcf_reference_accession ' 
+                 'from analysis a '
+                 'join analysis_file af on a.analysis_accession=af.analysis_accession '
+                 'join browsable_file bf on af.file_id=bf.file_id '
+                 f"where bf.project_accession='{self.project_accession}';")
+        with self.metadata_connection_handle as conn:
+            rows = get_all_results_for_query(conn, query)
+            if len(rows) == 0:
+                raise ValueError('Something went wrong with loading from ENA')
+
+            # Update each file with its associated assembly accession
+            for file_id, assembly_accession in rows:
+                ftp_update = f"update evapro.browsable_file " \
+                             f"set loaded_assembly = '{assembly_accession}' " \
                              f"where file_id = '{file_id}';"
                 execute_query(conn, ftp_update)
 
