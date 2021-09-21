@@ -89,4 +89,5 @@ def variant_load_props_template(
         'annotation.skip': annotation_skip,
         'annotation.overwrite': False,
         'config.chunk.size': 200,
+        'spring.jpa.properties.hibernate.jdbc.lob.non_contextual_creation': True,
     }

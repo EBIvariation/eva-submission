@@ -361,6 +361,7 @@ class EloadIngestion(Eload):
             })
         load_config = {
             'valid_vcfs': vcf_files_to_ingest,
+            'aggregation_type': self.eload_cfg.query(self.config_section, 'aggregation'),
             'load_job_props': job_props,
             'project_accession': self.project_accession,
             'project_dir': str(self.project_dir),
