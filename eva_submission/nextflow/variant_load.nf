@@ -72,21 +72,23 @@ process merge_vcfs {
     input:
     tuple vcf_files, file_count, fasta, analysis_accession, db_name from vcfs_to_merge
     output:
-    tuple "${params.project_accession}_${analysis_accession}_merged.vcf.gz", fasta, analysis_accession, db_name into merged_vcf
+    tuple "${merged_filename}", fasta, analysis_accession, db_name into merged_vcf
 
     script:
+    merged_filename = "${params.project_accession}_${analysis_accession}_merged.vcf.gz"
     if (file_count > 1) {
-        file_list = new File("${workflow.workDir}/all_files_${analysis_accession}.list")
+        list_filename = "${workflow.workDir}/all_files_${analysis_accession}.list"
+        file_list = new File(list_filename)
         file_list.newWriter().withWriter{ w ->
             vcf_files.each { file -> w.write("$file\n")}
         }
         """
-        $params.executable.bcftools merge --merge all --file-list ${workflow.workDir}/all_files_${analysis_accession}.list --threads 3 -O z -o ${params.project_accession}_${analysis_accession}_merged.vcf.gz
+        $params.executable.bcftools merge --merge all --file-list ${list_filename} --threads 3 -O z -o ${merged_filename}
         """
     } else {
         single_file = vcf_files[0]
         """
-        ln -sfT ${single_file} ${params.project_accession}_${analysis_accession}_merged.vcf.gz
+        ln -sfT ${single_file} ${merged_filename}
         """
     }
 }
