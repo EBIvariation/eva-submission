@@ -38,8 +38,6 @@ Channel.fromPath(params.vcf_files_mapping)
 * Validate the VCF file format
 */
 process check_vcf_valid {
-    errorStrategy { [0,1].contains(task.exitStatus) ? 'ignore' : 'terminate' }
-
     publishDir "$params.output_dir",
             overwrite: false,
             mode: "copy"
@@ -53,6 +51,8 @@ process check_vcf_valid {
     path "vcf_format/*.vcf_format.log" into vcf_validation_log
 
     """
+    trap 'if [[ \$? == 1 ]]; then exit 0; fi' EXIT
+
     mkdir -p vcf_format
     $params.executable.vcf_validator -i $vcf  -r database,text -o vcf_format --require-evidence > vcf_format/${vcf}.vcf_format.log 2>&1
     """
@@ -63,8 +63,6 @@ process check_vcf_valid {
 * Validate the VCF reference allele
 */
 process check_vcf_reference {
-    errorStrategy { [0,1,139].contains(task.exitStatus) ? 'ignore' : 'terminate' }
-
     publishDir "$params.output_dir",
             overwrite: true,
             mode: "copy"
@@ -78,6 +76,8 @@ process check_vcf_reference {
     path "assembly_check/*.assembly_check.log" into assembly_check_log
 
     """
+    trap 'if [[ \$? == 1 || \$? == 139 ]]; then exit 0; fi' EXIT
+
     mkdir -p assembly_check
     $params.executable.vcf_assembly_checker -i $vcf -f $fasta -a $report -r summary,text,valid  -o assembly_check --require-genbank > assembly_check/${vcf}.assembly_check.log 2>&1
     """
