@@ -13,6 +13,10 @@ maven:
   environment: 'internal'
   settings_file: 'path/to/settings/file'
 
+mongodb:
+  mongo_admin_uri: mongodb://username@mongo-server.example.com:27017
+  mongo_secrets_file: path/to/secret
+
 executable:
   nextflow: /path/to/nextflow
   load_from_ena: /path/to/load_from_ena_script
