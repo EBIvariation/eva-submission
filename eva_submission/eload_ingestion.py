@@ -11,14 +11,13 @@ from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile, get_primary_mongo_creds_for_profile, \
     get_accession_pg_creds_for_profile
 from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name
-from ebi_eva_common_pyutils.mongodb import MongoDatabase
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import get_vep_and_vep_cache_version_from_db, \
-    provision_new_database_for_variant_warehouse
+from eva_submission.eload_utils import provision_new_database_for_variant_warehouse
+from eva_submission.vep_utils import get_vep_and_vep_cache_version_from_db
 from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
 
 project_dirs = {
