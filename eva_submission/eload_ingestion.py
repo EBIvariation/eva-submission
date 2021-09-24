@@ -17,7 +17,7 @@ from eva_submission import NEXTFLOW_DIR
 from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import provision_new_database_for_variant_warehouse
-from eva_submission.vep_utils import get_vep_and_vep_cache_version_from_db
+from eva_submission.vep_utils import get_vep_and_vep_cache_version
 from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
 
 project_dirs = {
@@ -79,6 +79,12 @@ class EloadIngestion(Eload):
             self.refresh_study_browser()
 
         if do_variant_load:
+            if not skip_annotation and not (vep_version and vep_cache_version):
+                vep_version, vep_cache_version = get_vep_and_vep_cache_version(
+                    self.mongo_uri,
+                    self.eload_cfg.query(self.config_section, 'database', 'db_name'),
+                    self.eload_cfg.query('submission', 'assembly_accession')
+                )
             self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'version', value=vep_version)
             self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', value=vep_cache_version)
             output_dir = self.run_variant_load_workflow(vep_version, vep_cache_version, skip_annotation, vcf_files_to_ingest)
@@ -326,21 +332,6 @@ class EloadIngestion(Eload):
                 vep_cache_version=vep_cache_version,
                 annotation_skip=skip_annotation
         )
-        if skip_annotation is False and vep_version is None:
-            coll_name = job_props['db.collections.annotations.name']
-            vep = get_vep_and_vep_cache_version_from_db(self.mongo_uri, self.eload_cfg.query(self.config_section, 'database', 'db_name'), coll_name)
-            vep_version = vep['vep_version']
-            vep_cache_version = vep['vep_cache_version']
-            if not vep_version or not vep_cache_version:
-                raise Exception(f'No vep_version and vep_cache_version provided by user and none could be found in DB.'
-                                f'In case you want to process without annotation, please use --skip_annotation parameter.')
-            self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'version', value=vep_version)
-            self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', value=vep_cache_version)
-            job_props.update({
-                'app.vep.version': vep_version,
-                'app.vep.cache.version': vep_cache_version,
-                'annotation.skip': True if vep_cache_version is None else False
-            })
         load_config = {
             'valid_vcfs': vcf_files_to_ingest,
             'aggregation_type': self.eload_cfg.query(self.config_section, 'aggregation'),

@@ -1,5 +1,7 @@
 from ebi_eva_common_pyutils.config import cfg
 
+from eva_submission.vep_utils import vep_path, annotation_collection_name
+
 
 def accession_props_template(
         instance_id,
@@ -72,9 +74,9 @@ def variant_load_props_template(
         'db.collections.files.name': 'files_2_0',
         'db.collections.variants.name': 'variants_2_0',
         'db.collections.annotation-metadata.name': 'annotationMetadata_2_0',
-        'db.collections.annotations.name': 'annotations_2_0',
+        'db.collections.annotations.name': annotation_collection_name,
         'app.vep.version': vep_version,
-        'app.vep.path': f"{cfg['vep_path']}/ensembl-vep-release-{vep_version}/vep",
+        'app.vep.path': vep_path(vep_version),
         'app.vep.cache.version': vep_cache_version,
         'app.vep.cache.path': cfg['vep_cache_path'],
         'app.vep.cache.species': vep_species,

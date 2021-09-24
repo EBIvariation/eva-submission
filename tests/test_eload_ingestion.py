@@ -7,7 +7,6 @@ from unittest import TestCase, mock
 from unittest.mock import patch, Mock
 
 import yaml
-from ebi_eva_common_pyutils.mongodb import MongoDatabase
 
 from eva_submission.eload_ingestion import EloadIngestion
 from eva_submission.submission_config import load_config
@@ -262,14 +261,14 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
-                patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version_from_db') as get_vep_and_vep_cache_version_from_db, \
+                patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as get_vep_and_vep_cache_version, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
 
-            get_vep_and_vep_cache_version_from_db.return_value = {"vep_version": 100, "vep_cache_version": 100}
+            get_vep_and_vep_cache_version.return_value = (100, 100)
             self.eload.ingest(
                 tasks=['variant_load'],
                 vep_version=None,
@@ -290,13 +289,13 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
-                patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version_from_db') as get_vep_and_vep_cache_version_from_db, \
+                patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as get_vep_and_vep_cache_version, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
-            get_vep_and_vep_cache_version_from_db.return_value = {"vep_version": None, "vep_cache_version": None}
+            get_vep_and_vep_cache_version.return_value = (None, None)
             with self.assertRaises(Exception) as ex:
                 self.eload.ingest(
                     tasks=['variant_load'],
