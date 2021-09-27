@@ -36,13 +36,6 @@ class TestEloadIngestion(TestCase):
             os.remove(ingest_csv)
         self.eload.eload_cfg.content = self.original_cfg
 
-    # def _mock_mongodb_client(self):
-    #     m_db = mock.Mock()
-    #     m_db.list_database_names = mock.Mock(return_value=[
-    #         'eva_ecaballus_30',
-    #         'eva_hsapiens_grch38'
-    #     ])
-    #     return m_db
 
     def _patch_get_dbname(self, db_name):
         m_get_db_name = patch(
