@@ -10,7 +10,7 @@ from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile, get_primary_mongo_creds_for_profile, \
     get_accession_pg_creds_for_profile
-from ebi_eva_common_pyutils.metadata_utils import get_new_variant_warehouse_db_name_from_assembly_and_taxonomy
+from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name
 from ebi_eva_common_pyutils.mongodb import MongoDatabase
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
 
@@ -116,7 +116,7 @@ class EloadIngestion(Eload):
         taxon_id = self.eload_cfg.query('submission', 'taxonomy_id')
         # query EVAPRO for db name based on taxonomy id and accession
         with self.metadata_connection_handle as conn:
-            db_name = get_new_variant_warehouse_db_name_from_assembly_and_taxonomy(conn, assembly_accession, taxon_id)
+            db_name = resolve_variant_warehouse_db_name(conn, assembly_accession, taxon_id)
             if not db_name:
                 raise ValueError(f'Database name for taxid:{taxon_id} and assembly {assembly_accession} '
                                  f'could not be retrieved or constructed')
@@ -167,7 +167,7 @@ class EloadIngestion(Eload):
             # Passing the secrets_file override the password already in the uri
             db_handle = MongoDatabase(
                 uri=cfg['mongodb']['mongo_admin_uri'],
-                secrets_file=cfg['mongodb']['mongo_secrets_file'],
+                secrets_file=cfg['mongodb']['mongo_admin_secrets_file'],
                 db_name=db_name
             )
             if len(db_handle.get_collection_names()) > 0:

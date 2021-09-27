@@ -39,7 +39,7 @@ class TestEloadIngestion(TestCase):
 
     def _patch_get_dbname(self, db_name):
         m_get_db_name = patch(
-            'eva_submission.eload_ingestion.get_new_variant_warehouse_db_name_from_assembly_and_taxonomy',
+            'eva_submission.eload_ingestion.resolve_variant_warehouse_db_name',
             autospec=True,
             return_value=db_name
         )
