@@ -111,7 +111,7 @@ class TestEloadIngestion(TestCase):
             m_execute.assert_called_once()
 
     def test_ingest_all_tasks(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+        with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_primary_mongo_creds_for_profile',
                       autospec=True) as m_mongo_creds, \
                 patch('eva_submission.eload_ingestion.get_accession_pg_creds_for_profile',
@@ -134,7 +134,7 @@ class TestEloadIngestion(TestCase):
             self.eload.ingest('NONE', 1, 82, 82)
 
     def test_ingest_metadata_load(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+        with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
@@ -145,7 +145,7 @@ class TestEloadIngestion(TestCase):
             self.eload.ingest(tasks=['metadata_load'])
 
     def test_ingest_accession(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+        with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_primary_mongo_creds_for_profile',
                       autospec=True) as m_mongo_creds, \
                 patch('eva_submission.eload_ingestion.get_accession_pg_creds_for_profile', autospec=True) as m_pg_creds, \
@@ -169,7 +169,7 @@ class TestEloadIngestion(TestCase):
             )
 
     def test_ingest_variant_load(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+        with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
@@ -190,7 +190,7 @@ class TestEloadIngestion(TestCase):
             )
 
     def test_insert_browsable_files(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+        with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.execute_query') as m_execute:
             m_get_results.side_effect = [[], [(1, 'filename_1'), (2, 'filename_2')]]
@@ -203,13 +203,13 @@ class TestEloadIngestion(TestCase):
             m_execute.assert_not_called()
 
     def test_update_browsable_files_with_date(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+        with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.execute_query') as m_execute:
             self.eload.update_browsable_files_with_date()
             m_execute.assert_called()
 
     def test_update_files_with_ftp_path(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+        with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.execute_query') as m_execute:
             m_get_results.side_effect = [[(1, 'filename_1')], []]
@@ -221,7 +221,6 @@ class TestEloadIngestion(TestCase):
             with self.assertRaises(ValueError):
                 self.eload.update_files_with_ftp_path()
             m_execute.assert_not_called()
-
 
     def get_mock_result_for_ena_date(self):
         return '''<?xml version="1.0" encoding="UTF-8"?>
@@ -235,7 +234,7 @@ class TestEloadIngestion(TestCase):
             </RECEIPT>'''
 
     def test_ingest_variant_load_vep_cache_version_provided_by_user(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+        with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
@@ -261,7 +260,7 @@ class TestEloadIngestion(TestCase):
                 self.assertEqual(data_loaded["load_job_props"]['app.vep.cache.version'], 100)
 
     def test_ingest_variant_load_vep_cache_version_found_in_db(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+        with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
@@ -290,7 +289,7 @@ class TestEloadIngestion(TestCase):
                 self.assertEqual(data_loaded["load_job_props"]['app.vep.cache.version'], 100)
 
     def test_ingest_variant_load_vep_cache_version_not_found_in_db(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+        with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \

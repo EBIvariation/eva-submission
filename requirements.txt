@@ -1,7 +1,7 @@
 cached-property
 cerberus
 git+https://github.com/tcezard/eva-common-pyutils.git@EVA-2308_db_creation
-eva-vcf-merge==0.0.2
+eva-vcf-merge>=0.0.3
 humanize
 lxml
 openpyxl
