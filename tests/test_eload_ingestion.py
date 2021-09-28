@@ -4,7 +4,7 @@ import shutil
 import subprocess
 from copy import deepcopy
 from unittest import TestCase, mock
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 
 import yaml
 
@@ -34,7 +34,6 @@ class TestEloadIngestion(TestCase):
         if os.path.exists(ingest_csv):
             os.remove(ingest_csv)
         self.eload.eload_cfg.content = self.original_cfg
-
 
     def _patch_get_dbname(self, db_name):
         m_get_db_name = patch(
@@ -130,7 +129,7 @@ class TestEloadIngestion(TestCase):
                 [('Test Study Name')],                   # get_study_name
                 [(1, 'filename_1'), (2, 'filename_2')]   # update_loaded_assembly_in_browsable_files
             ]
-            self.eload.ingest('NONE', 1, 82, 82)
+            self.eload.ingest('NONE', 1)
 
     def test_ingest_metadata_load(self):
         with self._patch_metadata_handle(), \
@@ -178,8 +177,6 @@ class TestEloadIngestion(TestCase):
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
             self.eload.ingest(
-                vep_version=82,
-                vep_cache_version=82,
                 tasks=['variant_load']
             )
             assert os.path.exists(
@@ -230,32 +227,7 @@ class TestEloadIngestion(TestCase):
                  <ACTIONS>RECEIPT</ACTIONS>
             </RECEIPT>'''
 
-    def test_ingest_variant_load_vep_cache_version_provided_by_user(self):
-        with self._patch_metadata_handle(), \
-                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
-                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
-                patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
-                patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
-                patch('eva_submission.eload_utils.requests.post') as m_post, \
-                self._patch_mongo_database():
-            m_get_alias_results.return_value = [['alias']]
-            m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
-            self.eload.ingest(
-                tasks=['variant_load'],
-                vep_version=100,
-                vep_cache_version=100,
-                skip_annotation=False
-            )
-            config_file = os.path.join(self.resources_folder, 'projects/PRJEB12345/load_config_file.yaml')
-            assert os.path.exists(config_file)
-            with open(config_file, 'r') as stream:
-                data_loaded = yaml.safe_load(stream)
-                self.assertEqual(data_loaded["load_job_props"]['annotation.skip'], False)
-                self.assertEqual(data_loaded["load_job_props"]['app.vep.version'], 100)
-                self.assertEqual(data_loaded["load_job_props"]['app.vep.cache.version'], 100)
-
-    def test_ingest_variant_load_vep_cache_version_found_in_db(self):
+    def test_ingest_variant_load_vep_versions_found(self):
         with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
@@ -267,23 +239,19 @@ class TestEloadIngestion(TestCase):
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
-
             get_vep_and_vep_cache_version.return_value = (100, 100)
             self.eload.ingest(
                 tasks=['variant_load'],
-                vep_version=None,
-                vep_cache_version=None,
-                skip_annotation=False
             )
             config_file = os.path.join(self.resources_folder, 'projects/PRJEB12345/load_config_file.yaml')
             assert os.path.exists(config_file)
             with open(config_file, 'r') as stream:
                 data_loaded = yaml.safe_load(stream)
-                self.assertEqual(data_loaded["load_job_props"]['annotation.skip'], False)
+                self.assertFalse(data_loaded["load_job_props"]['annotation.skip'])
                 self.assertEqual(data_loaded["load_job_props"]['app.vep.version'], 100)
                 self.assertEqual(data_loaded["load_job_props"]['app.vep.cache.version'], 100)
 
-    def test_ingest_variant_load_vep_cache_version_not_found_in_db(self):
+    def test_ingest_variant_load_vep_versions_not_found(self):
         with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
@@ -296,12 +264,15 @@ class TestEloadIngestion(TestCase):
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
             get_vep_and_vep_cache_version.return_value = (None, None)
-            with self.assertRaises(Exception) as ex:
-                self.eload.ingest(
-                    tasks=['variant_load'],
-                    vep_version=None,
-                    vep_cache_version=None,
-                    skip_annotation=False
-                )
-            self.assertEqual(ex.exception.__str__(), 'No vep_version and vep_cache_version provided by user and none could be found in DB.'
-                                                     'In case you want to process without annotation, please use --skip_annotation parameter.')
+            self.eload.ingest(
+                tasks=['variant_load'],
+            )
+            config_file = os.path.join(self.resources_folder, 'projects/PRJEB12345/load_config_file.yaml')
+            assert os.path.exists(config_file)
+            with open(config_file, 'r') as stream:
+                data_loaded = yaml.safe_load(stream)
+                self.assertTrue(data_loaded["load_job_props"]['annotation.skip'])
+
+    def test_ingest_variant_load_vep_versions_error(self):
+        # TODO ftp error or incompatible versions...
+        pass

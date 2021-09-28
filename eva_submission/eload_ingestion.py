@@ -45,9 +45,6 @@ class EloadIngestion(Eload):
     def ingest(
             self,
             instance_id=None,
-            vep_version=None,
-            vep_cache_version=None,
-            skip_annotation=False,
             tasks=None
     ):
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
@@ -79,15 +76,19 @@ class EloadIngestion(Eload):
             self.refresh_study_browser()
 
         if do_variant_load:
-            if not skip_annotation and not (vep_version and vep_cache_version):
-                vep_version, vep_cache_version = get_vep_and_vep_cache_version(
-                    self.mongo_uri,
-                    self.eload_cfg.query(self.config_section, 'database', 'db_name'),
-                    self.eload_cfg.query('submission', 'assembly_accession')
-                )
+            skip_annotation = False
+            vep_version, vep_cache_version = get_vep_and_vep_cache_version(
+                self.mongo_uri,
+                self.eload_cfg.query(self.config_section, 'database', 'db_name'),
+                self.eload_cfg.query('submission', 'assembly_accession')
+            )
+            if not vep_version or not vep_cache_version:
+                # If we get here, Ensembl doesn't have a VEP cache for this species, so we skip annotation.
+                skip_annotation = True
             self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'version', value=vep_version)
             self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', value=vep_cache_version)
-            output_dir = self.run_variant_load_workflow(vep_version, vep_cache_version, skip_annotation, vcf_files_to_ingest)
+            self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'skip_annotation', value=skip_annotation)
+            output_dir = self.run_variant_load_workflow(vcf_files_to_ingest)
             shutil.rmtree(output_dir)
             self.update_loaded_assembly_in_browsable_files()
 
@@ -319,7 +320,7 @@ class EloadIngestion(Eload):
             raise e
         return output_dir
 
-    def run_variant_load_workflow(self, vep_version, vep_cache_version, skip_annotation, vcf_files_to_ingest):
+    def run_variant_load_workflow(self, vcf_files_to_ingest):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
         job_props = variant_load_props_template(
                 project_accession=self.project_accession,
@@ -328,9 +329,9 @@ class EloadIngestion(Eload):
                 annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
                 stats_dir=self.project_dir.joinpath(project_dirs['stats']),
                 vep_species=self.get_vep_species(),
-                vep_version=vep_version,
-                vep_cache_version=vep_cache_version,
-                annotation_skip=skip_annotation
+                vep_version=self.eload_cfg.query(self.config_section, 'variant_load', 'vep', 'version'),
+                vep_cache_version=self.eload_cfg.query(self.config_section, 'variant_load', 'vep', 'cache_version'),
+                annotation_skip=self.eload_cfg.query(self.config_section, 'variant_load', 'vep', 'skip_annotation'),
         )
         load_config = {
             'valid_vcfs': vcf_files_to_ingest,

@@ -22,7 +22,6 @@ class TestEloadBacklog(TestCase):
         os.chdir(self.top_dir)
         self.eload = EloadBacklog(44)
 
-
     def tearDown(self):
         if os.path.exists(os.path.join(self.eload._get_dir('ena'), 'IRIS_313-8755.snp.vcf.gz.tbi')):
             os.remove(os.path.join(self.eload._get_dir('ena'), 'IRIS_313-8755.snp.vcf.gz.tbi'))
