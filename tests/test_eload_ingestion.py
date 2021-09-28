@@ -54,7 +54,7 @@ class TestEloadIngestion(TestCase):
             mongodb_instance.get_collection_names.return_value = collection_names
         else:
             mongodb_instance.get_collection_names.return_value = []
-        return patch('eva_submission.eload_ingestion.MongoDatabase', autospec=True, return_value=mongodb_instance)
+        return patch('eva_submission.eload_utils.MongoDatabase', autospec=True, return_value=mongodb_instance)
 
     def test_check_brokering_done(self):
         self.eload.project_accession = None
