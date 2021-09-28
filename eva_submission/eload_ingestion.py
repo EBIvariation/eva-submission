@@ -17,7 +17,8 @@ from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_q
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import get_vep_and_vep_cache_version_from_db
+from eva_submission.eload_utils import get_vep_and_vep_cache_version_from_db, \
+    provision_new_database_for_variant_warehouse
 from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
 
 project_dirs = {
@@ -155,28 +156,8 @@ class EloadIngestion(Eload):
                     conn=conn
                 )
 
-        # Create the databases if they do not exists. Then shard them.
-        collections_shard_key_map = {
-            "variants_2_0": (["chr", "start"], False),
-            "files_2_0": (["sid", "fid", "fname"], True),
-            "annotations_2_0": (["chr", "start"], False),
-            "populationStatistics": (["chr", "start", "ref", "alt", "sid", "cid"], True)
-        }
-        for assembly_accession, db_info in assembly_to_db_name.items():
-            db_name = db_info['db_name']
-            # Passing the secrets_file override the password already in the uri
-            db_handle = MongoDatabase(
-                uri=cfg['mongodb']['mongo_admin_uri'],
-                secrets_file=cfg['mongodb']['mongo_admin_secrets_file'],
-                db_name=db_name
-            )
-            if len(db_handle.get_collection_names()) > 0:
-                self.info(f'Found existing database named {db_name}.')
-            else:
-                db_handle.enable_sharding()
-                db_handle.shard_collections(collections_shard_key_map,
-                                            collections_to_shard=collections_shard_key_map.keys())
-                self.info(f'Created new database named {db_name}.')
+        for db_info in assembly_to_db_name.values():
+            provision_new_database_for_variant_warehouse(db_info['db_name'])
 
     def load_from_ena(self):
         """
