@@ -118,10 +118,12 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
+                patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
                 self._patch_mongo_database():
             m_mongo_creds.return_value = m_pg_creds.return_value = ('host', 'user', 'pass')
             m_get_alias_results.return_value = [['alias']]
+            m_get_vep_versions.return_value = (100, 100)
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = [
                 [(1, 'filename_1'), (2, 'filename_2')],  # insert_browsable_files
@@ -171,9 +173,11 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
+                patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
+            m_get_vep_versions.return_value = (100, 100)
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
             self.eload.ingest(
@@ -233,13 +237,13 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
-                patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as get_vep_and_vep_cache_version, \
+                patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
-            get_vep_and_vep_cache_version.return_value = (100, 100)
+            m_get_vep_versions.return_value = (100, 100)
             self.eload.ingest(
                 tasks=['variant_load'],
             )
@@ -257,13 +261,13 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
-                patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as get_vep_and_vep_cache_version, \
+                patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
-            get_vep_and_vep_cache_version.return_value = (None, None)
+            m_get_vep_versions.return_value = (None, None)
             self.eload.ingest(
                 tasks=['variant_load'],
             )

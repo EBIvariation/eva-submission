@@ -26,6 +26,9 @@ class TestVepUtils(TestCase):
         shutil.rmtree(cfg['vep_cache_path'])
         shutil.rmtree(cfg['vep_path'])
 
+    def test_get_vep_versions_from_db(self):
+        pass
+
     def test_get_vep_versions_from_ensembl(self):
         # TODO extremely flaky - could mock but also means ingestion will fail a lot...
         vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('GCA_000827895.1')
