@@ -10,6 +10,7 @@ import requests
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from ebi_eva_common_pyutils.metadata_utils import get_metadata_connection_handle
+from ebi_eva_common_pyutils.mongodb import MongoDatabase
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
 from ebi_eva_common_pyutils.reference import NCBIAssembly, NCBISequence
 from ebi_eva_common_pyutils.variation.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
@@ -261,3 +262,29 @@ def check_existing_project(project_accession):
     except requests.exceptions.HTTPError:
         return False
     return True
+
+
+# Create the databases if they do not exists. Then shard them.
+collections_shard_key_map = {
+    "variants_2_0": (["chr", "start"], False),
+    "files_2_0": (["sid", "fid", "fname"], True),
+    "annotations_2_0": (["chr", "start"], False),
+    "populationStatistics": (["chr", "start", "ref", "alt", "sid", "cid"], True)
+}
+
+
+def provision_new_database_for_variant_warehouse(db_name):
+    """Create a variant warehouse database of the specified name and shared the collections"""
+    # Passing the secrets_file override the password already in the uri
+    db_handle = MongoDatabase(
+        uri=cfg['mongodb']['mongo_admin_uri'],
+        secrets_file=cfg['mongodb']['mongo_admin_secrets_file'],
+        db_name=db_name
+    )
+    if len(db_handle.get_collection_names()) > 0:
+        logger.info(f'Found existing database named {db_name}.')
+    else:
+        db_handle.enable_sharding()
+        db_handle.shard_collections(collections_shard_key_map,
+                                    collections_to_shard=collections_shard_key_map.keys())
+        logger.info(f'Created new database named {db_name}.')

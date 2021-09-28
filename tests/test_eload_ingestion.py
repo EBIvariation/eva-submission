@@ -4,9 +4,10 @@ import shutil
 import subprocess
 from copy import deepcopy
 from unittest import TestCase, mock
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 import yaml
+from ebi_eva_common_pyutils.mongodb import MongoDatabase
 
 from eva_submission.eload_ingestion import EloadIngestion
 from eva_submission.submission_config import load_config
@@ -35,13 +36,25 @@ class TestEloadIngestion(TestCase):
             os.remove(ingest_csv)
         self.eload.eload_cfg.content = self.original_cfg
 
-    def _mock_mongodb_client(self):
-        m_db = mock.Mock()
-        m_db.list_database_names = mock.Mock(return_value=[
-            'eva_ecaballus_30',
-            'eva_hsapiens_grch38'
-        ])
-        return m_db
+
+    def _patch_get_dbname(self, db_name):
+        m_get_db_name = patch(
+            'eva_submission.eload_ingestion.resolve_variant_warehouse_db_name',
+            autospec=True,
+            return_value=db_name
+        )
+        return m_get_db_name
+
+    def _patch_metadata_handle(self):
+        return patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True)
+
+    def _patch_mongo_database(self, collection_names=None):
+        mongodb_instance = mock.Mock()
+        if collection_names:
+            mongodb_instance.get_collection_names.return_value = collection_names
+        else:
+            mongodb_instance.get_collection_names.return_value = []
+        return patch('eva_submission.eload_utils.MongoDatabase', autospec=True, return_value=mongodb_instance)
 
     def test_check_brokering_done(self):
         self.eload.project_accession = None
@@ -51,54 +64,39 @@ class TestEloadIngestion(TestCase):
         with self.assertRaises(ValueError):
             self.eload.check_brokering_done()
 
-    def test_check_variant_db(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
-                patch('eva_submission.eload_ingestion.get_variant_warehouse_db_name_from_assembly_and_taxonomy',
-                      autospec=True) as m_get_results, \
-                patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo:
-            m_get_results.return_value = 'eva_ecaballus_30'
-            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
-
+    def test_check_variant_db_no_creation(self):
+        with self._patch_metadata_handle(), self._patch_get_dbname('eva_ecaballus_30'), \
+             self._patch_mongo_database(collection_names=['col1']) as m_mongo:
             self.eload.check_variant_db()
+
+            # Check the database name is correct and has been set in the config
             self.assertEqual(
                 'eva_ecaballus_30',
                 self.eload.eload_cfg.query('ingestion', 'database', 'GCA_002863925.1', 'db_name')
             )
-            assert self.eload.eload_cfg.query('ingestion', 'database', 'GCA_002863925.1', 'exists')
+            # Check the database already existed
+            m_mongo.return_value.get_collection_names.assert_called_once_with()
+            m_mongo.return_value.enable_sharding.assert_not_called()
 
-    def test_check_variant_db_not_in_evapro(self):
-        with patch('eva_submission.eload_ingestion.get_variant_warehouse_db_name_from_assembly_and_taxonomy',
-                   autospec=True) as m_get_results, \
-                patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
-                patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo:
-            m_get_results.return_value = None
-            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
+    def test_check_variant_db_name_not_creatd(self):
+        with self._patch_metadata_handle(), self._patch_get_dbname(None):
+            # Database name cannot be retrieve or constructed raise error
             with self.assertRaises(ValueError):
                 self.eload.check_variant_db()
 
-    def test_check_variant_db_name_provided(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
-                patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo:
-            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
-            self.eload.check_variant_db(db_name='eva_hsapiens_grch38')
+    def test_check_variant_db_with_creation(self):
+        with self._patch_metadata_handle(), self._patch_get_dbname('eva_ecaballus_30'), \
+             self._patch_mongo_database(collection_names=[]) as m_mongo:
+
+            self.eload.check_variant_db()
             self.assertEqual(
                 self.eload.eload_cfg.query('ingestion', 'database', 'GCA_002863925.1', 'db_name'),
-                'eva_hsapiens_grch38'
+                'eva_ecaballus_30'
             )
-            assert self.eload.eload_cfg.query('ingestion', 'database', 'GCA_002863925.1', 'exists')
-
-    def test_check_variant_db_missing(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
-                patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo:
-            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
-
-            with self.assertRaises(ValueError):
-                self.eload.check_variant_db(db_name='eva_fcatus_90')
-            self.assertEqual(
-                self.eload.eload_cfg.query('ingestion', 'database', 'GCA_002863925.1', 'db_name'),
-                'eva_fcatus_90'
-            )
-            assert not self.eload.eload_cfg.query('ingestion', 'database', 'GCA_002863925.1', 'exists')
+            # Check the database was created
+            m_mongo.return_value.get_collection_names.assert_called_once_with()
+            m_mongo.return_value.enable_sharding.assert_called_once_with()
+            m_mongo.return_value.shard_collections.assert_called_once()
 
     def test_load_from_ena(self):
         with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_execute:
@@ -113,92 +111,86 @@ class TestEloadIngestion(TestCase):
             m_execute.assert_called_once()
 
     def test_ingest_all_tasks(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+        with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_primary_mongo_creds_for_profile',
                       autospec=True) as m_mongo_creds, \
                 patch('eva_submission.eload_ingestion.get_accession_pg_creds_for_profile',
                       autospec=True) as m_pg_creds, \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
-                patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
-                patch('eva_submission.eload_utils.requests.post') as m_post:
+                patch('eva_submission.eload_utils.requests.post') as m_post, \
+                self._patch_mongo_database():
             m_mongo_creds.return_value = m_pg_creds.return_value = ('host', 'user', 'pass')
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             m_get_results.side_effect = [
                 [(1, 'filename_1'), (2, 'filename_2')],  # insert_browsable_files
                 [(1, 'filename_1'), (2, 'filename_2')],  # update_files_with_ftp_path
                 [('Test Study Name')],                   # get_study_name
                 [(1, 'filename_1'), (2, 'filename_2')]   # update_loaded_assembly_in_browsable_files
             ]
-            self.eload.ingest('NONE', 1, 82, 82, db_name='eva_hsapiens_grch38')
+            self.eload.ingest('NONE', 1, 82, 82)
 
     def test_ingest_metadata_load(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
-                patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
+        with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
-                patch('eva_submission.eload_utils.requests.post') as m_post:
+                patch('eva_submission.eload_utils.requests.post') as m_post, \
+                self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
-            self.eload.ingest(tasks=['metadata_load'], db_name='eva_hsapiens_grch38')
+            self.eload.ingest(tasks=['metadata_load'])
 
     def test_ingest_accession(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+        with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_primary_mongo_creds_for_profile',
                       autospec=True) as m_mongo_creds, \
                 patch('eva_submission.eload_ingestion.get_accession_pg_creds_for_profile', autospec=True) as m_pg_creds, \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
-                patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
-                patch('eva_submission.eload_utils.requests.post') as m_post:
+                patch('eva_submission.eload_utils.requests.post') as m_post, \
+                self._patch_mongo_database():
             m_mongo_creds.return_value = m_pg_creds.return_value = ('host', 'user', 'pass')
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             m_get_results.return_value = [(1, 'filename_1'), (2, 'filename_2')]
             self.eload.ingest(
                 aggregation='NONE',
                 instance_id=1,
-                tasks=['accession'],
-                db_name='eva_hsapiens_grch38'
+                tasks=['accession']
             )
             assert os.path.exists(
                 os.path.join(self.resources_folder, 'projects/PRJEB12345/accession_config_file.yaml')
             )
 
     def test_ingest_variant_load(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+        with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
-                patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
-                patch('eva_submission.eload_utils.requests.post') as m_post:
+                patch('eva_submission.eload_utils.requests.post') as m_post, \
+                self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
             self.eload.ingest(
                 aggregation='NONE',
                 vep_version=82,
                 vep_cache_version=82,
-                tasks=['variant_load'],
-                db_name='eva_hsapiens_grch38'
+                tasks=['variant_load']
             )
             assert os.path.exists(
                 os.path.join(self.resources_folder, 'projects/PRJEB12345/load_config_file.yaml')
             )
 
     def test_insert_browsable_files(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+        with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.execute_query') as m_execute:
             m_get_results.side_effect = [[], [(1, 'filename_1'), (2, 'filename_2')]]
@@ -211,13 +203,13 @@ class TestEloadIngestion(TestCase):
             m_execute.assert_not_called()
 
     def test_update_browsable_files_with_date(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+        with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.execute_query') as m_execute:
             self.eload.update_browsable_files_with_date()
             m_execute.assert_called()
 
     def test_update_files_with_ftp_path(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+        with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.execute_query') as m_execute:
             m_get_results.side_effect = [[(1, 'filename_1')], []]
@@ -229,7 +221,6 @@ class TestEloadIngestion(TestCase):
             with self.assertRaises(ValueError):
                 self.eload.update_files_with_ftp_path()
             m_execute.assert_not_called()
-
 
     def get_mock_result_for_ena_date(self):
         return '''<?xml version="1.0" encoding="UTF-8"?>
@@ -243,24 +234,22 @@ class TestEloadIngestion(TestCase):
             </RECEIPT>'''
 
     def test_ingest_variant_load_vep_cache_version_provided_by_user(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+        with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
-                patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
-                patch('eva_submission.eload_utils.requests.post') as m_post:
+                patch('eva_submission.eload_utils.requests.post') as m_post, \
+                self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
             self.eload.ingest(
                 aggregation='NONE',
                 tasks=['variant_load'],
                 vep_version=100,
                 vep_cache_version=100,
-                skip_annotation=False,
-                db_name='eva_hsapiens_grch38'
+                skip_annotation=False
             )
             config_file = os.path.join(self.resources_folder, 'projects/PRJEB12345/load_config_file.yaml')
             assert os.path.exists(config_file)
@@ -271,17 +260,16 @@ class TestEloadIngestion(TestCase):
                 self.assertEqual(data_loaded["load_job_props"]['app.vep.cache.version'], 100)
 
     def test_ingest_variant_load_vep_cache_version_found_in_db(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+        with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
-                patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
                 patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version_from_db') as get_vep_and_vep_cache_version_from_db, \
-                patch('eva_submission.eload_utils.requests.post') as m_post:
+                patch('eva_submission.eload_utils.requests.post') as m_post, \
+                self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
 
             get_vep_and_vep_cache_version_from_db.return_value = {"vep_version": 100, "vep_cache_version": 100}
@@ -290,8 +278,7 @@ class TestEloadIngestion(TestCase):
                 tasks=['variant_load'],
                 vep_version=None,
                 vep_cache_version=None,
-                skip_annotation=False,
-                db_name='eva_hsapiens_grch38'
+                skip_annotation=False
             )
             config_file = os.path.join(self.resources_folder, 'projects/PRJEB12345/load_config_file.yaml')
             assert os.path.exists(config_file)
@@ -302,17 +289,16 @@ class TestEloadIngestion(TestCase):
                 self.assertEqual(data_loaded["load_job_props"]['app.vep.cache.version'], 100)
 
     def test_ingest_variant_load_vep_cache_version_not_found_in_db(self):
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+        with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
-                patch('eva_submission.eload_ingestion.pymongo.MongoClient', autospec=True) as m_get_mongo, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
                 patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version_from_db') as get_vep_and_vep_cache_version_from_db, \
-                patch('eva_submission.eload_utils.requests.post') as m_post:
+                patch('eva_submission.eload_utils.requests.post') as m_post, \
+                self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_get_mongo.return_value.__enter__.return_value = self._mock_mongodb_client()
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
             get_vep_and_vep_cache_version_from_db.return_value = {"vep_version": None, "vep_cache_version": None}
             with self.assertRaises(Exception) as ex:
@@ -321,8 +307,7 @@ class TestEloadIngestion(TestCase):
                     tasks=['variant_load'],
                     vep_version=None,
                     vep_cache_version=None,
-                    skip_annotation=False,
-                    db_name='eva_hsapiens_grch38'
+                    skip_annotation=False
                 )
             self.assertEqual(ex.exception.__str__(), 'No vep_version and vep_cache_version provided by user and none could be found in DB.'
                                                      'In case you want to process without annotation, please use --skip_annotation parameter.')

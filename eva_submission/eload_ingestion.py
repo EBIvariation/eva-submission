@@ -10,14 +10,15 @@ from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile, get_primary_mongo_creds_for_profile, \
     get_accession_pg_creds_for_profile
-from ebi_eva_common_pyutils.metadata_utils import get_variant_warehouse_db_name_from_assembly_and_taxonomy
+from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name
+from ebi_eva_common_pyutils.mongodb import MongoDatabase
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
-import pymongo
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import get_vep_and_vep_cache_version_from_db
+from eva_submission.eload_utils import get_vep_and_vep_cache_version_from_db, \
+    provision_new_database_for_variant_warehouse
 from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
 
 project_dirs = {
@@ -49,14 +50,13 @@ class EloadIngestion(Eload):
             vep_version=None,
             vep_cache_version=None,
             skip_annotation=False,
-            db_name=None,
-            db_name_mapping=None,
             tasks=None
     ):
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
         self.project_dir = self.setup_project_dir()
+        # Pre ingestion checks
         self.check_brokering_done()
-        self.check_variant_db(db_name, db_name_mapping)
+        self.check_variant_db()
 
         if not tasks:
             tasks = self.all_tasks
@@ -117,13 +117,10 @@ class EloadIngestion(Eload):
         taxon_id = self.eload_cfg.query('submission', 'taxonomy_id')
         # query EVAPRO for db name based on taxonomy id and accession
         with self.metadata_connection_handle as conn:
-            db_name = get_variant_warehouse_db_name_from_assembly_and_taxonomy(conn, assembly_accession, taxon_id)
-        if not db_name:
-            self.error(f'Database for taxonomy id {taxon_id} and assembly {assembly_accession} not found in EVAPRO.')
-            self.error(f'Please insert the appropriate taxonomy and assembly or pass in the database name explicitly.')
-            # TODO propose a database name, based on a TBD convention
-            # TODO download the VEP cache for new species
-            raise ValueError(f'No database for {taxon_id} and {assembly_accession} found')
+            db_name = resolve_variant_warehouse_db_name(conn, assembly_accession, taxon_id)
+            if not db_name:
+                raise ValueError(f'Database name for taxid:{taxon_id} and assembly {assembly_accession} '
+                                 f'could not be retrieved or constructed')
         return db_name
 
     def _get_assembly_accessions(self):
@@ -133,36 +130,22 @@ class EloadIngestion(Eload):
             assembly_accessions.add(analysis_data['assembly_accession'])
         return assembly_accessions
 
-    def check_variant_db(self, db_name=None, db_name_mapping=None):
+    def check_variant_db(self):
         """
         Checks mongo for the right variant database.
-        If db_name is provided, map every assembly accession to that database
-        If db_name_mapping is provided, attempt to insert every database before checking mongo
-        If neither is provided, try to guess the database from EVAPRO based on the assembly accession and taxonomy
+        Retrieve the database from EVAPRO based on the assembly accession and taxonomy or
+        Construct it from the species scientific name and assembly name
         """
         assembly_accessions = self._get_assembly_accessions()
         assembly_to_db_name = {}
-        if db_name:
-            if len(assembly_accessions) > 1:
-                raise ValueError(f"One database should not be associated to multiple assembly accessions")
-            assembly_to_db_name[assembly_accessions.pop()] = {'db_name': db_name}
-        elif db_name_mapping:
-            for mapping in db_name_mapping:
-                assembly_db = mapping.split(',')
-                if assembly_db[0] and assembly_db[1]:
-                    assembly_to_db_name[assembly_db[0]] = {'db_name': assembly_db[1]}
-                else:
-                    raise ValueError(f"Check the assembly accession to database mapping: {mapping}")
-            assemblies_provided_sorted = sorted(assembly_to_db_name.keys())
-            assemblies_in_submission_sorted = sorted(assembly_accessions)
-            if assemblies_provided_sorted != assemblies_in_submission_sorted:
-                raise ValueError(f"Assemblies provided {assemblies_provided_sorted} do not match assemblies in "
-                                 f"submission {assemblies_in_submission_sorted}")
-        else:
-            for assembly_accession in assembly_accessions:
-                db_name_retrieved = self.get_db_name(assembly_accession)
-                assembly_to_db_name[assembly_accession] = {'db_name': db_name_retrieved}
+        # Find the database names
+        for assembly_accession in assembly_accessions:
+            db_name_retrieved = self.get_db_name(assembly_accession)
+            assembly_to_db_name[assembly_accession] = {'db_name': db_name_retrieved}
 
+        self.eload_cfg.set(self.config_section, 'database', value=assembly_to_db_name)
+
+        # insert the database names components if they're not already in the metadata
         with self.metadata_connection_handle as conn:
             for assembly, db in assembly_to_db_name.items():
                 # warns but doesn't crash if assembly set already exists
@@ -173,21 +156,8 @@ class EloadIngestion(Eload):
                     conn=conn
                 )
 
-        self.eload_cfg.set(self.config_section, 'database', value=assembly_to_db_name)
-
-        with pymongo.MongoClient(self.mongo_uri) as db:
-            names = db.list_database_names()
-            for assembly_accession, db_info in assembly_to_db_name.items():
-                db_name = db_info['db_name']
-                if db_name in names:
-                    self.info(f'Found database named {db_name}.')
-                    self.info('If this is incorrect, please cancel and pass in the database name explicitly.')
-                    self.eload_cfg.set(self.config_section, 'database', assembly_accession, 'exists', value=True)
-                else:
-                    self.error(f'Database named {db_name} does not exist in variant warehouse, aborting.')
-                    self.error('Please create the database or pass in the appropriate database name explicitly.')
-                    self.eload_cfg.set(self.config_section, 'database', assembly_accession, 'exists', value=False)
-                    raise ValueError(f'No database named {db_name} found.')
+        for db_info in assembly_to_db_name.values():
+            provision_new_database_for_variant_warehouse(db_info['db_name'])
 
     def load_from_ena(self):
         """
