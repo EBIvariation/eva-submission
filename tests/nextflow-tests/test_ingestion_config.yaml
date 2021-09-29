@@ -15,8 +15,6 @@ load_job_props:
   test.prop1: a
   test.prop2: b
 
-aggregation_type: none
-
 executable:
   bcftools: ../../../bin/fake_bcftools.sh
   bgzip: ../../../bin/fake_bgzip.sh

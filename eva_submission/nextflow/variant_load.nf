@@ -45,24 +45,23 @@ if (!params.valid_vcfs || !params.project_accession || !params.load_job_props ||
 
 /*
 If the aggregation type is NONE (genotyped VCF) the csv file with the mapping between vcf file, assembly accession,
-fasta, assembly report, analysis_accession, db_name will be grouped by analysis accession and the vcf files per
-analysis will be counted to determine if a merge is needed. When merge is not needed a symbolic link will be created
+fasta, assembly report, analysis_accession, db_name, aggregation will be grouped by analysis accession and the vcf files
+per analysis will be counted to determine if a merge is needed. When merge is not needed a symbolic link will be created
 to the input vcf file
-If the aggregation type is different from none (SIMPLE = aggregated VCF, with allele frequencies) the files are not
+If the aggregation type is different from none (BASIC = aggregated VCF, with allele frequencies) the files are not
 merged and passed directly to create the properties
 **/
-(vcfs_to_merge, unmerged_vcfs) = (
-    params.aggregation_type.toLowerCase().equals("none")
-    ? [Channel.fromPath(params.valid_vcfs)
+vcfs_to_merge = Channel.fromPath(params.valid_vcfs)
             .splitCsv(header:true)
+            .filter(row -> row.aggregation.equals("none"))
             .map{row -> tuple(file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name)}
             .groupTuple(by:2)
-            .map{row -> tuple(row[0], row[0].size(), row[1][0], row[2], row[3][0]) },
-       Channel.empty()]
-    : [Channel.empty(),
-       Channel.fromPath(params.valid_vcfs)
+            .map{row -> tuple(row[0], row[0].size(), row[1][0], row[2], row[3][0], "none") }
+
+unmerged_vcfs = Channel.fromPath(params.valid_vcfs)
             .splitCsv(header:true)
-            .map{row -> tuple(file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name)}] )
+            .filter(row -> !row.aggregation.equals("none"))
+            .map{row -> tuple(file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name, "basic")}
 
 
 /*
@@ -70,9 +69,9 @@ merged and passed directly to create the properties
  */
 process merge_vcfs {
     input:
-    tuple vcf_files, file_count, fasta, analysis_accession, db_name from vcfs_to_merge
+    tuple vcf_files, file_count, fasta, analysis_accession, db_name, aggregation from vcfs_to_merge
     output:
-    tuple "${merged_filename}", fasta, analysis_accession, db_name into merged_vcf
+    tuple "${merged_filename}", fasta, analysis_accession, db_name, aggregation into merged_vcf
 
     script:
     merged_filename = "${params.project_accession}_${analysis_accession}_merged.vcf.gz"
@@ -99,7 +98,7 @@ process merge_vcfs {
  */
 process create_properties {
     input:
-    tuple vcf_file, fasta, analysis_accession, db_name from unmerged_vcfs.mix(merged_vcf)
+    tuple vcf_file, fasta, analysis_accession, db_name, aggregation from unmerged_vcfs.mix(merged_vcf)
 
     output:
     path "load_${vcf_file.getFileName()}.properties" into variant_load_props
@@ -109,6 +108,8 @@ process create_properties {
     params.load_job_props.each { k, v ->
         props.setProperty(k, v.toString())
     }
+    props.setProperty("spring.batch.job.names", aggregation.toString() == "none" ? "genotyped-vcf-job" : "aggregated-vcf-job")
+    props.setProperty("input.vcf.aggregation", aggregation.toString().toUpperCase())
     props.setProperty("input.vcf", vcf_file.toRealPath().toString())
     props.setProperty("input.vcf.id", analysis_accession.toString())
     props.setProperty("input.fasta", fasta.toString())

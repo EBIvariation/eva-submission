@@ -45,7 +45,6 @@ class EloadIngestion(Eload):
 
     def ingest(
             self,
-            aggregation=None,
             instance_id=None,
             vep_version=None,
             vep_cache_version=None,
@@ -55,6 +54,7 @@ class EloadIngestion(Eload):
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
         self.project_dir = self.setup_project_dir()
         # Pre ingestion checks
+        self.check_aggregation_done()
         self.check_brokering_done()
         self.check_variant_db()
 
@@ -67,8 +67,6 @@ class EloadIngestion(Eload):
         do_variant_load = 'variant_load' in tasks
 
         if do_accession or do_variant_load:
-            aggregation = aggregation.lower()
-            self.eload_cfg.set(self.config_section, 'aggregation', value=aggregation)
             vcf_files_to_ingest = self._generate_csv_mappings_to_ingest()
 
         if do_accession:
@@ -109,6 +107,20 @@ class EloadIngestion(Eload):
         for valid_vcf in self.valid_vcf_filenames:
             if not any(f.endswith(valid_vcf.name) for f in vcf_files):
                 raise ValueError(f'Found {valid_vcf} in valid folder that was not in brokering config')
+
+    def check_aggregation_done(self):
+        errors = []
+        for analysis_acc, analysis_alias in self.eload_cfg.query('brokering', 'ena', 'ANALYSIS').items():
+            aggregation = self.eload_cfg.query('validation', 'aggregation_check', 'analysis', analysis_alias)
+            if aggregation is None:
+                error = f'Aggregation type was not determined during validation for {analysis_alias}'
+                self.error(error)
+                errors.append(error)
+            else:
+                self.eload_cfg.set(self.config_section, 'aggregation', analysis_acc, value=aggregation)
+        if errors:
+            raise ValueError(f'{len(errors)} analysis have not set the aggregation. '
+                             f'Rerun the validation with --validation_tasks aggregation_check')
 
     def get_db_name(self, assembly_accession):
         """
@@ -236,17 +248,20 @@ class EloadIngestion(Eload):
         vcf_files_to_ingest = os.path.join(self.eload_dir, 'vcf_files_to_ingest.csv')
         with open(vcf_files_to_ingest, 'w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(['vcf_file', 'assembly_accession', 'fasta', 'report', 'analysis_accession', 'db_name'])
+            writer.writerow(['vcf_file', 'assembly_accession', 'fasta', 'report', 'analysis_accession', 'db_name',
+                             'aggregation'])
             analyses = self.eload_cfg.query('brokering', 'analyses')
             for analysis_alias, analysis_data in analyses.items():
                 assembly_accession = analysis_data['assembly_accession']
                 fasta = analysis_data['assembly_fasta']
                 report = analysis_data['assembly_report']
                 analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
-                db_name = self.eload_cfg.query('ingestion', 'database', assembly_accession, 'db_name')
+                db_name = self.eload_cfg.query(self.config_section, 'database', assembly_accession, 'db_name')
+                aggregation = self.eload_cfg.query(self.config_section, 'aggregation', analysis_accession)
                 if analysis_data['vcf_files']:
                     for vcf_file in analysis_data['vcf_files']:
-                        writer.writerow([vcf_file, assembly_accession, fasta, report, analysis_accession, db_name])
+                        writer.writerow([vcf_file, assembly_accession, fasta, report, analysis_accession, db_name,
+                                         aggregation])
                 else:
                     self.warning(f"VCF files for analysis {analysis_alias} not found")
         return vcf_files_to_ingest
@@ -258,7 +273,6 @@ class EloadIngestion(Eload):
         job_props = accession_props_template(
             taxonomy_id=self.eload_cfg.query('submission', 'taxonomy_id'),
             project_accession=self.project_accession,
-            aggregation=self.eload_cfg.query(self.config_section, 'aggregation'),
             instance_id=self.eload_cfg.query(self.config_section, 'accession', 'instance_id'),
             mongo_host=mongo_host,
             mongo_user=mongo_user,
@@ -304,7 +318,6 @@ class EloadIngestion(Eload):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
         job_props = variant_load_props_template(
                 project_accession=self.project_accession,
-                aggregation=self.eload_cfg.query(self.config_section, 'aggregation'),
                 study_name=self.get_study_name(),
                 output_dir=self.project_dir.joinpath(project_dirs['transformed']),
                 annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),

@@ -6,6 +6,7 @@ from datetime import datetime
 from xml.etree import ElementTree as ET
 
 import pymongo
+import pysam
 import requests
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
@@ -288,3 +289,27 @@ def provision_new_database_for_variant_warehouse(db_name):
         db_handle.shard_collections(collections_shard_key_map,
                                     collections_to_shard=collections_shard_key_map.keys())
         logger.info(f'Created new database named {db_name}.')
+
+
+def detect_vcf_aggregation(vcf_file):
+    with pysam.VariantFile(vcf_file, 'r') as vcf_in:
+        samples = list(vcf_in.header.samples)
+        # check that the first 10 lines have genotypes for all the samples present and if they have allele frequency
+        nb_line_checked = 0
+        max_line_check = 10
+        gt_in_format = True
+        af_in_info = True
+        for vcf_rec in vcf_in:
+            gt_in_format = gt_in_format and all('GT' in vcf_rec.samples.get(sample, {}) for sample in samples)
+
+            af_in_info = af_in_info and ('AF' in vcf_rec.info or ('AC' in vcf_rec.info and 'AN' in vcf_rec.info))
+            nb_line_checked += 1
+            if nb_line_checked >= max_line_check:
+                break
+        if len(samples) > 0 and gt_in_format:
+            return 'none'
+        elif len(samples) == 0 and af_in_info:
+            return 'basic'
+        else:
+            logger.error(f'Aggregation type could not be detected for {vcf_file}')
+            return None

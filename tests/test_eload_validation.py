@@ -70,6 +70,7 @@ Metadata check: PASS
 VCF check: PASS
 Assembly check: PASS
 Sample names check: PASS
+Aggregation check: PASS
 ----------------------------------
 
 Metadata check:
@@ -105,6 +106,12 @@ Sample names check:
 
 ----------------------------------
 
+Aggregation:
+  * a1: none
+  * Errors:
+
+----------------------------------
+
 VCF merge:
   Merge types:
   * a1: horizontal
@@ -113,6 +120,7 @@ VCF merge:
 '''
         with patch('builtins.print') as mprint:
             self.validation.report()
+        assert mprint.mock_calls[0][1][0] == expected_report
         mprint.assert_called_once_with(expected_report)
 
     def test_detect_and_optionally_merge(self):

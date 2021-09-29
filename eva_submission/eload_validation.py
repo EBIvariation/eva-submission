@@ -13,14 +13,14 @@ from eva_vcf_merge.utils import validate_aliases
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import resolve_single_file_path
+from eva_submission.eload_utils import resolve_single_file_path, detect_vcf_aggregation
 from eva_submission.samples_checker import compare_spreadsheet_and_vcf
 from eva_submission.xlsx.xlsx_validation import EvaXlsxValidator
 
 
 class EloadValidation(Eload):
 
-    all_validation_tasks = ['metadata_check', 'assembly_check', 'vcf_check', 'sample_check']
+    all_validation_tasks = ['metadata_check', 'assembly_check', 'aggregation_check', 'vcf_check', 'sample_check']
 
     def validate(self, validation_tasks=None, set_as_valid=False, merge_per_analysis=False):
         if not validation_tasks:
@@ -36,6 +36,8 @@ class EloadValidation(Eload):
             self._validate_metadata_format()
         if 'sample_check' in validation_tasks:
             self._validate_sample_names()
+        if 'aggregation_check' in validation_tasks:
+            self._validate_genotype_aggregation()
 
         if 'vcf_check' in validation_tasks or 'assembly_check' in validation_tasks:
             output_dir = self._run_validation_workflow()
@@ -91,6 +93,27 @@ class EloadValidation(Eload):
                 'in_metadata_not_in_VCF': diff_submission_submitted_file
             })
         self.eload_cfg.set('validation', 'sample_check', 'pass', value=not overall_differences)
+
+    def _validate_genotype_aggregation(self):
+        for analysis_alias in self.eload_cfg.query('submission', 'analyses'):
+            aggregations = [
+                detect_vcf_aggregation(vcf_file)
+                for vcf_file in self.eload_cfg.query('submission', 'analyses', analysis_alias, 'vcf_files')
+            ]
+            errors = []
+            if len(set(aggregations)) == 1 and None not in aggregations:
+                aggregation = set(aggregations).pop()
+                self.eload_cfg.set('validation', 'aggregation_check', 'analysis', str(analysis_alias), value=aggregation)
+            elif None in aggregations:
+                indices = [i for i, x in enumerate(aggregations) if x is None]
+                errors.append(f'{analysis_alias}: VCF file aggregation could not be determied: ' + ', '.join([
+                    self.eload_cfg.query('submission', 'analyses', analysis_alias, 'vcf_files')[i]
+                    for i in indices
+                ]))
+            else:
+                errors.append(f'{analysis_alias}: Multiple aggregation found: {",".join(set(aggregations))}')
+        self.eload_cfg.set('validation', 'aggregation_check', 'errors', value=errors)
+        self.eload_cfg.set('validation', 'aggregation_check', 'pass', value=len(errors) == 0)
 
     def detect_and_optionally_merge(self, merge_per_analysis):
         """Detects merge type for each analysis, but performs merge only when merge_per_analysis is True."""
@@ -402,6 +425,19 @@ class EloadValidation(Eload):
                 reports.append(f'  * {error}')
         return '\n'.join(reports)
 
+    def _aggregation_report(self):
+        aggregation_dict = self.eload_cfg.query('validation', 'aggregation_check')
+        reports = []
+        if aggregation_dict:
+            for analysis_alias, aggregation in aggregation_dict.get('analysis', {}).items():
+                reports.append(f"  * {analysis_alias}: {aggregation}")
+            reports.append("  * Errors:")
+            for error in aggregation_dict.get('errors', []):
+                reports.append(f'    - {error}')
+        else:
+            reports.append('Not performed')
+        return '\n'.join(reports)
+
     def report(self):
         """Collect information from the config and write the report."""
 
@@ -411,11 +447,13 @@ class EloadValidation(Eload):
             'vcf_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'vcf_check')),
             'assembly_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'assembly_check')),
             'sample_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'sample_check')),
+            'aggregation_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'aggregation_check')),
             'metadata_check_report': self._metadata_check_report(),
             'vcf_check_report': self._vcf_check_report(),
             'assembly_check_report': self._assembly_check_report(),
             'sample_check_report': self._sample_check_report(),
-            'vcf_merge_report': self._vcf_merge_report()
+            'vcf_merge_report': self._vcf_merge_report(),
+            'aggregation_report': self._aggregation_report()
         }
 
         report = """Validation performed on {validation_date}
@@ -423,6 +461,7 @@ Metadata check: {metadata_check}
 VCF check: {vcf_check}
 Assembly check: {assembly_check}
 Sample names check: {sample_check}
+Aggregation check: {aggregation_check}
 ----------------------------------
 
 Metadata check:
@@ -439,6 +478,11 @@ Assembly check:
 
 Sample names check:
 {sample_check_report}
+----------------------------------
+
+Aggregation:
+{aggregation_report}
+
 ----------------------------------
 
 VCF merge:

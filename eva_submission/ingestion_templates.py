@@ -5,7 +5,6 @@ def accession_props_template(
         instance_id,
         taxonomy_id,
         project_accession,
-        aggregation,
         postgres_url,
         postgres_user,
         postgres_pass,
@@ -26,7 +25,6 @@ def accession_props_template(
         'parameters.taxonomyAccession': taxonomy_id,
         'parameters.projectAccession': project_accession,
         'parameters.chunkSize': 100,
-        'parameters.vcfAggregation': aggregation,
         'parameters.forceRestart': False,
         'parameters.contigNaming': 'NO_REPLACEMENT',
         'spring.batch.job.names': 'CREATE_SUBSNP_ACCESSION_JOB',
@@ -51,7 +49,6 @@ def accession_props_template(
 
 def variant_load_props_template(
         project_accession,
-        aggregation,
         study_name,
         output_dir,
         annotation_dir,
@@ -66,9 +63,7 @@ def variant_load_props_template(
     which is filled in by Nextflow after (optional) merge.
     """
     return {
-        'spring.batch.job.names': 'genotyped-vcf-job' if aggregation == 'none' else 'aggregated-vcf-job',
         'input.study.id': project_accession,
-        'input.vcf.aggregation': aggregation.upper(),
         'input.study.name': study_name,
         'input.study.type': 'COLLECTION',
         'output.dir': str(output_dir),

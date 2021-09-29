@@ -1,4 +1,9 @@
 validation:
+  aggregation_check:
+    analysis:
+      a1: none
+    errors: []
+    pass: true
   assembly_check:
     files:
       test.vcf:
