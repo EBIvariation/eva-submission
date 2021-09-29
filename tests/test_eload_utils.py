@@ -22,7 +22,3 @@ class TestEloadUtils(TestCase):
         assert detect_vcf_aggregation(
             os.path.join(self.resources_folder, 'vcf_files', 'file_undetermined_aggregation.vcf')
         ) is None
-
-
-
-
