@@ -1,6 +1,7 @@
 import os
 import shutil
 from unittest import TestCase
+from unittest.mock import Mock
 
 from ebi_eva_common_pyutils.config import cfg
 
@@ -26,12 +27,39 @@ class TestVepUtils(TestCase):
         shutil.rmtree(cfg['vep_cache_path'])
         shutil.rmtree(cfg['vep_path'])
 
-    def test_get_vep_versions_from_db(self):
-        pass
+    def test_recursive_nlst(self):
+        # Mock dir() method in ftplib to reflect the following file structure:
+        #   root/
+        #     - 1_collection/
+        #         - 1_collection.tar.gz
+        #         - something.txt
+        #     - 2_collection/
+        #         - 2_collection.tar.gz
+        #         - something.txt
+        #     - root.tar.gz
+        def fake_dir(path, callback):
+            filename = path.split('/')[-1] + '.tar.gz'
+            root_output = f'''drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:47 1_collection
+drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
+-rw-rw-r--    1 ftp      ftp       4410832 Apr 13 13:59 {filename}'''
+            subdir_output = f'''-rw-rw-r--    1 ftp      ftp       2206830 Apr 13 13:52 {filename}
+-rw-rw-r--    1 ftp      ftp       2206830 Apr 13 13:52 something.txt'''
+            if path.endswith('collection'):
+                callback(subdir_output)
+            else:
+                callback(root_output)
+
+        ftp = Mock()
+        ftp.dir.side_effect = fake_dir
+
+        all_files = sorted(recursive_nlst(ftp, 'root', '*.tar.gz'))
+        self.assertEqual(
+            all_files,
+            ['root/1_collection/1_collection.tar.gz', 'root/2_collection/2_collection.tar.gz', 'root/root.tar.gz']
+        )
 
     def test_get_vep_versions_from_ensembl(self):
-        # TODO extremely flaky - could mock but also means ingestion will fail a lot...
         vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('GCA_000827895.1')
         self.assertEqual(vep_version, 104)
         self.assertEqual(cache_version, 51)
-        # TODO test cache downloaded to right place
+        assert os.path.exists(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei'))

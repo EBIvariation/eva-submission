@@ -23,7 +23,7 @@ ensembl_genome_dirs = [
     'ensemblgenomes/pub/fungi',
     'ensemblgenomes/pub/protists',
     'ensemblgenomes/pub/bacteria',
-]  # TODO should these be prioritised? note bacteria is huge and takes a while
+]
 
 # Name of collection in variant warehouse to check for existing VEP versions
 annotation_collection_name = 'annotations_2_0'
@@ -118,7 +118,7 @@ def get_vep_cache_version_from_ftp(assembly_accession):
 
 def search_releases(ftp, all_releases, species, assembly):
     for release in sorted(all_releases, reverse=True):
-        logger.info(f'Looking for vep_cache_version in release : {all_releases.get(release)}')
+        logger.info(f'Looking for vep_cache_version in release : {all_releases[release]}')
         all_species_files = get_all_species_files(ftp, all_releases.get(release))
         for f in all_species_files:
             if species in f and assembly in f:
@@ -152,12 +152,20 @@ def get_ftp_connection(url):
 
 
 @retry(tries=8, delay=2, backoff=1.2, jitter=(1, 3), logger=logger)
-def get_releases(ftp, subdir):
+def get_releases(ftp, subdir, current_only=True):
+    """
+    Get all release version numbers and paths to the releases starting from a given subdirectory.
+    If current_only is True it will only return the most recent release, which can be helpful if the FTP is unreliable.
+    """
     all_releases = {}
     for file in ftp.nlst(subdir):
         if "release-" in file:
             release_number = file[file.index("-") + 1:]
             all_releases.update({int(release_number): file})
+    if current_only:
+        current = max(all_releases)
+        logger.info(f'Only getting the most recent release: {current}')
+        return {current: all_releases[current]}
     return all_releases
 
 
@@ -172,15 +180,16 @@ def get_all_species_files(ftp, release):
     return vep_cache_files
 
 
-@retry(tries=8, delay=2, backoff=1.2, jitter=(1, 3), logger=logger)
+@retry(tries=16, delay=2, backoff=1.2, jitter=(1, 3), logger=logger)
 def recursive_nlst(ftp, root, pattern):
     """Recursively list files starting from root and matching pattern."""
     lines = []
-    ftp.dir(root, lambda l: lines.append(re.split(r'\s+', l)))
+    ftp.dir(root, lambda content: lines.extend(content.split('\n')))
     for line in lines:
-        filename = line[-1]
+        parts = re.split(r'\s+', line)
+        filename = parts[-1]
         full_path = f'{root}/{filename}'
-        if line[0][0] == 'd':  # directory
+        if parts[0][0] == 'd':  # directory
             yield from recursive_nlst(ftp, full_path, pattern)
         elif fnmatch(filename, pattern):
             yield full_path
@@ -193,5 +202,4 @@ def download_and_extract_vep_cache(ftp, species_name, vep_cache_file):
         ftp.retrbinary(f'RETR {vep_cache_file}', dest.write)
     with tarfile.open(destination, 'r:gz') as tar:
         tar.extractall(path=os.path.join(cfg['vep_cache_path'], species_name))
-    # TODO need to remove one level of nesting...
     os.remove(destination)
