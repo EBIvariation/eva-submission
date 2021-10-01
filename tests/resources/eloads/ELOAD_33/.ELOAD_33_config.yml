@@ -30,5 +30,5 @@ submission:
   scientific_name: Equus caballus
 validation:
   aggregation_check:
-    analysis:
+    analyses:
       Analysis alias test: none

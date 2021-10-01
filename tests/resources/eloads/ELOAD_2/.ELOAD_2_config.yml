@@ -1,6 +1,6 @@
 validation:
   aggregation_check:
-    analysis:
+    analyses:
       a1: none
     errors: []
     pass: true
