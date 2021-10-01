@@ -6,7 +6,6 @@ from fnmatch import fnmatch
 
 import pymongo
 import requests
-from requests import HTTPError
 from retry import retry
 
 from ebi_eva_common_pyutils.config import cfg
@@ -33,14 +32,15 @@ def vep_path(version):
     return os.path.join(cfg['vep_path'], f'ensembl-vep-release-{version}/vep')
 
 
-def get_vep_and_vep_cache_version(mongo_uri, db_name, assembly_accession):
+def get_vep_and_vep_cache_version(mongo_uri, db_name, taxonomy_id, assembly_accession):
     """
     Gets VEP and VEP cache versions for a given assembly by first checking what is already in the variant DB,
     then checking Ensembl and Ensembl Genome FTPs, otherwise returns None.
     """
     vep_version, vep_cache_version = get_vep_and_vep_cache_version_from_db(mongo_uri, db_name)
     if not vep_cache_version and not vep_version:
-        vep_version, vep_cache_version = get_vep_and_vep_cache_version_from_ensembl(assembly_accession)
+        vep_version, vep_cache_version = get_vep_and_vep_cache_version_from_ensembl(
+            db_name, taxonomy_id, assembly_accession)
     return vep_version, vep_cache_version
 
 
@@ -63,8 +63,8 @@ def get_vep_and_vep_cache_version_from_db(mongo_uri, db_name):
         return vep_version, vep_cache_version
 
 
-def get_vep_and_vep_cache_version_from_ensembl(assembly_accession):
-    vep_cache_version, ftp_source = get_vep_cache_version_from_ftp(assembly_accession)
+def get_vep_and_vep_cache_version_from_ensembl(db_name, taxonomy_id, assembly_accession):
+    vep_cache_version, ftp_source = get_vep_cache_version_from_ftp(db_name, taxonomy_id, assembly_accession)
     if not vep_cache_version:
         return None, None
 
@@ -91,57 +91,61 @@ def check_vep_version_installed(vep_version):
     return os.path.exists(vep_path(vep_version))
 
 
-def get_vep_cache_version_from_ftp(assembly_accession):
+def get_vep_cache_version_from_ftp(db_name, taxonomy_id, assembly_accession):
     logger.info('Getting vep_cache_version from Ensembl.')
-    logger.info(f'Getting species and assembly from Ensembl using assembly accession: {assembly_accession}')
-    species, assembly = get_species_and_assembly(assembly_accession)
-    logger.info(f'Details from Ensembl for species and assembly : {species, assembly}')
+    logger.info(f'Getting species and assembly from Ensembl using taxonomy: {taxonomy_id}')
+    species_name, assembly_name, current_assm_accession = get_species_and_assembly(taxonomy_id)
+    if assembly_name is None:
+        logger.info(f'No species and assembly found on Ensembl for {assembly_accession}')
+        return None, None
+    logger.info(f'Details from Ensembl for species and assembly : {species_name, assembly_name}')
+
+    # If we're looking for an older assembly, need to search all releases to find the right one;
+    # otherwise we just search the most recent release.
+    current_release_only = (assembly_accession == current_assm_accession)
+    if not current_release_only:
+        # No way to determine the previous Ensembl assembly name, so we use assembly code (from NCBI) as a guess
+        assembly_name = db_name.split('_')[-1]
+        logger.info(
+            f'Assembly {assembly_accession} not currently supported by Ensembl (current version is '
+            f'{current_assm_accession}). Will search previous releases to find the most recent VEP cache for species '
+            f'{species_name}.'
+        )
 
     # First try main Ensembl release
     ftp = get_ftp_connection(ensembl_ftp_url)
-    all_releases = get_releases(ftp, '/pub')
-    release = search_releases(ftp, all_releases, species, assembly)
+    all_releases = get_releases(ftp, '/pub', current_release_only)
+    release = search_releases(ftp, all_releases, species_name, assembly_name)
     if release:
         return release, 'ensembl'
 
     # Then try all Ensembl genomes
     genome_ftp = get_ftp_connection(ensembl_genome_ftp_url)
     for subdir in ensembl_genome_dirs:
-        genome_releases = get_releases(genome_ftp, subdir)
-        release = search_releases(genome_ftp, genome_releases, species, assembly)
+        genome_releases = get_releases(genome_ftp, subdir, current_release_only)
+        release = search_releases(genome_ftp, genome_releases, species_name, assembly_name)
         if release:
             return release, 'genomes'
 
-    logger.warning(f'No VEP cache found anywhere on FTP for {species} and {assembly}!')
+    logger.info(f'No VEP cache found anywhere on Ensembl FTP for {species_name} and {assembly_name}')
     return None, None
 
 
-def search_releases(ftp, all_releases, species, assembly):
-    for release in sorted(all_releases, reverse=True):
-        logger.info(f'Looking for vep_cache_version in release : {all_releases[release]}')
-        all_species_files = get_all_species_files(ftp, all_releases.get(release))
-        for f in all_species_files:
-            if species in f and assembly in f:
-                logger.info(f'Found vep_cache_version for {species} and {assembly}: file {f}, release {release}')
-                # TODO assume if we get here we need to download the cache... is this correct?
-                #  e.g. what if we've downloaded the cache for another study but VEP annotation step failed...
-                download_and_extract_vep_cache(ftp, species, f)
-                return release
-    return None
-
-
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
-def get_species_and_assembly(assembly_accession):
-    url = f'https://rest.ensembl.org/info/genomes/assembly/{assembly_accession}?content-type=application/json'
+def get_species_and_assembly(taxonomy_id):
+    """
+    Returns Ensembl species name, assembly name and accession of the current supported assembly,
+    or None if any aren't found.
+    """
+    url = f'https://rest.ensembl.org/info/genomes/taxonomy/{taxonomy_id}?content-type=application/json'
     response = requests.get(url)
-    json_response = response.json()
-    if 'error' in json_response:
-        raise HTTPError(response.status_code, json_response['error'])
-    elif 'name' not in json_response or 'assembly_name' not in json_response:
-        raise ValueError(f'Response from Ensembl does not contain required fields [name and assembly_name]: '
-                         f'{json_response}')
-    else:
-        return json_response['name'], json_response['assembly_name']
+    # This endpoint returns 500 even if taxon id is valid but just not in Ensembl, to minimise user frustration
+    # we'll assume the species is just not currently supported.
+    if not response.ok:
+        logger.warn(f'Got {response.status_code} when trying to get species and assembly from Ensembl.')
+        return None, None, None
+    json_response = response.json()[0]
+    return json_response['name'], json_response['assembly_name'], json_response['assembly_accession']
 
 
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3), logger=logger)
@@ -152,7 +156,7 @@ def get_ftp_connection(url):
 
 
 @retry(tries=8, delay=2, backoff=1.2, jitter=(1, 3), logger=logger)
-def get_releases(ftp, subdir, current_only=True):
+def get_releases(ftp, subdir, current_only):
     """
     Get all release version numbers and paths to the releases starting from a given subdirectory.
     If current_only is True it will only return the most recent release, which can be helpful if the FTP is unreliable.
@@ -167,6 +171,20 @@ def get_releases(ftp, subdir, current_only=True):
         logger.info(f'Only getting the most recent release: {current}')
         return {current: all_releases[current]}
     return all_releases
+
+
+def search_releases(ftp, all_releases, species, assembly):
+    for release in sorted(all_releases, reverse=True):
+        logger.info(f'Looking for vep_cache_version in release : {all_releases[release]}')
+        all_species_files = get_all_species_files(ftp, all_releases.get(release))
+        for f in all_species_files:
+            if species in f and assembly in f:
+                logger.info(f'Found vep_cache_version for {species} and {assembly}: file {f}, release {release}')
+                # TODO assume if we get here we need to download the cache... is this correct?
+                #  e.g. what if we've downloaded the cache for another study but VEP annotation step failed...
+                download_and_extract_vep_cache(ftp, species, f)
+                return release
+    return None
 
 
 def get_all_species_files(ftp, release):

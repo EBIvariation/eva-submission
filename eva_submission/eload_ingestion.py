@@ -80,6 +80,7 @@ class EloadIngestion(Eload):
             vep_version, vep_cache_version = get_vep_and_vep_cache_version(
                 self.mongo_uri,
                 self.eload_cfg.query(self.config_section, 'database', 'db_name'),
+                self.eload_cfg.query('submission', 'taxonomy_id'),
                 self.eload_cfg.query('submission', 'assembly_accession')
             )
             if not vep_version or not vep_cache_version:

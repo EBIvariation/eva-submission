@@ -22,6 +22,7 @@ class TestVepUtils(TestCase):
         # Set up vep cache directory and vep
         os.makedirs(cfg['vep_cache_path'], exist_ok=True)
         os.makedirs(os.path.join(cfg['vep_path'], 'ensembl-vep-release-104/vep'), exist_ok=True)
+        os.makedirs(os.path.join(cfg['vep_path'], 'ensembl-vep-release-97/vep'), exist_ok=True)
 
     def tearDown(self):
         shutil.rmtree(cfg['vep_cache_path'])
@@ -59,7 +60,26 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
         )
 
     def test_get_vep_versions_from_ensembl(self):
-        vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('GCA_000827895.1')
+        vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl(669202, 'GCA_000827895.1')
         self.assertEqual(vep_version, 104)
         self.assertEqual(cache_version, 51)
         assert os.path.exists(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei'))
+
+    def test_get_vep_versions_from_ensembl_not_found(self):
+        vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('fake_db', 27675, 'GCA_015220235.1')
+        self.assertEqual(vep_version, None)
+        self.assertEqual(cache_version, None)
+
+    def test_get_vep_versions_from_ensembl_older_version(self):
+        # Older version of assembly using NCBI assembly code isn't found successfully
+        # TODO this takes about 20 minutes to finish when I test locally
+        vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('eva_pfalciparum_asm276v1', 36329,
+                                                                                'GCA_000002765')
+        self.assertEqual(vep_version, None)
+        self.assertEqual(cache_version, None)
+
+        # If we magically knew the Ensembl assembly code was EPr1 we could find it!
+        vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('eva_pfalciparum_EPr1', 36329,
+                                                                                'GCA_000002765')
+        self.assertEqual(vep_version, 44 + 53)
+        self.assertEqual(cache_version, 44)
