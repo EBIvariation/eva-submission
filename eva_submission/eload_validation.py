@@ -95,15 +95,15 @@ class EloadValidation(Eload):
         self.eload_cfg.set('validation', 'sample_check', 'pass', value=not overall_differences)
 
     def _validate_genotype_aggregation(self):
+        errors = []
         for analysis_alias in self.eload_cfg.query('submission', 'analyses'):
             aggregations = [
                 detect_vcf_aggregation(vcf_file)
                 for vcf_file in self.eload_cfg.query('submission', 'analyses', analysis_alias, 'vcf_files')
             ]
-            errors = []
             if len(set(aggregations)) == 1 and None not in aggregations:
                 aggregation = set(aggregations).pop()
-                self.eload_cfg.set('validation', 'aggregation_check', 'analysis', str(analysis_alias), value=aggregation)
+                self.eload_cfg.set('validation', 'aggregation_check', 'analyses', str(analysis_alias), value=aggregation)
             elif None in aggregations:
                 indices = [i for i, x in enumerate(aggregations) if x is None]
                 errors.append(f'{analysis_alias}: VCF file aggregation could not be determied: ' + ', '.join([
@@ -429,7 +429,7 @@ class EloadValidation(Eload):
         aggregation_dict = self.eload_cfg.query('validation', 'aggregation_check')
         reports = []
         if aggregation_dict:
-            for analysis_alias, aggregation in aggregation_dict.get('analysis', {}).items():
+            for analysis_alias, aggregation in aggregation_dict.get('analyses', {}).items():
                 reports.append(f"  * {analysis_alias}: {aggregation}")
             reports.append("  * Errors:")
             for error in aggregation_dict.get('errors', []):

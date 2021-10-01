@@ -111,7 +111,7 @@ class EloadIngestion(Eload):
     def check_aggregation_done(self):
         errors = []
         for analysis_acc, analysis_alias in self.eload_cfg.query('brokering', 'ena', 'ANALYSIS').items():
-            aggregation = self.eload_cfg.query('validation', 'aggregation_check', 'analysis', analysis_alias)
+            aggregation = self.eload_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
             if aggregation is None:
                 error = f'Aggregation type was not determined during validation for {analysis_alias}'
                 self.error(error)

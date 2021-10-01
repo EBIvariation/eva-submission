@@ -292,6 +292,13 @@ def provision_new_database_for_variant_warehouse(db_name):
 
 
 def detect_vcf_aggregation(vcf_file):
+    """
+    Detect the type of genotype aggregation done in the provided VCF file by checking the first 10 data lines
+    The aggregation is determined to be "none" (meaning genotype are all present) if a GT field can be found in
+    all the samples. It is determined to be "basic" if it is not "none" and an AF field or AN and AC fields are found
+    in every line checked.
+    Other with it returns None meaning that the aggregation type could not be determined.
+    """
     with pysam.VariantFile(vcf_file, 'r') as vcf_in:
         samples = list(vcf_in.header.samples)
         # check that the first 10 lines have genotypes for all the samples present and if they have allele frequency
@@ -301,7 +308,6 @@ def detect_vcf_aggregation(vcf_file):
         af_in_info = True
         for vcf_rec in vcf_in:
             gt_in_format = gt_in_format and all('GT' in vcf_rec.samples.get(sample, {}) for sample in samples)
-
             af_in_info = af_in_info and ('AF' in vcf_rec.info or ('AC' in vcf_rec.info and 'AN' in vcf_rec.info))
             nb_line_checked += 1
             if nb_line_checked >= max_line_check:
