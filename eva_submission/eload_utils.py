@@ -297,7 +297,7 @@ def detect_vcf_aggregation(vcf_file):
     The aggregation is determined to be "none" (meaning genotype are all present) if a GT field can be found in
     all the samples. It is determined to be "basic" if it is not "none" and an AF field or AN and AC fields are found
     in every line checked.
-    Other with it returns None meaning that the aggregation type could not be determined.
+    Otherwise it returns None meaning that the aggregation type could not be determined.
     """
     with pysam.VariantFile(vcf_file, 'r') as vcf_in:
         samples = list(vcf_in.header.samples)
