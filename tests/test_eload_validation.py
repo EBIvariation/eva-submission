@@ -120,7 +120,6 @@ VCF merge:
 '''
         with patch('builtins.print') as mprint:
             self.validation.report()
-        assert mprint.mock_calls[0][1][0] == expected_report
         mprint.assert_called_once_with(expected_report)
 
     def test_detect_and_optionally_merge(self):
