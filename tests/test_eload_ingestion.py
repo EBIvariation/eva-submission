@@ -244,9 +244,7 @@ class TestEloadIngestion(TestCase):
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
             m_get_vep_versions.return_value = (100, 100)
-            self.eload.ingest(
-                tasks=['variant_load'],
-            )
+            self.eload.ingest(tasks=['variant_load'])
             config_file = os.path.join(self.resources_folder, 'projects/PRJEB12345/load_config_file.yaml')
             assert os.path.exists(config_file)
             with open(config_file, 'r') as stream:
@@ -272,9 +270,7 @@ class TestEloadIngestion(TestCase):
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
             m_get_vep_versions.return_value = (None, None)
-            self.eload.ingest(
-                tasks=['variant_load'],
-            )
+            self.eload.ingest(tasks=['variant_load'])
             config_file = os.path.join(self.resources_folder, 'projects/PRJEB12345/load_config_file.yaml')
             assert os.path.exists(config_file)
             with open(config_file, 'r') as stream:
@@ -298,9 +294,6 @@ class TestEloadIngestion(TestCase):
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
             m_get_vep_versions.side_effect = ValueError()
             with self.assertRaises(ValueError):
-                self.eload.ingest(
-                    aggregation='NONE',
-                    tasks=['variant_load'],
-                )
+                self.eload.ingest(tasks=['variant_load'])
             config_file = os.path.join(self.resources_folder, 'projects/PRJEB12345/load_config_file.yaml')
             assert not os.path.exists(config_file)

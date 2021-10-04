@@ -141,7 +141,7 @@ def get_species_and_assembly(taxonomy_id):
     # This endpoint returns 500 even if taxon id is valid but just not in Ensembl, to minimise user frustration
     # we'll assume the species is just not currently supported.
     if not response.ok:
-        logger.warn(f'Got {response.status_code} when trying to get species and assembly from Ensembl.')
+        logger.warning(f'Got {response.status_code} when trying to get species and assembly from Ensembl.')
         return None, None, None
     json_response = response.json()[0]
     return json_response['name'], json_response['assembly_name'], json_response['assembly_accession']
