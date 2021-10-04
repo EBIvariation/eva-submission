@@ -41,7 +41,13 @@ def get_vep_and_vep_cache_version(mongo_uri, db_name, taxonomy_id, assembly_acce
     if not vep_cache_version and not vep_version:
         vep_version, vep_cache_version = get_vep_and_vep_cache_version_from_ensembl(
             db_name, taxonomy_id, assembly_accession)
-    return vep_version, vep_cache_version
+
+    if check_vep_version_installed(vep_version):
+        return vep_version, vep_cache_version
+    raise ValueError(
+        f'Found VEP cache version {vep_cache_version} for assembly {assembly_accession}, '
+        f'but compatible VEP version {vep_version} is not installed.'
+    )
 
 
 def get_vep_and_vep_cache_version_from_db(mongo_uri, db_name):
@@ -69,14 +75,7 @@ def get_vep_and_vep_cache_version_from_ensembl(db_name, taxonomy_id, assembly_ac
         return None, None
 
     vep_version = get_compatible_vep_version(vep_cache_version, ftp_source)
-
-    if check_vep_version_installed(vep_version):
-        return vep_version, vep_cache_version
-
-    raise ValueError(
-        f'Found VEP cache version {vep_cache_version} for assembly {assembly_accession}, '
-        f'but compatible VEP version {vep_version} is not installed.'
-    )
+    return vep_version, vep_cache_version
 
 
 def get_compatible_vep_version(vep_cache_version, ftp_source):
