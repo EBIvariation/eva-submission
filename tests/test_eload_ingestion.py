@@ -131,7 +131,7 @@ class TestEloadIngestion(TestCase):
                 [('Test Study Name')],                   # get_study_name
                 [(1, 'filename_1'), (2, 'filename_2')]   # update_loaded_assembly_in_browsable_files
             ]
-            self.eload.ingest('NONE', 1)
+            self.eload.ingest(1)
 
     def test_ingest_metadata_load(self):
         with self._patch_metadata_handle(), \
