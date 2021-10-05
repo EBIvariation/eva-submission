@@ -110,7 +110,7 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
             self.assertEqual(vep_cache_version, None)
 
             # If a VEP version is not installed, raise an error
-            m_get_db.side_effect = ValueError()
+            m_get_db.return_value = (1, 1)
             m_get_ensembl.return_value = (None, None)
             with self.assertRaises(ValueError):
                 get_vep_and_vep_cache_version('fake_mongo', 'fake_db', 1, 'fake_assembly')
