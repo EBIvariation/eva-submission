@@ -160,7 +160,6 @@ class TestEloadIngestion(TestCase):
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.return_value = [(1, 'filename_1'), (2, 'filename_2')]
             self.eload.ingest(
-                aggregation='NONE',
                 instance_id=1,
                 tasks=['accession']
             )
@@ -180,7 +179,6 @@ class TestEloadIngestion(TestCase):
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
             self.eload.ingest(
-                aggregation='NONE',
                 vep_version=82,
                 vep_cache_version=82,
                 tasks=['variant_load']
@@ -245,7 +243,6 @@ class TestEloadIngestion(TestCase):
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
             self.eload.ingest(
-                aggregation='NONE',
                 tasks=['variant_load'],
                 vep_version=100,
                 vep_cache_version=100,
@@ -274,7 +271,6 @@ class TestEloadIngestion(TestCase):
 
             get_vep_and_vep_cache_version_from_db.return_value = {"vep_version": 100, "vep_cache_version": 100}
             self.eload.ingest(
-                aggregation='NONE',
                 tasks=['variant_load'],
                 vep_version=None,
                 vep_cache_version=None,
@@ -303,7 +299,6 @@ class TestEloadIngestion(TestCase):
             get_vep_and_vep_cache_version_from_db.return_value = {"vep_version": None, "vep_cache_version": None}
             with self.assertRaises(Exception) as ex:
                 self.eload.ingest(
-                    aggregation='NONE',
                     tasks=['variant_load'],
                     vep_version=None,
                     vep_cache_version=None,

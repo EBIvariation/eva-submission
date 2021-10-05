@@ -70,6 +70,7 @@ Metadata check: PASS
 VCF check: PASS
 Assembly check: PASS
 Sample names check: PASS
+Aggregation check: PASS
 ----------------------------------
 
 Metadata check:
@@ -102,6 +103,12 @@ Sample names check:
   * a1: PASS
     - Samples that appear in the VCF but not in the Metadata sheet: 
     - Samples that appear in the Metadata sheet but not in the VCF file(s): 
+
+----------------------------------
+
+Aggregation:
+  * a1: none
+  * Errors:
 
 ----------------------------------
 

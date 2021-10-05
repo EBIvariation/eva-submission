@@ -96,13 +96,13 @@ Note that as some steps are long-running the script is best run in a screen/tmux
 
 ```bash
 # To run everything
-python ingest_submission.py --eload 765 --instance 1 --vep_version 89 --vep_cache_version 89 --aggregation NONE
+python ingest_submission.py --eload 765 --instance 1 --vep_version 89 --vep_cache_version 89
 
 # Only accessioning - VEP versions not needed
-python ingest_submission.py --eload 765 --instance 1 --aggregation NONE --tasks accession
+python ingest_submission.py --eload 765 --instance 1 --tasks accession
 
 # Only variant load - accession instance id not needed
-python ingest_submission.py --eload 765 --vep_version 89 --vep_cache_version 89 --aggregation NONE --tasks variant_load
+python ingest_submission.py --eload 765 --vep_version 89 --vep_cache_version 89 --tasks variant_load
 ```
 
 ### Backlog automation
@@ -112,6 +112,18 @@ This will create the config file and run validation on the VCF files (without me
 
 ```bash
 python prepare_backlog_study.py --eload 506
+```
+
+If the config file already exist, the prepare_backlog script will not do anything, you can override this by specifying the `--force_config` option
+
+```bash
+python prepare_backlog_study.py --eload 506
+```
+
+You can also specify only a subset of the validation tasks to perform
+
+```bash
+python prepare_backlog_study.py --eload 506  --validation_tasks aggregation_check
 ```
 
 If the files are valid then ingestion can be run as usual.

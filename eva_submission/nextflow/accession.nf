@@ -5,7 +5,7 @@ def helpMessage() {
     Accession variant files and copy to public FTP.
 
     Inputs:
-            --valid_vcfs            csv file with the mappings for vcf file, assembly accession, fasta, assembly report, analysis_accession, db_name
+            --valid_vcfs            csv file with the mappings for vcf file, assembly accession, fasta, assembly report, analysis_accession, db_name, aggregation
             --project_accession     project accession
             --instance_id           instance id to run accessioning
             --accession_job_props   job-specific properties, passed as a map
@@ -86,7 +86,7 @@ if (is_human_study) {
     csi_vcfs = Channel.empty()
     Channel.fromPath(params.valid_vcfs)
         .splitCsv(header:true)
-        .map{row -> tuple(file(row.vcf_file), row.assembly_accession, file(row.fasta), file(row.report))}
+        .map{row -> tuple(file(row.vcf_file), row.assembly_accession, row.aggregation, file(row.fasta), file(row.report))}
         .set{valid_vcfs}
 }
 
@@ -95,7 +95,7 @@ if (is_human_study) {
  */
 process create_properties {
     input:
-    set vcf_file, assembly_accession, fasta, report from valid_vcfs
+    set vcf_file, assembly_accession, aggregation, fasta, report from valid_vcfs
 
     output:
     path "${vcf_file.getFileName()}_accessioning.properties" into accession_props
@@ -108,6 +108,7 @@ process create_properties {
         props.setProperty(k, v.toString())
     }
     props.setProperty("parameters.assemblyAccession", assembly_accession.toString())
+    props.setProperty("parameters.vcfAggregation", aggregation.toString())
     props.setProperty("parameters.fasta", fasta.toString())
     props.setProperty("parameters.assemblyReportUrl", "file:" + report.toString())
     props.setProperty("parameters.vcf", vcf_file.toString())

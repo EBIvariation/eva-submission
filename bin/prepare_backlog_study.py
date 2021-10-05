@@ -27,10 +27,17 @@ logger = log_cfg.get_logger(__name__)
 
 
 def main():
+    validation_tasks = ['aggregation_check', 'assembly_check', 'vcf_check']
+
     argparse = ArgumentParser(description='Prepare to process backlog study and validate VCFs.')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
     argparse.add_argument('--force_config', action='store_true', default=False,
                           help='Overwrite the configuration file after backing it up.')
+    argparse.add_argument('--validation_tasks', required=False, type=str, nargs='+',
+                          default=validation_tasks, choices=validation_tasks,
+                          help='task or set of tasks to perform during validation')
+    argparse.add_argument('--report', action='store_true', default=False,
+                          help='Set the script to only report the results based on previously run preparation.')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
 
@@ -44,13 +51,14 @@ def main():
     load_config()
 
     preparation = EloadBacklog(args.eload)
-    preparation.fill_in_config(args.force_config)
-    preparation.report()
-
     validation = EloadValidation(args.eload)
-    validation_tasks = ['assembly_check', 'vcf_check']
-    validation.validate(validation_tasks)
 
+    if not args.report:
+        preparation.fill_in_config(args.force_config)
+        validation.validate(args.validation_tasks)
+
+    preparation.report()
+    validation.report()
     logger.info('Preparation complete, if files are valid please run ingestion as normal.')
 
 

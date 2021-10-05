@@ -29,9 +29,7 @@ def main():
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission.')
     argparse.add_argument('--instance', required=False, type=int, choices=range(1, 13),
                           help='The instance id to use for accessioning. Only needed if running accessioning.')
-    # TODO infer aggregation from vcf files, VEP version & cache version from species
-    argparse.add_argument('--aggregation', required=False, type=str.lower, choices=['basic', 'none'],
-                          help='The aggregation type (case insensitive).')
+    # TODO VEP version & cache version from species
     action_vep_version = argparse.add_argument('--vep_version', required=False, type=int,
                                                help='VEP version to use for annotation. Only needed if running variant load.')
     argparse.add_argument('--vep_cache_version', required=False, type=int,
@@ -64,7 +62,6 @@ def main():
     ingestion = EloadIngestion(args.eload)
     ingestion.upgrade_config_if_needed()
     ingestion.ingest(
-        aggregation=args.aggregation,
         instance_id=args.instance,
         vep_version=args.vep_version,
         vep_cache_version=args.vep_cache_version,
