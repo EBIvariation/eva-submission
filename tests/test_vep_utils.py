@@ -1,12 +1,13 @@
 import os
 import shutil
 from unittest import TestCase
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission.submission_config import load_config
-from eva_submission.vep_utils import recursive_nlst, get_vep_and_vep_cache_version_from_ensembl
+from eva_submission.vep_utils import recursive_nlst, get_vep_and_vep_cache_version_from_ensembl, \
+    get_vep_and_vep_cache_version
 
 
 class TestVepUtils(TestCase):
@@ -83,3 +84,33 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
                                                                                 'GCA_000002765')
         self.assertEqual(vep_version, 44 + 53)
         self.assertEqual(cache_version, 44)
+
+    def test_get_vep_versions(self):
+        with patch('eva_submission.vep_utils.get_vep_and_vep_cache_version_from_db') as m_get_db, \
+                patch('eva_submission.vep_utils.get_vep_and_vep_cache_version_from_ensembl') as m_get_ensembl:
+            # If db has versions, use those
+            m_get_db.return_value = (104, 104)
+            m_get_ensembl.return_value = (97, 97)
+            vep_version, vep_cache_version = get_vep_and_vep_cache_version('fake_mongo', 'fake_db', 1, 'fake_assembly')
+            self.assertEqual(vep_version, 104)
+            self.assertEqual(vep_cache_version, 104)
+
+            # If db has no versions but Ensembl does, use those
+            m_get_db.return_value = (None, None)
+            m_get_ensembl.return_value = (97, 97)
+            vep_version, vep_cache_version = get_vep_and_vep_cache_version('fake_mongo', 'fake_db', 1, 'fake_assembly')
+            self.assertEqual(vep_version, 97)
+            self.assertEqual(vep_cache_version, 97)
+
+            # If neither has any versions, return none
+            m_get_db.return_value = (None, None)
+            m_get_ensembl.return_value = (None, None)
+            vep_version, vep_cache_version = get_vep_and_vep_cache_version('fake_mongo', 'fake_db', 1, 'fake_assembly')
+            self.assertEqual(vep_version, None)
+            self.assertEqual(vep_cache_version, None)
+
+            # If a VEP version is not installed, raise an error
+            m_get_db.side_effect = ValueError()
+            m_get_ensembl.return_value = (None, None)
+            with self.assertRaises(ValueError):
+                get_vep_and_vep_cache_version('fake_mongo', 'fake_db', 1, 'fake_assembly')

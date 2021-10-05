@@ -87,7 +87,7 @@ def get_compatible_vep_version(vep_cache_version, ftp_source):
 
 
 def check_vep_version_installed(vep_version):
-    return os.path.exists(vep_path(vep_version))
+    return vep_version is None or os.path.exists(vep_path(vep_version))
 
 
 def get_vep_cache_version_from_ftp(db_name, taxonomy_id, assembly_accession):

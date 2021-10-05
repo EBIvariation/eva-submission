@@ -89,7 +89,7 @@ class EloadIngestion(Eload):
                 self.mongo_uri,
                 self.eload_cfg.query(self.config_section, 'database', assembly_accession, 'db_name'),
                 self.eload_cfg.query('submission', 'taxonomy_id'),
-                self.eload_cfg.query('submission', 'assembly_accession')
+                assembly_accession
             )
             self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'version', value=vep_version)
             self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'cache_version', value=vep_cache_version)
