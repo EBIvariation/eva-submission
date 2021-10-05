@@ -17,17 +17,7 @@ brokering:
     PROJECT: PRJEB12345
     hold_date: 2021-01-04
 ingestion:
-  aggregation:
-    ERZ2499196: none
-  database:
-    GCA_002863925.1:
-      db_name: eva_u_equcab30
-  ingestion_date: 2021-10-05 11:30:48.903384
   project_dir: tests/resources/projects/PRJEB12345
-  vep:
-    GCA_000001000.1:
-      cache_version: 100
-      version: 100
 submission:
   analyses:
     Analysis alias test:
