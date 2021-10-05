@@ -85,6 +85,9 @@ class EloadIngestion(Eload):
         analyses = self.eload_cfg.query('brokering', 'analyses')
         for analysis_alias, analysis_data in analyses.items():
             assembly_accession = analysis_data['assembly_accession']
+            if ('vep' in self.eload_cfg.query(self.config_section)
+                    and assembly_accession in self.eload_cfg.query(self.config_section, 'vep')):
+                continue
             vep_version, vep_cache_version = get_vep_and_vep_cache_version(
                 self.mongo_uri,
                 self.eload_cfg.query(self.config_section, 'database', assembly_accession, 'db_name'),
