@@ -63,6 +63,7 @@ class EloadIngestion(Eload):
         do_variant_load = 'variant_load' in tasks
 
         if do_accession or do_variant_load:
+            self.fill_vep_versions()
             vcf_files_to_ingest = self._generate_csv_mappings_to_ingest()
 
         if do_accession:
@@ -76,22 +77,22 @@ class EloadIngestion(Eload):
             self.refresh_study_browser()
 
         if do_variant_load:
-            skip_annotation = False
-            vep_version, vep_cache_version = get_vep_and_vep_cache_version(
-                self.mongo_uri,
-                self.eload_cfg.query(self.config_section, 'database', 'db_name'),
-                self.eload_cfg.query('submission', 'taxonomy_id'),
-                self.eload_cfg.query('submission', 'assembly_accession')
-            )
-            if not vep_version or not vep_cache_version:
-                # If we get here, Ensembl doesn't have a VEP cache for this species, so we skip annotation.
-                skip_annotation = True
-            self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'version', value=vep_version)
-            self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', value=vep_cache_version)
-            self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'skip_annotation', value=skip_annotation)
             output_dir = self.run_variant_load_workflow(vcf_files_to_ingest)
             shutil.rmtree(output_dir)
             self.update_loaded_assembly_in_browsable_files()
+
+    def fill_vep_versions(self):
+        analyses = self.eload_cfg.query('brokering', 'analyses')
+        for analysis_alias, analysis_data in analyses.items():
+            assembly_accession = analysis_data['assembly_accession']
+            vep_version, vep_cache_version = get_vep_and_vep_cache_version(
+                self.mongo_uri,
+                self.eload_cfg.query(self.config_section, 'database', assembly_accession, 'db_name'),
+                self.eload_cfg.query('submission', 'taxonomy_id'),
+                self.eload_cfg.query('submission', 'assembly_accession')
+            )
+            self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'version', value=vep_version)
+            self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'cache_version', value=vep_cache_version)
 
     def _get_vcf_files_from_brokering(self):
         vcf_files = []
@@ -256,7 +257,7 @@ class EloadIngestion(Eload):
         with open(vcf_files_to_ingest, 'w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(['vcf_file', 'assembly_accession', 'fasta', 'report', 'analysis_accession', 'db_name',
-                             'aggregation'])
+                             'vep_version', 'vep_cache_version', 'aggregation'])
             analyses = self.eload_cfg.query('brokering', 'analyses')
             for analysis_alias, analysis_data in analyses.items():
                 assembly_accession = analysis_data['assembly_accession']
@@ -264,11 +265,16 @@ class EloadIngestion(Eload):
                 report = analysis_data['assembly_report']
                 analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
                 db_name = self.eload_cfg.query(self.config_section, 'database', assembly_accession, 'db_name')
+                vep_version = self.eload_cfg.query(self.config_section, 'vep', assembly_accession, 'version')
+                vep_cache_version = self.eload_cfg.query(self.config_section, 'vep', assembly_accession, 'cache_version')
+                if not vep_version or not vep_cache_version:
+                    vep_version = ''
+                    vep_cache_version = ''
                 aggregation = self.eload_cfg.query(self.config_section, 'aggregation', analysis_accession)
                 if analysis_data['vcf_files']:
                     for vcf_file in analysis_data['vcf_files']:
                         writer.writerow([vcf_file, assembly_accession, fasta, report, analysis_accession, db_name,
-                                         aggregation])
+                                         vep_version, vep_cache_version, aggregation])
                 else:
                     self.warning(f"VCF files for analysis {analysis_alias} not found")
         return vcf_files_to_ingest
@@ -330,13 +336,10 @@ class EloadIngestion(Eload):
                 annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
                 stats_dir=self.project_dir.joinpath(project_dirs['stats']),
                 vep_species=self.get_vep_species(),
-                vep_version=self.eload_cfg.query(self.config_section, 'variant_load', 'vep', 'version'),
-                vep_cache_version=self.eload_cfg.query(self.config_section, 'variant_load', 'vep', 'cache_version'),
-                annotation_skip=self.eload_cfg.query(self.config_section, 'variant_load', 'vep', 'skip_annotation'),
         )
         load_config = {
             'valid_vcfs': vcf_files_to_ingest,
-            'aggregation_type': self.eload_cfg.query(self.config_section, 'aggregation'),
+            'vep_path': cfg['vep_path'],
             'load_job_props': job_props,
             'project_accession': self.project_accession,
             'project_dir': str(self.project_dir),

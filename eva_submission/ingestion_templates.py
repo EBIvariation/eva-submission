@@ -1,6 +1,6 @@
 from ebi_eva_common_pyutils.config import cfg
 
-from eva_submission.vep_utils import vep_path, annotation_collection_name
+from eva_submission.vep_utils import annotation_collection_name
 
 
 def accession_props_template(
@@ -56,9 +56,6 @@ def variant_load_props_template(
         annotation_dir,
         stats_dir,
         vep_species,
-        vep_version,
-        vep_cache_version,
-        annotation_skip=False
 ):
     """
     Get all properties needed for this variant load job, except for the vcf file
@@ -75,15 +72,11 @@ def variant_load_props_template(
         'db.collections.variants.name': 'variants_2_0',
         'db.collections.annotation-metadata.name': 'annotationMetadata_2_0',
         'db.collections.annotations.name': annotation_collection_name,
-        'app.vep.version': vep_version,
-        'app.vep.path': vep_path(vep_version),
-        'app.vep.cache.version': vep_cache_version,
         'app.vep.cache.path': cfg['vep_cache_path'],
         'app.vep.cache.species': vep_species,
         'app.vep.num-forks': 4,
         'app.vep.timeout': 500,
         'statistics.skip': False,
-        'annotation.skip': annotation_skip,
         'annotation.overwrite': False,
         'config.chunk.size': 200,
         'spring.jpa.properties.hibernate.jdbc.lob.non_contextual_creation': True,
