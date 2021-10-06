@@ -2,6 +2,7 @@ import ftplib
 import os
 import re
 import tarfile
+import tempfile
 from fnmatch import fnmatch
 
 import pymongo
@@ -214,9 +215,10 @@ def recursive_nlst(ftp, root, pattern):
 
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3), logger=logger)
 def download_and_extract_vep_cache(ftp, species_name, vep_cache_file):
-    destination = os.path.join(cfg['vep_cache_path'], f'{species_name}.tar.gz')
+    tmp_dir = tempfile.TemporaryDirectory()
+    destination = os.path.join(tmp_dir.name, f'{species_name}.tar.gz')
     with open(destination, 'wb+') as dest:
         ftp.retrbinary(f'RETR {vep_cache_file}', dest.write)
     with tarfile.open(destination, 'r:gz') as tar:
-        tar.extractall(path=os.path.join(cfg['vep_cache_path'], species_name))
-    os.remove(destination)
+        tar.extractall(path=os.path.join(cfg['vep_cache_path']))
+    tmp_dir.cleanup()

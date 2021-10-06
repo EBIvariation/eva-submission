@@ -17,7 +17,7 @@ from eva_submission import NEXTFLOW_DIR
 from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import provision_new_database_for_variant_warehouse
-from eva_submission.vep_utils import get_vep_and_vep_cache_version
+from eva_submission.vep_utils import get_vep_and_vep_cache_version, get_species_and_assembly
 from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
 
 project_dirs = {
@@ -252,8 +252,7 @@ class EloadIngestion(Eload):
         return rows[0][0]
 
     def get_vep_species(self):
-        words = self.eload_cfg.query('submission', 'scientific_name').lower().split()
-        return '_'.join(words)
+        return get_species_and_assembly(self.eload_cfg.query('submission', 'taxonomy_id'))[0]
 
     def _generate_csv_mappings_to_ingest(self):
         vcf_files_to_ingest = os.path.join(self.eload_dir, 'vcf_files_to_ingest.csv')
