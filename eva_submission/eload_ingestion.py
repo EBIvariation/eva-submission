@@ -11,14 +11,13 @@ from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile, get_primary_mongo_creds_for_profile, \
     get_accession_pg_creds_for_profile
 from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name
-from ebi_eva_common_pyutils.mongodb import MongoDatabase
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import get_vep_and_vep_cache_version_from_db, \
-    provision_new_database_for_variant_warehouse
+from eva_submission.eload_utils import provision_new_database_for_variant_warehouse
+from eva_submission.vep_utils import get_vep_and_vep_cache_version, get_species_and_assembly
 from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
 
 project_dirs = {
@@ -46,9 +45,6 @@ class EloadIngestion(Eload):
     def ingest(
             self,
             instance_id=None,
-            vep_version=None,
-            vep_cache_version=None,
-            skip_annotation=False,
             tasks=None
     ):
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
@@ -67,6 +63,7 @@ class EloadIngestion(Eload):
         do_variant_load = 'variant_load' in tasks
 
         if do_accession or do_variant_load:
+            self.fill_vep_versions()
             vcf_files_to_ingest = self._generate_csv_mappings_to_ingest()
 
         if do_accession:
@@ -80,11 +77,25 @@ class EloadIngestion(Eload):
             self.refresh_study_browser()
 
         if do_variant_load:
-            self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'version', value=vep_version)
-            self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', value=vep_cache_version)
-            output_dir = self.run_variant_load_workflow(vep_version, vep_cache_version, skip_annotation, vcf_files_to_ingest)
+            output_dir = self.run_variant_load_workflow(vcf_files_to_ingest)
             shutil.rmtree(output_dir)
             self.update_loaded_assembly_in_browsable_files()
+
+    def fill_vep_versions(self):
+        analyses = self.eload_cfg.query('brokering', 'analyses')
+        for analysis_alias, analysis_data in analyses.items():
+            assembly_accession = analysis_data['assembly_accession']
+            if ('vep' in self.eload_cfg.query(self.config_section)
+                    and assembly_accession in self.eload_cfg.query(self.config_section, 'vep')):
+                continue
+            vep_version, vep_cache_version = get_vep_and_vep_cache_version(
+                self.mongo_uri,
+                self.eload_cfg.query(self.config_section, 'database', assembly_accession, 'db_name'),
+                self.eload_cfg.query('submission', 'taxonomy_id'),
+                assembly_accession
+            )
+            self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'version', value=vep_version)
+            self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'cache_version', value=vep_cache_version)
 
     def _get_vcf_files_from_brokering(self):
         vcf_files = []
@@ -241,15 +252,14 @@ class EloadIngestion(Eload):
         return rows[0][0]
 
     def get_vep_species(self):
-        words = self.eload_cfg.query('submission', 'scientific_name').lower().split()
-        return '_'.join(words)
+        return get_species_and_assembly(self.eload_cfg.query('submission', 'taxonomy_id'))[0]
 
     def _generate_csv_mappings_to_ingest(self):
         vcf_files_to_ingest = os.path.join(self.eload_dir, 'vcf_files_to_ingest.csv')
         with open(vcf_files_to_ingest, 'w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(['vcf_file', 'assembly_accession', 'fasta', 'report', 'analysis_accession', 'db_name',
-                             'aggregation'])
+                             'vep_version', 'vep_cache_version', 'aggregation'])
             analyses = self.eload_cfg.query('brokering', 'analyses')
             for analysis_alias, analysis_data in analyses.items():
                 assembly_accession = analysis_data['assembly_accession']
@@ -257,11 +267,16 @@ class EloadIngestion(Eload):
                 report = analysis_data['assembly_report']
                 analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
                 db_name = self.eload_cfg.query(self.config_section, 'database', assembly_accession, 'db_name')
+                vep_version = self.eload_cfg.query(self.config_section, 'vep', assembly_accession, 'version')
+                vep_cache_version = self.eload_cfg.query(self.config_section, 'vep', assembly_accession, 'cache_version')
+                if not vep_version or not vep_cache_version:
+                    vep_version = ''
+                    vep_cache_version = ''
                 aggregation = self.eload_cfg.query(self.config_section, 'aggregation', analysis_accession)
                 if analysis_data['vcf_files']:
                     for vcf_file in analysis_data['vcf_files']:
                         writer.writerow([vcf_file, assembly_accession, fasta, report, analysis_accession, db_name,
-                                         aggregation])
+                                         vep_version, vep_cache_version, aggregation])
                 else:
                     self.warning(f"VCF files for analysis {analysis_alias} not found")
         return vcf_files_to_ingest
@@ -314,7 +329,7 @@ class EloadIngestion(Eload):
             raise e
         return output_dir
 
-    def run_variant_load_workflow(self, vep_version, vep_cache_version, skip_annotation, vcf_files_to_ingest):
+    def run_variant_load_workflow(self, vcf_files_to_ingest):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
         job_props = variant_load_props_template(
                 project_accession=self.project_accession,
@@ -323,28 +338,10 @@ class EloadIngestion(Eload):
                 annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
                 stats_dir=self.project_dir.joinpath(project_dirs['stats']),
                 vep_species=self.get_vep_species(),
-                vep_version=vep_version,
-                vep_cache_version=vep_cache_version,
-                annotation_skip=skip_annotation
         )
-        if skip_annotation is False and vep_version is None:
-            coll_name = job_props['db.collections.annotations.name']
-            vep = get_vep_and_vep_cache_version_from_db(self.mongo_uri, self.eload_cfg.query(self.config_section, 'database', 'db_name'), coll_name)
-            vep_version = vep['vep_version']
-            vep_cache_version = vep['vep_cache_version']
-            if not vep_version or not vep_cache_version:
-                raise Exception(f'No vep_version and vep_cache_version provided by user and none could be found in DB.'
-                                f'In case you want to process without annotation, please use --skip_annotation parameter.')
-            self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'version', value=vep_version)
-            self.eload_cfg.set(self.config_section, 'variant_load', 'vep', 'cache_version', value=vep_cache_version)
-            job_props.update({
-                'app.vep.version': vep_version,
-                'app.vep.cache.version': vep_cache_version,
-                'annotation.skip': True if vep_cache_version is None else False
-            })
         load_config = {
             'valid_vcfs': vcf_files_to_ingest,
-            'aggregation_type': self.eload_cfg.query(self.config_section, 'aggregation'),
+            'vep_path': cfg['vep_path'],
             'load_job_props': job_props,
             'project_accession': self.project_accession,
             'project_dir': str(self.project_dir),

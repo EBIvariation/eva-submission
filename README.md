@@ -96,13 +96,13 @@ Note that as some steps are long-running the script is best run in a screen/tmux
 
 ```bash
 # To run everything
-python ingest_submission.py --eload 765 --instance 1 --vep_version 89 --vep_cache_version 89
+python ingest_submission.py --eload 765 --instance 1
 
-# Only accessioning - VEP versions not needed
+# Only accessioning
 python ingest_submission.py --eload 765 --instance 1 --tasks accession
 
 # Only variant load - accession instance id not needed
-python ingest_submission.py --eload 765 --vep_version 89 --vep_cache_version 89 --tasks variant_load
+python ingest_submission.py --eload 765 --tasks variant_load
 ```
 
 ### Backlog automation

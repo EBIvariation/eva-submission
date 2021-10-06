@@ -3,8 +3,8 @@ public_ftp_dir: '/path/to/public/ftp'
 eloads_dir: 'tests/resources/eloads'
 projects_dir: 'tests/resources/projects'
 eva_pipeline_props: '/path/to/pipeline/properties'
-vep_path: '/path/to/vep'
-vep_cache_path: '/path/to/vep/cache'
+vep_path: 'tests/resources/vep'
+vep_cache_path: 'tests/resources/vep_cache'
 
 genome_downloader:
   output_directory: 'tests/resources/genomes'
