@@ -2,15 +2,22 @@
 Changelog for ebi_eva_common_pyutils
 ===========================
 
-v1.2.0
+1.2.0
 ------------------
- - Nothing changed yet
 
-v1.1.1 (2021-09-22)
+### Validation:
+ - Check the aggregation type of VCF files during the validation
+ 
+### Ingestion:
+ - Use aggregation type detected during validation
+ - Resolve and Create (if required) the variant warehouse databases
+ - Resolve and download the correct VEP cache or skip annotation  
+
+1.1.1 (2021-09-22)
 ------------------
  - Fix error strategy in Nextflow
 
-v1.1.0 (2021-09-21)
+1.1.0 (2021-09-21)
 -------------------
 
 ### Validation:
@@ -26,22 +33,22 @@ v1.1.0 (2021-09-21)
  - Update metadata after variant load
 
 
-v1.0.3 (2021-07-21)
+1.0.3 (2021-07-21)
 -------------------
 
  - Fixes to variant load pipeline and ENA queries.
 
-v1.0.2 (2021-07-19)
+1.0.2 (2021-07-19)
 -------------------
 
- - Additional bug fixes from v1.0
+ - Additional bug fixes from 1.0
 
-v1.0.1 (2021-07-15)
+1.0.1 (2021-07-15)
 -------------------
 
  - Bug fixes from 1.0 release.
 
-v1.0 (2021-07-15)
+1.0 (2021-07-15)
 -----------------
 
 ### General
@@ -61,7 +68,7 @@ v0.5.9 (2021-07-06)
 
  - Fix bug with hold date checking metadata db before loaded from ENA.
 
-v0.5.8 (2021-06-16)
+0.5.8 (2021-06-16)
 -------------------
 
 ### Validation
@@ -77,11 +84,11 @@ v0.5.8 (2021-06-16)
  - Retrieve files from ENA when not available locally
  - Support for multiple files per analysis
 
-v0.5.7 (2021-06-01)
+0.5.7 (2021-06-01)
 -------------------
  - Fix missing Nextflow and etc directory
 
-v0.5.6 (2021-05-28)
+0.5.6 (2021-05-28)
 -------------------
  - Make scripts in bin executable
  - Various bugfixes in genome downloader, validation reporting, backlog preparation, and ingestion
