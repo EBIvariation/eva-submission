@@ -51,10 +51,13 @@ def main():
     load_config()
 
     preparation = EloadBacklog(args.eload)
-    validation = EloadValidation(args.eload)
-
     if not args.report:
         preparation.fill_in_config(args.force_config)
+
+    # Need to complete the fill_in_config before creating EloadValidation otherwise the config does not get
+    # written and reloaded
+    validation = EloadValidation(args.eload)
+    if not args.report:
         validation.validate(args.validation_tasks)
 
     preparation.report()
