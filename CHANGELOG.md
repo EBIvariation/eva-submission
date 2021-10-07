@@ -2,7 +2,7 @@
 Changelog for ebi_eva_common_pyutils
 ===========================
 
-1.2.0
+1.2.0 (2021-10-07)
 ------------------
 
 ### Validation:
