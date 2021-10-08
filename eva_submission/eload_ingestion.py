@@ -14,7 +14,7 @@ from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_n
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
 
 from eva_submission import NEXTFLOW_DIR
-from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy
+from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy, get_assembly_set
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import provision_new_database_for_variant_warehouse
 from eva_submission.vep_utils import get_vep_and_vep_cache_version, get_species_and_assembly
@@ -59,6 +59,8 @@ class EloadIngestion(Eload):
 
         if 'metadata_load' in tasks:
             self.load_from_ena()
+            # Update analysis in the metadata in case the perl script failed (usually because the project already exist)
+            self.update_assembly_set_in_analysis()
         do_accession = 'accession' in tasks
         do_variant_load = 'variant_load' in tasks
 
@@ -431,6 +433,19 @@ class EloadIngestion(Eload):
                              f"set loaded_assembly = '{assembly_accession}' " \
                              f"where file_id = '{file_id}';"
                 execute_query(conn, ftp_update)
+
+    def update_assembly_set_in_analysis(self):
+        taxonomy = self.eload_cfg.query('submission', 'taxonomy_id')
+        analyses = self.eload_cfg.query('submission', 'analyses')
+        with self.metadata_connection_handle as conn:
+            for analysis_alias, analysis_data in analyses.items():
+                assembly_accession = analysis_data['assembly_accession']
+                assembly_set = get_assembly_set(conn, taxonomy, assembly_accession)
+                analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
+                analysis_update = (f"update evapro.analysis "
+                                   f"set assembly_set = '{assembly_set}' "
+                                   f"where analysis_accession = '{analysis_accession}';")
+                execute_query(conn, analysis_update)
 
     def refresh_study_browser(self):
         with self.metadata_connection_handle as conn:
