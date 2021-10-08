@@ -27,7 +27,7 @@ logger = log_cfg.get_logger(__name__)
 def main():
     argparse = ArgumentParser(description='Accession and ingest submission data into EVA')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission.')
-    argparse.add_argument('--instance', required=False, type=int, choices=range(1, 13),
+    argparse.add_argument('--instance', required=False, type=int, choices=range(1, 13), default=1,
                           help='The instance id to use for accessioning. Only needed if running accessioning.')
     argparse.add_argument('--tasks', required=False, type=str, nargs='+',
                           default=EloadIngestion.all_tasks, choices=EloadIngestion.all_tasks,
