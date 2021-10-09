@@ -61,13 +61,13 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
         )
 
     def test_get_vep_versions_from_ensembl(self):
-        vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('fake_db', 669202, 'GCA_000827895.1')
+        vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('fake_db', 'GCA_000827895.1')
         self.assertEqual(vep_version, 104)
         self.assertEqual(cache_version, 51)
         assert os.path.exists(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei'))
 
     def test_get_vep_versions_from_ensembl_not_found(self):
-        vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('fake_db', 27675, 'GCA_015220235.1')
+        vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('fake_db', 'GCA_015220235.1')
         self.assertEqual(vep_version, None)
         self.assertEqual(cache_version, None)
 

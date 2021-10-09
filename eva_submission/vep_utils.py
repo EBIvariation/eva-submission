@@ -7,6 +7,7 @@ from fnmatch import fnmatch
 
 import pymongo
 import requests
+from ebi_eva_common_pyutils.ncbi_utils import get_ncbi_assembly_dicts_from_term
 from retry import retry
 
 from ebi_eva_common_pyutils.config import cfg
@@ -70,8 +71,8 @@ def get_vep_and_vep_cache_version_from_db(mongo_uri, db_name):
         return vep_version, vep_cache_version
 
 
-def get_vep_and_vep_cache_version_from_ensembl(db_name, taxonomy_id, assembly_accession):
-    vep_cache_version, ftp_source = get_vep_cache_version_from_ftp(db_name, taxonomy_id, assembly_accession)
+def get_vep_and_vep_cache_version_from_ensembl(db_name, assembly_accession):
+    vep_cache_version, ftp_source = get_vep_cache_version_from_ftp(db_name, assembly_accession)
     if not vep_cache_version:
         return None, None
 
@@ -91,10 +92,10 @@ def check_vep_version_installed(vep_version):
     return vep_version is None or os.path.exists(vep_path(vep_version))
 
 
-def get_vep_cache_version_from_ftp(db_name, taxonomy_id, assembly_accession):
+def get_vep_cache_version_from_ftp(db_name, assembly_accession):
     logger.info('Getting vep_cache_version from Ensembl.')
-    logger.info(f'Getting species and assembly from Ensembl using taxonomy: {taxonomy_id}')
-    species_name, assembly_name, current_assm_accession = get_species_and_assembly(taxonomy_id)
+    logger.info(f'Getting species and supported assembly from Ensembl using assembly accession: {assembly_accession}')
+    species_name, assembly_name, current_release_only = get_species_and_assembly(assembly_accession)
     if assembly_name is None:
         logger.info(f'No species and assembly found on Ensembl for {assembly_accession}')
         return None, None
@@ -102,15 +103,6 @@ def get_vep_cache_version_from_ftp(db_name, taxonomy_id, assembly_accession):
 
     # If we're looking for an older assembly, need to search all releases to find the right one;
     # otherwise we just search the most recent release.
-    current_release_only = (assembly_accession == current_assm_accession)
-    if not current_release_only:
-        # No way to determine the previous Ensembl assembly name, so we use assembly code (from NCBI) as a guess
-        assembly_name = db_name.split('_')[-1]
-        logger.info(
-            f'Assembly {assembly_accession} not currently supported by Ensembl (current version is '
-            f'{current_assm_accession}). Will search previous releases to find the most recent VEP cache for species '
-            f'{species_name}.'
-        )
 
     # First try main Ensembl release
     ftp = get_ftp_connection(ensembl_ftp_url)
@@ -132,11 +124,27 @@ def get_vep_cache_version_from_ftp(db_name, taxonomy_id, assembly_accession):
 
 
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
-def get_species_and_assembly(taxonomy_id):
+def get_species_and_assembly(assembly_acc):
     """
-    Returns Ensembl species name, assembly name and accession of the current supported assembly,
-    or None if any aren't found.
+    Returns Ensembl species name, the assembly name of the provided assembly and if the accession is the currently
+     supported assembly, or None if any aren't found.
     """
+    # We first need to search for the species associated with the assembly
+    assembly_dicts = get_ncbi_assembly_dicts_from_term(assembly_acc)
+    taxid_and_assembly_name = set([
+        (assembly_dict.get('speciestaxid'), assembly_dict.get('assemblyname'))
+        for assembly_dict in assembly_dicts
+        if assembly_dict.get('assemblyaccession') == assembly_acc or
+           assembly_dict.get('synonym', {}).get('genbank') == assembly_acc
+    ])
+    # This is a search so could retrieve multiple results
+    if len(taxid_and_assembly_name) != 1:
+        logger.warn(f'Multiple assembly found for {assembly_acc}')
+        print(taxid_and_assembly_name)
+        raise ValueError(f'Cannot resolve single assembly for assembly {assembly_acc} in NCBI. ')
+    taxonomy_id, assembly_name = taxid_and_assembly_name.pop()
+
+    # Now resolve the currently supported assembly for this species in Ensembl
     url = f'https://rest.ensembl.org/info/genomes/taxonomy/{taxonomy_id}?content-type=application/json'
     response = requests.get(url)
     # This endpoint returns 500 even if taxon id is valid but just not in Ensembl, to minimise user frustration
@@ -145,7 +153,7 @@ def get_species_and_assembly(taxonomy_id):
         logger.warning(f'Got {response.status_code} when trying to get species and assembly from Ensembl.')
         return None, None, None
     json_response = response.json()[0]
-    return json_response['name'], json_response['assembly_name'], json_response['assembly_accession']
+    return json_response['name'], assembly_name, assembly_acc == json_response['assembly_accession']
 
 
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3), logger=logger)
