@@ -185,7 +185,6 @@ def get_releases(ftp, subdir, current_only):
 def search_releases(ftp, all_releases, species, assembly):
     for release in sorted(all_releases, reverse=True):
         logger.info(f'Looking for vep_cache_version in release : {all_releases[release]}')
-        print(f'Looking for vep_cache_version in release : {all_releases[release]}')
         all_species_files = get_all_species_files(ftp, all_releases.get(release))
         for f in all_species_files:
             if species in f and assembly in f:
