@@ -41,7 +41,7 @@ def main():
 
     ingestion = EloadIngestion(args.eload)
     ingestion.upgrade_config_if_needed()
-
+    ingestion.update_assembly_set_in_analysis()
     ingestion.insert_browsable_files()
     ingestion.update_browsable_files_with_date()
     ingestion.update_files_with_ftp_path()
