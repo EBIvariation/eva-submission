@@ -1,4 +1,4 @@
-vcf_file,assembly_accession,fasta,report,analysis_accession,db_name,vep_version,vep_cache_version,aggregation
-vcfs/test1.vcf.gz,GCA_000001000.1,fasta.fa,assembly_report.txt,ERZ12345,db1,100,100,none
-vcfs/test2.vcf.gz,GCA_000001000.1,fasta.fa,assembly_report.txt,ERZ12345,db1,100,100,none
-vcfs/test3.vcf.gz,GCA_000001000.1,fasta.fa,assembly_report.txt,ERZ12346,db2,,,none
+vcf_file,assembly_accession,fasta,report,analysis_accession,db_name,vep_version,vep_cache_version,vep_secies,aggregation
+vcfs/test1.vcf.gz,GCA_000001000.1,fasta.fa,assembly_report.txt,ERZ12345,db1,100,100,homo_sapiens,none
+vcfs/test2.vcf.gz,GCA_000001000.1,fasta.fa,assembly_report.txt,ERZ12345,db1,100,100,homo_sapiens,none
+vcfs/test3.vcf.gz,GCA_000001000.1,fasta.fa,assembly_report.txt,ERZ12346,db2,,,,none

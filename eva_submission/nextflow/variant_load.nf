@@ -56,14 +56,14 @@ merged and passed directly to create the properties
 vcfs_to_merge = Channel.fromPath(params.valid_vcfs)
             .splitCsv(header:true)
             .filter(row -> row.aggregation.equals("none"))
-            .map{row -> tuple(file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name, row.vep_version, row.vep_cache_version)}
+            .map{row -> tuple(file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name, row.vep_version, row.vep_species, row.vep_cache_version)}
             .groupTuple(by:2)
-            .map{row -> tuple(row[0], row[0].size(), row[1][0], row[2], row[3][0], row[4][0], row[5][0], "none") }
+            .map{row -> tuple(row[0], row[0].size(), row[1][0], row[2], row[3][0], row[4][0], row[5][0], row[6][0], "none") }
 
 unmerged_vcfs = Channel.fromPath(params.valid_vcfs)
             .splitCsv(header:true)
             .filter(row -> !row.aggregation.equals("none"))
-            .map{row -> tuple(file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name, row.vep_version, row.vep_cache_version, "basic")}
+            .map{row -> tuple(file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name, row.vep_version, row.vep_cache_version, row.vep_species, "basic")}
 
 
 /*
@@ -71,9 +71,9 @@ unmerged_vcfs = Channel.fromPath(params.valid_vcfs)
  */
 process merge_vcfs {
     input:
-    tuple vcf_files, file_count, fasta, analysis_accession, db_name, vep_version, vep_cache_version, aggregation from vcfs_to_merge
+    tuple vcf_files, file_count, fasta, analysis_accession, db_name, vep_version, vep_cache_version, vep_species, aggregation from vcfs_to_merge
     output:
-    tuple "${merged_filename}", fasta, analysis_accession, db_name, vep_version, vep_cache_version, aggregation into merged_vcf
+    tuple "${merged_filename}", fasta, analysis_accession, db_name, vep_version, vep_cache_version, vep_species, aggregation into merged_vcf
 
     script:
     merged_filename = "${params.project_accession}_${analysis_accession}_merged.vcf.gz"
@@ -100,7 +100,7 @@ process merge_vcfs {
  */
 process create_properties {
     input:
-    tuple vcf_file, fasta, analysis_accession, db_name, vep_version, vep_cache_version, aggregation from unmerged_vcfs.mix(merged_vcf)
+    tuple vcf_file, fasta, analysis_accession, db_name, vep_version, vep_cache_version, vep_species, aggregation from unmerged_vcfs.mix(merged_vcf)
 
     output:
     path "load_${vcf_file.getFileName()}.properties" into variant_load_props
@@ -123,6 +123,7 @@ process create_properties {
         props.setProperty("app.vep.version", vep_version.toString())
         props.setProperty("app.vep.path", "${params.vep_path}/ensembl-vep-release-${vep_version}/vep")
         props.setProperty("app.vep.cache.version", vep_cache_version.toString())
+        props.setProperty("app.vep.cache.species", vep_species.toString())
     }
     // need to explicitly store in workDir so next process can pick it up
     // see https://github.com/nextflow-io/nextflow/issues/942#issuecomment-441536175

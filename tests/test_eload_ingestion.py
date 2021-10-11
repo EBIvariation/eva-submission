@@ -123,7 +123,7 @@ class TestEloadIngestion(TestCase):
                 self._patch_mongo_database():
             m_mongo_creds.return_value = m_pg_creds.return_value = ('host', 'user', 'pass')
             m_get_alias_results.return_value = [['alias']]
-            m_get_vep_versions.return_value = (100, 100)
+            m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = [
                 [(1, 'filename_1'), (2, 'filename_2')],  # insert_browsable_files
@@ -158,7 +158,7 @@ class TestEloadIngestion(TestCase):
                 self._patch_mongo_database():
             m_mongo_creds.return_value = m_pg_creds.return_value = ('host', 'user', 'pass')
             m_get_alias_results.return_value = [['alias']]
-            m_get_vep_versions.return_value = (100, 100)
+            m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.return_value = [(1, 'filename_1'), (2, 'filename_2')]
             self.eload.ingest(
@@ -179,7 +179,7 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
-            m_get_vep_versions.return_value = (100, 100)
+            m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
             self.eload.ingest(tasks=['variant_load'])
@@ -231,13 +231,14 @@ class TestEloadIngestion(TestCase):
                  <ACTIONS>RECEIPT</ACTIONS>
             </RECEIPT>'''
 
-    def assert_vep_versions(self, vep_version, vep_cache_version):
+    def assert_vep_versions(self, vep_version, vep_cache_version, vep_species):
         ingest_csv = os.path.join(self.eload.eload_dir, 'vcf_files_to_ingest.csv')
         assert os.path.exists(ingest_csv)
         with open(ingest_csv, 'r') as f:
             rows = [l.strip().split(',') for l in f.readlines()][1:]
-            self.assertEqual({r[-2] for r in rows}, {str(vep_version)})
-            self.assertEqual({r[-3] for r in rows}, {str(vep_cache_version)})
+            self.assertEqual({r[-3] for r in rows}, {str(vep_version)})
+            self.assertEqual({r[-4] for r in rows}, {str(vep_cache_version)})
+            self.assertEqual({r[-2] for r in rows}, {str(vep_species)})
 
     def test_ingest_variant_load_vep_versions_found(self):
         with self._patch_metadata_handle(), \
@@ -251,9 +252,9 @@ class TestEloadIngestion(TestCase):
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
-            m_get_vep_versions.return_value = (100, 100)
+            m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
             self.eload.ingest(tasks=['variant_load'])
-            self.assert_vep_versions(100, 100)
+            self.assert_vep_versions(100, 100, 'homo_sapiens')
 
     def test_ingest_variant_load_vep_versions_not_found(self):
         """
@@ -271,9 +272,9 @@ class TestEloadIngestion(TestCase):
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
-            m_get_vep_versions.return_value = (None, None)
+            m_get_vep_versions.return_value = (None, None, None)
             self.eload.ingest(tasks=['variant_load'])
-            self.assert_vep_versions('', '')
+            self.assert_vep_versions('', '', '')
 
     def test_ingest_variant_load_vep_versions_error(self):
         """

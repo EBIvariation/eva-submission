@@ -17,7 +17,7 @@ from eva_submission import NEXTFLOW_DIR
 from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy, get_assembly_set
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import provision_new_database_for_variant_warehouse
-from eva_submission.vep_utils import get_vep_and_vep_cache_version, get_species_and_assembly
+from eva_submission.vep_utils import get_vep_and_vep_cache_version
 from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
 
 project_dirs = {
@@ -90,14 +90,14 @@ class EloadIngestion(Eload):
             if ('vep' in self.eload_cfg.query(self.config_section)
                     and assembly_accession in self.eload_cfg.query(self.config_section, 'vep')):
                 continue
-            vep_version, vep_cache_version = get_vep_and_vep_cache_version(
+            vep_version, vep_cache_version, vep_species = get_vep_and_vep_cache_version(
                 self.mongo_uri,
                 self.eload_cfg.query(self.config_section, 'database', assembly_accession, 'db_name'),
-                self.eload_cfg.query('submission', 'taxonomy_id'),
                 assembly_accession
             )
             self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'version', value=vep_version)
             self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'cache_version', value=vep_cache_version)
+            self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'species', value=vep_species)
 
     def _get_vcf_files_from_brokering(self):
         vcf_files = []
@@ -253,15 +253,13 @@ class EloadIngestion(Eload):
             raise ValueError(f'More than one project with accession {self.project_accession} found in metadata DB.')
         return rows[0][0]
 
-    def get_vep_species(self):
-        return get_species_and_assembly(self.eload_cfg.query('submission', 'taxonomy_id'))[0]
 
     def _generate_csv_mappings_to_ingest(self):
         vcf_files_to_ingest = os.path.join(self.eload_dir, 'vcf_files_to_ingest.csv')
         with open(vcf_files_to_ingest, 'w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(['vcf_file', 'assembly_accession', 'fasta', 'report', 'analysis_accession', 'db_name',
-                             'vep_version', 'vep_cache_version', 'aggregation'])
+                             'vep_version', 'vep_cache_version', 'vep_species', 'aggregation'])
             analyses = self.eload_cfg.query('brokering', 'analyses')
             for analysis_alias, analysis_data in analyses.items():
                 assembly_accession = analysis_data['assembly_accession']
@@ -271,14 +269,16 @@ class EloadIngestion(Eload):
                 db_name = self.eload_cfg.query(self.config_section, 'database', assembly_accession, 'db_name')
                 vep_version = self.eload_cfg.query(self.config_section, 'vep', assembly_accession, 'version')
                 vep_cache_version = self.eload_cfg.query(self.config_section, 'vep', assembly_accession, 'cache_version')
+                vep_species = self.eload_cfg.query(self.config_section, 'vep', assembly_accession, 'species')
                 if not vep_version or not vep_cache_version:
                     vep_version = ''
                     vep_cache_version = ''
+                    vep_species = ''
                 aggregation = self.eload_cfg.query(self.config_section, 'aggregation', analysis_accession)
                 if analysis_data['vcf_files']:
                     for vcf_file in analysis_data['vcf_files']:
                         writer.writerow([vcf_file, assembly_accession, fasta, report, analysis_accession, db_name,
-                                         vep_version, vep_cache_version, aggregation])
+                                         vep_version, vep_cache_version, vep_species, aggregation])
                 else:
                     self.warning(f"VCF files for analysis {analysis_alias} not found")
         return vcf_files_to_ingest
@@ -339,7 +339,6 @@ class EloadIngestion(Eload):
                 output_dir=self.project_dir.joinpath(project_dirs['transformed']),
                 annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
                 stats_dir=self.project_dir.joinpath(project_dirs['stats']),
-                vep_species=self.get_vep_species(),
         )
         load_config = {
             'valid_vcfs': vcf_files_to_ingest,

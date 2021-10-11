@@ -1,9 +1,11 @@
+import logging
 import os
 import shutil
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
 from ebi_eva_common_pyutils.config import cfg
+from ebi_eva_common_pyutils.logger import logging_config
 
 from eva_submission.submission_config import load_config
 from eva_submission.vep_utils import recursive_nlst, get_vep_and_vep_cache_version_from_ensembl, \
@@ -61,57 +63,64 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
         )
 
     def test_get_vep_versions_from_ensembl(self):
-        vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('fake_db', 'GCA_000827895.1')
+        vep_version, cache_version, vep_species = get_vep_and_vep_cache_version_from_ensembl('GCA_000827895.1')
         self.assertEqual(vep_version, 104)
         self.assertEqual(cache_version, 51)
+        self.assertEqual(vep_species, 'thelohanellus_kitauei')
         assert os.path.exists(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei'))
 
     def test_get_vep_versions_from_ensembl_not_found(self):
-        vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('fake_db', 'GCA_015220235.1')
+        vep_version, cache_version, vep_species = get_vep_and_vep_cache_version_from_ensembl('GCA_015220235.1')
         self.assertEqual(vep_version, None)
         self.assertEqual(cache_version, None)
+        self.assertEqual(vep_species, None)
 
     # DISABLED because too slow and make deployment difficult.
     # def test_get_vep_versions_from_ensembl_older_version(self):
+    #     logging_config.set_log_level(logging.INFO)
     #     # Older version of assembly using NCBI assembly code isn't found successfully
     #     # TODO this takes about 20 minutes to finish when I test locally
-    #     vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('eva_pfalciparum_asm276v1', 36329,
-    #                                                                             'GCA_000002765')
+    #     vep_version, cache_version, vep_species = get_vep_and_vep_cache_version_from_ensembl('GCA_000002765.1')
     #     self.assertEqual(vep_version, None)
     #     self.assertEqual(cache_version, None)
     #
     #     # If we magically knew the Ensembl assembly code was EPr1 we could find it!
-    #     vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('eva_pfalciparum_EPr1', 36329,
-    #                                                                             'GCA_000002765')
+    #     vep_version, cache_version, vep_species = get_vep_and_vep_cache_version_from_ensembl('GCA_000002765.1', 'EPr1')
     #     self.assertEqual(vep_version, 44 + 53)
     #     self.assertEqual(cache_version, 44)
+    #     self.assertEqual(vep_species, 'plasmodium_falciparum')
 
     def test_get_vep_versions(self):
         with patch('eva_submission.vep_utils.get_vep_and_vep_cache_version_from_db') as m_get_db, \
-                patch('eva_submission.vep_utils.get_vep_and_vep_cache_version_from_ensembl') as m_get_ensembl:
+                patch('eva_submission.vep_utils.get_vep_and_vep_cache_version_from_ensembl') as m_get_ensembl, \
+                patch('eva_submission.vep_utils.get_species_and_assembly') as m_get_species:
             # If db has versions, use those
             m_get_db.return_value = (104, 104)
-            m_get_ensembl.return_value = (97, 97)
-            vep_version, vep_cache_version = get_vep_and_vep_cache_version('fake_mongo', 'fake_db', 1, 'fake_assembly')
+            m_get_species.return_value = ('homo_sapiens', None, None)
+            m_get_ensembl.return_value = (97, 97, 'homo_sapiens')
+            vep_version, vep_cache_version, vep_species = get_vep_and_vep_cache_version('fake_mongo', 'fake_db', 'fake_assembly')
             self.assertEqual(vep_version, 104)
             self.assertEqual(vep_cache_version, 104)
+            self.assertEqual(vep_species, 'homo_sapiens')
 
             # If db has no versions but Ensembl does, use those
             m_get_db.return_value = (None, None)
-            m_get_ensembl.return_value = (97, 97)
-            vep_version, vep_cache_version = get_vep_and_vep_cache_version('fake_mongo', 'fake_db', 1, 'fake_assembly')
+            m_get_ensembl.return_value = (97, 97, 'homo_sapiens')
+            vep_version, vep_cache_version, vep_species = get_vep_and_vep_cache_version('fake_mongo', 'fake_db', 'fake_assembly')
             self.assertEqual(vep_version, 97)
             self.assertEqual(vep_cache_version, 97)
+            self.assertEqual(vep_species, 'homo_sapiens')
 
             # If neither has any versions, return none
             m_get_db.return_value = (None, None)
-            m_get_ensembl.return_value = (None, None)
-            vep_version, vep_cache_version = get_vep_and_vep_cache_version('fake_mongo', 'fake_db', 1, 'fake_assembly')
+            m_get_ensembl.return_value = (None, None, None)
+            vep_version, vep_cache_version, vep_species = get_vep_and_vep_cache_version('fake_mongo', 'fake_db', 'fake_assembly')
             self.assertEqual(vep_version, None)
             self.assertEqual(vep_cache_version, None)
 
             # If a VEP version is not installed, raise an error
             m_get_db.return_value = (1, 1)
-            m_get_ensembl.return_value = (None, None)
+            m_get_ensembl.return_value = (None, None, 'homo_sapiens')
+            m_get_species.return_value = ('homo_sapiens', None, None)
             with self.assertRaises(ValueError):
-                get_vep_and_vep_cache_version('fake_mongo', 'fake_db', 1, 'fake_assembly')
+                get_vep_and_vep_cache_version('fake_mongo', 'fake_db', 'fake_assembly')

@@ -34,18 +34,18 @@ def vep_path(version):
     return os.path.join(cfg['vep_path'], f'ensembl-vep-release-{version}/vep')
 
 
-def get_vep_and_vep_cache_version(mongo_uri, db_name, taxonomy_id, assembly_accession):
+def get_vep_and_vep_cache_version(mongo_uri, db_name, assembly_accession):
     """
     Gets VEP and VEP cache versions for a given assembly by first checking what is already in the variant DB,
     then checking Ensembl and Ensembl Genome FTPs, otherwise returns None.
     """
     vep_version, vep_cache_version = get_vep_and_vep_cache_version_from_db(mongo_uri, db_name)
     if not vep_cache_version and not vep_version:
-        vep_version, vep_cache_version = get_vep_and_vep_cache_version_from_ensembl(
-            db_name, taxonomy_id, assembly_accession)
-
+        vep_version, vep_cache_version, vep_species = get_vep_and_vep_cache_version_from_ensembl(assembly_accession)
+    else:
+        vep_species, _, _ = get_species_and_assembly(assembly_accession)
     if check_vep_version_installed(vep_version):
-        return vep_version, vep_cache_version
+        return vep_version, vep_cache_version, vep_species
     raise ValueError(
         f'Found VEP cache version {vep_cache_version} for assembly {assembly_accession}, '
         f'but compatible VEP version {vep_version} is not installed.'
@@ -71,13 +71,13 @@ def get_vep_and_vep_cache_version_from_db(mongo_uri, db_name):
         return vep_version, vep_cache_version
 
 
-def get_vep_and_vep_cache_version_from_ensembl(db_name, assembly_accession):
-    vep_cache_version, ftp_source = get_vep_cache_version_from_ftp(db_name, assembly_accession)
+def get_vep_and_vep_cache_version_from_ensembl(assembly_accession, ensembl_assembly_name=None):
+    vep_cache_version, ftp_source, vep_species = get_vep_cache_version_from_ftp(assembly_accession, ensembl_assembly_name)
     if not vep_cache_version:
-        return None, None
+        return None, None, None
 
     vep_version = get_compatible_vep_version(vep_cache_version, ftp_source)
-    return vep_version, vep_cache_version
+    return vep_version, vep_cache_version, vep_species
 
 
 def get_compatible_vep_version(vep_cache_version, ftp_source):
@@ -92,13 +92,15 @@ def check_vep_version_installed(vep_version):
     return vep_version is None or os.path.exists(vep_path(vep_version))
 
 
-def get_vep_cache_version_from_ftp(db_name, assembly_accession):
+def get_vep_cache_version_from_ftp(assembly_accession, ensembl_assembly_name=None):
     logger.info('Getting vep_cache_version from Ensembl.')
     logger.info(f'Getting species and supported assembly from Ensembl using assembly accession: {assembly_accession}')
     species_name, assembly_name, current_release_only = get_species_and_assembly(assembly_accession)
+    if ensembl_assembly_name:
+        assembly_name = ensembl_assembly_name
     if assembly_name is None:
         logger.info(f'No species and assembly found on Ensembl for {assembly_accession}')
-        return None, None
+        return None, None, None
     logger.info(f'Details from Ensembl for species and assembly : {species_name, assembly_name}')
 
     # If we're looking for an older assembly, need to search all releases to find the right one;
@@ -109,7 +111,7 @@ def get_vep_cache_version_from_ftp(db_name, assembly_accession):
     all_releases = get_releases(ftp, '/pub', current_release_only)
     release = search_releases(ftp, all_releases, species_name, assembly_name)
     if release:
-        return release, 'ensembl'
+        return release, 'ensembl', species_name
 
     # Then try all Ensembl genomes
     genome_ftp = get_ftp_connection(ensembl_genome_ftp_url)
@@ -117,7 +119,7 @@ def get_vep_cache_version_from_ftp(db_name, assembly_accession):
         genome_releases = get_releases(genome_ftp, subdir, current_release_only)
         release = search_releases(genome_ftp, genome_releases, species_name, assembly_name)
         if release:
-            return release, 'genomes'
+            return release, 'genomes', species_name
 
     logger.info(f'No VEP cache found anywhere on Ensembl FTP for {species_name} and {assembly_name}')
     return None, None
@@ -140,7 +142,6 @@ def get_species_and_assembly(assembly_acc):
     # This is a search so could retrieve multiple results
     if len(taxid_and_assembly_name) != 1:
         logger.warn(f'Multiple assembly found for {assembly_acc}')
-        print(taxid_and_assembly_name)
         raise ValueError(f'Cannot resolve single assembly for assembly {assembly_acc} in NCBI. ')
     taxonomy_id, assembly_name = taxid_and_assembly_name.pop()
 
@@ -184,6 +185,7 @@ def get_releases(ftp, subdir, current_only):
 def search_releases(ftp, all_releases, species, assembly):
     for release in sorted(all_releases, reverse=True):
         logger.info(f'Looking for vep_cache_version in release : {all_releases[release]}')
+        print(f'Looking for vep_cache_version in release : {all_releases[release]}')
         all_species_files = get_all_species_files(ftp, all_releases.get(release))
         for f in all_species_files:
             if species in f and assembly in f:
