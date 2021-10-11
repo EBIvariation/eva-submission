@@ -440,10 +440,10 @@ class EloadIngestion(Eload):
         with self.metadata_connection_handle as conn:
             for analysis_alias, analysis_data in analyses.items():
                 assembly_accession = analysis_data['assembly_accession']
-                assembly_set = get_assembly_set(conn, taxonomy, assembly_accession)
+                assembly_set_id = get_assembly_set(conn, taxonomy, assembly_accession)
                 analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
                 analysis_update = (f"update evapro.analysis "
-                                   f"set assembly_set = '{assembly_set}' "
+                                   f"set assembly_set_id = '{assembly_set_id}' "
                                    f"where analysis_accession = '{analysis_accession}';")
                 execute_query(conn, analysis_update)
 
