@@ -45,7 +45,8 @@ class EloadIngestion(Eload):
     def ingest(
             self,
             instance_id=None,
-            tasks=None
+            tasks=None,
+            vep_cache_assembly_name=None
     ):
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
         self.project_dir = self.setup_project_dir()
@@ -65,7 +66,7 @@ class EloadIngestion(Eload):
         do_variant_load = 'variant_load' in tasks
 
         if do_accession or do_variant_load:
-            self.fill_vep_versions()
+            self.fill_vep_versions(vep_cache_assembly_name)
             vcf_files_to_ingest = self._generate_csv_mappings_to_ingest()
 
         if do_accession:
@@ -83,7 +84,7 @@ class EloadIngestion(Eload):
             shutil.rmtree(output_dir)
             self.update_loaded_assembly_in_browsable_files()
 
-    def fill_vep_versions(self):
+    def fill_vep_versions(self, vep_cache_assembly_name=None):
         analyses = self.eload_cfg.query('brokering', 'analyses')
         for analysis_alias, analysis_data in analyses.items():
             assembly_accession = analysis_data['assembly_accession']
@@ -93,7 +94,8 @@ class EloadIngestion(Eload):
             vep_version, vep_cache_version, vep_species = get_vep_and_vep_cache_version(
                 self.mongo_uri,
                 self.eload_cfg.query(self.config_section, 'database', assembly_accession, 'db_name'),
-                assembly_accession
+                assembly_accession,
+                vep_cache_assembly_name
             )
             self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'version', value=vep_version)
             self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'cache_version', value=vep_cache_version)

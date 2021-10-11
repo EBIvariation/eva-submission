@@ -32,6 +32,10 @@ def main():
     argparse.add_argument('--tasks', required=False, type=str, nargs='+',
                           default=EloadIngestion.all_tasks, choices=EloadIngestion.all_tasks,
                           help='Task or set of tasks to perform during ingestion.')
+    argparse.add_argument('--vep_cache_assembly_name', required=False, type=str,
+                          help='The assembly name used in the VEP cache to help the script to find the correct cache '
+                               'to use. This should be only used rarely when the script cannot find the VEP cache but '
+                               'we know it exists.')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level.')
 
@@ -48,7 +52,8 @@ def main():
     ingestion.upgrade_config_if_needed()
     ingestion.ingest(
         instance_id=args.instance,
-        tasks=args.tasks
+        tasks=args.tasks,
+        vep_cache_assembly_name=args.vep_cache_assembly_name
     )
 
 

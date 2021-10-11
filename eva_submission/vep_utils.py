@@ -34,14 +34,16 @@ def vep_path(version):
     return os.path.join(cfg['vep_path'], f'ensembl-vep-release-{version}/vep')
 
 
-def get_vep_and_vep_cache_version(mongo_uri, db_name, assembly_accession):
+def get_vep_and_vep_cache_version(mongo_uri, db_name, assembly_accession, vep_cache_assembly_name=None):
     """
     Gets VEP and VEP cache versions for a given assembly by first checking what is already in the variant DB,
     then checking Ensembl and Ensembl Genome FTPs, otherwise returns None.
     """
     vep_version, vep_cache_version = get_vep_and_vep_cache_version_from_db(mongo_uri, db_name)
     if not vep_cache_version and not vep_version:
-        vep_version, vep_cache_version, vep_species = get_vep_and_vep_cache_version_from_ensembl(assembly_accession)
+        vep_version, vep_cache_version, vep_species = get_vep_and_vep_cache_version_from_ensembl(
+            assembly_accession, ensembl_assembly_name=vep_cache_assembly_name
+        )
     else:
         vep_species, _, _ = get_species_and_assembly(assembly_accession)
     if check_vep_version_installed(vep_version):

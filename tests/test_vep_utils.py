@@ -77,13 +77,11 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
 
     # DISABLED because too slow and make deployment difficult.
     # def test_get_vep_versions_from_ensembl_older_version(self):
-    #     logging_config.set_log_level(logging.INFO)
     #     # Older version of assembly using NCBI assembly code isn't found successfully
     #     # TODO this takes about 20 minutes to finish when I test locally
     #     vep_version, cache_version, vep_species = get_vep_and_vep_cache_version_from_ensembl('GCA_000002765.1')
     #     self.assertEqual(vep_version, None)
     #     self.assertEqual(cache_version, None)
-    #
     #     # If we magically knew the Ensembl assembly code was EPr1 we could find it!
     #     vep_version, cache_version, vep_species = get_vep_and_vep_cache_version_from_ensembl('GCA_000002765.1', 'EPr1')
     #     self.assertEqual(vep_version, 44 + 53)
