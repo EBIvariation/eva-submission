@@ -25,7 +25,7 @@ logger = log_cfg.get_logger(__name__)
 
 
 def main():
-    argparse = ArgumentParser(description='Accession and ingest submission data into EVA')
+    argparse = ArgumentParser(description='Update metadata after study has been ingested')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission.')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level.')
