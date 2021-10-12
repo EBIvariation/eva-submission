@@ -449,7 +449,7 @@ class EloadIngestion(Eload):
                 res = get_all_results_for_query(conn, check_query)
                 if res and res[0][0] != assembly_set_id:
                     if res[0][0]:
-                        self.error(f'Previous assembly_set_id {res[0][0]} fpr {analysis_accession} was wrong and '
+                        self.error(f'Previous assembly_set_id {res[0][0]} for {analysis_accession} was wrong and '
                                    f'will be updated to {assembly_set_id}')
                     analysis_update = (f"update evapro.analysis "
                                        f"set assembly_set_id = '{assembly_set_id}' "
