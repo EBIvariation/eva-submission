@@ -27,7 +27,7 @@ ensembl_genome_dirs = [
 ]
 
 # Name of collection in variant warehouse to check for existing VEP versions
-annotation_collection_name = 'annotations_2_0'
+annotation_collection_name = 'annotationMetadata_2_0'
 
 
 def vep_path(version):
