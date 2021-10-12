@@ -13,7 +13,7 @@ brokering:
           index: tests/resources/eloads/ELOAD_33/18_brokering/ena/test2.vcf.gz.tbi
   ena:
     ANALYSIS:
-      ERZ2499196: Analysis alias test
+      Analysis alias test: ERZ2499196
     PROJECT: PRJEB12345
     hold_date: 2021-01-04
 ingestion:

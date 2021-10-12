@@ -126,6 +126,7 @@ class TestEloadIngestion(TestCase):
             m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = [
+                [(391,)],                                # Check the assembly_set_id in update_assembly_set_in_analysis
                 [(1, 'filename_1'), (2, 'filename_2')],  # insert_browsable_files
                 [(1, 'filename_1'), (2, 'filename_2')],  # update_files_with_ftp_path
                 [('Test Study Name')],                   # get_study_name

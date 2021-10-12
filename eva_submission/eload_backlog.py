@@ -167,3 +167,10 @@ Analysis accession(s): {analyses}
 Analysis information: {analyses_report}
 """
         print(report.format(**report_data))
+
+
+    def copy_valid_config_to_brokering(self):
+        for analysis_alias, analysis_data in  self.eload_cfg.query('validation', 'valid', 'analyses'):
+            self.eload_cfg.query('validation', 'valid', 'analyses', alias, 'vcf_files', value=[merged_file])
+        self.eload_cfg.set('brokering', 'analyses', analysis_alias, 'vcf_files', 'index',
+                           value=index_file_dict.pop(basename))

@@ -125,7 +125,7 @@ class EloadIngestion(Eload):
 
     def check_aggregation_done(self):
         errors = []
-        for analysis_acc, analysis_alias in self.eload_cfg.query('brokering', 'ena', 'ANALYSIS').items():
+        for analysis_alias, analysis_acc in self.eload_cfg.query('brokering', 'ena', 'ANALYSIS').items():
             aggregation = self.eload_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
             if aggregation is None:
                 error = f'Aggregation type was not determined during validation for {analysis_alias}'
@@ -443,10 +443,18 @@ class EloadIngestion(Eload):
                 assembly_accession = analysis_data['assembly_accession']
                 assembly_set_id = get_assembly_set(conn, taxonomy, assembly_accession)
                 analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
-                analysis_update = (f"update evapro.analysis "
-                                   f"set assembly_set_id = '{assembly_set_id}' "
-                                   f"where analysis_accession = '{analysis_accession}';")
-                execute_query(conn, analysis_update)
+                # Check if the update is needed
+                check_query = (f"select assembly_set_id from evapro.analysis "
+                               f"where analysis_accession = '{analysis_accession}';")
+                res = get_all_results_for_query(conn, check_query)
+                if res and res[0][0] != assembly_set_id:
+                    if res[0][0]:
+                        self.error(f'Previous assembly_set_id {res[0][0]} fpr {analysis_accession} was wrong and '
+                                   f'will be updated to {assembly_set_id}')
+                    analysis_update = (f"update evapro.analysis "
+                                       f"set assembly_set_id = '{assembly_set_id}' "
+                                       f"where analysis_accession = '{analysis_accession}';")
+                    execute_query(conn, analysis_update)
 
     def refresh_study_browser(self):
         with self.metadata_connection_handle as conn:
