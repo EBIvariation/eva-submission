@@ -56,7 +56,7 @@ merged and passed directly to create the properties
 vcfs_to_merge = Channel.fromPath(params.valid_vcfs)
             .splitCsv(header:true)
             .filter(row -> row.aggregation.equals("none"))
-            .map{row -> tuple(file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name, row.vep_version, row.vep_species, row.vep_cache_version)}
+            .map{row -> tuple(file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name, row.vep_version, row.vep_cache_version, row.vep_species)}
             .groupTuple(by:2)
             .map{row -> tuple(row[0], row[0].size(), row[1][0], row[2], row[3][0], row[4][0], row[5][0], row[6][0], "none") }
 
