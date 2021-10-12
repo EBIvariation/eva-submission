@@ -66,6 +66,8 @@ def main():
         for validation_task in forced_validation_tasks:
             validation.eload_cfg.set('validation', validation_task, 'forced', value=True)
         validation.mark_valid_files_and_metadata(args.merge_per_analysis)
+        if args.merge_per_analysis:
+            preparation.copy_valid_config_to_brokering_after_merge()
 
     preparation.report()
     validation.report()
