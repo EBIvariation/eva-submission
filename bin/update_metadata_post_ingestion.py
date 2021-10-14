@@ -25,17 +25,8 @@ logger = log_cfg.get_logger(__name__)
 
 
 def main():
-    argparse = ArgumentParser(description='Accession and ingest submission data into EVA')
+    argparse = ArgumentParser(description='Update metadata after study has been ingested')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission.')
-    argparse.add_argument('--instance', required=False, type=int, choices=range(1, 13), default=1,
-                          help='The instance id to use for accessioning. Only needed if running accessioning.')
-    argparse.add_argument('--tasks', required=False, type=str, nargs='+',
-                          default=EloadIngestion.all_tasks, choices=EloadIngestion.all_tasks,
-                          help='Task or set of tasks to perform during ingestion.')
-    argparse.add_argument('--vep_cache_assembly_name', required=False, type=str,
-                          help='The assembly name used in the VEP cache to help the script to find the correct cache '
-                               'to use. This should be only used rarely when the script cannot find the VEP cache but '
-                               'we know it exists.')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level.')
 
@@ -50,11 +41,12 @@ def main():
 
     ingestion = EloadIngestion(args.eload)
     ingestion.upgrade_config_if_needed()
-    ingestion.ingest(
-        instance_id=args.instance,
-        tasks=args.tasks,
-        vep_cache_assembly_name=args.vep_cache_assembly_name
-    )
+    ingestion.update_assembly_set_in_analysis()
+    ingestion.insert_browsable_files()
+    ingestion.update_browsable_files_with_date()
+    ingestion.update_files_with_ftp_path()
+    ingestion.refresh_study_browser()
+    ingestion.update_loaded_assembly_in_browsable_files()
 
 
 if __name__ == "__main__":

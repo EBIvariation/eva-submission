@@ -48,13 +48,17 @@ class EloadValidation(Eload):
             for validation_task in validation_tasks:
                 self.eload_cfg.set('validation', validation_task, 'forced', value=True)
 
+        self.mark_valid_files_and_metadata(merge_per_analysis)
+
+    def mark_valid_files_and_metadata(self, merge_per_analysis):
         if all([
             self.eload_cfg.query('validation', validation_task, 'pass', ret_default=False) or
             self.eload_cfg.query('validation', validation_task, 'forced', ret_default=False)
             for validation_task in self.all_validation_tasks
         ]):
             self.eload_cfg.set('validation', 'valid', 'analyses', value=self.eload_cfg.query('submission', 'analyses'))
-            self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet', value=self.eload_cfg['submission']['metadata_spreadsheet'])
+            self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
+                               value=self.eload_cfg.query('submission', 'metadata_spreadsheet'))
             self.detect_and_optionally_merge(merge_per_analysis)
 
     def _get_vcf_files(self):

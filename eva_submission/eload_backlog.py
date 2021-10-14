@@ -140,6 +140,27 @@ class EloadBacklog(Eload):
             # ingestion
             self.eload_cfg.set('submission', 'analyses', analysis_accession, 'vcf_files', value=vcf_file_list)
 
+    def copy_valid_config_to_brokering_after_merge(self):
+        """
+        Convert the valid entry in the config to the one that should be created after brokering.
+        This is only useful after we merged the vcf files otherwise this function will not do anything.
+        """
+        for analysis_alias, analysis_data in  self.eload_cfg.query('validation', 'valid', 'analyses'):
+            self.eload_cfg.set('brokering', 'analyses', analysis_alias, 'assembly_accession',
+                               value=analysis_data.get('assembly_accession'))
+            self.eload_cfg.set('brokering', 'analyses', analysis_alias, 'assembly_fasta',
+                               value=analysis_data.get('assembly_fasta'))
+            self.eload_cfg.set('brokering', 'analyses', analysis_alias, 'assembly_report',
+                               value=analysis_data.get('assembly_report'))
+            vcf_files_dict = {}
+            for vcf_file in analysis_data.get('vcf_files'):
+                vcf_files_dict[vcf_file] = {}
+                if os.path.exists(vcf_file + '.tbi'):
+                    vcf_files_dict[vcf_file]['index'] = vcf_file + '.tbi'
+                else:
+                    self.warning(f'Cannot find the index for {vcf_file}')
+            self.eload_cfg.set('brokering', 'analyses', analysis_alias, 'vcf_files', value=vcf_files_dict)
+
     def _analysis_report(self, all_analysis):
         reports = []
         for analysis_accession in all_analysis:
@@ -158,7 +179,7 @@ class EloadBacklog(Eload):
         report_data = {
             'project': self.eload_cfg.query('brokering', 'ena', 'PROJECT', ret_default=''),
             'analyses': ', '.join(self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default=[])),
-            'analyses_report': self._analysis_report(self.eload_cfg.query('submission', 'analyses', ret_default=[]))
+            'analyses_report': self._analysis_report(self.eload_cfg.query('brokering', 'analyses', ret_default=[]))
         }
 
         report = """Results of backlog study preparation:

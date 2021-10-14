@@ -28,6 +28,7 @@ logger = log_cfg.get_logger(__name__)
 
 def main():
     validation_tasks = ['aggregation_check', 'assembly_check', 'vcf_check']
+    forced_validation_tasks = ['metadata_check', 'sample_check']
 
     argparse = ArgumentParser(description='Prepare to process backlog study and validate VCFs.')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
@@ -36,6 +37,8 @@ def main():
     argparse.add_argument('--validation_tasks', required=False, type=str, nargs='+',
                           default=validation_tasks, choices=validation_tasks,
                           help='task or set of tasks to perform during validation')
+    argparse.add_argument('--merge_per_analysis', action='store_true', default=False,
+                          help='Whether to merge vcf files per analysis if possible.')
     argparse.add_argument('--report', action='store_true', default=False,
                           help='Set the script to only report the results based on previously run preparation.')
     argparse.add_argument('--debug', action='store_true', default=False,
@@ -59,6 +62,12 @@ def main():
     validation = EloadValidation(args.eload)
     if not args.report:
         validation.validate(args.validation_tasks)
+        # Also mark the other validation tasks as force so they are all passable
+        for validation_task in forced_validation_tasks:
+            validation.eload_cfg.set('validation', validation_task, 'forced', value=True)
+        validation.mark_valid_files_and_metadata(args.merge_per_analysis)
+        if args.merge_per_analysis:
+            preparation.copy_valid_config_to_brokering_after_merge()
 
     preparation.report()
     validation.report()

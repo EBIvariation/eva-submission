@@ -14,10 +14,10 @@ from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_n
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
 
 from eva_submission import NEXTFLOW_DIR
-from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy
+from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy, get_assembly_set
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import provision_new_database_for_variant_warehouse
-from eva_submission.vep_utils import get_vep_and_vep_cache_version, get_species_and_assembly
+from eva_submission.vep_utils import get_vep_and_vep_cache_version
 from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
 
 project_dirs = {
@@ -45,7 +45,8 @@ class EloadIngestion(Eload):
     def ingest(
             self,
             instance_id=None,
-            tasks=None
+            tasks=None,
+            vep_cache_assembly_name=None
     ):
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
         self.project_dir = self.setup_project_dir()
@@ -59,11 +60,13 @@ class EloadIngestion(Eload):
 
         if 'metadata_load' in tasks:
             self.load_from_ena()
+            # Update analysis in the metadata in case the perl script failed (usually because the project already exist)
+            self.update_assembly_set_in_analysis()
         do_accession = 'accession' in tasks
         do_variant_load = 'variant_load' in tasks
 
         if do_accession or do_variant_load:
-            self.fill_vep_versions()
+            self.fill_vep_versions(vep_cache_assembly_name)
             vcf_files_to_ingest = self._generate_csv_mappings_to_ingest()
 
         if do_accession:
@@ -81,21 +84,22 @@ class EloadIngestion(Eload):
             shutil.rmtree(output_dir)
             self.update_loaded_assembly_in_browsable_files()
 
-    def fill_vep_versions(self):
+    def fill_vep_versions(self, vep_cache_assembly_name=None):
         analyses = self.eload_cfg.query('brokering', 'analyses')
         for analysis_alias, analysis_data in analyses.items():
             assembly_accession = analysis_data['assembly_accession']
             if ('vep' in self.eload_cfg.query(self.config_section)
                     and assembly_accession in self.eload_cfg.query(self.config_section, 'vep')):
                 continue
-            vep_version, vep_cache_version = get_vep_and_vep_cache_version(
+            vep_version, vep_cache_version, vep_species = get_vep_and_vep_cache_version(
                 self.mongo_uri,
                 self.eload_cfg.query(self.config_section, 'database', assembly_accession, 'db_name'),
-                self.eload_cfg.query('submission', 'taxonomy_id'),
-                assembly_accession
+                assembly_accession,
+                vep_cache_assembly_name
             )
             self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'version', value=vep_version)
             self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'cache_version', value=vep_cache_version)
+            self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'species', value=vep_species)
 
     def _get_vcf_files_from_brokering(self):
         vcf_files = []
@@ -121,7 +125,7 @@ class EloadIngestion(Eload):
 
     def check_aggregation_done(self):
         errors = []
-        for analysis_acc, analysis_alias in self.eload_cfg.query('brokering', 'ena', 'ANALYSIS').items():
+        for analysis_alias, analysis_acc in self.eload_cfg.query('brokering', 'ena', 'ANALYSIS').items():
             aggregation = self.eload_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
             if aggregation is None:
                 error = f'Aggregation type was not determined during validation for {analysis_alias}'
@@ -251,15 +255,13 @@ class EloadIngestion(Eload):
             raise ValueError(f'More than one project with accession {self.project_accession} found in metadata DB.')
         return rows[0][0]
 
-    def get_vep_species(self):
-        return get_species_and_assembly(self.eload_cfg.query('submission', 'taxonomy_id'))[0]
 
     def _generate_csv_mappings_to_ingest(self):
         vcf_files_to_ingest = os.path.join(self.eload_dir, 'vcf_files_to_ingest.csv')
         with open(vcf_files_to_ingest, 'w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(['vcf_file', 'assembly_accession', 'fasta', 'report', 'analysis_accession', 'db_name',
-                             'vep_version', 'vep_cache_version', 'aggregation'])
+                             'vep_version', 'vep_cache_version', 'vep_species', 'aggregation'])
             analyses = self.eload_cfg.query('brokering', 'analyses')
             for analysis_alias, analysis_data in analyses.items():
                 assembly_accession = analysis_data['assembly_accession']
@@ -269,14 +271,16 @@ class EloadIngestion(Eload):
                 db_name = self.eload_cfg.query(self.config_section, 'database', assembly_accession, 'db_name')
                 vep_version = self.eload_cfg.query(self.config_section, 'vep', assembly_accession, 'version')
                 vep_cache_version = self.eload_cfg.query(self.config_section, 'vep', assembly_accession, 'cache_version')
+                vep_species = self.eload_cfg.query(self.config_section, 'vep', assembly_accession, 'species')
                 if not vep_version or not vep_cache_version:
                     vep_version = ''
                     vep_cache_version = ''
+                    vep_species = ''
                 aggregation = self.eload_cfg.query(self.config_section, 'aggregation', analysis_accession)
                 if analysis_data['vcf_files']:
                     for vcf_file in analysis_data['vcf_files']:
                         writer.writerow([vcf_file, assembly_accession, fasta, report, analysis_accession, db_name,
-                                         vep_version, vep_cache_version, aggregation])
+                                         vep_version, vep_cache_version, vep_species, aggregation])
                 else:
                     self.warning(f"VCF files for analysis {analysis_alias} not found")
         return vcf_files_to_ingest
@@ -337,7 +341,6 @@ class EloadIngestion(Eload):
                 output_dir=self.project_dir.joinpath(project_dirs['transformed']),
                 annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
                 stats_dir=self.project_dir.joinpath(project_dirs['stats']),
-                vep_species=self.get_vep_species(),
         )
         load_config = {
             'valid_vcfs': vcf_files_to_ingest,
@@ -431,6 +434,27 @@ class EloadIngestion(Eload):
                              f"set loaded_assembly = '{assembly_accession}' " \
                              f"where file_id = '{file_id}';"
                 execute_query(conn, ftp_update)
+
+    def update_assembly_set_in_analysis(self):
+        taxonomy = self.eload_cfg.query('submission', 'taxonomy_id')
+        analyses = self.eload_cfg.query('submission', 'analyses')
+        with self.metadata_connection_handle as conn:
+            for analysis_alias, analysis_data in analyses.items():
+                assembly_accession = analysis_data['assembly_accession']
+                assembly_set_id = get_assembly_set(conn, taxonomy, assembly_accession)
+                analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
+                # Check if the update is needed
+                check_query = (f"select assembly_set_id from evapro.analysis "
+                               f"where analysis_accession = '{analysis_accession}';")
+                res = get_all_results_for_query(conn, check_query)
+                if res and res[0][0] != assembly_set_id:
+                    if res[0][0]:
+                        self.error(f'Previous assembly_set_id {res[0][0]} for {analysis_accession} was wrong and '
+                                   f'will be updated to {assembly_set_id}')
+                    analysis_update = (f"update evapro.analysis "
+                                       f"set assembly_set_id = '{assembly_set_id}' "
+                                       f"where analysis_accession = '{analysis_accession}';")
+                    execute_query(conn, analysis_update)
 
     def refresh_study_browser(self):
         with self.metadata_connection_handle as conn:

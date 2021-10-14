@@ -54,8 +54,7 @@ def variant_load_props_template(
         study_name,
         output_dir,
         annotation_dir,
-        stats_dir,
-        vep_species,
+        stats_dir
 ):
     """
     Get all properties needed for this variant load job, except for the vcf file
@@ -73,7 +72,6 @@ def variant_load_props_template(
         'db.collections.annotation-metadata.name': 'annotationMetadata_2_0',
         'db.collections.annotations.name': annotation_collection_name,
         'app.vep.cache.path': cfg['vep_cache_path'],
-        'app.vep.cache.species': vep_species,
         'app.vep.num-forks': 4,
         'app.vep.timeout': 500,
         'statistics.skip': False,
