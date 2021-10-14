@@ -2,6 +2,19 @@
 Changelog for ebi_eva_common_pyutils
 ===========================
 
+1.3 (2021-10-14)
+------------------
+ 
+### Ingestion:
+ - metadata: update assembly_set_id in analysis after loading from ENA
+ - VEP cache resolution is based on the assembly
+
+### Backlog preparation
+ - New option to merge the VCF before ingestion
+
+### Other
+ - new script to run metadata update if they did not occur during ingestion
+
 1.2.0 (2021-10-07)
 ------------------
 

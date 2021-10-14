@@ -136,7 +136,7 @@ def get_species_and_assembly(assembly_acc):
     # We first need to search for the species associated with the assembly
     assembly_dicts = get_ncbi_assembly_dicts_from_term(assembly_acc)
     taxid_and_assembly_name = set([
-        (assembly_dict.get('speciestaxid'), assembly_dict.get('assemblyname'))
+        (assembly_dict.get('taxid'), assembly_dict.get('assemblyname'))
         for assembly_dict in assembly_dicts
         if assembly_dict.get('assemblyaccession') == assembly_acc or
            assembly_dict.get('synonym', {}).get('genbank') == assembly_acc
