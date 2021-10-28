@@ -17,6 +17,7 @@ from eva_submission import NEXTFLOW_DIR
 from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy, get_assembly_set
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import provision_new_database_for_variant_warehouse
+from eva_submission.submission_config import EloadConfig
 from eva_submission.vep_utils import get_vep_and_vep_cache_version
 from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
 
@@ -37,8 +38,8 @@ class EloadIngestion(Eload):
     config_section = 'ingestion'  # top-level config key
     all_tasks = ['metadata_load', 'accession', 'variant_load']
 
-    def __init__(self, eload_number):
-        super().__init__(eload_number)
+    def __init__(self, eload_number, config_object: EloadConfig = None):
+        super().__init__(eload_number, config_object)
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
         self.mongo_uri = get_mongo_uri_for_eva_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
 

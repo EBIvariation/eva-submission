@@ -12,14 +12,16 @@ from eva_submission.biosamples_submission import SampleMetadataSubmitter
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import read_md5, check_existing_project
 from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsxConverter
+from eva_submission.submission_config import EloadConfig
 
 
 class EloadBrokering(Eload):
 
     all_brokering_tasks = ['preparation', 'biosamples', 'ena']
 
-    def __init__(self, eload_number: int, vcf_files: list = None, metadata_file: str = None):
-        super().__init__(eload_number)
+    def __init__(self, eload_number: int, vcf_files: list = None, metadata_file: str = None,
+                 config_object: EloadConfig = None):
+        super().__init__(eload_number, config_object)
         if 'validation' not in self.eload_cfg:
             self.eload_cfg['validation'] = {}
         if vcf_files or metadata_file:
