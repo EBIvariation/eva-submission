@@ -1,6 +1,9 @@
 from ebi_eva_common_pyutils.config import cfg
 
-from eva_submission.vep_utils import annotation_collection_name
+
+# Name of collections in variant warehouse
+annotation_metadata_collection_name = 'annotationMetadata_2_0'
+annotation_collection_name = 'annotation_2_0'
 
 
 def accession_props_template(
@@ -69,7 +72,7 @@ def variant_load_props_template(
         'output.dir.statistics': str(stats_dir),
         'db.collections.files.name': 'files_2_0',
         'db.collections.variants.name': 'variants_2_0',
-        'db.collections.annotation-metadata.name': 'annotationMetadata_2_0',
+        'db.collections.annotation-metadata.name': annotation_metadata_collection_name,
         'db.collections.annotations.name': annotation_collection_name,
         'app.vep.cache.path': cfg['vep_cache_path'],
         'app.vep.num-forks': 4,
