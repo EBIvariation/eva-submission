@@ -13,6 +13,7 @@ from retry import retry
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
+from eva_submission.ingestion_templates import annotation_metadata_collection_name
 
 logger = log_cfg.get_logger(__name__)
 
@@ -26,8 +27,6 @@ ensembl_genome_dirs = [
     'ensemblgenomes/pub/bacteria',
 ]
 
-# Name of collection in variant warehouse to check for existing VEP versions
-annotation_collection_name = 'annotationMetadata_2_0'
 
 
 def vep_path(version):
@@ -58,7 +57,7 @@ def get_vep_and_vep_cache_version_from_db(mongo_uri, db_name):
     logger.info(f"Getting vep_version and vep_cache_version from db: {db_name}")
     vep_version_list = []
     with pymongo.MongoClient(mongo_uri) as db:
-        cursor = db[db_name][annotation_collection_name].find({})
+        cursor = db[db_name][annotation_metadata_collection_name].find({})
         for document in cursor:
             vep_version_list.append((int(document['vepv']), int(document['cachev'])))
     if not vep_version_list:
@@ -124,7 +123,7 @@ def get_vep_cache_version_from_ftp(assembly_accession, ensembl_assembly_name=Non
             return release, 'genomes', species_name
 
     logger.info(f'No VEP cache found anywhere on Ensembl FTP for {species_name} and {assembly_name}')
-    return None, None
+    return None, None, None
 
 
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))

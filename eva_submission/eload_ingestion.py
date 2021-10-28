@@ -255,7 +255,6 @@ class EloadIngestion(Eload):
             raise ValueError(f'More than one project with accession {self.project_accession} found in metadata DB.')
         return rows[0][0]
 
-
     def _generate_csv_mappings_to_ingest(self):
         vcf_files_to_ingest = os.path.join(self.eload_dir, 'vcf_files_to_ingest.csv')
         with open(vcf_files_to_ingest, 'w', newline='') as file:
