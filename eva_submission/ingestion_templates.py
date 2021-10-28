@@ -3,7 +3,7 @@ from ebi_eva_common_pyutils.config import cfg
 
 # Name of collections in variant warehouse
 annotation_metadata_collection_name = 'annotationMetadata_2_0'
-annotation_collection_name = 'annotation_2_0'
+annotation_collection_name = 'annotations_2_0'
 
 
 def accession_props_template(
