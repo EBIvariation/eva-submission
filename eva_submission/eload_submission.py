@@ -30,11 +30,14 @@ directory_structure = {
 
 
 class Eload(AppLogger):
-    def __init__(self, eload_number: int):
+    def __init__(self, eload_number: int, config_object: EloadConfig = None):
         self.eload_num = eload_number
         self.eload = f'ELOAD_{eload_number}'
         self.eload_dir = os.path.abspath(os.path.join(cfg['eloads_dir'], self.eload))
-        self.eload_cfg = EloadConfig(os.path.join(self.eload_dir, '.' + self.eload + '_config.yml'))
+        if config_object:
+            self.eload_cfg = config_object
+        else:
+            self.eload_cfg = EloadConfig(os.path.join(self.eload_dir, '.' + self.eload + '_config.yml'))
 
         os.makedirs(self.eload_dir, exist_ok=True)
         for k in directory_structure:
