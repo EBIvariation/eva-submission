@@ -52,8 +52,10 @@ class ENAUploader(AppLogger):
             'SUBMISSION': (os.path.basename(submission_file), get_file_content(submission_file), 'application/xml'),
             'ANALYSIS': (os.path.basename(analysis_file), get_file_content(analysis_file), 'application/xml')
         }
-        if project_file and os.path.exists(project_file):
+        # If we are uploading to an existing project the project_file is not set
+        if project_file:
             file_dict['PROJECT'] = (os.path.basename(project_file), get_file_content(project_file), 'application/xml')
+
         response = requests.post(
             cfg.query('ena', 'submit_url'),
             auth=HTTPBasicAuth(cfg.query('ena', 'username'), cfg.query('ena', 'password')),
