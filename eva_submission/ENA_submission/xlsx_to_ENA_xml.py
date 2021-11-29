@@ -325,6 +325,9 @@ class EnaXlsxConverter(AppLogger):
             )
             projects_elemt = self._create_project_xml()
             self.write_xml_to_file(projects_elemt, self.project_file)
+            project_file = self.project_file
+        else:
+            project_file = None
 
         analysis_elemt = self._create_analysis_xml()
         self.write_xml_to_file(analysis_elemt, self.analysis_file)
@@ -335,4 +338,5 @@ class EnaXlsxConverter(AppLogger):
         action = 'ADD'
         submission_elemt = self._create_submission_xml(files_to_submit, action, self.reader.project)
         self.write_xml_to_file(submission_elemt, self.submission_file)
-        return self.submission_file, self.project_file, self.analysis_file
+
+        return self.submission_file, project_file, self.analysis_file

@@ -246,3 +246,20 @@ class TestEnaXlsConverter(TestCase):
         expected_root = ET.fromstring(expected_submission)
         expected_root.attrib['xmlns:xsi'] = 'http://www.w3.org/2001/XMLSchema-instance'
         assert elements_equal(root, expected_root)
+
+    def test_create_submission_files(self):
+        submission_file, project_file, analysis_file = self.converter.create_submission_files()
+        assert os.path.exists(submission_file)
+        assert os.path.exists(project_file)
+        assert os.path.exists(analysis_file)
+
+    def test_create_submission_files_for_existing_project(self):
+        # When the project already exist not PROJECT XML will be generated
+        with patch.object(EnaXlsxConverter, 'is_existing_project', return_value=True):
+            submission_file, project_file, analysis_file = self.converter.create_submission_files()
+            assert os.path.exists(submission_file)
+            assert project_file is None
+            assert os.path.exists(analysis_file)
+            assert not os.path.exists(self.converter.project_file)
+
+

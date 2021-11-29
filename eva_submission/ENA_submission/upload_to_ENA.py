@@ -48,14 +48,18 @@ class ENAUploader(AppLogger):
                 ftps.storbinary('STOR %s' % file_name, open_file)
 
     def upload_xml_files_to_ena(self, submission_file, project_file, analysis_file):
+        file_dict = {
+            'SUBMISSION': (os.path.basename(submission_file), get_file_content(submission_file), 'application/xml'),
+            'ANALYSIS': (os.path.basename(analysis_file), get_file_content(analysis_file), 'application/xml')
+        }
+        # If we are uploading to an existing project the project_file is not set
+        if project_file:
+            file_dict['PROJECT'] = (os.path.basename(project_file), get_file_content(project_file), 'application/xml')
+
         response = requests.post(
             cfg.query('ena', 'submit_url'),
             auth=HTTPBasicAuth(cfg.query('ena', 'username'), cfg.query('ena', 'password')),
-            files=dict(
-                SUBMISSION=(os.path.basename(submission_file), get_file_content(submission_file), 'application/xml'),
-                PROJECT=(os.path.basename(project_file), get_file_content(project_file), 'application/xml'),
-                ANALYSIS=(os.path.basename(analysis_file), get_file_content(analysis_file), 'application/xml')
-            )
+            files=file_dict
         )
         self.results['receipt'] = response.text
         self.results.update(self.parse_ena_receipt(response.text))
