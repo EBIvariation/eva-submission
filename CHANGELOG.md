@@ -2,6 +2,15 @@
 Changelog for eva-submission
 ============================
 
+1.3.2 (2021-11-29)
+------------------
+ 
+### Brokering:
+ - Do not retry brokering preparation when it has already been done
+ - Fix brokering to existing projects
+ 
+### Backlog preparation
+ - Share ELOAD config to ensure prep and validation can communicate
 
 1.3.1 (2021-10-28)
 ------------------
