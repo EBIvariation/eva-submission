@@ -36,7 +36,7 @@ project_dirs = {
 
 class EloadIngestion(Eload):
     config_section = 'ingestion'  # top-level config key
-    all_tasks = ['metadata_load', 'accession', 'variant_load']
+    all_tasks = ['metadata_load', 'accession', 'variant_load', 'annotation']
 
     def __init__(self, eload_number, config_object: EloadConfig = None):
         super().__init__(eload_number, config_object)
@@ -65,6 +65,7 @@ class EloadIngestion(Eload):
             self.update_assembly_set_in_analysis()
         do_accession = 'accession' in tasks
         do_variant_load = 'variant_load' in tasks
+        annotation_only = 'annotation' in tasks and not do_variant_load
 
         if do_accession or do_variant_load:
             self.fill_vep_versions(vep_cache_assembly_name)
@@ -80,8 +81,8 @@ class EloadIngestion(Eload):
             self.update_files_with_ftp_path()
             self.refresh_study_browser()
 
-        if do_variant_load:
-            output_dir = self.run_variant_load_workflow(vcf_files_to_ingest)
+        if do_variant_load or annotation_only:
+            output_dir = self.run_variant_load_workflow(vcf_files_to_ingest, annotation_only)
             shutil.rmtree(output_dir)
             self.update_loaded_assembly_in_browsable_files()
 
@@ -333,7 +334,7 @@ class EloadIngestion(Eload):
             raise e
         return output_dir
 
-    def run_variant_load_workflow(self, vcf_files_to_ingest):
+    def run_variant_load_workflow(self, vcf_files_to_ingest, annotation_only):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
         job_props = variant_load_props_template(
                 project_accession=self.project_accession,
@@ -352,6 +353,7 @@ class EloadIngestion(Eload):
             'eva_pipeline_props': cfg['eva_pipeline_props'],
             'executable': cfg['executable'],
             'jar': cfg['jar'],
+            'annotation_only': annotation_only,
         }
         load_config_file = os.path.join(self.project_dir, 'load_config_file.yaml')
         with open(load_config_file, 'w') as open_file:

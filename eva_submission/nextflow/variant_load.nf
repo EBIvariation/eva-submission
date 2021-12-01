@@ -10,6 +10,7 @@ def helpMessage() {
             --project_accession     project accession
             --load_job_props        job-specific properties, passed as a map
             --eva_pipeline_props    main properties file for eva pipeline
+            --annotation_only       whether to only run annotation job
             --project_dir           project directory
             --logs_dir              logs directory
     """
@@ -20,6 +21,7 @@ params.vep_path = null
 params.project_accession = null
 params.load_job_props = null
 params.eva_pipeline_props = null
+params.annotation_only = false
 params.project_dir = null
 params.logs_dir = null
 // executables
@@ -110,7 +112,11 @@ process create_properties {
     params.load_job_props.each { k, v ->
         props.setProperty(k, v.toString())
     }
-    props.setProperty("spring.batch.job.names", aggregation.toString() == "none" ? "genotyped-vcf-job" : "aggregated-vcf-job")
+    if (params.annotation_only) {
+        props.setProperty("spring.batch.job.names", "annotate-variants-job")
+    } else {
+        props.setProperty("spring.batch.job.names", aggregation.toString() == "none" ? "genotyped-vcf-job" : "aggregated-vcf-job")
+    }
     props.setProperty("input.vcf.aggregation", aggregation.toString().toUpperCase())
     props.setProperty("input.vcf", vcf_file.toRealPath().toString())
     props.setProperty("input.vcf.id", analysis_accession.toString())
