@@ -163,7 +163,7 @@ ANALYSIS: ERZ0000001
         # This metadata file contains multiple analysis each containing multiple files.
         # the file get merged into 1 file per analysis
         metadata_file = os.path.join(self.resources_folder, 'metadata_2_analysis.xlsx')
-        ena_metadata_file = os.path.join(self.resources_folder, 'metadata_2_analysis_for_brokering.xlsx')
+        ena_metadata_file = os.path.join(self.eload.eload_dir, 'metadata_2_analysis_for_brokering.xlsx')
         analyses = {
             'GAE': {
                 'assembly_accession': 'GCA_000001405.1',

@@ -14,7 +14,7 @@ Changelog for eva-submission
 
 1.3.1 (2021-10-28)
 ------------------
- 
+
 ### Ingestion:
  - Fix the annotation metadata collection name
 
