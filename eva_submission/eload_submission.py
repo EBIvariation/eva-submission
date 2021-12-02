@@ -106,11 +106,9 @@ class Eload(AppLogger):
         for analysis in analyses:
             for vcf_file_name in analyses[analysis]['vcf_files']:
                 vcf_file_info = self.eload_cfg['brokering']['analyses'][analysis]['vcf_files'][vcf_file_name]
-                original_vcf_file = vcf_file_info['original_vcf']
-                file_row = file_to_row.get(os.path.basename(original_vcf_file), {})
                 # Add the vcf file
                 file_rows.append({
-                    'Analysis Alias': file_row.get('Analysis Alias') or single_analysis_alias,
+                    'Analysis Alias': analysis,
                     'File Name': self.eload + '/' + os.path.basename(vcf_file_name),
                     'File Type': 'vcf',
                     'MD5': vcf_file_info['md5']
@@ -122,7 +120,7 @@ class Eload(AppLogger):
                 else:
                     file_type = 'tabix'
                 file_rows.append({
-                    'Analysis Alias': file_row.get('Analysis Alias') or single_analysis_alias,
+                    'Analysis Alias': analysis,
                     'File Name': self.eload + '/' + os.path.basename(vcf_file_info['index']),
                     'File Type': file_type,
                     'MD5': vcf_file_info['index_md5']
