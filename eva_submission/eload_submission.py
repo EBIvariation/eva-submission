@@ -98,10 +98,6 @@ class Eload(AppLogger):
                 sample_rows.append(sample_row)
 
         file_rows = []
-        file_to_row = {}
-        for file_row in reader.files:
-            file_to_row[file_row['File Name']] = file_row
-
         analyses = self.eload_cfg['brokering']['analyses']
         for analysis in analyses:
             for vcf_file_name in analyses[analysis]['vcf_files']:
