@@ -103,6 +103,9 @@ python ingest_submission.py --eload 765 --instance 1 --tasks accession
 
 # Only variant load - accession instance id not needed
 python ingest_submission.py --eload 765 --tasks variant_load
+
+# Only run VEP annotation - note this assumes variant load has been run
+python ingest_submission.py --eload 765 --tasks annotation
 ```
 
 ### Backlog automation
