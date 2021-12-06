@@ -11,6 +11,7 @@ from eva_submission.biosamples_submission import SampleMetadataSubmitter
 from eva_submission.eload_brokering import EloadBrokering
 from eva_submission.eload_submission import Eload
 from eva_submission.submission_config import load_config
+from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 from tests.test_eload_preparation import touch
 
 
@@ -157,3 +158,52 @@ ANALYSIS: ERZ0000001
         with patch('builtins.print') as mprint:
             self.existing_eload.report()
         mprint.assert_called_once_with(expected_report)
+
+    def test_update_metadata_from_config_for_files(self):
+        # This metadata file contains multiple analysis each containing multiple files.
+        # the file get merged into 1 file per analysis
+        metadata_file = os.path.join(self.resources_folder, 'metadata_2_analysis.xlsx')
+        ena_metadata_file = os.path.join(self.eload.eload_dir, 'metadata_2_analysis_for_brokering.xlsx')
+        analyses = {
+            'GAE': {
+                'assembly_accession': 'GCA_000001405.1',
+                'vcf_files': {
+                    'path/to/GAE.vcf.gz': {
+                      'csi': 'path/to/GAE.vcf.gz.csi',
+                      'csi_md5': '',
+                      'index': 'path/to/GAE.vcf.gz.tbi',
+                      'index_md5': '',
+                      'md5': '',
+                      'original_vcf': 'path/to/original_GAE.vcf.gz',
+                      'output_vcf_file': None
+                    }
+                }
+            },
+            'GAE2': {
+                'assembly_accession': 'GCA_000001405.1',
+                'vcf_files': {
+                    'path/to/GAE2.vcf.gz': {
+                        'csi': 'path/to/GAE2.vcf.gz.csi',
+                        'csi_md5': '',
+                        'index': 'path/to/GAE2.vcf.gz.tbi',
+                        'index_md5': '',
+                        'md5': '',
+                        'original_vcf': 'path/to/original_GAE2.vcf.gz',
+                        'output_vcf_file': None
+                    }
+                }
+            }
+        }
+        self.eload.eload_cfg.set('brokering', 'analyses', value=analyses)
+        self.eload.update_metadata_from_config(metadata_file, ena_metadata_file)
+
+        # Check that the Files get set to the merged file name and that the analysis alias is modified
+        reader = EvaXlsxReader(ena_metadata_file)
+        assert reader.files == [
+            {'Analysis Alias': 'GAE', 'File Name': 'ELOAD_3/GAE.vcf.gz', 'File Type': 'vcf', 'MD5': None, 'row_num': 2},
+            {'Analysis Alias': 'GAE', 'File Name': 'ELOAD_3/GAE.vcf.gz.tbi', 'File Type': 'tabix', 'MD5': None, 'row_num': 3},
+            {'Analysis Alias': 'GAE2', 'File Name': 'ELOAD_3/GAE2.vcf.gz', 'File Type': 'vcf', 'MD5': None, 'row_num': 4},
+            {'Analysis Alias': 'GAE2', 'File Name': 'ELOAD_3/GAE2.vcf.gz.tbi', 'File Type': 'tabix', 'MD5': None, 'row_num': 5}
+        ]
+
+
