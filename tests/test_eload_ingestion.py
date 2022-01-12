@@ -6,8 +6,6 @@ from copy import deepcopy
 from unittest import TestCase, mock
 from unittest.mock import patch
 
-import yaml
-
 from eva_submission.eload_ingestion import EloadIngestion
 from eva_submission.submission_config import load_config
 
@@ -125,9 +123,11 @@ class TestEloadIngestion(TestCase):
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
             m_post.return_value.text = self.get_mock_result_for_ena_date()
+            browsable_files = [(1, 'ERA', 'filename_1', 'PRJ', 123), (2, 'ERA', 'filename_1', 'PRJ', 123)]
             m_get_results.side_effect = [
                 [(391,)],                                # Check the assembly_set_id in update_assembly_set_in_analysis
-                [(1, 'filename_1'), (2, 'filename_2')],  # insert_browsable_files
+                browsable_files,                         # insert_browsable_files files_query
+                browsable_files,                         # insert_browsable_files find_browsable_files_query
                 [(1, 'filename_1'), (2, 'filename_2')],  # update_files_with_ftp_path
                 [('Test Study Name')],                   # get_study_name
                 [(1, 'filename_1'), (2, 'filename_2')]   # update_loaded_assembly_in_browsable_files
@@ -192,7 +192,14 @@ class TestEloadIngestion(TestCase):
         with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.execute_query') as m_execute:
-            m_get_results.side_effect = [[], [(1, 'filename_1'), (2, 'filename_2')]]
+            m_get_results.side_effect = [
+                [],                                      # files_query
+                [],                                      # find_browsable_files_query
+                [(1, 'ERA', 'filename_1', 'PRJ', 123),
+                 (2, 'ERA', 'filename_1', 'PRJ', 123)],  # files_query
+                [(1, 'ERA', 'filename_1', 'PRJ', 123),
+                 (2, 'ERA', 'filename_1', 'PRJ', 123)]   # find_browsable_files_query
+            ]
             self.eload.insert_browsable_files()
             m_execute.assert_called()
 
@@ -200,6 +207,20 @@ class TestEloadIngestion(TestCase):
             m_execute.call_count = 0
             self.eload.insert_browsable_files()
             m_execute.assert_not_called()
+
+    def test_insert_browsable_files_warning(self):
+        with self._patch_metadata_handle(), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
+                patch.object(EloadIngestion, 'warning') as m_warning:
+            m_get_results.side_effect = [
+                [(1, 'ERA', 'filename_1', 'PRJ', 123),
+                 (2, 'ERA', 'filename_1', 'PRJ', 123)],  # files_query
+                [(1, 'ERA', 'filename_1', 'PRJ', 123),
+                 (2, 'ERA', 'filename_1', 'PRJ', 234)],  # find_browsable_files_query
+            ]
+            assert m_warning.call_count == 0
+            self.eload.insert_browsable_files()
+            assert m_warning.call_count == 1
 
     def test_update_browsable_files_with_date(self):
         with self._patch_metadata_handle(), \
