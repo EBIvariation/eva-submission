@@ -33,6 +33,14 @@ class TestEload(TestCase):
             if os.path.exists(file_path):
                 os.remove(file_path)
 
+    def test_create_log_file(self):
+        logfile_name = os.path.join(self.eload.eload_dir,"submission.log")
+        assert os.path.exists(logfile_name)
+        self.eload.info("Testing the creation of logging file")
+        with open("logfile_name", "r") as test_logfile:
+            assert test_logfile.readline().startswith("Testing the creation of logging file")
+
+
     def test_upgrade_config(self):
         """Tests config upgrade for a post-brokering config."""
         self.eload.upgrade_config_if_needed('analysis alias')
