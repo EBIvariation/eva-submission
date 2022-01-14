@@ -38,7 +38,7 @@ class TestEload(TestCase):
         # Creating a second eload object
         self.eload2 = Eload(55)
 
-        logfile_name = os.path.join(self.eload.eload_dir, str(self.eload.eload_num), "submission.log")
+        logfile_name = os.path.join(self.eload.eload_dir, str(self.eload.eload_num) + "_submission.log")
         assert os.path.exists(logfile_name)
 
         self.eload.info("Testing the creation of logging file")
