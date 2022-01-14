@@ -379,20 +379,30 @@ class EloadIngestion(Eload):
     def insert_browsable_files(self):
         with self.metadata_connection_handle as conn:
             # insert into browsable file table, if files not already there
-            files_query = f"select file_id, filename from evapro.browsable_file " \
-                          f"where project_accession = '{self.project_accession}';"
-            rows = get_all_results_for_query(conn, files_query)
-            if len(rows) > 0:
-                self.info('Browsable files already inserted, skipping')
+            files_query = (f"select file_id, ena_submission_file_id,filename,project_accession,assembly_set_id "
+                           f"from evapro.browsable_file "
+                           f"where project_accession = '{self.project_accession}';")
+            rows_in_table = get_all_results_for_query(conn, files_query)
+            find_browsable_files_query = (
+                "select file.file_id,ena_submission_file_id,filename,project_accession,assembly_set_id "
+                "from (select * from analysis_file af "
+                "join analysis a on a.analysis_accession = af.analysis_accession "
+                "join project_analysis pa on af.analysis_accession = pa.analysis_accession "
+                f"where pa.project_accession = '{self.project_accession}' ) myfiles "
+                "join file on file.file_id = myfiles.file_id where file.file_type ilike 'vcf';"
+            )
+            rows_expected = get_all_results_for_query(conn, files_query)
+            if len(rows_in_table) > 0:
+                if set(rows_in_table) == set(rows_expected):
+                    self.info('Browsable files already inserted, skipping')
+                else:
+                    self.warning(f'Found {len(rows_in_table)} browsable file rows in the table but they are different '
+                                 f'from the expected ones: '
+                                 f'{os.linesep + os.linesep.join([str(row) for row in rows_expected])}')
             else:
                 self.info('Inserting browsable files...')
-                insert_query = "insert into browsable_file (file_id,ena_submission_file_id,filename,project_accession,assembly_set_id) " \
-                               "select file.file_id,ena_submission_file_id,filename,project_accession,assembly_set_id " \
-                               "from (select * from analysis_file af " \
-                               "join analysis a on a.analysis_accession = af.analysis_accession " \
-                               "join project_analysis pa on af.analysis_accession = pa.analysis_accession " \
-                               f"where pa.project_accession = '{self.project_accession}' ) myfiles " \
-                               "join file on file.file_id = myfiles.file_id where file.file_type ilike 'vcf';"
+                insert_query = ("insert into browsable_file (file_id,ena_submission_file_id,filename,project_accession,"
+                                "assembly_set_id) " + find_browsable_files_query)
                 execute_query(conn, insert_query)
 
     def update_browsable_files_with_date(self):
