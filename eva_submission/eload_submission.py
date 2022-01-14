@@ -30,6 +30,7 @@ directory_structure = {
 }
 eload_logging_files={}
 
+
 class Eload(AppLogger):
     def __init__(self, eload_number: int, config_object: EloadConfig = None):
         self.eload_num = eload_number
