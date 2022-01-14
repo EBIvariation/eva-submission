@@ -43,7 +43,6 @@ class Eload(AppLogger):
         os.makedirs(self.eload_dir, exist_ok=True)
         for k in directory_structure:
             os.makedirs(self._get_dir(k), exist_ok=True)
-
         self.create_log_file()
 
     @property
