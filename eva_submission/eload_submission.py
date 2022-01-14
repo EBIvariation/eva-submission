@@ -44,6 +44,8 @@ class Eload(AppLogger):
         for k in directory_structure:
             os.makedirs(self._get_dir(k), exist_ok=True)
 
+        self.create_log_file()
+
     @property
     def metadata_connection_handle(self):
         return get_metadata_connection_handle(cfg['maven']['environment'], cfg['maven']['settings_file'])
