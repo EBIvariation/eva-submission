@@ -42,10 +42,16 @@ class TestEload(TestCase):
         logfile_name = os.path.join(self.eload.eload_dir, str(self.eload.eload) + "_submission.log")
 
         self.eload.info("Testing the creation of logging file")
+
         assert os.path.exists(logfile_name)
 
-        with open("logfile_name", "r") as test_logfile:
-            assert test_logfile.readlines().count("Testing the creation of logging file\n") == 1
+        with open(logfile_name, "r") as test_logfile:
+            k = [i for i in test_logfile.readlines() if "Testing the creation of logging file" in i]
+
+            # Checking if the log message is written only once in the log file
+            assert len(k) == 1
+
+
 
     def test_upgrade_config(self):
         """Tests config upgrade for a post-brokering config."""
