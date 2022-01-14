@@ -52,7 +52,6 @@ class TestEload(TestCase):
             assert len(k) == 1
 
 
-
     def test_upgrade_config(self):
         """Tests config upgrade for a post-brokering config."""
         self.eload.upgrade_config_if_needed('analysis alias')
