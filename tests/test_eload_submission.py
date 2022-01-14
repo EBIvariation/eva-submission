@@ -34,12 +34,19 @@ class TestEload(TestCase):
                 os.remove(file_path)
 
     def test_create_log_file(self):
-        logfile_name = os.path.join(self.eload.eload_dir,"submission.log")
+
+        # Creating a second eload object
+        self.eload2 = Eload(55)
+
+        logfile_name = os.path.join(self.eload.eload_dir, str(self.eload.eload_num), "submission.log")
         assert os.path.exists(logfile_name)
+
         self.eload.info("Testing the creation of logging file")
+        self.eload2.info("Testing the creation of logging file")
+
         with open("logfile_name", "r") as test_logfile:
             assert test_logfile.readline().startswith("Testing the creation of logging file")
-
+            assert test_logfile.readlines().count("Testing the creation of logging file\n")==1
 
     def test_upgrade_config(self):
         """Tests config upgrade for a post-brokering config."""
