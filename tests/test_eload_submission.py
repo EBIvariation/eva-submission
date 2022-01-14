@@ -46,7 +46,7 @@ class TestEload(TestCase):
 
         with open("logfile_name", "r") as test_logfile:
             assert test_logfile.readline().startswith("Testing the creation of logging file")
-            assert test_logfile.readlines().count("Testing the creation of logging file\n")==1
+            assert test_logfile.readlines().count("Testing the creation of logging file\n") == 1
 
     def test_upgrade_config(self):
         """Tests config upgrade for a post-brokering config."""
