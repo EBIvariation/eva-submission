@@ -35,17 +35,16 @@ class TestEload(TestCase):
 
     def test_create_log_file(self):
 
-        # Creating a second eload object
-        self.eload2 = Eload(55)
+        # Creating a second eload object to test whether the logging file handler
+        # has been created twice
+        eload2 = Eload(55)
 
-        logfile_name = os.path.join(self.eload.eload_dir, str(self.eload.eload_num) + "_submission.log")
-        assert os.path.exists(logfile_name)
+        logfile_name = os.path.join(self.eload.eload_dir, str(self.eload.eload) + "_submission.log")
 
         self.eload.info("Testing the creation of logging file")
-        self.eload2.info("Testing the creation of logging file")
+        assert os.path.exists(logfile_name)
 
         with open("logfile_name", "r") as test_logfile:
-            assert test_logfile.readline().startswith("Testing the creation of logging file")
             assert test_logfile.readlines().count("Testing the creation of logging file\n") == 1
 
     def test_upgrade_config(self):
