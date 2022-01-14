@@ -65,7 +65,7 @@ class Eload(AppLogger):
         return datetime.now()
 
     def create_log_file(self):
-        logfile_name = os.path.join(self.eload_dir, "submission.log")
+        logfile_name = os.path.join(self.eload_dir,str(self.eload_num), "submission.log")
 
         if logfile_name not in eload_logging_files:
             log_cfg.add_file_handler(logfile_name)
