@@ -3,6 +3,7 @@ import os
 import shutil
 
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
+
 from eva_submission.eload_submission import Eload, directory_structure
 from eva_submission.eload_utils import resolve_accession_from_text, get_reference_fasta_and_report
 from eva_submission.submission_in_ftp import FtpDepositBox

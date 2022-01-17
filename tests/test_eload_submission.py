@@ -36,7 +36,7 @@ class TestEload(TestCase):
     def test_create_log_file(self):
         # Creating a second eload object to test whether the logging file handler
         # has been created twice
-        eload2 = Eload(55)
+        eload2 = Eload(self.eload.eload_num)
 
         logfile_name = os.path.join(self.eload.eload_dir, str(self.eload.eload) + "_submission.log")
 
