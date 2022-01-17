@@ -28,7 +28,7 @@ directory_structure = {
     'ena': '18_brokering/ena',
     'scratch': '20_scratch'
 }
-eload_logging_files={}
+eload_logging_files = set()
 
 
 class Eload(AppLogger):
