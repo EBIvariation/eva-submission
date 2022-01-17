@@ -70,7 +70,7 @@ class Eload(AppLogger):
         logfile_name = os.path.join(self.eload_dir, str(self.eload) + "_submission.log")
         if logfile_name not in eload_logging_files:
             log_cfg.add_file_handler(logfile_name)
-            eload_logging_files[logfile_name] = True
+            eload_logging_files.add(logfile_name)
 
     def upgrade_config_if_needed(self, analysis_alias=None):
         """
