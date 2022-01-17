@@ -34,7 +34,6 @@ class TestEload(TestCase):
                 os.remove(file_path)
 
     def test_create_log_file(self):
-
         # Creating a second eload object to test whether the logging file handler
         # has been created twice
         eload2 = Eload(55)
