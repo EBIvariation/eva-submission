@@ -145,7 +145,10 @@ class EloadBacklog(Eload):
         Convert the valid entry in the config to the one that should be created after brokering.
         This is only useful after we merged the vcf files otherwise this function will not do anything.
         """
-        for analysis_alias, analysis_data in self.eload_cfg.query('validation', 'valid', 'analyses'):
+        if not self.eload_cfg.query('validation', 'valid', 'analyses'):
+            self.error('Merge did not complete Most likely because one of the validation did not pass.')
+            return
+        for analysis_alias, analysis_data in self.eload_cfg.query('validation', 'valid', 'analyses').items():
             self.eload_cfg.set('brokering', 'analyses', analysis_alias, 'assembly_accession',
                                value=analysis_data.get('assembly_accession'))
             self.eload_cfg.set('brokering', 'analyses', analysis_alias, 'assembly_fasta',
