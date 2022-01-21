@@ -2,6 +2,22 @@
 Changelog for eva-submission
 ============================
 
+1.4.0 (2022-01-21)
+------------------
+
+### All
+ - Adding logging to single file across each step  
+
+### Brokering
+ - Update metadata file correctly after merge
+
+### Backlog preparation
+ - Fix bug in post merge check 
+
+### Ingestion
+ - Allow running loading step with annotation only 
+ - Add warning when the browsable files are different from analysis files 
+
 1.3.2 (2021-11-29)
 ------------------
  
