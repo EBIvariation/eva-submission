@@ -76,7 +76,7 @@ class EloadBacklog(Eload):
     def find_local_file(self, fn):
         full_path = os.path.join(self._get_dir('vcf'), fn)
         if not os.path.exists(full_path):
-            self.error(f'File not found: {full_path}')
+            self.warning(f'File not found: {full_path}')
             raise FileNotFoundError(f'File not found: {full_path}')
         return full_path
 
@@ -145,7 +145,9 @@ class EloadBacklog(Eload):
         Convert the valid entry in the config to the one that should be created after brokering.
         This is only useful after we merged the vcf files otherwise this function will not do anything.
         """
-        for analysis_alias, analysis_data in self.eload_cfg.query('validation', 'valid', 'analyses'):
+        if not self.eload_cfg.query('validation', 'valid', 'analyses'):
+            raise ValueError('Merge did not complete, most likely because one of the validation did not pass.')
+        for analysis_alias, analysis_data in self.eload_cfg.query('validation', 'valid', 'analyses').items():
             self.eload_cfg.set('brokering', 'analyses', analysis_alias, 'assembly_accession',
                                value=analysis_data.get('assembly_accession'))
             self.eload_cfg.set('brokering', 'analyses', analysis_alias, 'assembly_fasta',
