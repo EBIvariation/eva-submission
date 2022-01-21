@@ -146,8 +146,7 @@ class EloadBacklog(Eload):
         This is only useful after we merged the vcf files otherwise this function will not do anything.
         """
         if not self.eload_cfg.query('validation', 'valid', 'analyses'):
-            self.error('Merge did not complete, most likely because one of the validation did not pass.')
-            return
+            raise ValueError('Merge did not complete, most likely because one of the validation did not pass.')
         for analysis_alias, analysis_data in self.eload_cfg.query('validation', 'valid', 'analyses').items():
             self.eload_cfg.set('brokering', 'analyses', analysis_alias, 'assembly_accession',
                                value=analysis_data.get('assembly_accession'))
