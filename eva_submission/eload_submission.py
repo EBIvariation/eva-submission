@@ -8,6 +8,7 @@ from cached_property import cached_property
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.metadata_utils import get_metadata_connection_handle
+from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
 from eva_submission import __version__
 from eva_submission.config_migration import upgrade_version_0_1
@@ -27,6 +28,7 @@ directory_structure = {
     'ena': '18_brokering/ena',
     'scratch': '20_scratch'
 }
+eload_logging_files = set()
 
 
 class Eload(AppLogger):
@@ -42,6 +44,7 @@ class Eload(AppLogger):
         os.makedirs(self.eload_dir, exist_ok=True)
         for k in directory_structure:
             os.makedirs(self._get_dir(k), exist_ok=True)
+        self.create_log_file()
 
     @property
     def metadata_connection_handle(self):
@@ -62,6 +65,12 @@ class Eload(AppLogger):
     @cached_property
     def now(self):
         return datetime.now()
+
+    def create_log_file(self):
+        logfile_name = os.path.join(self.eload_dir, str(self.eload) + "_submission.log")
+        if logfile_name not in eload_logging_files:
+            log_cfg.add_file_handler(logfile_name)
+            eload_logging_files.add(logfile_name)
 
     def upgrade_config_if_needed(self, analysis_alias=None):
         """
