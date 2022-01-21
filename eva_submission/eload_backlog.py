@@ -76,7 +76,7 @@ class EloadBacklog(Eload):
     def find_local_file(self, fn):
         full_path = os.path.join(self._get_dir('vcf'), fn)
         if not os.path.exists(full_path):
-            self.error(f'File not found: {full_path}')
+            self.warning(f'File not found: {full_path}')
             raise FileNotFoundError(f'File not found: {full_path}')
         return full_path
 
