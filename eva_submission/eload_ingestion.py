@@ -9,7 +9,7 @@ from cached_property import cached_property
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile, get_primary_mongo_creds_for_profile, \
-    get_accession_pg_creds_for_profile
+    get_accession_pg_creds_for_profile, get_count_service_creds_for_profile
 from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
 
@@ -290,6 +290,7 @@ class EloadIngestion(Eload):
         output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
         mongo_host, mongo_user, mongo_pass = get_primary_mongo_creds_for_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
         pg_url, pg_user, pg_pass = get_accession_pg_creds_for_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
+        counts_url, counts_user, counts_pass = get_count_service_creds_for_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
         job_props = accession_props_template(
             taxonomy_id=self.eload_cfg.query('submission', 'taxonomy_id'),
             project_accession=self.project_accession,
@@ -299,7 +300,10 @@ class EloadIngestion(Eload):
             mongo_pass=mongo_pass,
             postgres_url=pg_url,
             postgres_user=pg_user,
-            postgres_pass=pg_pass
+            postgres_pass=pg_pass,
+            counts_url=counts_url,
+            counts_user=counts_user,
+            counts_pass=counts_pass
         )
         accession_config = {
             'valid_vcfs': vcf_files_to_ingest,
