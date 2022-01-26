@@ -112,6 +112,8 @@ class TestEloadIngestion(TestCase):
                       autospec=True) as m_mongo_creds, \
                 patch('eva_submission.eload_ingestion.get_accession_pg_creds_for_profile',
                       autospec=True) as m_pg_creds, \
+                patch('eva_submission.eload_ingestion.get_count_service_creds_for_profile',
+                      autospec=True) as m_counts_creds, \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
@@ -119,7 +121,7 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
                 self._patch_mongo_database():
-            m_mongo_creds.return_value = m_pg_creds.return_value = ('host', 'user', 'pass')
+            m_mongo_creds.return_value = m_pg_creds.return_value = m_counts_creds.return_value = ('host', 'user', 'pass')
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
             m_post.return_value.text = self.get_mock_result_for_ena_date()
@@ -150,6 +152,7 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.get_primary_mongo_creds_for_profile',
                       autospec=True) as m_mongo_creds, \
                 patch('eva_submission.eload_ingestion.get_accession_pg_creds_for_profile', autospec=True) as m_pg_creds, \
+                patch('eva_submission.eload_ingestion.get_count_service_creds_for_profile', autospec=True) as m_counts_creds, \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
@@ -157,7 +160,7 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
                 self._patch_mongo_database():
-            m_mongo_creds.return_value = m_pg_creds.return_value = ('host', 'user', 'pass')
+            m_mongo_creds.return_value = m_pg_creds.return_value = m_counts_creds.return_value = ('host', 'user', 'pass')
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
             m_post.return_value.text = self.get_mock_result_for_ena_date()
