@@ -2,6 +2,12 @@
 Changelog for eva-submission
 ============================
 
+1.4.1 (2022-01-26)
+------------------
+
+### Accessioning
+ - Adding count service credentials to accessioning properties file 
+
 1.4.0 (2022-01-21)
 ------------------
 
