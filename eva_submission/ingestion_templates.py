@@ -16,6 +16,9 @@ def accession_props_template(
         mongo_host,
         mongo_user,
         mongo_pass,
+        counts_url,
+        counts_user,
+        counts_pass
 ):
     """
     Get all properties needed for this accessioning job, except for the input
@@ -46,7 +49,10 @@ def accession_props_template(
         'spring.data.mongodb.password': mongo_pass,
         'spring.data.mongodb.authentication-database': 'admin',
         'mongodb.read-preference': 'secondaryPreferred',
-        'spring.main.web-environment': False,
+        'eva.count-stats.url': counts_url,
+        'eva.count-stats.username': counts_user,
+        'eva.count-stats.password': counts_pass,
+        'spring.main.web-application-type': 'none',
         'spring.main.allow-bean-definition-overriding': True,
         'spring.jpa.properties.hibernate.jdbc.lob.non_contextual_creation': True,
     }
