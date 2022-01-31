@@ -160,7 +160,11 @@ class EloadBacklog(Eload):
                 if os.path.exists(vcf_file + '.tbi'):
                     vcf_files_dict[vcf_file]['index'] = vcf_file + '.tbi'
                 else:
-                    self.warning(f'Cannot find the index for {vcf_file}')
+                    self.warning(f'Cannot find the tbi index for {vcf_file}')
+                if os.path.exists(vcf_file + '.csi'):
+                    vcf_files_dict[vcf_file]['csi'] = vcf_file + '.csi'
+                else:
+                    self.warning(f'Cannot find the csi index for {vcf_file}')
             self.eload_cfg.set('brokering', 'analyses', analysis_alias, 'vcf_files', value=vcf_files_dict)
 
     def _analysis_report(self, all_analysis):
