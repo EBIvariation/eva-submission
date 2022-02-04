@@ -67,7 +67,7 @@ class EloadIngestion(Eload):
         do_variant_load = 'variant_load' in tasks
         annotation_only = 'annotation' in tasks and not do_variant_load
 
-        if do_accession or do_variant_load:
+        if do_accession or do_variant_load or annotation_only:
             self.fill_vep_versions(vep_cache_assembly_name)
             vcf_files_to_ingest = self._generate_csv_mappings_to_ingest()
 
