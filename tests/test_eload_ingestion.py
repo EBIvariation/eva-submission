@@ -321,3 +321,21 @@ class TestEloadIngestion(TestCase):
                 self.eload.ingest(tasks=['variant_load'])
             config_file = os.path.join(self.resources_folder, 'projects/PRJEB12345/load_config_file.yaml')
             assert not os.path.exists(config_file)
+
+    def test_ingest_annotation_only(self):
+        with self._patch_metadata_handle(), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
+                patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
+                patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
+                patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
+                patch('eva_submission.eload_utils.requests.post') as m_post, \
+                self._patch_mongo_database():
+            m_get_alias_results.return_value = [['alias']]
+            m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
+            m_post.return_value.text = self.get_mock_result_for_ena_date()
+            m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
+            self.eload.ingest(tasks=['annotation'])
+            assert os.path.exists(
+                os.path.join(self.resources_folder, 'projects/PRJEB12345/load_config_file.yaml')
+            )
