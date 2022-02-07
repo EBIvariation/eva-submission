@@ -32,6 +32,14 @@ def main():
 
     argparse = ArgumentParser(description='Prepare to process backlog study and validate VCFs.')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
+    argparse.add_argument('--project_accession', required=False, type=str,
+                          help='Set this project instead of the one associated with this eload. '
+                               'Useful when the association is not set in the database. '
+                               'The project needs to exists in the DB.')
+    argparse.add_argument('--analysis_accessions', required=False, type=str, nargs='+',
+                          help='Set these analysis instead of the ones associated with the project. '
+                               'Useful when wanting to use a subset of the analysis. '
+                               'The analyses need to exists in the DB.')
     argparse.add_argument('--force_config', action='store_true', default=False,
                           help='Overwrite the configuration file after backing it up.')
     argparse.add_argument('--validation_tasks', required=False, type=str, nargs='+',
@@ -53,7 +61,8 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    preparation = EloadBacklog(args.eload)
+    preparation = EloadBacklog(args.eload, project_accession=args.project_accession,
+                               analysis_accessions=args.analysis_accessions)
     # Pass the eload config object to validation so that the two objects share the same state
     validation = EloadValidation(args.eload, preparation.eload_cfg)
     if not args.report:
