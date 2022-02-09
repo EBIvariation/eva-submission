@@ -11,7 +11,7 @@ from eva_submission.submission_config import EloadConfig
 
 def list_to_sql_in_list(l):
     """Convert a python list into a string that can be used in an SQL query with operator "in" """
-    return '(' + ','.join(f"'%s'" % e for e in l) + ')'
+    return '(' + ','.join(f"'{e}'" for e in l) + ')'
 
 
 class EloadBacklog(Eload):
@@ -46,7 +46,7 @@ class EloadBacklog(Eload):
                         f"where project_accession='{self._preset_project_accession}';"
                 rows = get_all_results_for_query(conn, query)
             if len(rows) != 1:
-                raise ValueError(f'No project found for {self._preset_project_accession} found in metadata DB.')
+                raise ValueError(f'No project found for {self._preset_project_accession} in metadata DB.')
         else:
             with self.metadata_connection_handle as conn:
                 query = f"select project_accession from evapro.project_eva_submission where eload_id={self.eload_num};"
@@ -64,7 +64,7 @@ class EloadBacklog(Eload):
                          f" and hidden_in_eva=0;")
                 rows = get_all_results_for_query(conn, query)
                 if len(rows) != len(self._preset_analysis_accessions):
-                    raise ValueError(f"Some analysis accession could be found for analysis "
+                    raise ValueError(f"Some analysis accession could not be found for analyses "
                                      f"{', '.join(self._preset_analysis_accessions)} in metadata DB.")
         else:
             with self.metadata_connection_handle as conn:

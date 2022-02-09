@@ -38,8 +38,6 @@ class TestEload(TestCase):
         # has been created twice
         eload2 = Eload(self.eload.eload_num)
 
-
-
         self.eload.info("Testing the creation of logging file")
 
         assert os.path.exists(self.logfile_name)
