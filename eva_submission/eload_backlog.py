@@ -6,9 +6,21 @@ from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
 
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import get_reference_fasta_and_report, get_project_alias, download_file
+from eva_submission.submission_config import EloadConfig
+
+
+def list_to_sql_in_list(l):
+    """Convert a python list into a string that can be used in an SQL query with operator "in" """
+    return '(' + ','.join(f"'{e}'" for e in l) + ')'
 
 
 class EloadBacklog(Eload):
+
+    def __init__(self, eload_number: int, config_object: EloadConfig = None, project_accession: str = None,
+                 analysis_accessions: list = None):
+        super().__init__(eload_number, config_object)
+        self._preset_project_accession = project_accession
+        self._preset_analysis_accessions = analysis_accessions
 
     def fill_in_config(self, force_config=False):
         """Fills in config params from metadata DB and ENA, enabling later parts of pipeline to run."""
@@ -28,12 +40,42 @@ class EloadBacklog(Eload):
 
     @cached_property
     def project_accession(self):
-        with self.metadata_connection_handle as conn:
-            query = f"select project_accession from evapro.project_eva_submission where eload_id={self.eload_num};"
-            rows = get_all_results_for_query(conn, query)
-        if len(rows) != 1:
-            raise ValueError(f'No project accession for {self.eload} found in metadata DB.')
+        if self._preset_project_accession:
+            with self.metadata_connection_handle as conn:
+                query = f"select project_accession from evapro.project " \
+                        f"where project_accession='{self._preset_project_accession}';"
+                rows = get_all_results_for_query(conn, query)
+            if len(rows) != 1:
+                raise ValueError(f'No project found for {self._preset_project_accession} in metadata DB.')
+        else:
+            with self.metadata_connection_handle as conn:
+                query = f"select project_accession from evapro.project_eva_submission where eload_id={self.eload_num};"
+                rows = get_all_results_for_query(conn, query)
+            if len(rows) != 1:
+                raise ValueError(f'No project accession for {self.eload} found in metadata DB.')
         return rows[0][0]
+
+    @cached_property
+    def analysis_accessions(self):
+        if self._preset_analysis_accessions:
+            with self.metadata_connection_handle as conn:
+                query = (f"select distinct analysis_accession from analysis "
+                         f"where analysis in {list_to_sql_in_list(self._preset_analysis_accessions)}"
+                         f" and hidden_in_eva=0;")
+                rows = get_all_results_for_query(conn, query)
+                if len(rows) != len(self._preset_analysis_accessions):
+                    raise ValueError(f"Some analysis accession could not be found for analyses "
+                                     f"{', '.join(self._preset_analysis_accessions)} in metadata DB.")
+        else:
+            with self.metadata_connection_handle as conn:
+                query = (f"select distinct b.analysis_accession from project_analysis a "
+                         f"join analysis b on a.analysis_accession=b.analysis_accession "
+                         f"where a.project_accession='{self.project_accession}' and b.hidden_in_eva=0;")
+                rows = get_all_results_for_query(conn, query)
+                if len(rows) == 0:
+                    raise ValueError(f'No analysis accession could be found for project {self.project_accession} '
+                                     f'in metadata DB.')
+        return [row[0] for row in rows]
 
     @cached_property
     def project_alias(self):
@@ -57,14 +99,13 @@ class EloadBacklog(Eload):
         self.eload_cfg.set('submission', 'scientific_name', value=sci_name)
 
         with self.metadata_connection_handle as conn:
-            query = f"select distinct b.analysis_accession, b.vcf_reference_accession " \
-                    f"from project_analysis a " \
-                    f"join analysis b on a.analysis_accession=b.analysis_accession " \
-                    f"where a.project_accession='{self.project_accession}' and b.hidden_in_eva=0;"
+            query = f"select distinct analysis_accession, vcf_reference_accession " \
+                    f"from analysis b" \
+                    f"where analysis_accession in {list_to_sql_in_list(self.analysis_accessions)};"
             rows = get_all_results_for_query(conn, query)
-        if len(rows) < 1:
-            raise ValueError(f'No reference accession for {self.project_accession} found in metadata DB.')
         for analysis_accession, asm_accession in rows:
+            if not asm_accession:
+                raise ValueError(f'No reference accession for {analysis_accession} found in metadata DB.')
             self.eload_cfg.set('submission', 'analyses', analysis_accession, 'assembly_accession', value=asm_accession)
             fasta_path, report_path = get_reference_fasta_and_report(sci_name, asm_accession)
             self.eload_cfg.set('submission', 'analyses', analysis_accession, 'assembly_fasta', value=fasta_path)
@@ -97,15 +138,12 @@ class EloadBacklog(Eload):
         """Adds analysis info into the config: analysis accession(s), and vcf and index files."""
         with self.metadata_connection_handle as conn:
             query = f"select a.analysis_accession, array_agg(c.filename) " \
-                    f"from project_analysis a " \
+                    f"from analysis a " \
                     f"join analysis_file b on a.analysis_accession=b.analysis_accession " \
                     f"join file c on b.file_id=c.file_id " \
-                    f"join analysis d on a.analysis_accession=d.analysis_accession " \
-                    f"where a.project_accession='{self.project_accession}' and d.hidden_in_eva=0" \
+                    f"where analysis_accession in {list_to_sql_in_list(self.analysis_accessions)}" \
                     f"group by a.analysis_accession;"
             rows = get_all_results_for_query(conn, query)
-        if len(rows) == 0:
-            raise ValueError(f'No analysis for {self.project_accession} found in metadata DB.')
 
         for analysis_accession, filenames in rows:
             # Uses the analysis accession as analysis alias

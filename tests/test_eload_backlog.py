@@ -72,6 +72,7 @@ class TestEloadBacklog(TestCase):
             m_get_alias_results.return_value = [['alias']]
             m_get_results.side_effect = [
                 [['PRJEB12345']],
+                [['ERZ999999']],
                 [('ERZ999999', ('file.vcf.gz', 'file.vcf.gz.tbi'))],
                 [(9823, 'Sus scrofa')],
                 [('ERZ999999', 'GCA_000003025.4',)]
@@ -103,8 +104,9 @@ class TestEloadBacklog(TestCase):
                 patch('eva_submission.eload_backlog.get_all_results_for_query') as m_get_results,\
                 patch.object(retry.api.time, 'sleep'):
             m_get_results.side_effect = cycle([
-                [['PRJEB12345']],
-                [('ERZ999999', ('something_else.vcf.gz', 'file.vcf.gz.tbi'))]
+                [['PRJEB12345']],    # self.project_accession
+                [['ERZ999999']],     # self.analysis_accessions
+                [('ERZ999999', ('something_else.vcf.gz', 'file.vcf.gz.tbi'))]  # self.get_analysis_info
             ])
             with self.assertRaises(FileNotFoundError):
                 self.eload.fill_in_config(True)
@@ -117,3 +119,44 @@ class TestEloadBacklog(TestCase):
 
     def test_report(self):
         self.eload.report()
+
+    def test_set_project_fail(self):
+        eload = EloadBacklog(44, project_accession='PRJEB9999')
+        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+                patch('eva_submission.eload_backlog.get_all_results_for_query') as m_get_results:
+            m_get_results.side_effect = [
+                []  # self.project_accession
+            ]
+            with self.assertRaises(ValueError) as context:
+                eload.project_accession
+            assert str(context.exception) == 'No project found for PRJEB9999 found in metadata DB.'
+
+    def test_set_analysis_fail(self):
+        eload = EloadBacklog(44, project_accession='PRJEB9999', analysis_accessions=['ERZ9997', 'ERZ9998', 'ERZ9999'])
+        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+                patch('eva_submission.eload_backlog.get_all_results_for_query') as m_get_results:
+            m_get_results.side_effect = [
+                [('PRJEB9999',)],  # self.project_accession
+                [('ERZ9997',),  ('ERZ9998',)]   # self.analysis_accessions
+            ]
+            with self.assertRaises(ValueError) as context:
+                eload.analysis_accessions
+            assert str(context.exception) == 'Some analysis accession could be found for analysis ' \
+                                             'ERZ9997, ERZ9998, ERZ9999 in metadata DB.'
+
+    def test_set_project_and_analysis(self):
+        eload = EloadBacklog(44, project_accession='PRJEB9999', analysis_accessions=['ERZ9997', 'ERZ9998', 'ERZ9999'])
+        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
+                patch('eva_submission.eload_backlog.get_all_results_for_query') as m_get_results:
+            m_get_results.side_effect = [
+                [['PRJEB9999']],    # self.project_accession
+                [('ERZ9997',), ('ERZ9998',), ('ERZ9999',)]  # self.analysis_accessions
+            ]
+            assert eload.project_accession == 'PRJEB9999'
+            assert m_get_results.call_args[0][1] == ("select project_accession from evapro.project "
+                                                     "where project_accession='PRJEB9999';")
+            m_get_results.reset_mock()
+            assert eload.analysis_accessions == ['ERZ9997', 'ERZ9998', 'ERZ9999']
+            assert m_get_results.call_args[0][1] == ("select distinct analysis_accession from analysis "
+                                                     "where analysis in ('ERZ9997','ERZ9998','ERZ9999') "
+                                                     "and hidden_in_eva=0;")

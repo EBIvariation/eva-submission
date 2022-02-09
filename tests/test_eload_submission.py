@@ -23,13 +23,13 @@ class TestEload(TestCase):
         self.eload.eload_cfg.content = deepcopy(self.original_config.content)
         self.original_updated_cfg = deepcopy(self.updated_config.content)
         self.updated_config.set('version', value=__version__)
+        # Get the log file name
+        self.logfile_name = os.path.join(self.eload.eload_dir, str(self.eload.eload) + "_submission.log")
 
     def tearDown(self):
         self.updated_config.content = self.original_updated_cfg
-        # remove the config and its backup
-        for file_path in [self.eload.eload_cfg.config_file, f'{self.eload.eload_cfg.config_file}.1']:
-            print(file_path)
-            print(os.path.exists(file_path))
+        # remove the config its backup and the log file
+        for file_path in [self.eload.eload_cfg.config_file, f'{self.eload.eload_cfg.config_file}.1', self.logfile_name]:
             if os.path.exists(file_path):
                 os.remove(file_path)
 
@@ -38,13 +38,11 @@ class TestEload(TestCase):
         # has been created twice
         eload2 = Eload(self.eload.eload_num)
 
-        logfile_name = os.path.join(self.eload.eload_dir, str(self.eload.eload) + "_submission.log")
-
         self.eload.info("Testing the creation of logging file")
 
-        assert os.path.exists(logfile_name)
+        assert os.path.exists(self.logfile_name)
 
-        with open(logfile_name, "r") as test_logfile:
+        with open(self.logfile_name, "r") as test_logfile:
             k = [i for i in test_logfile.readlines() if "Testing the creation of logging file" in i]
 
             # Checking if the log message is written only once in the log file
