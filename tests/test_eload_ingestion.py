@@ -10,6 +10,36 @@ from eva_submission.eload_ingestion import EloadIngestion
 from eva_submission.submission_config import load_config
 
 
+def default_db_results_for_metadata_load():
+    return [
+        [(391,)]  # Check the assembly_set_id in update_assembly_set_in_analysis
+    ]
+
+
+def default_db_results_for_accession():
+    browsable_files = [(1, 'ERA', 'filename_1', 'PRJ', 123), (2, 'ERA', 'filename_1', 'PRJ', 123)]
+    return [
+        browsable_files,  # insert_browsable_files files_query
+        browsable_files,  # insert_browsable_files find_browsable_files_query
+        [(1, 'filename_1'), (2, 'filename_2')]  # update_files_with_ftp_path
+    ]
+
+
+def default_db_results_for_variant_load():
+    return [
+        [('Test Study Name')],  # get_study_name
+        [(1, 'filename_1'), (2, 'filename_2')]  # update_loaded_assembly_in_browsable_files
+    ]
+
+
+def default_db_results_for_ingestion():
+    return (
+            default_db_results_for_metadata_load()
+            + default_db_results_for_accession()
+            + default_db_results_for_variant_load()
+    )
+
+
 class TestEloadIngestion(TestCase):
     top_dir = os.path.dirname(os.path.dirname(__file__))
     resources_folder = os.path.join(os.path.dirname(__file__), 'resources')
@@ -118,15 +148,7 @@ class TestEloadIngestion(TestCase):
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            browsable_files = [(1, 'ERA', 'filename_1', 'PRJ', 123), (2, 'ERA', 'filename_1', 'PRJ', 123)]
-            m_get_results.side_effect = [
-                [(391,)],                                # Check the assembly_set_id in update_assembly_set_in_analysis
-                browsable_files,                         # insert_browsable_files files_query
-                browsable_files,                         # insert_browsable_files find_browsable_files_query
-                [(1, 'filename_1'), (2, 'filename_2')],  # update_files_with_ftp_path
-                [('Test Study Name')],                   # get_study_name
-                [(1, 'filename_1'), (2, 'filename_2')]   # update_loaded_assembly_in_browsable_files
-            ]
+            m_get_results.side_effect = default_db_results_for_ingestion()
             self.eload.ingest(1)
 
     def test_ingest_metadata_load(self):
@@ -152,7 +174,7 @@ class TestEloadIngestion(TestCase):
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_get_results.return_value = [(1, 'filename_1'), (2, 'filename_2')]
+            m_get_results.side_effect = default_db_results_for_accession()
             self.eload.ingest(
                 instance_id=1,
                 tasks=['accession']
@@ -173,7 +195,7 @@ class TestEloadIngestion(TestCase):
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
+            m_get_results.side_effect = default_db_results_for_variant_load()
             self.eload.ingest(tasks=['variant_load'])
             assert os.path.exists(
                 os.path.join(self.resources_folder, 'projects/PRJEB12345/variant_load_params.yaml')
@@ -264,7 +286,7 @@ class TestEloadIngestion(TestCase):
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
+            m_get_results.side_effect = default_db_results_for_variant_load()
             m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
             self.eload.ingest(tasks=['variant_load'])
             self.assert_vep_versions(100, 100, 'homo_sapiens')
@@ -284,7 +306,7 @@ class TestEloadIngestion(TestCase):
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
+            m_get_results.side_effect = default_db_results_for_variant_load()
             m_get_vep_versions.return_value = (None, None, None)
             self.eload.ingest(tasks=['variant_load'])
             self.assert_vep_versions('', '', '')
@@ -303,7 +325,7 @@ class TestEloadIngestion(TestCase):
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
+            m_get_results.side_effect = default_db_results_for_variant_load()
             m_get_vep_versions.side_effect = ValueError()
             with self.assertRaises(ValueError):
                 self.eload.ingest(tasks=['variant_load'])
@@ -322,8 +344,101 @@ class TestEloadIngestion(TestCase):
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
+            m_get_results.side_effect = default_db_results_for_variant_load()
             self.eload.ingest(tasks=['annotation'])
             assert os.path.exists(
                 os.path.join(self.resources_folder, 'projects/PRJEB12345/variant_load_params.yaml')
             )
+
+    def test_resume_when_step_fails(self):
+        with self._patch_metadata_handle(), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_run_command, \
+                patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
+                patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
+                patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
+                patch('eva_submission.eload_utils.requests.post') as m_post, \
+                self._patch_mongo_database():
+            m_get_alias_results.return_value = [['alias']]
+            m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
+            m_post.return_value.text = self.get_mock_result_for_ena_date()
+            m_get_results.side_effect = default_db_results_for_metadata_load() + default_db_results_for_ingestion()
+
+            m_run_command.side_effect = [
+                None,  # metadata load
+                subprocess.CalledProcessError(1, 'nextflow accession'),  # first accession fails
+                None,  # metadata load on resume
+                None,  # accession on resume
+                None,  # variant load
+            ]
+
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.eload.ingest()
+            nextflow_dir = self.eload.eload_cfg.query(self.eload.config_section, 'accession', 'nextflow_dir')
+            assert os.path.exists(nextflow_dir)
+
+            self.eload.ingest(resume=True)
+            assert not os.path.exists(nextflow_dir)
+
+    def test_resume_completed_job(self):
+        with self._patch_metadata_handle(), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
+                patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
+                patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
+                patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
+                patch('eva_submission.eload_utils.requests.post') as m_post, \
+                self._patch_mongo_database():
+            m_get_alias_results.return_value = [['alias']]
+            m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
+            m_post.return_value.text = self.get_mock_result_for_ena_date()
+            m_get_results.side_effect = default_db_results_for_ingestion() + default_db_results_for_ingestion()
+
+            # Resuming with no existing job execution is fine
+            self.eload.ingest(resume=True)
+            num_calls = m_get_results.call_count
+
+            # If we resume a successfully completed job, everything will re-run
+            self.eload.ingest(resume=True)
+            assert m_get_results.call_count == 2*num_calls
+
+    def test_resume_with_tasks(self):
+        with self._patch_metadata_handle(), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_run_command, \
+                patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
+                patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
+                patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
+                patch('eva_submission.eload_utils.requests.post') as m_post, \
+                self._patch_mongo_database():
+            m_get_alias_results.return_value = [['alias']]
+            m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
+            m_post.return_value.text = self.get_mock_result_for_ena_date()
+            m_get_results.side_effect = (
+                    default_db_results_for_variant_load()
+                    + default_db_results_for_accession() + default_db_results_for_variant_load()
+            )
+
+            m_run_command.side_effect = [
+                subprocess.CalledProcessError(1, 'nextflow accession'),  # first accession fails
+                None,  # variant load run alone
+                None,  # accession on resume
+                None,  # variant load on resume
+            ]
+
+            # Accession fails...
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.eload.ingest(tasks=['accession'], resume=True)
+            accession_nextflow_dir = self.eload.eload_cfg.query(self.eload.config_section, 'accession', 'nextflow_dir')
+            assert os.path.exists(accession_nextflow_dir)
+
+            # ...doesn't resume when we run just variant_load...
+            self.eload.ingest(tasks=['variant_load'], resume=True)
+            assert os.path.exists(accession_nextflow_dir)
+            load_nextflow_dir = self.eload.eload_cfg.query(self.eload.config_section, 'variant_load', 'nextflow_dir')
+            assert not os.path.exists(load_nextflow_dir)
+
+            # ...and does resume when we run accession again.
+            self.eload.ingest(tasks=['accession'], resume=True)
+            assert not os.path.exists(accession_nextflow_dir)
+            assert not os.path.exists(load_nextflow_dir)

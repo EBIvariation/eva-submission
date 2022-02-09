@@ -463,7 +463,6 @@ class EloadIngestion(Eload):
                     '-resume' if resume else ''
                 ))
             )
-            # TODO only do this at the end of the entire process (ensures completed NF process won't re-run)
             shutil.rmtree(work_dir)
             self.eload_cfg.pop(self.config_section, str(workflow_name), 'nextflow_dir')
         except subprocess.CalledProcessError as e:
