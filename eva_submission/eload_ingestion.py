@@ -37,6 +37,7 @@ project_dirs = {
 class EloadIngestion(Eload):
     config_section = 'ingestion'  # top-level config key
     all_tasks = ['metadata_load', 'accession', 'variant_load', 'annotation']
+    nextflow_complete_value = '<complete>'
 
     def __init__(self, eload_number, config_object: EloadConfig = None):
         super().__init__(eload_number, config_object)
@@ -440,9 +441,20 @@ class EloadIngestion(Eload):
         return list(self.project_dir.joinpath(project_dirs['valid']).glob('*.vcf.gz'))
 
     def run_nextflow(self, workflow_name, params, resume):
+        """
+        Runs a Nextflow workflow using the provided parameters.
+        This will create a Nextflow work directory and delete it if the process completes successfully.
+        If the process fails, the work directory is preserved and the process can be resumed.
+        """
         work_dir = None
         if resume:
             work_dir = self.eload_cfg.query(self.config_section, workflow_name, 'nextflow_dir')
+            if work_dir == self.nextflow_complete_value:
+                self.info(f'Nextflow {workflow_name} pipeline already completed, skipping.')
+                return
+            if not work_dir or not os.path.exists(work_dir):
+                self.warning(f'Work directory for {workflow_name} not found, will start from scratch.')
+                work_dir = None
         if not resume or not work_dir:
             work_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
             self.eload_cfg.set(self.config_section, workflow_name, 'nextflow_dir', value=work_dir)
@@ -464,7 +476,8 @@ class EloadIngestion(Eload):
                 ))
             )
             shutil.rmtree(work_dir)
-            self.eload_cfg.pop(self.config_section, str(workflow_name), 'nextflow_dir')
+            self.eload_cfg.set(self.config_section, str(workflow_name), 'nextflow_dir',
+                               value=self.nextflow_complete_value)
         except subprocess.CalledProcessError as e:
             error_msg = f'Nextflow {workflow_name} pipeline failed: results might not be complete.'
             error_msg += (f"See Nextflow logs in {self.eload_dir}/.nextflow.log or pipeline logs "

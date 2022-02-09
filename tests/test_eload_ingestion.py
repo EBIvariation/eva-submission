@@ -383,7 +383,7 @@ class TestEloadIngestion(TestCase):
     def test_resume_completed_job(self):
         with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
-                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_run_command, \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
                 patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
@@ -396,11 +396,14 @@ class TestEloadIngestion(TestCase):
 
             # Resuming with no existing job execution is fine
             self.eload.ingest(resume=True)
-            num_calls = m_get_results.call_count
+            num_db_calls = m_get_results.call_count
+            assert m_run_command.call_count == 3
 
-            # If we resume a successfully completed job, everything will re-run
+            # If we resume a successfully completed job, everything in the python will re-run (including db queries)
+            # but the nextflow calls will not
             self.eload.ingest(resume=True)
-            assert m_get_results.call_count == 2*num_calls
+            assert m_get_results.call_count == 2*num_db_calls
+            assert m_run_command.call_count == 4  # 3+1 for metadata
 
     def test_resume_with_tasks(self):
         with self._patch_metadata_handle(), \
@@ -432,13 +435,18 @@ class TestEloadIngestion(TestCase):
             accession_nextflow_dir = self.eload.eload_cfg.query(self.eload.config_section, 'accession', 'nextflow_dir')
             assert os.path.exists(accession_nextflow_dir)
 
-            # ...doesn't resume when we run just variant_load...
+            # ...doesn't resume when we run just variant_load (successfully)...
             self.eload.ingest(tasks=['variant_load'], resume=True)
+            new_accession_nextflow_dir = self.eload.eload_cfg.query(self.eload.config_section, 'accession',
+                                                                    'nextflow_dir')
+            assert new_accession_nextflow_dir == accession_nextflow_dir
             assert os.path.exists(accession_nextflow_dir)
             load_nextflow_dir = self.eload.eload_cfg.query(self.eload.config_section, 'variant_load', 'nextflow_dir')
-            assert not os.path.exists(load_nextflow_dir)
+            assert load_nextflow_dir == self.eload.nextflow_complete_value
 
             # ...and does resume when we run accession again.
             self.eload.ingest(tasks=['accession'], resume=True)
+            new_accession_nextflow_dir = self.eload.eload_cfg.query(self.eload.config_section, 'accession',
+                                                                    'nextflow_dir')
+            assert new_accession_nextflow_dir == self.eload.nextflow_complete_value
             assert not os.path.exists(accession_nextflow_dir)
-            assert not os.path.exists(load_nextflow_dir)
