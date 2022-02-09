@@ -129,7 +129,7 @@ class TestEloadBacklog(TestCase):
             ]
             with self.assertRaises(ValueError) as context:
                 eload.project_accession
-            assert str(context.exception) == 'No project found for PRJEB9999 found in metadata DB.'
+            assert str(context.exception) == 'No project found for PRJEB9999 in metadata DB.'
 
     def test_set_analysis_fail(self):
         eload = EloadBacklog(44, project_accession='PRJEB9999', analysis_accessions=['ERZ9997', 'ERZ9998', 'ERZ9999'])
@@ -141,7 +141,7 @@ class TestEloadBacklog(TestCase):
             ]
             with self.assertRaises(ValueError) as context:
                 eload.analysis_accessions
-            assert str(context.exception) == 'Some analysis accession could be found for analysis ' \
+            assert str(context.exception) == 'Some analysis accession could not be found for analyses ' \
                                              'ERZ9997, ERZ9998, ERZ9999 in metadata DB.'
 
     def test_set_project_and_analysis(self):
