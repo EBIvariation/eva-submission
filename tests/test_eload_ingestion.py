@@ -108,12 +108,6 @@ class TestEloadIngestion(TestCase):
 
     def test_ingest_all_tasks(self):
         with self._patch_metadata_handle(), \
-                patch('eva_submission.eload_ingestion.get_primary_mongo_creds_for_profile',
-                      autospec=True) as m_mongo_creds, \
-                patch('eva_submission.eload_ingestion.get_accession_pg_creds_for_profile',
-                      autospec=True) as m_pg_creds, \
-                patch('eva_submission.eload_ingestion.get_count_service_creds_for_profile',
-                      autospec=True) as m_counts_creds, \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
@@ -121,7 +115,6 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
                 self._patch_mongo_database():
-            m_mongo_creds.return_value = m_pg_creds.return_value = m_counts_creds.return_value = ('host', 'user', 'pass')
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
             m_post.return_value.text = self.get_mock_result_for_ena_date()
@@ -149,10 +142,6 @@ class TestEloadIngestion(TestCase):
 
     def test_ingest_accession(self):
         with self._patch_metadata_handle(), \
-                patch('eva_submission.eload_ingestion.get_primary_mongo_creds_for_profile',
-                      autospec=True) as m_mongo_creds, \
-                patch('eva_submission.eload_ingestion.get_accession_pg_creds_for_profile', autospec=True) as m_pg_creds, \
-                patch('eva_submission.eload_ingestion.get_count_service_creds_for_profile', autospec=True) as m_counts_creds, \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
@@ -160,7 +149,6 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
                 self._patch_mongo_database():
-            m_mongo_creds.return_value = m_pg_creds.return_value = m_counts_creds.return_value = ('host', 'user', 'pass')
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
             m_post.return_value.text = self.get_mock_result_for_ena_date()
@@ -170,7 +158,7 @@ class TestEloadIngestion(TestCase):
                 tasks=['accession']
             )
             assert os.path.exists(
-                os.path.join(self.resources_folder, 'projects/PRJEB12345/accession_config_file.yaml')
+                os.path.join(self.resources_folder, 'projects/PRJEB12345/accession_params.yaml')
             )
 
     def test_ingest_variant_load(self):
@@ -188,7 +176,7 @@ class TestEloadIngestion(TestCase):
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
             self.eload.ingest(tasks=['variant_load'])
             assert os.path.exists(
-                os.path.join(self.resources_folder, 'projects/PRJEB12345/load_config_file.yaml')
+                os.path.join(self.resources_folder, 'projects/PRJEB12345/variant_load_params.yaml')
             )
 
     def test_insert_browsable_files(self):
@@ -319,7 +307,7 @@ class TestEloadIngestion(TestCase):
             m_get_vep_versions.side_effect = ValueError()
             with self.assertRaises(ValueError):
                 self.eload.ingest(tasks=['variant_load'])
-            config_file = os.path.join(self.resources_folder, 'projects/PRJEB12345/load_config_file.yaml')
+            config_file = os.path.join(self.resources_folder, 'projects/PRJEB12345/variant_load_params.yaml')
             assert not os.path.exists(config_file)
 
     def test_ingest_annotation_only(self):
@@ -337,5 +325,5 @@ class TestEloadIngestion(TestCase):
             m_get_results.side_effect = [[('Test Study Name')], [(1, 'filename_1'), (2, 'filename_2')]]
             self.eload.ingest(tasks=['annotation'])
             assert os.path.exists(
-                os.path.join(self.resources_folder, 'projects/PRJEB12345/load_config_file.yaml')
+                os.path.join(self.resources_folder, 'projects/PRJEB12345/variant_load_params.yaml')
             )

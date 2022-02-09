@@ -1,0 +1,21 @@
+<settings>
+    <profiles>
+        <profile>
+            <id>internal</id>
+            <properties>
+                <eva.mongo.host>host</eva.mongo.host>
+                <eva.mongo.user>user</eva.mongo.user>
+                <eva.mongo.passwd>pass</eva.mongo.passwd>
+                <eva.count-stats.url>host</eva.count-stats.url>
+                <eva.count-stats.username>user</eva.count-stats.username>
+                <eva.count-stats.password>pass</eva.count-stats.password>
+                <eva.evapro.jdbc.url>host</eva.evapro.jdbc.url>
+                <eva.evapro.user>user</eva.evapro.user>
+                <eva.evapro.password>pass</eva.evapro.password>
+                <eva.accession.jdbc.url>host</eva.accession.jdbc.url>
+                <eva.accession.user>user</eva.accession.user>
+                <eva.accession.password>pass</eva.accession.password>
+            </properties>
+        </profile>
+    </profiles>
+</settings>
