@@ -10,7 +10,6 @@ accession_job_props:
   test.prop1: x
   test.prop2: y
   parameters.taxonomyAccession: 9606
-needs_merge: true
 eva_pipeline_props: test_eva_pipeline.properties
 load_job_props:
   test.prop1: a
