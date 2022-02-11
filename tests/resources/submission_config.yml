@@ -11,7 +11,7 @@ genome_downloader:
 
 maven:
   environment: 'internal'
-  settings_file: 'path/to/settings/file'
+  settings_file: 'tests/resources/settings.xml'
 
 mongodb:
   mongo_admin_uri: mongodb://username@mongo-server.example.com:27017

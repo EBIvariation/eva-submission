@@ -37,6 +37,7 @@ project_dirs = {
 class EloadIngestion(Eload):
     config_section = 'ingestion'  # top-level config key
     all_tasks = ['metadata_load', 'accession', 'variant_load', 'annotation']
+    nextflow_complete_value = '<complete>'
 
     def __init__(self, eload_number, config_object: EloadConfig = None):
         super().__init__(eload_number, config_object)
@@ -47,7 +48,8 @@ class EloadIngestion(Eload):
             self,
             instance_id=None,
             tasks=None,
-            vep_cache_assembly_name=None
+            vep_cache_assembly_name=None,
+            resume=False
     ):
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
         self.project_dir = self.setup_project_dir()
@@ -74,16 +76,14 @@ class EloadIngestion(Eload):
         if do_accession:
             self.eload_cfg.set(self.config_section, 'accession', 'instance_id', value=instance_id)
             self.update_config_with_hold_date(self.project_accession)
-            output_dir = self.run_accession_workflow(vcf_files_to_ingest)
-            shutil.rmtree(output_dir)
+            self.run_accession_workflow(vcf_files_to_ingest, resume=resume)
             self.insert_browsable_files()
             self.update_browsable_files_with_date()
             self.update_files_with_ftp_path()
             self.refresh_study_browser()
 
         if do_variant_load or annotation_only:
-            output_dir = self.run_variant_load_workflow(vcf_files_to_ingest, annotation_only)
-            shutil.rmtree(output_dir)
+            self.run_variant_load_workflow(vcf_files_to_ingest, annotation_only, resume=resume)
             self.update_loaded_assembly_in_browsable_files()
 
     def fill_vep_versions(self, vep_cache_assembly_name=None):
@@ -286,8 +286,7 @@ class EloadIngestion(Eload):
                     self.warning(f"VCF files for analysis {analysis_alias} not found")
         return vcf_files_to_ingest
 
-    def run_accession_workflow(self, vcf_files_to_ingest):
-        output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
+    def run_accession_workflow(self, vcf_files_to_ingest, resume):
         mongo_host, mongo_user, mongo_pass = get_primary_mongo_creds_for_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
         pg_url, pg_user, pg_pass = get_accession_pg_creds_for_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
         counts_url, counts_user, counts_pass = get_count_service_creds_for_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
@@ -317,29 +316,9 @@ class EloadIngestion(Eload):
             'executable': cfg['executable'],
             'jar': cfg['jar'],
         }
-        accession_config_file = os.path.join(self.project_dir, 'accession_config_file.yaml')
-        with open(accession_config_file, 'w') as open_file:
-            yaml.safe_dump(accession_config, open_file)
-        accession_script = os.path.join(NEXTFLOW_DIR, 'accession.nf')
-        try:
-            command_utils.run_command_with_output(
-                'Nextflow Accessioning process',
-                ' '.join((
-                    'export NXF_OPTS="-Xms1g -Xmx8g"; ',
-                    cfg['executable']['nextflow'], accession_script,
-                    '-params-file', accession_config_file,
-                    '-work-dir', output_dir
-                ))
-            )
-        except subprocess.CalledProcessError as e:
-            self.error('Nextflow accessioning pipeline failed: results might not be complete.')
-            self.error(f"See Nextflow logs in {self.eload_dir}/.nextflow.log or accessioning logs "
-                       f"in {self.project_dir.joinpath(project_dirs['logs'])} for more details.")
-            raise e
-        return output_dir
+        self.run_nextflow('accession', accession_config, resume)
 
-    def run_variant_load_workflow(self, vcf_files_to_ingest, annotation_only):
-        output_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
+    def run_variant_load_workflow(self, vcf_files_to_ingest, annotation_only, resume):
         job_props = variant_load_props_template(
                 project_accession=self.project_accession,
                 study_name=self.get_study_name(),
@@ -359,26 +338,7 @@ class EloadIngestion(Eload):
             'jar': cfg['jar'],
             'annotation_only': annotation_only,
         }
-        load_config_file = os.path.join(self.project_dir, 'load_config_file.yaml')
-        with open(load_config_file, 'w') as open_file:
-            yaml.safe_dump(load_config, open_file)
-        variant_load_script = os.path.join(NEXTFLOW_DIR, 'variant_load.nf')
-        try:
-            command_utils.run_command_with_output(
-                'Nextflow Variant Load process',
-                ' '.join((
-                    'export NXF_OPTS="-Xms1g -Xmx8g"; ',
-                    cfg['executable']['nextflow'], variant_load_script,
-                    '-params-file', load_config_file,
-                    '-work-dir', output_dir
-                ))
-            )
-        except subprocess.CalledProcessError as e:
-            self.error('Nextflow variant load pipeline failed: results might not be complete')
-            self.error(f"See Nextflow logs in {self.eload_dir}/.nextflow.log or pipeline logs "
-                       f"in {self.project_dir.joinpath(project_dirs['logs'])} for more details.")
-            raise e
-        return output_dir
+        self.run_nextflow('variant_load', load_config, resume)
 
     def insert_browsable_files(self):
         with self.metadata_connection_handle as conn:
@@ -479,3 +439,48 @@ class EloadIngestion(Eload):
     @cached_property
     def valid_vcf_filenames(self):
         return list(self.project_dir.joinpath(project_dirs['valid']).glob('*.vcf.gz'))
+
+    def run_nextflow(self, workflow_name, params, resume):
+        """
+        Runs a Nextflow workflow using the provided parameters.
+        This will create a Nextflow work directory and delete it if the process completes successfully.
+        If the process fails, the work directory is preserved and the process can be resumed.
+        """
+        work_dir = None
+        if resume:
+            work_dir = self.eload_cfg.query(self.config_section, workflow_name, 'nextflow_dir')
+            if work_dir == self.nextflow_complete_value:
+                self.info(f'Nextflow {workflow_name} pipeline already completed, skipping.')
+                return
+            if not work_dir or not os.path.exists(work_dir):
+                self.warning(f'Work directory for {workflow_name} not found, will start from scratch.')
+                work_dir = None
+        if not resume or not work_dir:
+            work_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
+            self.eload_cfg.set(self.config_section, workflow_name, 'nextflow_dir', value=work_dir)
+
+        params_file = os.path.join(self.project_dir, f'{workflow_name}_params.yaml')
+        with open(params_file, 'w') as open_file:
+            yaml.safe_dump(params, open_file)
+        nextflow_script = os.path.join(NEXTFLOW_DIR, f'{workflow_name}.nf')
+
+        try:
+            command_utils.run_command_with_output(
+                f'Nextflow {workflow_name} process',
+                ' '.join((
+                    'export NXF_OPTS="-Xms1g -Xmx8g"; ',
+                    cfg['executable']['nextflow'], nextflow_script,
+                    '-params-file', params_file,
+                    '-work-dir', work_dir,
+                    '-resume' if resume else ''
+                ))
+            )
+            shutil.rmtree(work_dir)
+            self.eload_cfg.set(self.config_section, str(workflow_name), 'nextflow_dir',
+                               value=self.nextflow_complete_value)
+        except subprocess.CalledProcessError as e:
+            error_msg = f'Nextflow {workflow_name} pipeline failed: results might not be complete.'
+            error_msg += (f"See Nextflow logs in {self.eload_dir}/.nextflow.log or pipeline logs "
+                          f"in {self.project_dir.joinpath(project_dirs['logs'])} for more details.")
+            self.error(error_msg)
+            raise e

@@ -36,6 +36,8 @@ def main():
                           help='The assembly name used in the VEP cache to help the script to find the correct cache '
                                'to use. This should be only used rarely when the script cannot find the VEP cache but '
                                'we know it exists.')
+    argparse.add_argument('--resume', action='store_true', default=False,
+                          help='Whether to resume an existing Nextflow process within ingestion.')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level.')
 
@@ -53,7 +55,8 @@ def main():
     ingestion.ingest(
         instance_id=args.instance,
         tasks=args.tasks,
-        vep_cache_assembly_name=args.vep_cache_assembly_name
+        vep_cache_assembly_name=args.vep_cache_assembly_name,
+        resume=args.resume
     )
 
 

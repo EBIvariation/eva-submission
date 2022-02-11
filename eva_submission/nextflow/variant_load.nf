@@ -46,55 +46,9 @@ if (!params.valid_vcfs || !params.vep_path || !params.project_accession || !para
     exit 1, helpMessage()
 }
 
-
-/*
-If the aggregation type is NONE (genotyped VCF) the csv file with the mapping between vcf file, assembly accession,
-fasta, assembly report, analysis_accession, db_name, aggregation will be grouped by analysis accession and the vcf files
-per analysis will be counted to determine if a merge is needed. When merge is not needed a symbolic link will be created
-to the input vcf file
-If the aggregation type is different from none (BASIC = aggregated VCF, with allele frequencies) the files are not
-merged and passed directly to create the properties
-**/
-vcfs_to_merge = Channel.fromPath(params.valid_vcfs)
-            .splitCsv(header:true)
-            .filter(row -> row.aggregation.equals("none"))
-            .map{row -> tuple(file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name, row.vep_version, row.vep_cache_version, row.vep_species)}
-            .groupTuple(by:2)
-            .map{row -> tuple(row[0], row[0].size(), row[1][0], row[2], row[3][0], row[4][0], row[5][0], row[6][0], "none") }
-
 unmerged_vcfs = Channel.fromPath(params.valid_vcfs)
             .splitCsv(header:true)
-            .filter(row -> !row.aggregation.equals("none"))
-            .map{row -> tuple(file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name, row.vep_version, row.vep_cache_version, row.vep_species, "basic")}
-
-
-/*
- * Merge VCFs horizontally, i.e. by sample.
- */
-process merge_vcfs {
-    input:
-    tuple vcf_files, file_count, fasta, analysis_accession, db_name, vep_version, vep_cache_version, vep_species, aggregation from vcfs_to_merge
-    output:
-    tuple "${merged_filename}", fasta, analysis_accession, db_name, vep_version, vep_cache_version, vep_species, aggregation into merged_vcf
-
-    script:
-    merged_filename = "${params.project_accession}_${analysis_accession}_merged.vcf.gz"
-    if (file_count > 1) {
-        list_filename = "${workflow.workDir}/all_files_${analysis_accession}.list"
-        file_list = new File(list_filename)
-        file_list.newWriter().withWriter{ w ->
-            vcf_files.each { file -> w.write("$file\n")}
-        }
-        """
-        $params.executable.bcftools merge --merge all --file-list ${list_filename} --threads 3 -O z -o ${merged_filename}
-        """
-    } else {
-        single_file = vcf_files[0]
-        """
-        ln -sfT ${single_file} ${merged_filename}
-        """
-    }
-}
+            .map{row -> tuple(file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name, row.vep_version, row.vep_cache_version, row.vep_species, row.aggregation)}
 
 
 /*
@@ -102,7 +56,7 @@ process merge_vcfs {
  */
 process create_properties {
     input:
-    tuple vcf_file, fasta, analysis_accession, db_name, vep_version, vep_cache_version, vep_species, aggregation from unmerged_vcfs.mix(merged_vcf)
+    tuple vcf_file, fasta, analysis_accession, db_name, vep_version, vep_cache_version, vep_species, aggregation from unmerged_vcfs
 
     output:
     path "load_${vcf_file.getFileName()}.properties" into variant_load_props
