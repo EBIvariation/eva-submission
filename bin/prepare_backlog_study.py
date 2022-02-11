@@ -47,6 +47,10 @@ def main():
                           help='task or set of tasks to perform during validation')
     argparse.add_argument('--merge_per_analysis', action='store_true', default=False,
                           help='Whether to merge vcf files per analysis if possible.')
+    argparse.add_argument('--set_as_valid', action='store_true', default=False,
+                          help='Set the script to consider all validation tasks performed as valid in the final '
+                               'evaluation. This does not affect the actual report but only change the final '
+                               'evaluation')
     argparse.add_argument('--report', action='store_true', default=False,
                           help='Set the script to only report the results based on previously run preparation.')
     argparse.add_argument('--debug', action='store_true', default=False,
@@ -71,6 +75,9 @@ def main():
     if not args.report:
         validation.validate(args.validation_tasks)
         # Also mark the other validation tasks as force so they are all passable
+
+        if args.set_as_valid:
+            forced_validation_tasks = validation.all_validation_tasks
         for validation_task in forced_validation_tasks:
             validation.eload_cfg.set('validation', validation_task, 'forced', value=True)
         validation.mark_valid_files_and_metadata(args.merge_per_analysis)
