@@ -1,4 +1,5 @@
 import ftplib
+import glob
 import os
 import re
 import tarfile
@@ -230,5 +231,12 @@ def download_and_extract_vep_cache(ftp, species_name, vep_cache_file):
     with open(destination, 'wb+') as dest:
         ftp.retrbinary(f'RETR {vep_cache_file}', dest.write)
     with tarfile.open(destination, 'r:gz') as tar:
-        tar.extractall(path=os.path.join(cfg['vep_cache_path']))
+        tar.extractall(path=tmp_dir.name)
+    sources = glob.glob(os.path.join(tmp_dir.name, '*', '*'))
+    if len(sources) != 1:
+        raise ValueError(f'Extraction failure for {species_name} in {tmp_dir.name}')
+    cache_name = os.path.basename(sources[0])
+    copy_destination = os.path.join(cfg['vep_cache_path'], species_name, cache_name)
+    os.makedirs(os.path.join(cfg['vep_cache_path'], species_name), exist_ok=True)
+    os.rename(sources[0], copy_destination)
     tmp_dir.cleanup()
