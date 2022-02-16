@@ -158,5 +158,5 @@ class TestEloadBacklog(TestCase):
             m_get_results.reset_mock()
             assert eload.analysis_accessions == ['ERZ9997', 'ERZ9998', 'ERZ9999']
             assert m_get_results.call_args[0][1] == ("select distinct analysis_accession from analysis "
-                                                     "where analysis in ('ERZ9997','ERZ9998','ERZ9999') "
+                                                     "where analysis_accession in ('ERZ9997','ERZ9998','ERZ9999') "
                                                      "and hidden_in_eva=0;")
