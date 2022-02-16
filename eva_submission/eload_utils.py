@@ -37,6 +37,8 @@ def get_reference_fasta_and_report(species_name, reference_accession, output_dir
         if not os.path.isfile(reference.sequence_fasta_path) or overwrite:
             reference.download_contig_sequence_from_ncbi(genbank_only=True)
         return reference.sequence_fasta_path, None
+    else:
+        logger.warning(f'{reference_accession} is not recognize as either an INSDC assembly or sequence.')
 
 
 def resolve_accession_from_text(reference_text):

@@ -60,7 +60,7 @@ class EloadBacklog(Eload):
         if self._preset_analysis_accessions:
             with self.metadata_connection_handle as conn:
                 query = (f"select distinct analysis_accession from analysis "
-                         f"where analysis in {list_to_sql_in_list(self._preset_analysis_accessions)}"
+                         f"where analysis_accession in {list_to_sql_in_list(self._preset_analysis_accessions)}"
                          f" and hidden_in_eva=0;")
                 rows = get_all_results_for_query(conn, query)
                 if len(rows) != len(self._preset_analysis_accessions):
@@ -100,7 +100,7 @@ class EloadBacklog(Eload):
 
         with self.metadata_connection_handle as conn:
             query = f"select distinct analysis_accession, vcf_reference_accession " \
-                    f"from analysis b" \
+                    f"from analysis " \
                     f"where analysis_accession in {list_to_sql_in_list(self.analysis_accessions)};"
             rows = get_all_results_for_query(conn, query)
         for analysis_accession, asm_accession in rows:
@@ -141,7 +141,7 @@ class EloadBacklog(Eload):
                     f"from analysis a " \
                     f"join analysis_file b on a.analysis_accession=b.analysis_accession " \
                     f"join file c on b.file_id=c.file_id " \
-                    f"where analysis_accession in {list_to_sql_in_list(self.analysis_accessions)}" \
+                    f"where a.analysis_accession in {list_to_sql_in_list(self.analysis_accessions)}" \
                     f"group by a.analysis_accession;"
             rows = get_all_results_for_query(conn, query)
 
