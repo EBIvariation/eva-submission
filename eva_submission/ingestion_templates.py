@@ -55,6 +55,12 @@ def accession_props_template(
         'spring.main.web-application-type': 'none',
         'spring.main.allow-bean-definition-overriding': True,
         'spring.jpa.properties.hibernate.jdbc.lob.non_contextual_creation': True,
+        # See https://vkuzel.com/spring-boot-jpa-hibernate-atomikos-postgresql-exception
+        # Disable feature detection by this undocumented parameter.
+        # Check the org.hibernate.engine.jdbc.internal.JdbcServiceImpl.configure method for more details.
+        'spring.jpa.properties.hibernate.temp.use_jdbc_metadata_defaults': False,
+        # Because detection is disabled you have to set correct dialect by hand.
+        'spring.jpa.database-platform': 'org.hibernate.dialect.PostgreSQL9Dialect'
     }
 
 
@@ -87,4 +93,10 @@ def variant_load_props_template(
         'annotation.overwrite': False,
         'config.chunk.size': 200,
         'spring.jpa.properties.hibernate.jdbc.lob.non_contextual_creation': True,
+        # See https://vkuzel.com/spring-boot-jpa-hibernate-atomikos-postgresql-exception
+        # Disable feature detection by this undocumented parameter.
+        # Check the org.hibernate.engine.jdbc.internal.JdbcServiceImpl.configure method for more details.
+        'spring.jpa.properties.hibernate.temp.use_jdbc_metadata_defaults': False,
+        # Because detection is disabled you have to set correct dialect by hand.
+        'spring.jpa.database-platform': 'org.hibernate.dialect.PostgreSQL9Dialect'
     }
