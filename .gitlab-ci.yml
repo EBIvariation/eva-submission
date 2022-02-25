@@ -31,7 +31,7 @@ test:
   environment:
     name: $ENVIRONMENT_NAME
   script:
-    # Start ssh-agent and set identity then copy the Jar file and create a symlink
+    # Start ssh-agent and set identity then run deploy script
     # See https://docs.gitlab.com/ee/ci/ssh_keys/
     - apt-get update
     - apt-get -y install openssh-client
@@ -56,6 +56,43 @@ deploy-python-tool-production:
   variables:
     ENVIRONMENT_NAME: production
     EVA_SUBMISSION_PATH: $EVA_SUBMISSION_PRODUCTION_PATH
+    DEPLOY_POINT: $CI_COMMIT_TAG
+  only:
+    - tags
+
+# Not executed, parent job definition
+.deploy-python-tool-codon:
+  stage: deploy
+  image: python:3.8.7-slim-buster
+  environment:
+    name: $ENVIRONMENT_NAME
+  script:
+    # Start ssh-agent and set identity then run deploy script
+    # See https://docs.gitlab.com/ee/ci/ssh_keys/
+    - apt-get update
+    - apt-get -y install openssh-client
+    - eval "$(ssh-agent)"
+    - echo "$EVA_ETL_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${CLUSTER_USER}@${CLUSTER_LOGIN_NODE_CODON} "${EVA_SUBMISSION_PATH}/deploy.sh ${DEPLOY_POINT}"
+  dependencies:
+    - test
+
+deploy-python-tool-development-codon:
+  extends: .deploy-python-tool-codon
+  variables:
+    ENVIRONMENT_NAME: development
+    EVA_SUBMISSION_PATH: $EVA_SUBMISSION_DEVELOPMENT_PATH_CODON
+    DEPLOY_POINT: $CI_COMMIT_BRANCH
+  only:
+    - external_pull_requests
+    - master
+    - EVA-2765  # for testing only, remove before merge!
+
+deploy-python-tool-production-codon:
+  extends: .deploy-python-tool-codon
+  variables:
+    ENVIRONMENT_NAME: production
+    EVA_SUBMISSION_PATH: $EVA_SUBMISSION_PRODUCTION_PATH_CODON
     DEPLOY_POINT: $CI_COMMIT_TAG
   only:
     - tags
