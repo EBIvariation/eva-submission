@@ -86,7 +86,6 @@ deploy-python-tool-development-codon:
   only:
     - external_pull_requests
     - master
-    - EVA-2765  # for testing only, remove before merge!
 
 deploy-python-tool-production-codon:
   extends: .deploy-python-tool-codon
