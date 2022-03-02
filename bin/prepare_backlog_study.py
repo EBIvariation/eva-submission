@@ -42,6 +42,9 @@ def main():
                                'The analyses need to exists in the DB.')
     argparse.add_argument('--force_config', action='store_true', default=False,
                           help='Overwrite the configuration file after backing it up.')
+    argparse.add_argument('--keep_config', action='store_true', default=False,
+                          help='Do not create a new config but keep the current one. '
+                               'This will skip all the backlog prep and will only run the validations.')
     argparse.add_argument('--validation_tasks', required=False, type=str, nargs='+',
                           default=validation_tasks, choices=validation_tasks,
                           help='task or set of tasks to perform during validation')
@@ -69,7 +72,7 @@ def main():
                                analysis_accessions=args.analysis_accessions)
     # Pass the eload config object to validation so that the two objects share the same state
     validation = EloadValidation(args.eload, preparation.eload_cfg)
-    if not args.report:
+    if not args.report and not args.keep_config:
         preparation.fill_in_config(args.force_config)
 
     if not args.report:
