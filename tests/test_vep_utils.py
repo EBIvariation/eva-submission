@@ -9,7 +9,7 @@ from ebi_eva_common_pyutils.logger import logging_config
 
 from eva_submission.submission_config import load_config
 from eva_submission.vep_utils import recursive_nlst, get_vep_and_vep_cache_version_from_ensembl, \
-    get_vep_and_vep_cache_version
+    get_vep_and_vep_cache_version, download_and_extract_vep_cache, get_ftp_connection
 
 
 class TestVepUtils(TestCase):
@@ -122,3 +122,11 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
             m_get_species.return_value = ('homo_sapiens', None, None)
             with self.assertRaises(ValueError):
                 get_vep_and_vep_cache_version('fake_mongo', 'fake_db', 'fake_assembly')
+
+    def test_download_and_extract_vep_cache(self):
+        species_name = 'whatever_species_name'
+        download_and_extract_vep_cache(
+            get_ftp_connection('ftp.ensembl.org'), species_name,
+            '/pub/release-105/variation/indexed_vep_cache/papio_anubis_refseq_vep_105_Panubis1.0.tar.gz'
+        )
+        assert os.path.exists(os.path.join(cfg['vep_cache_path'], species_name, '105_Panubis1.0'))
