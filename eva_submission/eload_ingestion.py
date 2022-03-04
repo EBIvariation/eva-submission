@@ -411,6 +411,21 @@ class EloadIngestion(Eload):
                              f"where file_id = '{file_id}';"
                 execute_query(conn, ftp_update)
 
+    def check_assembly_set_id_coherence(self):
+        query = (
+            f'select a.analysis_accession, a.assembly_set_id, af.file_id, bf.assembly_set_id '
+            f'from project_analysis pa '
+            f'join analysis a on pa.analysis_accession=a.analysis_accession '
+            f'join analysis_file af on af.analysis_accession=a.analysis_accession '
+            f'join browsable_file bf on af.file_id=bf.file_id '
+            f"where pa.project_accession='{self.project_accession}';"
+        )
+        with self.metadata_connection_handle as conn:
+            for analysis_accession, assembly_set_id, file_id, assembly_set_id_from_browsable in get_all_results_for_query(conn, query):
+                if assembly_set_id != assembly_set_id_from_browsable:
+                    self.error(f'assembly_set_id {assembly_set_id} from analysis table is different from '
+                               f'assembly_set_id {assembly_set_id} from browsable_file')
+
     def update_assembly_set_in_analysis(self):
         taxonomy = self.eload_cfg.query('submission', 'taxonomy_id')
         analyses = self.eload_cfg.query('submission', 'analyses')

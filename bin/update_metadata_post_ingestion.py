@@ -47,6 +47,7 @@ def main():
     ingestion.update_files_with_ftp_path()
     ingestion.refresh_study_browser()
     ingestion.update_loaded_assembly_in_browsable_files()
+    ingestion.check_assembly_set_id_coherence()
 
 
 if __name__ == "__main__":
