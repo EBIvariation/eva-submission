@@ -1,7 +1,8 @@
 import glob
 import os
-import shutil
+import tempfile
 
+from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 
 from eva_submission.eload_submission import Eload, directory_structure
@@ -12,20 +13,35 @@ from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
 class EloadPreparation(Eload):
 
+    def _copy_file(self, source, dest):
+        with tempfile.NamedTemporaryFile(prefix="{0}_{1}".format(os.path.basename(source), os.path.basename(dest)),
+                                         suffix=".log", delete=False) as copy_log_file_handle:
+            copy_log_file_name = copy_log_file_handle.name
+            try:
+                # TODO: Replace research-rh74 queue with datamover post codon migration
+                command_utils.run_command_with_output("Copying file {0} to {1}...".format(source, dest),
+                                                      'bsub -o {0} -e {0} -K -q "research-rh74" rsync -av "{1}" "{2}"'
+                                                      .format(copy_log_file_name, source, dest))
+            except:
+                self.error("Error encountered during file copy from {0} to {1}...".format(source, dest))
+                command_utils.run_command_with_output("Trailing contents of log file {0} below..."
+                                                      .format(copy_log_file_name),
+                                                      "tail -100 " + copy_log_file_name)
+
     def copy_from_ftp(self, ftp_box, submitter):
         box = FtpDepositBox(ftp_box, submitter)
 
         vcf_dir = os.path.join(self.eload_dir, directory_structure['vcf'])
         for vcf_file in box.vcf_files:
             dest = os.path.join(vcf_dir, os.path.basename(vcf_file))
-            shutil.copyfile(vcf_file, dest)
+            self._copy_file(vcf_file, dest)
 
         if box.most_recent_metadata:
             if len(box.metadata_files) != 1:
                 self.warning('Found %s metadata file in the FTP. Will use the most recent one', len(box.metadata_files))
             metadata_dir = os.path.join(self.eload_dir, directory_structure['metadata'])
             dest = os.path.join(metadata_dir, os.path.basename(box.most_recent_metadata))
-            shutil.copyfile(box.most_recent_metadata, dest)
+            self._copy_file(box.most_recent_metadata, dest)
         else:
             self.error('No metadata file in the FTP: %s', box.deposit_box)
 
