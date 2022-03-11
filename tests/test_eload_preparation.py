@@ -1,7 +1,6 @@
 import glob
 import os
 import shutil
-import unittest.mock
 from unittest import TestCase
 
 from ebi_eva_common_pyutils.config import cfg
@@ -61,14 +60,11 @@ class TestEloadPreparation(TestCase):
         return metadata
 
     def test_copy_from_ftp(self):
-        def copyfile(_, source, dest):
-            shutil.copyfile(source, dest)
-        with unittest.mock.patch.object(EloadPreparation, '_copy_file', new=copyfile):
-            assert os.listdir(os.path.join(self.eload.eload_dir, '10_submitted', 'vcf_files')) == []
-            assert os.listdir(os.path.join(self.eload.eload_dir, '10_submitted', 'metadata_file')) == []
-            self.eload.copy_from_ftp(1, 'john')
-            assert os.listdir(os.path.join(self.eload.eload_dir, '10_submitted', 'vcf_files')) == ['data.vcf.gz']
-            assert os.listdir(os.path.join(self.eload.eload_dir, '10_submitted', 'metadata_file')) == ['metadata.xlsx']
+        assert os.listdir(os.path.join(self.eload.eload_dir, '10_submitted', 'vcf_files')) == []
+        assert os.listdir(os.path.join(self.eload.eload_dir, '10_submitted', 'metadata_file')) == []
+        self.eload.copy_from_ftp(1, 'john')
+        assert os.listdir(os.path.join(self.eload.eload_dir, '10_submitted', 'vcf_files')) == ['data.vcf.gz']
+        assert os.listdir(os.path.join(self.eload.eload_dir, '10_submitted', 'metadata_file')) == ['metadata.xlsx']
 
     def test_detect_submitted_metadata(self):
         self.create_vcfs()
