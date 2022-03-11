@@ -224,7 +224,7 @@ process csi_index_vcf {
  * Copy files from eva_public to FTP folder.
  */
  process copy_to_ftp {
-    queue = 'research-rh74'
+    label: 'datamover'
 
     input:
     // ensures that all indices are done before we copy
