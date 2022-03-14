@@ -224,6 +224,8 @@ process csi_index_vcf {
  * Copy files from eva_public to FTP folder.
  */
  process copy_to_ftp {
+    label 'datamover'
+
     input:
     // ensures that all indices are done before we copy
     file csi_indices from csi_indexed_vcf.toList()
