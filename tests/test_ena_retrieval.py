@@ -2,8 +2,9 @@ import os
 from unittest import TestCase
 from unittest.mock import patch
 
-from eva_submission.ena_retrieval import files_from_ena, get_file_from_md5, create_file, create_file_in_analysis, \
-    remove_file_from_analysis, difference_evapro_file_set_with_ena_for_analysis
+from eva_submission.ena_retrieval import files_from_ena, remove_file_from_analysis, \
+    difference_evapro_file_set_with_ena_for_analysis, get_file_id_from_md5, insert_file_into_evapro, \
+    insert_file_analysis_into_evapro
 from eva_submission.submission_config import load_config
 
 
@@ -25,33 +26,33 @@ class TestEnaRetreival(TestCase):
         }
         assert files_from_ena('ERZ468492') == expected_files
 
-    def test_get_file_from_md5(self):
+    def test_get_file_id_from_md5(self):
         with patch('eva_submission.ena_retrieval.get_metadata_connection_handle', autospec=True), \
              patch('eva_submission.ena_retrieval.get_all_results_for_query') as m_get_results:
             m_get_results.return_value = [('file_id',)]
-            assert get_file_from_md5('07f98ac44d6d6f1453d40dc61f29ecec') == 'file_id'
+            assert get_file_id_from_md5('07f98ac44d6d6f1453d40dc61f29ecec') == 'file_id'
             assert m_get_results.mock_calls[0][1][1] == \
                    "select file_id from file where file_md5='07f98ac44d6d6f1453d40dc61f29ecec'"
 
-    def test_get_file_from_md5_duplicates(self):
+    def test_get_file_id_from_md5_duplicates(self):
         with patch('eva_submission.ena_retrieval.get_metadata_connection_handle', autospec=True), \
              patch('eva_submission.ena_retrieval.get_all_results_for_query') as m_get_results:
             m_get_results.return_value = [('file_id1',), ('file_id2',)]
             with self.assertRaises(ValueError):
-                get_file_from_md5('07f98ac44d6d6f1453d40dc61f29ecec')
+                get_file_id_from_md5('07f98ac44d6d6f1453d40dc61f29ecec')
 
-    def test_create_file(self):
+    def test_insert_file_into_evapro(self):
         with patch('eva_submission.ena_retrieval.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.ena_retrieval.execute_query') as m_execute_query:
-            create_file({'filename': 'analysis_id/test.vcf.gz', 'md5': '07f98ac44d6d6f1453d40dc61f29ecec'})
+            insert_file_into_evapro({'filename': 'analysis_id/test.vcf.gz', 'md5': '07f98ac44d6d6f1453d40dc61f29ecec'})
             expected_query = ("insert into file (filename, file_md5, file_type,  file_class, file_version, is_current, file_location, ftp_file) "
                               "values ('test.vcf.gz', '07f98ac44d6d6f1453d40dc61f29ecec', 'vcf', 'submitted', 1, 1, 'scratch_folder', 'ftp.sra.ebi.ac.uk/vol1/analysis_id/test.vcf.gz')")
             assert m_execute_query.mock_calls[0][1][1] == expected_query
 
-    def test_create_file_in_analysis(self):
+    def test_insert_file_analysis_into_evapro(self):
         with patch('eva_submission.ena_retrieval.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.ena_retrieval.execute_query') as m_execute_query:
-            create_file_in_analysis({'file_id': 1234, 'analysis_accession': 'analysis1'})
+            insert_file_analysis_into_evapro({'file_id': 1234, 'analysis_accession': 'analysis1'})
             expected_query = "insert into analysis_file (ANALYSIS_ACCESSION,FILE_ID) values (1234, 'analysis1')"
             assert m_execute_query.mock_calls[0][1][1] == expected_query
 

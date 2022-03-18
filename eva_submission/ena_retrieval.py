@@ -16,7 +16,6 @@ def files_from_ena(search_term):
     analyses = xml_root.xpath('/ANALYSIS_SET/ANALYSIS')
     analysis_files = {}
     for analysis in analyses:
-
         files = analysis.xpath('FILES/FILE')
         file_dicts = []
         for file in files:
@@ -26,7 +25,7 @@ def files_from_ena(search_term):
     return analysis_files
 
 
-def get_file_from_md5(md5):
+def get_file_id_from_md5(md5):
     with get_metadata_connection_handle(cfg['maven']['environment'], cfg['maven']['settings_file']) as conn:
         query = f"select file_id from file where file_md5='{md5}'"
         rows = get_all_results_for_query(conn, query)
@@ -38,7 +37,7 @@ def get_file_from_md5(md5):
         return file_ids[0]
 
 
-def create_file(file_dict):
+def insert_file_into_evapro(file_dict):
     filename = os.path.basename(file_dict['filename'])
     if file_dict['filename'].endswith('.vcf.gz') or file_dict['filename'].endswith('.vcf'):
         file_type = 'vcf'
@@ -46,19 +45,18 @@ def create_file(file_dict):
         file_type = 'tabix'
     else:
         raise ValueError('Unsupported file type')
-    file_location = 'scratch_folder'
     ftp_file = 'ftp.sra.ebi.ac.uk/vol1/' + file_dict['filename']
 
     query = ('insert into file '
              '(filename, file_md5, file_type,  file_class, file_version, is_current, file_location, ftp_file) '
              f"values ('{filename}', '{file_dict['md5']}', '{file_type}', 'submitted', 1, 1, "
-             f"'{file_location}', '{ftp_file}')")
+             f"'scratch_folder', '{ftp_file}')")
     with get_metadata_connection_handle(cfg['maven']['environment'], cfg['maven']['settings_file']) as conn:
         logger.info(f'Create file {filename} in the file table')
         execute_query(conn, query)
 
 
-def create_file_in_analysis(file_dict):
+def insert_file_analysis_into_evapro(file_dict):
     query = (f"insert into analysis_file (ANALYSIS_ACCESSION,FILE_ID) "
              f"values ({file_dict['file_id']}, '{file_dict['analysis_accession']}')")
     with get_metadata_connection_handle(cfg['maven']['environment'], cfg['maven']['settings_file']) as conn:
@@ -79,9 +77,9 @@ def difference_evapro_file_set_with_ena_for_analysis(analysis_accession, ena_lis
             f"from analysis_file af join file f on af.file_id=f.file_id " \
             f"where af.analysis_accession='{analysis_accession}';"
     with get_metadata_connection_handle(cfg['maven']['environment'], cfg['maven']['settings_file']) as conn:
-        eva_list_of_file_dicts = [dict(filename=fn, md5=md5) for fn, md5 in get_all_results_for_query(conn, query)]
-        set_of_file_from_ena = set([d.get('md5') for d in ena_list_of_file_dicts])
-        set_of_file_from_eva_pro = set([d.get('md5') for d in eva_list_of_file_dicts])
+        eva_list_of_file_dicts = [{'filename': fn, 'md5': md5} for fn, md5 in get_all_results_for_query(conn, query)]
+        set_of_file_from_ena = set([d['md5'] for d in ena_list_of_file_dicts])
+        set_of_file_from_eva_pro = set([d['md5'] for d in eva_list_of_file_dicts])
         if set_of_file_from_ena != set_of_file_from_eva_pro:
             logger.warn(f'File for analysis {analysis_accession} are different in ENA and EVA')
             file_specific_to_ena = set_of_file_from_ena.difference(set_of_file_from_eva_pro)
@@ -96,19 +94,19 @@ def difference_evapro_file_set_with_ena_for_analysis(analysis_accession, ena_lis
     return [], []
 
 
-def retrieve_files_from_ena(analysis_accession):
-    # Get all files from analysis
-    analysis_files = files_from_ena(analysis_accession)
+def retrieve_files_from_ena(analysis_or_project__accession):
+    # Get all files from project or analysis
+    analysis_files = files_from_ena(analysis_or_project__accession)
     for analysis_accession in analysis_files:
         file_specific_to_ena, file_specific_to_eva = difference_evapro_file_set_with_ena_for_analysis(analysis_accession, analysis_files[analysis_accession])
         if file_specific_to_ena:
             for file_dict in file_specific_to_ena:
-                file_id = get_file_from_md5(file_dict.get('md5'))
+                file_id = get_file_id_from_md5(file_dict['md5'])
                 if not file_id:
-                    create_file(file_dict)
-                    file_id = get_file_from_md5(file_dict.get('md5'))
+                    insert_file_into_evapro(file_dict)
+                    file_id = get_file_id_from_md5(file_dict['md5'])
                 file_dict['file_id'] = file_id
-                create_file_in_analysis(file_dict)
+                insert_file_analysis_into_evapro(file_dict)
         if file_specific_to_eva:
             for file_dict in file_specific_to_eva:
                 if file_dict['filename'].endswith('.vcf') or \
