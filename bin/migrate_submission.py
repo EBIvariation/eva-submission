@@ -26,9 +26,9 @@ logger = log_cfg.get_logger(__name__)
 
 
 def main():
-    argparse = ArgumentParser(description='')
-    argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for the submission to migrate')
-    argparse.add_argument('--project', required=False, type=str, help='Optional project accession to migrate')
+    argparse = ArgumentParser(description='Migrate an in-progress submission to the current cluster')
+    argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number of the submission to migrate')
+    argparse.add_argument('--project', required=False, type=str, help='Optional associated project accession')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
 

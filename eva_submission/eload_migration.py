@@ -14,27 +14,24 @@ class EloadMigration(Eload):
 
     def migrate(self, project_accession=None):
         self.run_nextflow_copy(project_accession)
-        # Load the copied config file
-        self.eload_cfg.load_config_file(self.config_path)
-        self.update_config_paths()
+        self.update_and_reload_config()
 
-    def run_nextflow_copy(self, project_accession):
-        params = {
+    def run_nextflow_copy(self, project_accession=None):
+        migrate_params = {
             'eload': self.eload,
-            'old_submissions_dir': cfg['old_eloads_dir'],
-            'new_submissions_dir': cfg['eloads_dir'],
+            'old_eloads_dir': cfg['old_eloads_dir'],
+            'new_eloads_dir': cfg['eloads_dir'],
             'old_projects_dir': cfg['old_projects_dir'],
             'new_projects_dir': cfg['projects_dir'],
         }
         if project_accession:
-            params['project_accession'] = project_accession
+            migrate_params['project_accession'] = project_accession
         work_dir = self.create_nextflow_temp_output_directory()
         params_file = os.path.join(self.eload_dir, 'migrate_params.yaml')
-        log_file = os.path.join(self.eload_dir, 'migrate_nextflow.log')
 
         with open(params_file, 'w') as open_file:
-            yaml.safe_dump(params, open_file)
-        nextflow_script = os.path.join(NEXTFLOW_DIR, 'migrate_to_codon.nf')
+            yaml.safe_dump(migrate_params, open_file)
+        nextflow_script = os.path.join(NEXTFLOW_DIR, 'migrate.nf')
 
         try:
             command_utils.run_command_with_output(
@@ -43,13 +40,21 @@ class EloadMigration(Eload):
                     'export NXF_OPTS="-Xms1g -Xmx8g"; ',
                     cfg['executable']['nextflow'], nextflow_script,
                     '-params-file', params_file,
-                    '-log', log_file,
-                    '-work-dir', work_dir.name
+                    '-work-dir', work_dir
                 ))
             )
             shutil.rmtree(work_dir)
         except subprocess.CalledProcessError as e:
             raise e
 
-    def update_config_paths(self):
-        pass
+    def update_and_reload_config(self):
+        if not os.path.exists(self.config_path):
+            return
+        with open(self.config_path, 'r') as config_file:
+            config_contents = config_file.read()
+        config_contents = config_contents.replace(cfg['old_eloads_dir'], cfg['eloads_dir'])
+        config_contents = config_contents.replace(cfg['old_projects_dir'], cfg['projects_dir'])
+        with open(self.config_path, 'w') as config_file:
+            config_file.write(config_contents)
+        # Re-load the copied and modified config
+        self.eload_cfg.load_config_file(self.config_path)
