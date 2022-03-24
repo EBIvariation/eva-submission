@@ -4,12 +4,15 @@ eloads_dir: 'tests/resources/eloads'
 projects_dir: 'tests/resources/projects'
 old_eloads_dir: 'old/eloads'
 old_projects_dir: 'old/projects'
+old_eloads_new_mnt: 'old/mnt/eloads'
+old_projects_new_mnt: 'old/mnt/projects'
 eva_pipeline_props: '/path/to/pipeline/properties'
 vep_path: 'tests/resources/vep'
 vep_cache_path: 'tests/resources/vep_cache'
 
 genome_downloader:
   output_directory: 'tests/resources/genomes'
+  old_output_directory: 'old/genomes'
 
 maven:
   environment: 'internal'

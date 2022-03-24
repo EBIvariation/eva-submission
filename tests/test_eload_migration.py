@@ -29,9 +29,4 @@ class TestEloadMigration(TestCase):
             contents = config_file.read()
             self.assertEqual(contents.find(cfg['old_eloads_dir']), -1)
             self.assertEqual(contents.find(cfg['old_projects_dir']), -1)
-
-    def test_update_and_reload_config_backlog(self):
-        # Won't do anything if there's no existing config (i.e. prepare_backlog hasn't been run)
-        eload = EloadMigration(44)
-        eload.update_and_reload_config()
-        self.assertFalse(os.path.exists(eload.config_path))
+            self.assertEqual(contents.find(cfg['genome_downloader']['old_output_directory']), -1)

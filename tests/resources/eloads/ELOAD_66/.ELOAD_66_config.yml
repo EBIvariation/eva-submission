@@ -2,8 +2,8 @@ brokering:
   analyses:
     Analysis alias test:
       assembly_accession: GCA_000001000.1
-      assembly_fasta: fasta.fa
-      assembly_report: assembly_report.txt
+      assembly_fasta: old/genomes/fasta.fa
+      assembly_report: old/genomes/assembly_report.txt
       vcf_files:
         old/eloads/ELOAD_66/18_brokering/ena/test1.vcf.gz:
           csi: old/eloads/ELOAD_66/18_brokering/ena/test1.vcf.gz.csi

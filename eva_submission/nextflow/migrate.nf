@@ -36,7 +36,7 @@ process copy_submission_dir {
 
     script:
     """
-    rsync -rlA ${params.old_eloads_dir}/${params.eload} ${params.new_eloads_dir}/${params.eload}
+    rsync -rlA ${params.old_eloads_dir}/${params.eload}/ ${params.new_eloads_dir}/${params.eload}
     """
 }
 
@@ -49,6 +49,6 @@ process copy_project_dir {
 
     script:
     """
-    rsync -rlA ${params.old_projects_dir}/${params.project_accession} ${params.new_projects_dir}/${params.project_accession}
+    rsync -rlA ${params.old_projects_dir}/${params.project_accession}/ ${params.new_projects_dir}/${params.project_accession}
     """
 }
