@@ -36,7 +36,7 @@ class ENAUploader(AppLogger):
         ftps = HackFTP_TLS()
         # Set a weak cipher to enable connection
         # https://stackoverflow.com/questions/38015537/python-requests-exceptions-sslerror-dh-key-too-small
-        ftps.context.set_ciphers(':HIGH:!DH:!aNULL')
+        ftps.context.set_ciphers('DEFAULT:@SECLEVEL=1')
         ftps.connect(host, port=int(cfg.query('ena', 'ftpport', ret_default=21)))
         ftps.login(cfg.query('ena', 'username'), cfg.query('ena', 'password'))
         ftps.prot_p()
