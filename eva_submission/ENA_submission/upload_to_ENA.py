@@ -31,19 +31,22 @@ class ENAUploader(AppLogger):
         self.results = {}
 
     def upload_vcf_files_to_ena_ftp(self, files_to_upload):
-        self.info('Connect to %s', cfg.query('ena', 'ftphost'))
-        ftps = HackFTP_TLS()
         host = cfg.query('ena', 'ftphost')
+        self.info(f'Connect to {host}')
+        ftps = HackFTP_TLS()
+        # Set a weak cipher to enable connection
+        # https://stackoverflow.com/questions/38015537/python-requests-exceptions-sslerror-dh-key-too-small
+        ftps.context.set_ciphers(':HIGH:!DH:!aNULL')
         ftps.connect(host, port=int(cfg.query('ena', 'ftpport', ret_default=21)))
         ftps.login(cfg.query('ena', 'username'), cfg.query('ena', 'password'))
         ftps.prot_p()
         if self.eload not in ftps.nlst():
-            self.info('Create %s directory' % self.eload)
+            self.info(f'Create {self.eload} directory')
             ftps.mkd(self.eload)
         ftps.cwd(self.eload)
         for file_to_upload in files_to_upload:
             file_name = os.path.basename(file_to_upload)
-            self.info('Upload %s to FTP' % file_name)
+            self.info(f'Upload {file_name} to FTP')
             with open(file_to_upload, 'rb') as open_file:
                 ftps.storbinary('STOR %s' % file_name, open_file)
 
