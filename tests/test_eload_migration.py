@@ -27,6 +27,6 @@ class TestEloadMigration(TestCase):
         self.eload.update_and_reload_config()
         with open(self.eload.config_path) as config_file:
             contents = config_file.read()
-            self.assertEqual(contents.find(cfg['old_eloads_dir']), -1)
-            self.assertEqual(contents.find(cfg['old_projects_dir']), -1)
-            self.assertEqual(contents.find(cfg['genome_downloader']['old_output_directory']), -1)
+            self.assertEqual(contents.find(cfg['noah']['eloads_dir']), -1)
+            self.assertEqual(contents.find(cfg['noah']['projects_dir']), -1)
+            self.assertEqual(contents.find(cfg['noah']['genomes_dir']), -1)

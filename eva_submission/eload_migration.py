@@ -19,9 +19,9 @@ class EloadMigration(Eload):
     def run_nextflow_copy(self, project_accession=None):
         migrate_params = {
             'eload': self.eload,
-            'old_eloads_dir': cfg['old_eloads_new_mnt'],
+            'old_eloads_dir': cfg['noah']['eloads_new_mnt'],
             'new_eloads_dir': cfg['eloads_dir'],
-            'old_projects_dir': cfg['old_projects_new_mnt'],
+            'old_projects_dir': cfg['noah']['projects_new_mnt'],
             'new_projects_dir': cfg['projects_dir'],
         }
         if project_accession:
@@ -56,9 +56,9 @@ class EloadMigration(Eload):
         with open(self.config_path, 'r') as config_file:
             config_contents = config_file.read()
         config_contents = config_contents\
-            .replace(cfg['genome_downloader']['old_output_directory'], cfg['genome_downloader']['output_directory'])\
-            .replace(cfg['old_eloads_dir'], cfg['eloads_dir'])\
-            .replace(cfg['old_projects_dir'], cfg['projects_dir'])
+            .replace(cfg['noah']['genomes_dir'], cfg['genome_downloader']['output_directory'])\
+            .replace(cfg['noah']['eloads_dir'], cfg['eloads_dir'])\
+            .replace(cfg['noah']['projects_dir'], cfg['projects_dir'])
 
         with open(self.config_path, 'w') as config_file:
             config_file.write(config_contents)
