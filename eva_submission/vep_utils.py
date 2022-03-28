@@ -2,6 +2,7 @@ import ftplib
 import glob
 import os
 import re
+import shutil
 import tarfile
 import tempfile
 from fnmatch import fnmatch
@@ -240,5 +241,5 @@ def download_and_extract_vep_cache(ftp, species_name, vep_cache_file):
     cache_name = os.path.basename(sources[0])
     copy_destination = os.path.join(cfg['vep_cache_path'], species_name, cache_name)
     os.makedirs(os.path.join(cfg['vep_cache_path'], species_name), exist_ok=True)
-    os.rename(sources[0], copy_destination)
+    shutil.move(sources[0], copy_destination)
     tmp_dir.cleanup()
