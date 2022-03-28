@@ -189,7 +189,7 @@ def search_releases(ftp, all_releases, species, assembly):
         logger.info(f'Looking for vep_cache_version in release : {all_releases[release]}')
         all_species_files = get_all_species_files(ftp, all_releases.get(release))
         for f in all_species_files:
-            if species in f and assembly in f:
+            if species in f and assembly in f and f'vep_{release}' in os.path.basename(f):
                 logger.info(f'Found vep_cache_version for {species} and {assembly}: file {f}, release {release}')
                 # TODO assume if we get here we need to download the cache... is this correct?
                 #  e.g. what if we've downloaded the cache for another study but VEP annotation step failed...
@@ -203,8 +203,10 @@ def get_all_species_files(ftp, release):
     Get all species VEP cache files for release. Note that /indexed_vep_cache is faster but not always present,
     whereas /vep is always present.
     """
+    # Support for Ensembl variation
     vep_cache_files = list(recursive_nlst(ftp, f'{release}/variation/indexed_vep_cache', '*.tar.gz'))
     if len(vep_cache_files) == 0:
+        # Support for New EnsemblGenomes variation
         vep_cache_files = list(recursive_nlst(ftp, f'{release}/variation/vep', '*.tar.gz'))
     return vep_cache_files
 
