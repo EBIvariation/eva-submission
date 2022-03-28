@@ -8,7 +8,7 @@ from eva_submission.ena_retrieval import files_from_ena, remove_file_from_analys
 from eva_submission.submission_config import load_config
 
 
-class TestEnaRetreival(TestCase):
+class TestEnaRetrieval(TestCase):
     resources_folder = os.path.join(os.path.dirname(__file__), 'resources')
 
     def setUp(self):
@@ -43,11 +43,18 @@ class TestEnaRetreival(TestCase):
 
     def test_insert_file_into_evapro(self):
         with patch('eva_submission.ena_retrieval.get_metadata_connection_handle', autospec=True), \
-                patch('eva_submission.ena_retrieval.execute_query') as m_execute_query:
-            insert_file_into_evapro({'filename': 'analysis_id/test.vcf.gz', 'md5': '07f98ac44d6d6f1453d40dc61f29ecec'})
-            expected_query = ("insert into file (filename, file_md5, file_type,  file_class, file_version, is_current, file_location, ftp_file) "
+                patch('eva_submission.ena_retrieval.execute_query') as m_execute_query, \
+                patch('eva_submission.ena_retrieval.get_all_results_for_query') as m_get_results:
+            m_get_results.return_value = [('file_id1',)]
+            file_id = insert_file_into_evapro(
+                {'filename': 'analysis_id/test.vcf.gz', 'md5': '07f98ac44d6d6f1453d40dc61f29ecec'}
+            )
+            assert file_id == 'file_id1'
+            expected_query = ("insert into file (filename, file_md5, file_type, file_class, file_version, is_current, file_location, ftp_file) "
                               "values ('test.vcf.gz', '07f98ac44d6d6f1453d40dc61f29ecec', 'vcf', 'submitted', 1, 1, 'scratch_folder', 'ftp.sra.ebi.ac.uk/vol1/analysis_id/test.vcf.gz')")
             assert m_execute_query.mock_calls[0][1][1] == expected_query
+            expected_query = 'update file set ena_submission_file_id=file_id1 where file_id=file_id1'
+            assert m_execute_query.mock_calls[1][1][1] == expected_query
 
     def test_insert_file_analysis_into_evapro(self):
         with patch('eva_submission.ena_retrieval.get_metadata_connection_handle', autospec=True), \

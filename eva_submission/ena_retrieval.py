@@ -48,12 +48,18 @@ def insert_file_into_evapro(file_dict):
     ftp_file = 'ftp.sra.ebi.ac.uk/vol1/' + file_dict['filename']
 
     query = ('insert into file '
-             '(filename, file_md5, file_type,  file_class, file_version, is_current, file_location, ftp_file) '
+             '(filename, file_md5, file_type, file_class, file_version, is_current, file_location, ftp_file) '
              f"values ('{filename}', '{file_dict['md5']}', '{file_type}', 'submitted', 1, 1, "
              f"'scratch_folder', '{ftp_file}')")
     with get_metadata_connection_handle(cfg['maven']['environment'], cfg['maven']['settings_file']) as conn:
         logger.info(f'Create file {filename} in the file table')
         execute_query(conn, query)
+    file_id = get_file_id_from_md5(file_dict['md5'])
+    query = (f'update file set ena_submission_file_id={file_id} where file_id={file_id}')
+    with get_metadata_connection_handle(cfg['maven']['environment'], cfg['maven']['settings_file']) as conn:
+        logger.info(f'Add file id in place of the ena_submission_file_id')
+        execute_query(conn, query)
+    return file_id
 
 
 def insert_file_analysis_into_evapro(file_dict):
@@ -103,8 +109,7 @@ def retrieve_files_from_ena(analysis_or_project__accession):
             for file_dict in file_specific_to_ena:
                 file_id = get_file_id_from_md5(file_dict['md5'])
                 if not file_id:
-                    insert_file_into_evapro(file_dict)
-                    file_id = get_file_id_from_md5(file_dict['md5'])
+                    file_id = insert_file_into_evapro(file_dict)
                 file_dict['file_id'] = file_id
                 insert_file_analysis_into_evapro(file_dict)
         if file_specific_to_eva:
