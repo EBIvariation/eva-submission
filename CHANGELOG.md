@@ -2,6 +2,42 @@
 Changelog for eva-submission
 ============================
 
+1.5.0 (2022-03-28)
+------------------
+
+### Ingestion 
+ - Fix VEP cache download and directory extraction  
+
+### Backlog preparation
+ - New option to keep the configuration as is
+ - update_metadata script now check assembly_set_id coherence
+ - New script to retrieve VCF and tabix files from ENA when they do not exist in EVAPRO
+
+### Codon support 
+ - automated deployment in codon
+ - Add support for FTP copies in datamovers nodes 
+ - New Script to migrate in-progress submissions
+ - Set a cipher that will work on Codon
+
+1.4.3 (2022-02-11)
+------------------
+
+### Backlog preparation
+ - New option to force validation to pass
+ - Enable project and analysis accessions to be set on command line
+
+### Ingestion
+ - Ability to resume Nextflow processes within ingestion
+ 
+1.4.2 (2022-02-04)
+------------------
+
+### Backlog preparation
+ - Require latest vcf_merge and retrieve the csi index if it exists
+
+### Ingestion
+ - Fix for running annotation only
+
 1.4.1 (2022-01-26)
 ------------------
 
