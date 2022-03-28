@@ -1,16 +1,17 @@
 import os.path
 
-import requests
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from ebi_eva_common_pyutils.metadata_utils import get_metadata_connection_handle
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
+from retry import retry
 
 from eva_submission.assembly_taxonomy_insertion import download_xml_from_ena
 
 logger = log_cfg.get_logger(__name__)
 
 
+@retry(tries=3, logger=logger)
 def files_from_ena(search_term):
     xml_root = download_xml_from_ena(f'https://www.ebi.ac.uk/ena/browser/api/xml/textsearch?result=analysis&query={search_term}')
     analyses = xml_root.xpath('/ANALYSIS_SET/ANALYSIS')
@@ -100,7 +101,7 @@ def difference_evapro_file_set_with_ena_for_analysis(analysis_accession, ena_lis
     return [], []
 
 
-def retrieve_files_from_ena(analysis_or_project__accession):
+def populate_files_info_from_ena(analysis_or_project__accession):
     # Get all files from project or analysis
     analysis_files = files_from_ena(analysis_or_project__accession)
     for analysis_accession in analysis_files:

@@ -19,7 +19,7 @@ from argparse import ArgumentParser
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.ena_retrieval import retrieve_files_from_ena
+from eva_submission.ena_retrieval import populate_files_info_from_ena
 from eva_submission.submission_config import load_config
 
 logger = log_cfg.get_logger(__name__)
@@ -41,9 +41,11 @@ def main():
     # Load the config_file from default location
     load_config()
     if args.analysis_accession:
-        retrieve_files_from_ena(args.analysis_accession)
+        populate_files_info_from_ena(args.analysis_accession)
     elif args.project_accession:
-        retrieve_files_from_ena(args.project_accession)
+        populate_files_info_from_ena(args.project_accession)
+    else:
+        logger.warning('You need to provide a project of analysis accession to use.')
 
 
 if __name__ == "__main__":
