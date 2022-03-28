@@ -36,10 +36,11 @@ class Eload(AppLogger):
         self.eload_num = eload_number
         self.eload = f'ELOAD_{eload_number}'
         self.eload_dir = os.path.abspath(os.path.join(cfg['eloads_dir'], self.eload))
+        self.config_path = os.path.join(self.eload_dir, '.' + self.eload + '_config.yml')
         if config_object:
             self.eload_cfg = config_object
         else:
-            self.eload_cfg = EloadConfig(os.path.join(self.eload_dir, '.' + self.eload + '_config.yml'))
+            self.eload_cfg = EloadConfig(self.config_path)
 
         os.makedirs(self.eload_dir, exist_ok=True)
         for k in directory_structure:

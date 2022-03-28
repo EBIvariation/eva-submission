@@ -6,6 +6,13 @@ eva_pipeline_props: '/path/to/pipeline/properties'
 vep_path: 'tests/resources/vep'
 vep_cache_path: 'tests/resources/vep_cache'
 
+noah:
+  genomes_dir: 'old/genomes'
+  eloads_dir: 'old/eloads'
+  projects_dir: 'old/projects'
+  eloads_new_mnt: 'old/mnt/eloads'
+  projects_new_mnt: 'old/mnt/projects'
+
 genome_downloader:
   output_directory: 'tests/resources/genomes'
 
