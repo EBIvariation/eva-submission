@@ -49,6 +49,8 @@ process copy_project_dir {
 
     script:
     """
-    rsync -rlA ${params.old_projects_dir}/${params.project_accession}/ ${params.new_projects_dir}/${params.project_accession}
+    if [ -d ${params.old_projects_dir}/${params.project_accession} ]; then
+        rsync -rlA ${params.old_projects_dir}/${params.project_accession}/ ${params.new_projects_dir}/${params.project_accession}
+    fi
     """
 }
