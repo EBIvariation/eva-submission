@@ -138,3 +138,14 @@ This is automatically invoked when necessary, but it can also be run on its own,
 ```bash
 python upgrade_config.py --eload 506 --analysis_alias alias
 ```
+
+### Submission migration
+
+To migrate a submission from Noah to Codon at any stage in processing, the following script will copy directories and update paths in the config.
+```bash
+# Run in Codon
+python migrate_submission.py --eload 506
+
+# If there's also a project directory to copy
+python migrate_submission.py --eload 506 --project PRJEB12345
+```
