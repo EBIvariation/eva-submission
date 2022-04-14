@@ -1,0 +1,2 @@
+Line 3: Multiple synonyms  found for contig '1' in FASTA index file: CM000663.1 NC_000001.10
+Line 4: Multiple synonyms  found for contig 'X' in FASTA index file: CM000685.1 NC_000023.10

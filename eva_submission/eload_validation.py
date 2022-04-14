@@ -180,13 +180,19 @@ class EloadValidation(Eload):
     def parse_assembly_check_report(self, assembly_check_report):
         mismatch_list = []
         nb_mismatch = 0
+        nb_error = 0
+        error_list = []
         with open(assembly_check_report) as open_file:
             for line in open_file:
                 if 'does not match the reference sequence' in line:
                     nb_mismatch += 1
                     if nb_mismatch < 11:
                         mismatch_list.append(line.strip())
-        return mismatch_list, nb_mismatch
+                elif 'Multiple synonyms' in line:
+                    nb_error += 1
+                    if nb_error < 11:
+                        error_list.append(line.strip())
+        return mismatch_list, nb_mismatch, error_list, nb_error
 
     def parse_vcf_check_report(self, vcf_check_report):
         valid = True
@@ -329,8 +335,12 @@ class EloadValidation(Eload):
                 os.path.join(self._get_dir('assembly_check'), vcf_name + '.text_assembly_report.txt')
             )
             if assembly_check_log and assembly_check_valid_vcf and assembly_check_text_report:
-                error_list, nb_error, match, total = self.parse_assembly_check_log(assembly_check_log)
-                mismatch_list, nb_mismatch = self.parse_assembly_check_report(assembly_check_text_report)
+                error_list_from_log, nb_error_from_log, match, total = \
+                    self.parse_assembly_check_log(assembly_check_log)
+                mismatch_list, nb_mismatch, error_list_from_report, nb_error_from_report = \
+                    self.parse_assembly_check_report(assembly_check_text_report)
+                nb_error = nb_error_from_log + nb_error_from_report
+                error_list = error_list_from_log + error_list_from_report
             else:
                 error_list, mismatch_list, nb_mismatch, nb_error, match, total = (['Process failed'], [], 0, 1, 0, 0)
             total_error += nb_error + nb_mismatch
