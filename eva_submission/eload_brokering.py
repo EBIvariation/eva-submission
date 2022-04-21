@@ -49,13 +49,16 @@ class EloadBrokering(Eload):
     def broker_to_ena(self, force=False, existing_project=None):
         if not self.eload_cfg.query('brokering', 'ena', 'PROJECT') or force:
             ena_spreadsheet = os.path.join(self._get_dir('ena'), 'metadata_spreadsheet.xlsx')
-            if existing_project:
-                # Set the project in the config. It will be added to the metadata sheet which is then converted to XML
-                self.eload_cfg.set('brokering', 'ena', 'PROJECT', value=existing_project)
-                self.eload_cfg.set('brokering', 'ena', 'existing_project', value=True)
-            self.update_metadata_from_config(self.eload_cfg['validation']['valid']['metadata_spreadsheet'], ena_spreadsheet)
+            # Set the project in the metadata sheet which is then converted to XML
+            self.update_metadata_from_config(self.eload_cfg['validation']['valid']['metadata_spreadsheet'],
+                                             ena_spreadsheet, existing_project)
             converter = EnaXlsxConverter(ena_spreadsheet, self._get_dir('ena'), self.eload)
             submission_file, project_file, analysis_file = converter.create_submission_files()
+
+            if converter.is_existing_project:
+                # Set the project in the config. bosed on the spreadsheet
+                self.eload_cfg.set('brokering', 'ena', 'PROJECT', value=converter.existing_project)
+                self.eload_cfg.set('brokering', 'ena', 'existing_project', value=True)
 
             # Upload the VCF to ENA FTP
             ena_uploader = ENAUploader(self.eload)

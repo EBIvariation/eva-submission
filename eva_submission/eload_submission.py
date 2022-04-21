@@ -89,7 +89,7 @@ class Eload(AppLogger):
         hold_date = get_hold_date_from_ena(project_accession, project_alias)
         self.eload_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
 
-    def update_metadata_from_config(self, input_spreadsheet, output_spreadsheet=None):
+    def update_metadata_from_config(self, input_spreadsheet, output_spreadsheet=None, existing_project=None):
         reader = EvaXlsxReader(input_spreadsheet)
         single_analysis_alias = None
         if len(reader.analysis) == 1:
@@ -133,8 +133,8 @@ class Eload(AppLogger):
                 })
 
         project_row = reader.project
-        if self.eload_cfg.query('brokering', 'ena', 'existing_project'):
-            project_row['Project Alias'] = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
+        if existing_project:
+            project_row['Project Alias'] = existing_project
 
         if output_spreadsheet:
             eva_xls_writer = EvaXlsxWriter(input_spreadsheet, output_spreadsheet)

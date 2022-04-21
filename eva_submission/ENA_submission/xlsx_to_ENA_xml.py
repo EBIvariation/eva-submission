@@ -96,13 +96,17 @@ class EnaXlsxConverter(AppLogger):
 
     @cached_property
     def is_existing_project(self):
+        return self.existing_project is not None
+
+    @cached_property
+    def existing_project(self):
         prj_alias = self.reader.project.get('Project Alias', '')
         prj_title = self.reader.project.get('Project Title', '')
-        if re.match(r'^PRJ(EB|NA)', prj_alias):
-            return check_existing_project(prj_alias)
-        elif re.match(r'^PRJ(EB|NA)', prj_title):
-            return check_existing_project(prj_title)
-        return False
+        if re.match(r'^PRJ(EB|NA)', prj_alias) and check_existing_project(prj_alias):
+            return prj_alias
+        elif re.match(r'^PRJ(EB|NA)', prj_title) and check_existing_project(prj_title):
+            return prj_title
+        return None
 
     def _create_project_xml(self):
         """
