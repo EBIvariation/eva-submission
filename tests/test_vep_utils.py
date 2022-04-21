@@ -5,7 +5,6 @@ from unittest import TestCase
 from unittest.mock import Mock, patch
 
 from ebi_eva_common_pyutils.config import cfg
-from ebi_eva_common_pyutils.logger import logging_config
 
 from eva_submission.submission_config import load_config
 from eva_submission.vep_utils import recursive_nlst, get_vep_and_vep_cache_version_from_ensembl, \
@@ -64,11 +63,11 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
 
     def test_get_vep_versions_from_ensembl(self):
         vep_version, cache_version, vep_species = get_vep_and_vep_cache_version_from_ensembl('GCA_000827895.1')
-        self.assertEqual(vep_version, 105)
-        self.assertEqual(cache_version, 52)
+        self.assertEqual(vep_version, 106)
+        self.assertEqual(cache_version, 53)
         self.assertEqual(vep_species, 'thelohanellus_kitauei')
         assert os.path.exists(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei'))
-        assert os.listdir(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei')) == ['52_ASM82789v1']
+        assert os.listdir(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei')) == ['53_ASM82789v1']
 
     def test_get_vep_versions_from_ensembl_not_found(self):
         vep_version, cache_version, vep_species = get_vep_and_vep_cache_version_from_ensembl('GCA_015220235.1')

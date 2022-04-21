@@ -51,7 +51,19 @@ class TestEloadValidation(TestCase):
                 "Line 54: Chromosome Chr14, position 11665, reference allele 'A' does not match the reference sequence, expected 'T'",
                 "Line 55: Chromosome Chr14, position 11839, reference allele 'G' does not match the reference sequence, expected 'a'"
             ],
-            14
+            14, [], 0
+        )
+        assert self.validation.parse_assembly_check_report(mismatch_assembly_report) == expected
+
+    def test_parse_assembly_check_report_duplicate_synonym(self):
+        mismatch_assembly_report = os.path.join(self.resources_folder, 'validations', 'multiple_synonyms_text_assembly_report.txt')
+        expected = (
+            [], 0,
+            [
+                "Line 3: Multiple synonyms  found for contig '1' in FASTA index file: CM000663.1 NC_000001.10",
+                "Line 4: Multiple synonyms  found for contig 'X' in FASTA index file: CM000685.1 NC_000023.10"
+            ],
+            2
         )
         assert self.validation.parse_assembly_check_report(mismatch_assembly_report) == expected
 
