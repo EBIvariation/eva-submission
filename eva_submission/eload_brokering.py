@@ -56,7 +56,7 @@ class EloadBrokering(Eload):
             submission_file, project_file, analysis_file = converter.create_submission_files()
 
             if converter.is_existing_project:
-                # Set the project in the config. bosed on the spreadsheet
+                # Set the project in the config, based on the spreadsheet
                 self.eload_cfg.set('brokering', 'ena', 'PROJECT', value=converter.existing_project)
                 self.eload_cfg.set('brokering', 'ena', 'existing_project', value=True)
 
