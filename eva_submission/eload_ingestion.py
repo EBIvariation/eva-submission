@@ -203,7 +203,7 @@ class EloadIngestion(Eload):
         if it is specified.
         """
         # Current submission process never changes -c or -v
-        command = (f"perl {cfg['executable']['load_from_ena']} -p {self.project_accession} -c, submitted -v 1 "
+        command = (f"perl {cfg['executable']['load_from_ena']} -p {self.project_accession} -c submitted -v 1 "
                    f"-l {self._get_dir('scratch')} -e {str(self.eload_num)}")
         if analysis_accession:
             command += f' -A -a {analysis_accession}'
