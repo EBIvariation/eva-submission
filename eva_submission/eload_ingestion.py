@@ -231,7 +231,7 @@ class EloadIngestion(Eload):
                 ' '.join((
                     'perl', cfg['executable']['load_from_ena'],
                     '-p', self.project_accession,
-                    '-A', analysis_accession,
+                    '-A', '-a', analysis_accession,
                     # Current submission process never changes -c or -v
                     '-c', 'submitted',
                     '-v', '1',
