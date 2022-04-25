@@ -10,7 +10,7 @@ from eva_submission import NEXTFLOW_DIR
 from eva_submission.ENA_submission.upload_to_ENA import ENAUploader
 from eva_submission.biosamples_submission import SampleMetadataSubmitter
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import read_md5, check_existing_project
+from eva_submission.eload_utils import read_md5
 from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsxConverter
 from eva_submission.submission_config import EloadConfig
 
@@ -50,7 +50,7 @@ class EloadBrokering(Eload):
         if not self.eload_cfg.query('brokering', 'ena', 'PROJECT') or force:
             ena_spreadsheet = os.path.join(self._get_dir('ena'), 'metadata_spreadsheet.xlsx')
             # Set the project in the metadata sheet which is then converted to XML
-            self.update_metadata_from_config(self.eload_cfg['validation']['valid']['metadata_spreadsheet'],
+            self.update_metadata_spreadsheet(self.eload_cfg['validation']['valid']['metadata_spreadsheet'],
                                              ena_spreadsheet, existing_project)
             converter = EnaXlsxConverter(ena_spreadsheet, self._get_dir('ena'), self.eload)
             submission_file, project_file, analysis_file = converter.create_submission_files()
