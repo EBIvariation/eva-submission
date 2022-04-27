@@ -96,10 +96,8 @@ class TestEloadBrokering(TestCase):
         })
         self.eload._collect_brokering_prep_results(tmp_dir)
         vcf_file1 = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.gz')
-        vcf_file1_index = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.gz.tbi')
         vcf_file1_csi = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.gz.csi')
         assert os.path.isfile(vcf_file1)
-        assert os.path.isfile(vcf_file1_index)
         assert self.eload.eload_cfg['brokering']['analyses'] == {
             'analysis alias 1': {
                 'assembly_accession': 'GCA_000001000.1',
@@ -110,8 +108,6 @@ class TestEloadBrokering(TestCase):
                         'original_vcf': 'vcf_file1.vcf',
                         'output_vcf_file': vcf_file1,
                         'md5': 'md5checksum',
-                        'index': vcf_file1_index,
-                        'index_md5': 'md5checksum',
                         'csi': vcf_file1_csi,
                         'csi_md5': 'md5checksum'
                     }
@@ -171,8 +167,6 @@ ANALYSIS: ERZ0000001
                     'path/to/GAE.vcf.gz': {
                       'csi': 'path/to/GAE.vcf.gz.csi',
                       'csi_md5': '',
-                      'index': 'path/to/GAE.vcf.gz.tbi',
-                      'index_md5': '',
                       'md5': '',
                       'original_vcf': 'path/to/original_GAE.vcf.gz',
                       'output_vcf_file': None
@@ -185,8 +179,6 @@ ANALYSIS: ERZ0000001
                     'path/to/GAE2.vcf.gz': {
                         'csi': 'path/to/GAE2.vcf.gz.csi',
                         'csi_md5': '',
-                        'index': 'path/to/GAE2.vcf.gz.tbi',
-                        'index_md5': '',
                         'md5': '',
                         'original_vcf': 'path/to/original_GAE2.vcf.gz',
                         'output_vcf_file': None
@@ -201,9 +193,9 @@ ANALYSIS: ERZ0000001
         reader = EvaXlsxReader(ena_metadata_file)
         assert reader.files == [
             {'Analysis Alias': 'GAE', 'File Name': 'ELOAD_3/GAE.vcf.gz', 'File Type': 'vcf', 'MD5': None, 'row_num': 2},
-            {'Analysis Alias': 'GAE', 'File Name': 'ELOAD_3/GAE.vcf.gz.tbi', 'File Type': 'tabix', 'MD5': None, 'row_num': 3},
+            {'Analysis Alias': 'GAE', 'File Name': 'ELOAD_3/GAE.vcf.gz.csi', 'File Type': 'csi', 'MD5': None, 'row_num': 3},
             {'Analysis Alias': 'GAE2', 'File Name': 'ELOAD_3/GAE2.vcf.gz', 'File Type': 'vcf', 'MD5': None, 'row_num': 4},
-            {'Analysis Alias': 'GAE2', 'File Name': 'ELOAD_3/GAE2.vcf.gz.tbi', 'File Type': 'tabix', 'MD5': None, 'row_num': 5}
+            {'Analysis Alias': 'GAE2', 'File Name': 'ELOAD_3/GAE2.vcf.gz.csi', 'File Type': 'csi', 'MD5': None, 'row_num': 5}
         ]
 
 
