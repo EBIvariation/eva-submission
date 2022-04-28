@@ -162,6 +162,15 @@ class TestEloadIngestion(TestCase):
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             self.eload.ingest(tasks=['metadata_load'])
 
+    def test_load_from_ena_from_analysis(self):
+        with self._patch_metadata_handle(), \
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as mockrun:
+            analysis_accession = 'ERZ2499196'
+            self.eload.load_from_ena_from_project_or_analysis(analysis_accession)
+            command = ('perl /path/to/load_from_ena_script -p PRJEB12345 -c submitted -v 1 -l '
+                       f'{self.eload._get_dir("scratch")} -e 33 -A -a ERZ2499196')
+            mockrun.assert_called_once_with('Load metadata from ENA to EVADEV', command)
+
     def test_ingest_accession(self):
         with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \

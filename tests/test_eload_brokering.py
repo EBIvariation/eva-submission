@@ -195,7 +195,7 @@ ANALYSIS: ERZ0000001
             }
         }
         self.eload.eload_cfg.set('brokering', 'analyses', value=analyses)
-        self.eload.update_metadata_from_config(metadata_file, ena_metadata_file)
+        self.eload.update_metadata_spreadsheet(metadata_file, ena_metadata_file)
 
         # Check that the Files get set to the merged file name and that the analysis alias is modified
         reader = EvaXlsxReader(ena_metadata_file)

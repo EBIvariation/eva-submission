@@ -189,23 +189,26 @@ class EloadIngestion(Eload):
             provision_new_database_for_variant_warehouse(db_info['db_name'])
 
     def load_from_ena(self):
+        if self.eload_cfg.query('brokering', 'ena', 'existing_project'):
+            analyses = self.eload_cfg.query('brokering', 'ANALYSIS')
+            for analysis_accession in analyses.values():
+                self.load_from_ena_from_project_or_analysis(analysis_accession)
+
+        else:
+            self.load_from_ena_from_project_or_analysis()
+
+    def load_from_ena_from_project_or_analysis(self, analysis_accession=None):
         """
-        Loads project metadata from ENA into EVADEV.
+        Loads Analysis metadata from ENA into EVADEV to the project associated with this ELOAD or to an analysis
+        if it is specified.
         """
+        # Current submission process never changes -c or -v
+        command = (f"perl {cfg['executable']['load_from_ena']} -p {self.project_accession} -c submitted -v 1 "
+                   f"-l {self._get_dir('scratch')} -e {str(self.eload_num)}")
+        if analysis_accession:
+            command += f' -A -a {analysis_accession}'
         try:
-            command_utils.run_command_with_output(
-                'Load metadata from ENA to EVADEV',
-                ' '.join((
-                    'perl', cfg['executable']['load_from_ena'],
-                    '-p', self.project_accession,
-                    # Current submission process never changes -c or -v
-                    '-c', 'submitted',
-                    '-v', '1',
-                    # -l is only checked for when -c=eva_value_added, so in reality never used
-                    '-l', self._get_dir('scratch'),
-                    '-e', str(self.eload_num)
-                ))
-            )
+            command_utils.run_command_with_output('Load metadata from ENA to EVADEV', command)
             self.eload_cfg.set(self.config_section, 'ena_load', value='success')
         except subprocess.CalledProcessError as e:
             self.error('ENA metadata load failed: aborting ingestion.')
