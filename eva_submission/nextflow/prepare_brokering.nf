@@ -93,7 +93,7 @@ process md5_vcf_and_index {
             mode: "copy"
 
     input:
-    path vcf from compressed_vcf
+    path vcf from compressed_vcf2
     path index from csi_indexed_vcf
 
     output:
