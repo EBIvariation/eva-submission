@@ -81,7 +81,6 @@ process csi_index_vcf {
 }
 
 
-
 /*
 * md5 the compressed vcf and its index
 */

@@ -85,8 +85,7 @@ class TestEloadBrokering(TestCase):
         os.makedirs(output_dir)
         for f in ['vcf_file1.vcf.gz']:
             touch(os.path.join(output_dir, f))
-        for f in ['vcf_file1.vcf.gz.md5', 'vcf_file1.vcf.gz.tbi', 'vcf_file1.vcf.gz.tbi.md5', 'vcf_file1.vcf.gz.csi',
-                  'vcf_file1.vcf.gz.csi.md5']:
+        for f in ['vcf_file1.vcf.gz.md5', 'vcf_file1.vcf.gz.csi', 'vcf_file1.vcf.gz.csi.md5']:
             touch(os.path.join(tmp_dir, f), content=f'md5checksum {f}')
         self.eload.eload_cfg.set('validation', 'valid', 'analyses', 'analysis alias 1', value={
             'assembly_accession': 'GCA_000001000.1',
@@ -98,6 +97,7 @@ class TestEloadBrokering(TestCase):
         vcf_file1 = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.gz')
         vcf_file1_csi = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.gz.csi')
         assert os.path.isfile(vcf_file1)
+        assert os.path.isfile(vcf_file1_csi)
         assert self.eload.eload_cfg['brokering']['analyses'] == {
             'analysis alias 1': {
                 'assembly_accession': 'GCA_000001000.1',
