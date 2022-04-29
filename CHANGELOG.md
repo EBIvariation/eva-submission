@@ -1,6 +1,20 @@
-
 Changelog for eva-submission
 ============================
+
+1.5.1 (2022-04-29)
+------------------
+
+### Validation
+ - Check assembly report for multiple synonyms for the same contig
+
+### Brokering
+ - Remove tbi index generation and upload to ENA
+
+### Ingestion
+ - Support for metadata load when adding to an existing project
+
+### Misc
+ - migrate script do not crash when specifying a project that has not been used yet
 
 1.5.0 (2022-03-28)
 ------------------
