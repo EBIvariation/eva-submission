@@ -95,7 +95,7 @@ class TestEloadBrokering(TestCase):
         })
         self.eload._collect_brokering_prep_results(tmp_dir)
         vcf_file1 = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.gz')
-        vcf_file1_csi = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.gz.csi')
+        vcf_file1_csi = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.csi')
         assert os.path.isfile(vcf_file1)
         assert os.path.isfile(vcf_file1_csi)
         assert self.eload.eload_cfg['brokering']['analyses'] == {
