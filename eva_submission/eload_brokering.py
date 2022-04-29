@@ -69,7 +69,7 @@ class EloadBrokering(Eload):
                 for vcf_file_name in analyses[analysis]['vcf_files']:
                     vcf_file_info = self.eload_cfg['brokering']['analyses'][analysis]['vcf_files'][vcf_file_name]
                     files_to_upload.append(vcf_file_info['output_vcf_file'])
-                    files_to_upload.append(vcf_file_info['index'])
+                    files_to_upload.append(vcf_file_info['csi'])
 
             ena_uploader.upload_vcf_files_to_ena_ftp(files_to_upload)
 
@@ -149,12 +149,7 @@ class EloadBrokering(Eload):
                 os.rename(os.path.join(nextflow_vcf_output, vcf_file_name), output_vcf_file)
                 os.rename(os.path.join(output_dir, vcf_file_name) + '.md5', output_vcf_file + '.md5')
 
-                index_file = os.path.join(output_dir, vcf_file_name + '.tbi')
-                output_index_file = os.path.join(self._get_dir('ena'), vcf_file_name + '.tbi')
-                os.rename(index_file, output_index_file)
-                os.rename(index_file + '.md5', output_index_file + '.md5')
-
-                # .csi index not supported by ENA, so we just save it to be made public later
+                # .csi index is now supported by ENA
                 csi_file = os.path.join(output_dir, vcf_file_name + '.csi')
                 output_csi_file = os.path.join(self._get_dir('ena'), vcf_file_name + '.csi')
                 os.rename(csi_file, output_csi_file)
@@ -164,8 +159,6 @@ class EloadBrokering(Eload):
                     'original_vcf': vcf_file,
                     'output_vcf_file': output_vcf_file,
                     'md5': read_md5(output_vcf_file + '.md5'),
-                    'index': output_index_file,
-                    'index_md5': read_md5(output_index_file + '.md5'),
                     'csi': output_csi_file,
                     'csi_md5': read_md5(output_csi_file + '.md5')
                 })

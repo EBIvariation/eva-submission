@@ -121,15 +121,11 @@ class Eload(AppLogger):
                 })
 
                 # Add the index file
-                if vcf_file_info['index'].endswith('.csi'):
-                    file_type = 'csi'
-                else:
-                    file_type = 'tabix'
                 file_rows.append({
                     'Analysis Alias': analysis,
-                    'File Name': self.eload + '/' + os.path.basename(vcf_file_info['index']),
-                    'File Type': file_type,
-                    'MD5': vcf_file_info['index_md5']
+                    'File Name': self.eload + '/' + os.path.basename(vcf_file_info['csi']),
+                    'File Type': 'csi',
+                    'MD5': vcf_file_info['csi_md5']
                 })
 
         project_row = reader.project

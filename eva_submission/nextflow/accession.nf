@@ -51,28 +51,27 @@ if (!params.valid_vcfs || !params.project_accession || !params.instance_id || !p
 /*
 Sequence of processes in case of:
     non-human study:
-                create_properties -> accession_vcf -> sort_and_compress_vcf -> tabix_index_vcf and csi_index_vcf -> copy_to_ftp
+                create_properties -> accession_vcf -> sort_and_compress_vcf -> csi_index_vcf -> copy_to_ftp
     human study (skip accessioning):
-                tabix_index_vcf and csi_index_vcf -> copy_to_ftp
+                csi_index_vcf -> copy_to_ftp
 
 process                     input channels
 create_properties   ->      valid_vcfs
-tabix_index_vcf     ->      tabix_vcfs and compressed_vcf1
-csi_index_vcf       ->      csi_vcfs and compressed_vcf2
+csi_index_vcf       ->      csi_vcfs and compressed_vcf
 
 1. Check if the study we are working with is a human study or non-human by comparing the taxonomy_id of the study with human taxonomy_id (9606).
 2. Provide values to the appropriate channels enabling them to start the corresponding processes. In case of non-human studies we want to start process
-   "create_properties" while in case of human studies we want to start processes "tabix_index_vcf" and "csi_index_vcf".
+   "create_properties" while in case of human studies we want to start processes "csi_index_vcf".
 
 non-human study:
   - Initialize valid_vcfs channel with value so that it can start the process "create_properties".
-  - Initialize tabix_vcfs and csi_vcfs channels as empty. This makes sure the processes "tabix_index_vcf" and "csi_index_vcf" are not started at the outset.
-    These processes will only be able to start after the process "sort_and_compress_vcf" finishes and create channels compresses_vcf1 and compressed_vcf2 with values.
+  - Initialize csi_vcfs channels as empty. This makes sure the processes "csi_index_vcf" are not started at the outset.
+    These processes will only be able to start after the process "sort_and_compress_vcf" finishes and create channels compressed_vcf with values.
 
 human study:
   - Initialize valid_vcfs channel as empty, ensuring the process "create_properties" is not started and in turn accessioning part is also skipped,  as the process
     "accession_vcf" depends on the output channels created by the process create_properties.
-  - Initialize tabix_vcfs and csi_vcfs with values enabling them to start the processes "tabix_index_vcf" and "csi_index_vcf".
+  - Initialize csi_vcfs with values enabling them to start the processes "csi_index_vcf".
 */
 is_human_study = (params.accession_job_props.'parameters.taxonomyAccession' == 9606)
 if (is_human_study) {
@@ -80,9 +79,8 @@ if (is_human_study) {
     Channel.fromPath(params.valid_vcfs)
         .splitCsv(header:true)
         .map{row -> tuple(file(row.vcf_file))}
-        .into{tabix_vcfs; csi_vcfs}
+        .into{csi_vcfs}
 } else {
-    tabix_vcfs = Channel.empty()
     csi_vcfs = Channel.empty()
     Channel.fromPath(params.valid_vcfs)
         .splitCsv(header:true)
@@ -174,8 +172,8 @@ process sort_and_compress_vcf {
     path tmp_file from accession_done
 
     output:
-    // used by both tabix and csi indexing processes
-    path "*.gz" into compressed_vcf1, compressed_vcf2
+    // used by csi indexing process
+    path "*.gz" into compressed_vcf
 
     """
     filename=\$(basename $tmp_file)
@@ -185,31 +183,12 @@ process sort_and_compress_vcf {
 }
 
 
-/*
- * Index the compressed VCF file
- */
-process tabix_index_vcf {
-    publishDir params.public_dir,
-	mode: 'copy'
-
-    input:
-    path compressed_vcf from tabix_vcfs.mix(compressed_vcf1)
-
-    output:
-    path "${compressed_vcf}.tbi" into tbi_indexed_vcf
-
-    """
-    $params.executable.tabix -p vcf $compressed_vcf
-    """
-}
-
-
 process csi_index_vcf {
     publishDir params.public_dir,
 	mode: 'copy'
 
     input:
-    path compressed_vcf from csi_vcfs.mix(compressed_vcf2)
+    path compressed_vcf from csi_vcfs.mix(compressed_vcf)
 
     output:
     path "${compressed_vcf}.csi" into csi_indexed_vcf
@@ -229,7 +208,6 @@ process csi_index_vcf {
     input:
     // ensures that all indices are done before we copy
     file csi_indices from csi_indexed_vcf.toList()
-    file tbi_indices from tbi_indexed_vcf.toList()
     val accessioned_vcfs from accessioned_files_to_rm.toList()
 
     script:
