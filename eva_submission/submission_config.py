@@ -77,9 +77,6 @@ class EloadConfig(Configuration):
         self._set_version()
         self.content[item] = value
 
-    def __del__(self):
-        self.write()
-
 
 def load_config(*args):
     """Load a config file from any path provided.

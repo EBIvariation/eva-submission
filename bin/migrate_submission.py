@@ -41,8 +41,8 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    eload = EloadMigration(args.eload)
-    eload.migrate(args.project)
+    with EloadMigration(args.eload) as eload:
+        eload.migrate(args.project)
 
 
 if __name__ == "__main__":

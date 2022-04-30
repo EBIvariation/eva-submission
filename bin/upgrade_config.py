@@ -41,8 +41,8 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    eload = Eload(args.eload)
-    eload.upgrade_config_if_needed(args.analysis_alias)
+    with Eload(args.eload) as eload:
+        eload.upgrade_config_if_needed(args.analysis_alias)
 
 
 if __name__ == "__main__":

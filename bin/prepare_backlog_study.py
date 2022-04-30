@@ -67,28 +67,29 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    preparation = EloadBacklog(args.eload, project_accession=args.project_accession,
-                               analysis_accessions=args.analysis_accessions)
-    # Pass the eload config object to validation so that the two objects share the same state
-    validation = EloadValidation(args.eload, preparation.eload_cfg)
-    if not args.report and not args.keep_config:
-        preparation.fill_in_config(args.force_config)
+    with EloadBacklog(args.eload,
+                      project_accession=args.project_accession,
+                      analysis_accessions=args.analysis_accessions) as preparation:
+        # Pass the eload config object to validation so that the two objects share the same state
+        with EloadValidation(args.eload, preparation.eload_cfg) as validation:
+            if not args.report and not args.keep_config:
+                preparation.fill_in_config(args.force_config)
 
-    if not args.report:
-        validation.validate(args.validation_tasks)
-        # Also mark the other validation tasks as force so they are all passable
+            if not args.report:
+                validation.validate(args.validation_tasks)
+                # Also mark the other validation tasks as force so they are all passable
 
-        if args.set_as_valid:
-            forced_validation_tasks = validation.all_validation_tasks
-        for validation_task in forced_validation_tasks:
-            validation.eload_cfg.set('validation', validation_task, 'forced', value=True)
-        validation.mark_valid_files_and_metadata(args.merge_per_analysis)
-        if args.merge_per_analysis:
-            preparation.copy_valid_config_to_brokering_after_merge()
+                if args.set_as_valid:
+                    forced_validation_tasks = validation.all_validation_tasks
+                for validation_task in forced_validation_tasks:
+                    validation.eload_cfg.set('validation', validation_task, 'forced', value=True)
+                validation.mark_valid_files_and_metadata(args.merge_per_analysis)
+                if args.merge_per_analysis:
+                    preparation.copy_valid_config_to_brokering_after_merge()
 
-    preparation.report()
-    validation.report()
-    logger.info('Preparation complete, if files are valid please run ingestion as normal.')
+            preparation.report()
+            validation.report()
+            logger.info('Preparation complete, if files are valid please run ingestion as normal.')
 
 
 if __name__ == "__main__":

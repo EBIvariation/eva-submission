@@ -51,11 +51,11 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    eload = EloadValidation(args.eload)
-    eload.upgrade_config_if_needed()
-    if not args.report:
-        eload.validate(args.validation_tasks, args.set_as_valid, args.merge_per_analysis)
-    eload.report()
+    with EloadValidation(args.eload) as eload:
+        eload.upgrade_config_if_needed()
+        if not args.report:
+            eload.validate(args.validation_tasks, args.set_as_valid, args.merge_per_analysis)
+        eload.report()
 
 
 if __name__ == "__main__":

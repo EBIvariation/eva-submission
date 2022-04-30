@@ -59,13 +59,12 @@ def main():
 
     # Load the config_file from default location
     load_config()
-
     # Optionally Set the valid VCF and metadata file
-    brokering = EloadBrokering(args.eload, args.vcf_files, args.metadata_file)
-    brokering.upgrade_config_if_needed()
-    if not args.report:
-        brokering.broker(brokering_tasks_to_force=args.force, existing_project=args.project_accession)
-    brokering.report()
+    with EloadBrokering(args.eload, args.vcf_files, args.metadata_file) as brokering:
+        brokering.upgrade_config_if_needed()
+        if not args.report:
+            brokering.broker(brokering_tasks_to_force=args.force, existing_project=args.project_accession)
+        brokering.report()
 
 
 if __name__ == "__main__":

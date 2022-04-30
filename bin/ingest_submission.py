@@ -50,14 +50,14 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    ingestion = EloadIngestion(args.eload)
-    ingestion.upgrade_config_if_needed()
-    ingestion.ingest(
-        instance_id=args.instance,
-        tasks=args.tasks,
-        vep_cache_assembly_name=args.vep_cache_assembly_name,
-        resume=args.resume
-    )
+    with EloadIngestion(args.eload) as ingestion:
+        ingestion.upgrade_config_if_needed()
+        ingestion.ingest(
+            instance_id=args.instance,
+            tasks=args.tasks,
+            vep_cache_assembly_name=args.vep_cache_assembly_name,
+            resume=args.resume
+        )
 
 
 if __name__ == "__main__":
