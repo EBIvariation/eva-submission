@@ -41,26 +41,6 @@ test:
   dependencies:
     - test
 
-deploy-python-tool-development:
-  extends: .deploy-python-tool
-  variables:
-    ENVIRONMENT_NAME: development
-    LOGIN_NODE: $CLUSTER_LOGIN_NODE
-    SOFTWARE_PATH: $EVA_SOFTWARE_PATH
-    DEPLOY_POINT: $CI_COMMIT_BRANCH
-  only:
-    - external_pull_requests
-    - master
-
-deploy-python-tool-production:
-  extends: .deploy-python-tool
-  variables:
-    ENVIRONMENT_NAME: production
-    LOGIN_NODE: $CLUSTER_LOGIN_NODE
-    SOFTWARE_PATH: $EVA_SOFTWARE_PATH
-    DEPLOY_POINT: $CI_COMMIT_TAG
-  only:
-    - tags
 
 deploy-python-tool-development-codon:
   extends: .deploy-python-tool
