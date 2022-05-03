@@ -151,7 +151,8 @@ class EloadBrokering(Eload):
 
                 # .csi index is now supported by ENA
                 csi_file = os.path.join(output_dir, vcf_file_name + '.csi')
-                output_csi_file = os.path.join(self._get_dir('ena'), vcf_file_name + '.csi')
+                vcf_file_name_no_ext, ext = os.path.splitext(vcf_file_name)
+                output_csi_file = os.path.join(self._get_dir('ena'), vcf_file_name_no_ext + '.csi')
                 os.rename(csi_file, output_csi_file)
                 os.rename(csi_file + '.md5', output_csi_file + '.md5')
 

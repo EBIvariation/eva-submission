@@ -3,10 +3,8 @@ from datetime import datetime
 from unittest import TestCase
 import xml.etree.ElementTree as ET
 from unittest.mock import patch, Mock
-from xml.etree.ElementTree import ElementTree
 
 from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsxConverter
-from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxWriter
 
 
 def elements_equal(e1, e2):
@@ -105,6 +103,7 @@ class TestEnaXlsConverter(TestCase):
     def _delete_file(file_path):
         if os.path.exists(file_path):
             os.remove(file_path)
+
 
     def tearDown(self) -> None:
         self._delete_file(os.path.join(self.brokering_folder, 'TEST1.Submission.xml'))
