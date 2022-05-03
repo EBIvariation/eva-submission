@@ -1,6 +1,12 @@
 Changelog for eva-submission
 ============================
 
+1.5.2 (2022-05-03)
+------------------
+
+### Brokering
+ - csi generated without .gz to accomodate ENA validation
+
 1.5.1 (2022-04-29)
 ------------------
 
