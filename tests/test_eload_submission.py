@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import yaml
 
-from eva_submission import ROOT_DIR, __version__
+from eva_submission import ROOT_DIR, __version__, eload_submission
 from eva_submission.eload_submission import Eload
 from eva_submission.submission_config import EloadConfig, load_config
 
@@ -34,6 +34,7 @@ class TestEload(TestCase):
         for file_path in [self.eload.eload_cfg.config_file, f'{self.eload.eload_cfg.config_file}.1', self.logfile_name]:
             if os.path.exists(file_path):
                 os.remove(file_path)
+        eload_submission.eload_logging_files.clear()
 
     def test_create_log_file(self):
         # Creating a second eload object to test whether the logging file handler
