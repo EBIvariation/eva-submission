@@ -49,10 +49,10 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    eload = EloadPreparation(args.eload)
-    if args.ftp_box and args.submitter:
-        eload.copy_from_ftp(args.ftp_box, args.submitter)
-    eload.detect_all(args.taxid, args.reference)
+    with EloadPreparation(args.eload) as eload:
+        if args.ftp_box and args.submitter:
+            eload.copy_from_ftp(args.ftp_box, args.submitter)
+        eload.detect_all(args.taxid, args.reference)
 
 
 if __name__ == "__main__":

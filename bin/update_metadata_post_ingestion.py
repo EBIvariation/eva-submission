@@ -39,15 +39,15 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    ingestion = EloadIngestion(args.eload)
-    ingestion.upgrade_config_if_needed()
-    ingestion.update_assembly_set_in_analysis()
-    ingestion.insert_browsable_files()
-    ingestion.update_browsable_files_with_date()
-    ingestion.update_files_with_ftp_path()
-    ingestion.refresh_study_browser()
-    ingestion.update_loaded_assembly_in_browsable_files()
-    ingestion.check_assembly_set_id_coherence()
+    with EloadIngestion(args.eload) as ingestion:
+        ingestion.upgrade_config_if_needed()
+        ingestion.update_assembly_set_in_analysis()
+        ingestion.insert_browsable_files()
+        ingestion.update_browsable_files_with_date()
+        ingestion.update_files_with_ftp_path()
+        ingestion.refresh_study_browser()
+        ingestion.update_loaded_assembly_in_browsable_files()
+        ingestion.check_assembly_set_id_coherence()
 
 
 if __name__ == "__main__":

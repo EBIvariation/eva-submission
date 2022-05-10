@@ -3,7 +3,9 @@ from copy import deepcopy
 from unittest import TestCase
 from unittest.mock import patch
 
-from eva_submission import ROOT_DIR, __version__
+import yaml
+
+from eva_submission import ROOT_DIR, __version__, eload_submission
 from eva_submission.eload_submission import Eload
 from eva_submission.submission_config import EloadConfig, load_config
 
@@ -32,6 +34,7 @@ class TestEload(TestCase):
         for file_path in [self.eload.eload_cfg.config_file, f'{self.eload.eload_cfg.config_file}.1', self.logfile_name]:
             if os.path.exists(file_path):
                 os.remove(file_path)
+        eload_submission.eload_logging_files.clear()
 
     def test_create_log_file(self):
         # Creating a second eload object to test whether the logging file handler
@@ -47,6 +50,17 @@ class TestEload(TestCase):
 
             # Checking if the log message is written only once in the log file
             assert len(k) == 1
+
+    def test_context_manager(self):
+        with Eload(55) as eload:
+            assert eload.eload_cfg.query('submission', 'assembly_accession') is None
+            eload.eload_cfg.set('submission', 'assembly_accession', value='GCA_00009999.9')
+            assert eload.eload_cfg.query('submission', 'assembly_accession') == 'GCA_00009999.9'
+
+        # Config file gets written
+        with open(eload.eload_cfg.config_file) as open_file:
+            config_dict = yaml.safe_load(open_file)
+            assert config_dict['submission']['assembly_accession'] == 'GCA_00009999.9'
 
     def test_upgrade_config(self):
         """Tests config upgrade for a post-brokering config."""
