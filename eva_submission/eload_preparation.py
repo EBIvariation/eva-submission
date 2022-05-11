@@ -3,6 +3,9 @@ import os
 import shutil
 
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
+from ebi_eva_common_pyutils.config import cfg
+from ebi_eva_common_pyutils.config_utils import get_contig_alias_db_creds_for_profile
+
 
 from eva_submission.eload_submission import Eload, directory_structure
 from eva_submission.eload_utils import resolve_accession_from_text, get_reference_fasta_and_report
@@ -154,6 +157,10 @@ class EloadPreparation(Eload):
     def find_genome(self):
         scientific_name = self.eload_cfg.query('submission', 'scientific_name')
         analyses = self.eload_cfg.query('submission', 'analyses')
+
+        contig_alias_url, contig_alias_user, contig_alias_pass = get_contig_alias_db_creds_for_profile(
+            cfg['maven']['environment'], cfg['maven']['settings_file'])
+
         if scientific_name:
             for analysis_alias in analyses:
                 assembly_accession = self.eload_cfg.query('submission', 'analyses', analysis_alias, 'assembly_accession')
