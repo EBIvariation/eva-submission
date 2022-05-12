@@ -13,9 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import re
-from csv import DictReader, DictWriter
 from datetime import datetime
 
 import requests
@@ -66,7 +64,8 @@ class HALCommunicator(AppLogger):
     @retry(exceptions=(ValueError, requests.RequestException), tries=3, delay=2, backoff=1.2, jitter=(1, 3))
     def _req(self, method, url, **kwargs):
         """private method that sends a request using the specified method. It adds the headers required by bsd"""
-        headers = {'Accept': 'application/hal+json', 'Authorization': 'Bearer ' + self.token}
+        headers = kwargs.pop('headers', {})
+        headers.update({'Accept': 'application/hal+json', 'Authorization': 'Bearer ' + self.token})
         if 'json' in kwargs:
             headers['Content-Type'] = 'application/json'
         response = requests.request(
@@ -163,11 +162,17 @@ class BSDSubmitter(AppLogger):
                 # Create a sample
                 sample_json = self.communicator.follows_link('samples', method='POST', json=sample)
                 self.debug('Accession sample ' + sample.get('name') + ' as ' + sample_json.get('accession'))
-            else:
-                # Update a sample
+            # To trigger and update we require at least the sample name to be populated
+            # Then push the sample as it is documented
+            # NOTE that it will replace the sample so potentially remove fields that were present before.
+            elif 'name' in sample:
                 self.debug('Update sample ' + sample.get('name') + ' with accession ' + sample.get('accession'))
                 sample_json = self.communicator.follows_link('samples', method='PUT', join_url=sample.get('accession'),
                                                              json=sample)
+
+            # Otherwise Keep the sample as is and retrieve the name so that list of sample to accession is complete
+            else:
+                sample_json = self.communicator.follows_link('samples', method='GET', join_url=sample.get('accession'))
             self.sample_name_to_accession[sample_json.get('name')] = sample_json.get('accession')
 
 
@@ -237,149 +242,6 @@ class SampleSubmitter(AppLogger):
         raise NotImplementedError
 
 
-class SampleTabSubmitter(SampleSubmitter):
-
-    sample_mapping = {
-        'Sample Name': 'name',
-        'Sample Accession': 'accession',
-        'Sample Description': 'characteristics.description',
-        'Organism': 'characteristics.organism',
-        'Sex': 'characteristics.sex',
-        'Material': 'characteristics.material',
-        'Term Source REF': None,
-        'Term Source ID': 'taxId',  # This is a bit spurious: assumes that the "Term Source REF" is always NCBI Taxonomy
-        'Scientific Name': 'scientific name',
-        'Common Name': 'common name'
-    }
-
-    project_mapping = {
-        'person': 'contact',
-        'Organization Name': 'Name',
-        'Organization Address': 'Address',
-        'Person Email': 'E-mail',
-        'Person First Name': 'FirstName',
-        'Person Last Name': 'LastName'
-    }
-
-    def __init__(self, sampletab_file):
-        super().__init__()
-        self.sampletab_file = sampletab_file
-        sampletab_base, ext = os.path.splitext(self.sampletab_file)
-        self.accessioned_sampletab_file = sampletab_base + '_accessioned' + ext
-
-    def map_sample_tab_to_bsd_data(self, sample_tab_data, project_tab):
-        """
-        Map each column provided in the sampletab file to a key in the API's sample schema.
-        No validation is performed at this point.
-        """
-        payloads = []
-        for sample_tab in sample_tab_data:
-            bsd_sample_entry = {'characteristics': {}}
-            for header in sample_tab:
-                if header.startswith('Characteristic['):
-                    # characteristic maps to characteristics
-                    key = header[len('Characteristic['): -1]
-                    self.apply_mapping(
-                        bsd_sample_entry['characteristics'],
-                        self.map_sample_key(key.lower()),
-                        [{'text': sample_tab[header]}]
-                    )
-                else:
-                    self.apply_mapping(bsd_sample_entry, self.map_sample_key(header), sample_tab[header])
-            grouped_values = {}
-            for header in project_tab:
-                # Organisation and contact can contain multiple values that are split across several fields
-                # this will group the across fields
-                groupname = self.map_project_key(header.split()[0].lower())
-                if groupname in ['organization', 'contact']:
-                    self._group_across_fields(grouped_values, header, project_tab[header])
-                else:
-                    # All the other project level field are added to characteristics
-                    self.apply_mapping(bsd_sample_entry['characteristics'], header.lower(), [{'text': project_tab[header]}])
-            # Store the grouped values
-            for groupname in grouped_values:
-                self.apply_mapping(bsd_sample_entry, groupname, grouped_values[groupname])
-
-            bsd_sample_entry['release'] = _now
-            payloads.append(bsd_sample_entry)
-
-        return payloads
-
-    def parse_sample_tab(self):
-        self.info('Parse ' + self.sampletab_file)
-        self._parse_sample_tab(self.sampletab_file)
-
-    @staticmethod
-    def _parse_sample_tab(sampletab_file):
-        msi_dict = {}
-        scd_lines = []
-        in_msi = in_scd = False
-        with open(sampletab_file) as open_file:
-            for line in open_file:
-                if line.strip() == '[MSI]':
-                    in_msi = True
-                    in_scd = False
-                elif line.strip() == '[SCD]':
-                    in_msi = False
-                    in_scd = True
-                else:
-                    if line.strip() == '':
-                        continue
-                    elif in_msi:
-                        values = line.strip().split('\t')
-                        msi_dict[values[0]] = '\t'.join(values[1:])
-                    elif in_scd:
-                        scd_lines.append(line.strip())
-        reader = DictReader(scd_lines, dialect='excel-tab')
-        return msi_dict, reader
-
-    def write_sample_tab(self, samples_to_accessions):
-        """Read the input again and add the accessions to the sample lines in the output"""
-        with open(self.sampletab_file) as open_read, open(self.accessioned_sampletab_file, 'w') as open_write:
-            scd_lines = []
-            in_scd = False
-            for line in open_read:
-                if line.strip() == '[SCD]':
-                    in_scd = True
-                    open_write.write(line)
-                elif in_scd:
-                    scd_lines.append(line.strip())
-                else:
-                    open_write.write(line)
-
-            reader = DictReader(scd_lines, dialect='excel-tab')
-            fieldnames = ['Sample Accession'] + reader.fieldnames
-            writer = DictWriter(open_write, fieldnames, dialect='excel-tab')
-            writer.writeheader()
-            for sample_dict in reader:
-                sample_dict['Sample Accession'] = samples_to_accessions[sample_dict['Sample Name']]
-                writer.writerow(sample_dict)
-
-    def submit_to_bioSamples(self):
-        msi_dict, scd_reader = self.parse_sample_tab()
-        sample_data = self.map_sample_tab_to_bsd_data(scd_reader, msi_dict)
-        self.info('Validate {} sample(s) '.format(len(sample_data)))
-        self.submitter.validate_in_bsd(sample_data)
-
-        # Only accessioned if it was not done before
-        if os.path.exists(self.accessioned_sampletab_file):
-            self.error('Accessioned file exist already ' + self.accessioned_sampletab_file)
-            self.error('If you want to update the samples you should provide the accessioned file.')
-            self.error('If you really want to submit the samples again delete or move the accessioned file.')
-        elif sample_data:
-            self.info('Upload {} sample(s) '.format(len(sample_data)))
-            try:
-                self.submitter.submit_to_bsd(sample_data)
-            finally:
-                if 'accession' not in sample_data[0]:
-                    # No accession in the input so create an output file
-                    self.write_sample_tab(self.submitter.sample_name_to_accession)
-        else:
-            self.error('No Sample found in the Sample tab file: ' + self.sampletab_file)
-
-        return self.submitter.sample_name_to_accession
-
-
 class SampleMetadataSubmitter(SampleSubmitter):
 
     sample_mapping = {
@@ -424,7 +286,8 @@ class SampleMetadataSubmitter(SampleSubmitter):
                 description_list.append(sample_row.get('Title'))
             if sample_row.get('Description'):
                 description_list.append(sample_row.get('Description'))
-            self.apply_mapping(bsd_sample_entry['characteristics'], 'description', [{'text': ' - '.join(description_list)}])
+            if description_list:
+                self.apply_mapping(bsd_sample_entry['characteristics'], 'description', [{'text': ' - '.join(description_list)}])
             for key in sample_row:
                 if sample_row[key]:
                     if key in self.sample_mapping:

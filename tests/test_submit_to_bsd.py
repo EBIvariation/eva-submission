@@ -1,3 +1,4 @@
+import copy
 import os
 from copy import deepcopy
 from unittest import TestCase
@@ -6,8 +7,7 @@ from unittest.mock import patch, Mock, PropertyMock
 import yaml
 
 from eva_submission import biosamples_submission, ROOT_DIR
-from eva_submission.biosamples_submission import HALCommunicator, BSDSubmitter, SampleTabSubmitter, \
-    SampleMetadataSubmitter
+from eva_submission.biosamples_submission import HALCommunicator, BSDSubmitter, SampleMetadataSubmitter
 
 
 class BSDTestCase(TestCase):
@@ -176,72 +176,50 @@ class TestBSDSubmitter(BSDTestCase):
     def test_validate_in_bsd(self):
         self.submitter.validate_in_bsd(self.sample_data)
 
-    def test_submit_to_bsd(self):
+    def test_submit_to_bsd_create(self):
         self.submitter.submit_to_bsd(self.sample_data)
         self.assertEqual(len(self.submitter.sample_name_to_accession), len(self.sample_data))
         self.assertEqual(list(self.submitter.sample_name_to_accession.keys()), ['LH1'])
-        # The accession is set by the server so cannot test its content that will change every time
-        self.assertIsNotNone(list(self.submitter.sample_name_to_accession.values())[0])
+        self.assertIsNotNone(self.submitter.sample_name_to_accession.get('LH1'))
+        # Check that the sample actually exists
+        accession = self.submitter.sample_name_to_accession.get('LH1')
+        sample_json = self.submitter.communicator.follows_link('samples', join_url=accession)
+        self.assertIsNotNone(sample_json)
+        self.assertEqual(sample_json['name'], 'LH1')
 
+    def test_submit_to_bsd_update(self):
+        self.submitter.submit_to_bsd(self.sample_data)
+        accession = self.submitter.sample_name_to_accession.get('LH1')
+        sample_json = self.submitter.communicator.follows_link('samples', join_url=accession)
+        self.assertEqual(sample_json['characteristics']['description'][0]['text'], 'yellow croaker sample 12')
+        self.assertEqual(sample_json['characteristics']['collected_by'][0]['text'], 'first1 last1')
 
-class TestSampleTabSubmitter(BSDTestCase):
-    project_data = {
-        'Submission Title': 'Characterization of a large dataset of SNPs in Larimichthys polyactis using high throughput 2b-RAD sequencing',
-        'Submission Identifier': '',
-        'Submission Description': 'Single nucleotide polymorphism (SNP) characterization and genotyping of Larimichthys polyactis by using high-throughput 2b-RAD sequencing technology',
-        'Person Last Name': 'first1\tfirst2',
-        'Person First Name': 'last1\tlast2',
-        'Person Email': 'test1@gmail.com\ttest2@gmail.com',
-        'Organization Name': 'Laboratory1\tLaboratory1',
-        'Organization Address': 'Changzhi Island, Zhoushan, Zhejiang 316022, PR China\tChangzhi Island, Zhoushan, Zhejiang 316022, PR China',
-        'Database Name': 'PRJNA592281',
-        'Term Source Name': 'NCBI Taxonomy',
-        'Term Source URI': 'http://www.ncbi.nlm.nih.gov/taxonomy'
-    }
+        # Modify the descriptions and remove the collected_by
+        updated_data = copy.deepcopy(self.sample_data)
+        modified_text = 'blue croaker sample 12'
+        updated_data[0]['characteristics']['description'] = [{'text': modified_text}]
+        updated_data[0]['characteristics'].pop('collected_by')
+        updated_data[0]['characteristics']['new metadata'] = [{'text': 'New value'}]
+        updated_data[0]['accession'] = accession
+        self.submitter.submit_to_bsd(updated_data)
+        accession = self.submitter.sample_name_to_accession.get('LH1')
+        # Needs to avoid requests' cache otherwise we get the previous version
+        updated_sample_json = self.submitter.communicator.follows_link('samples', join_url=accession,
+                                                                       headers={'Cache-Control': 'no-cache'})
+        self.assertEqual(updated_sample_json['characteristics']['new metadata'][0]['text'], 'New value')
+        self.assertEqual(updated_sample_json['characteristics']['description'][0]['text'], 'blue croaker sample 12')
+        self.assertNotIn('collected_by', updated_sample_json['characteristics'])
 
-    first_sample = {
-        'Sample Name': 'LH1',
-        'Sample Description': 'yellow croaker sample 12',
-        'Organism': 'Larimichthys polyactis',
-        'Term Source REF': 'NCBI Taxonomy',
-        'Term Source ID': '334908',
-        'Characteristic[identified_by]': 'first1 last1',
-        'Characteristic[collected_by]': 'first1 last1',
-        'Characteristic[geographic location (country and/or sea)]': 'China',
-        'Characteristic[Scientific Name]': 'Larimichthys polyactis',
-        'Characteristic[geographic location (region and locality)]': 'East China Sea,Liuheng, Putuo, Zhejiang',
-        'Characteristic[Common Name]': 'yellow croaker'
-    }
-
-    def setUp(self) -> None:
-        file_name = os.path.join(self.resources_folder, 'bsd_submission.yaml')
-        self.sampletab_file = os.path.join(self.resources_folder, 'ELOAD_609biosamples.txt')
-        self.submitter = SampleTabSubmitter(self.sampletab_file)
-
-    def test_parse_sample_tab(self):
-        msi_data, scd_reader = self.submitter._parse_sample_tab(self.sampletab_file)
-        self.assertEqual(msi_data, self.project_data)
-        self.assertEqual(next(scd_reader), self.first_sample)
-
-    def test_map_sample_tab_to_BSD_data(self):
-        sample_tab_data = [
-            self.first_sample,
-        ]
-        biosamples_submission._now = '2020-07-06T19:09:29.090Z'
-        self.assertEqual(sample_data, self.submitter.map_sample_tab_to_bsd_data(sample_tab_data, self.project_data))
-
-    def test_write_sample_tab(self):
-        self.submitter.write_sample_tab(
-            samples_to_accessions={
-                'LH1': 'ACCESSION01', 'LS3': 'ACCESSION02', 'DL3': 'ACCESSION03', 'DL2': 'ACCESSION04',
-                'DL1': 'ACCESSION05', 'LH3': 'ACCESSION06', 'LS2': 'ACCESSION07', 'DL4': 'ACCESSION08',
-                'LS5': 'ACCESSION09', 'LH2': 'ACCESSION10', 'LH4': 'ACCESSION11', 'LH5': 'ACCESSION12',
-                'LS4': 'ACCESSION13', 'DL5': 'ACCESSION14', 'LS6': 'ACCESSION15', 'LS1': 'ACCESSION16'
-            }
-        )
-        self.assertTrue(os.path.isfile(self.submitter.accessioned_sampletab_file))
-        msi_data, scd_reader = self.submitter._parse_sample_tab(self.submitter.accessioned_sampletab_file)
-        self.assertEqual(next(scd_reader).get('Sample Accession'), 'ACCESSION01')
+    def test_submit_to_bsd_no_change(self):
+        self.submitter.submit_to_bsd(self.sample_data)
+        accession = self.submitter.sample_name_to_accession.get('LH1')
+        print(accession)
+        # Make sure there are nothing in the sample_name_to_accession
+        self.submitter.sample_name_to_accession.clear()
+        with patch.object(HALCommunicator, 'follows_link', wraps=self.submitter.communicator.follows_link) as mock_fl:
+            self.submitter.submit_to_bsd([{'accession': accession}])
+        mock_fl.assert_called_once_with('samples', method='GET', join_url=accession)
+        self.assertEqual(self.submitter.sample_name_to_accession, {'LH1': accession})
 
 
 class TestSampleMetadataSubmitter(BSDTestCase):
@@ -253,8 +231,10 @@ class TestSampleMetadataSubmitter(BSDTestCase):
         brokering_folder = os.path.join(ROOT_DIR, 'tests', 'resources', 'brokering')
         metadata_file1 = os.path.join(brokering_folder, 'metadata_sheet.xlsx')
         metadata_file2 = os.path.join(brokering_folder, 'metadata_sheet2.xlsx')
+        metadata_partial_file = os.path.join(brokering_folder, 'metadata_sheet_partial.xlsx')
         self.submitter_no_biosample_ids = SampleMetadataSubmitter(metadata_file1)
         self.submitter = SampleMetadataSubmitter(metadata_file2)
+        self.submitter_partial_biosample_ids = SampleMetadataSubmitter(metadata_partial_file)
 
     def test_map_metadata_to_bsd_data(self):
         now = '2020-07-06T19:09:29.090Z'
@@ -274,6 +254,42 @@ class TestSampleMetadataSubmitter(BSDTestCase):
         ]
         payload = self.submitter.map_metadata_to_bsd_data()
         self.assertEqual(payload, expected_payload)
+
+    def test_map_partial_metadata_to_bsd_data(self):
+        now = '2020-07-06T19:09:29.090Z'
+        biosamples_submission._now = now
+        contacts = [
+            {'LastName': 'John', 'FirstName': 'Doe', 'E-mail': 'john.doe@example.com'},
+            {'LastName': 'Jane', 'FirstName': 'Doe', 'E-mail': 'jane.doe@example.com'}
+        ]
+        organizations = [{'Name': 'GPE', 'Address': 'The place to be'}, {'Name': 'GPE', 'Address': 'The place to be'}]
+        updated_samples = [{
+            'accession': 'SAMD1234' + str(567 + i),
+            'name': 'S%s' % (i + 1), 'taxId': 9606, 'release': now,
+            'contact': contacts, 'organization': organizations,
+            'characteristics': {
+                'Organism': [{'text': 'Homo sapiens'}],
+                'description': [{'text': 'Sample %s' % (i + 1)}],
+                'scientific name': [{'text': 'Homo sapiens'}]
+            }
+        } for i in range(10)]
+        existing_samples = [{
+            'accession': 'SAMD1234' + str(567 + i),
+            'contact': contacts, 'organization': organizations,
+            'characteristics': {},
+            'release': now
+        } for i in range(10, 20)]
+        new_samples = [{'name': 'S%s' % (i + 1), 'taxId': 9606, 'release': now,
+                        'contact': contacts, 'organization': organizations,
+                        'characteristics': {
+                            'Organism': [{'text': 'Homo sapiens'}],
+                            'description': [{'text': 'Sample %s' % (i + 1)}],
+                            'scientific name': [{'text': 'Homo sapiens'}]
+                        }} for i in range(20, 100)]
+
+        expected_payload = updated_samples + existing_samples + new_samples
+        payload = self.submitter_partial_biosample_ids.map_metadata_to_bsd_data()
+        assert expected_payload == payload
 
     def test_check_submit_done(self):
         # This data has already been brokered to BioSamples
