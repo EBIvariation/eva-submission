@@ -4,6 +4,7 @@ from unittest import TestCase
 import xml.etree.ElementTree as ET
 from unittest.mock import patch, Mock
 
+from eva_submission import ROOT_DIR
 from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsxConverter
 
 
@@ -59,7 +60,7 @@ class TestEnaXlsConverter(TestCase):
     '''
 
     def setUp(self) -> None:
-        self.brokering_folder = os.path.join(os.path.dirname(__file__), 'resources', 'brokering')
+        self.brokering_folder = os.path.join(ROOT_DIR, 'tests', 'resources', 'brokering')
 
         self.project_row = {
             'Project Title': 'TechFish - Vibrio challenge',
@@ -162,8 +163,6 @@ class TestEnaXlsConverter(TestCase):
             m_sci_name.return_value = 'Oncorhynchus mykiss'
             root = self.converter._create_project_xml()
             expected_root = ET.fromstring(expected_project)
-            # For some reason the attributes from the first elements are not parsed
-            expected_root.attrib['xmlns:xsi'] = 'http://www.w3.org/2001/XMLSchema-instance'
             assert elements_equal(root, expected_root)
 
     def test_add_analysis(self):
@@ -214,7 +213,6 @@ class TestEnaXlsConverter(TestCase):
                    return_value=datetime(year=2021, month=1, day=1)):
             root = self.converter._create_submission_xml(files_to_submit, 'ADD', self.project_row)
             expected_root = ET.fromstring(expected_submission)
-            expected_root.attrib['xmlns:xsi'] = 'http://www.w3.org/2001/XMLSchema-instance'
         assert elements_equal(root, expected_root)
 
     def test_create_submission_with_date(self):
@@ -243,7 +241,6 @@ class TestEnaXlsConverter(TestCase):
         ]
         root = self.converter._create_submission_xml(files_to_submit, 'ADD', self.project_row)
         expected_root = ET.fromstring(expected_submission)
-        expected_root.attrib['xmlns:xsi'] = 'http://www.w3.org/2001/XMLSchema-instance'
         assert elements_equal(root, expected_root)
 
     def test_create_submission_files(self):
@@ -260,5 +257,8 @@ class TestEnaXlsConverter(TestCase):
             assert project_file is None
             assert os.path.exists(analysis_file)
             assert not os.path.exists(self.converter.project_file)
+
+    def test_create_single_submission_files(self):
+        self.converter.create_single_submission_file()
 
 

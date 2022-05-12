@@ -44,6 +44,8 @@ def main():
     argparse.add_argument('--project_accession', required=False, type=ENA_Project,
                           help='Use this option to set an existing project accession that will be used to attach the '
                                'new analyses from this ELOAD.')
+    argparse.add_argument('--use_ena_queue',  action='store_true', default=False,
+                          help='Change the mode of upload to ENA to use the async queue.')
     argparse.add_argument('--force', required=False, type=str, nargs='+', default=[],
                           choices=EloadBrokering.all_brokering_tasks,
                           help='When not set, the script only performs the tasks that were not successful. Can be '
@@ -63,7 +65,8 @@ def main():
     with EloadBrokering(args.eload, args.vcf_files, args.metadata_file) as brokering:
         brokering.upgrade_config_if_needed()
         if not args.report:
-            brokering.broker(brokering_tasks_to_force=args.force, existing_project=args.project_accession)
+            brokering.broker(brokering_tasks_to_force=args.force, existing_project=args.project_accession,
+                             use_queue=args.use_ena_queue)
         brokering.report()
 
 

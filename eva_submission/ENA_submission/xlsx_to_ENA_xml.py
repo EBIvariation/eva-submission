@@ -93,6 +93,7 @@ class EnaXlsxConverter(AppLogger):
         self.project_file = os.path.join(self.output_folder, self.name + '.Project.xml')
         self.analysis_file = os.path.join(self.output_folder, self.name + '.Analysis.xml')
         self.submission_file = os.path.join(self.output_folder, self.name + '.Submission.xml')
+        self.single_submission_file = os.path.join(self.output_folder, self.name + '.SingleSubmission.xml')
 
     @cached_property
     def is_existing_project(self):
@@ -116,7 +117,6 @@ class EnaXlsxConverter(AppLogger):
         """
         project_row = self.reader.project
         root = Element('PROJECT_SET')
-        root.attrib['xmlns:xsi'] = 'http://www.w3.org/2001/XMLSchema-instance'
 
         project_elemt = add_element(root, 'PROJECT',
                                     alias=project_row.get('Project Alias'),
@@ -196,7 +196,6 @@ class EnaXlsxConverter(AppLogger):
         :return: The top XML element
         """
         root = Element('ANALYSIS_SET')
-        root.attrib['xmlns:xsi'] = 'http://www.w3.org/2001/XMLSchema-instance'
         for analysis_row in self.reader.analysis:
             sample_rows = self.reader.samples_per_analysis[analysis_row.get('Analysis Alias')]
             file_rows = self.reader.files_per_analysis[analysis_row.get('Analysis Alias')]
@@ -293,7 +292,6 @@ class EnaXlsxConverter(AppLogger):
 
     def _create_submission_xml(self, files_to_submit, action, project_row):
         root = Element('SUBMISSION_SET')
-        root.attrib['xmlns:xsi'] = 'http://www.w3.org/2001/XMLSchema-instance'
         submission_elemt = add_element(root, 'SUBMISSION',
                                        alias=project_row.get('Project Alias').strip(),
                                        center_name=project_row.get('Center'))
@@ -315,8 +313,28 @@ class EnaXlsxConverter(AppLogger):
         add_element(action_elemt, 'HOLD', HoldUntilDate=hold_date.strftime('%Y-%m-%d'))
         return root
 
+    def _create_submission_single_xml(self,  action, project_row):
+        root = Element('SUBMISSION_SET')
+        submission_elemt = add_element(root, 'SUBMISSION',
+                                       alias=project_row.get('Project Alias').strip(),
+                                       center_name=project_row.get('Center'))
+        actions_elemt = add_element(submission_elemt, 'ACTIONS')
+        action_elemt = add_element(actions_elemt, 'ACTION')
+        # action should be ADD or MODIFY
+        add_element(action_elemt, action.upper())
+        if 'Hold Date' in project_row and project_row.get('Hold Date'):
+            hold_date = project_row.get('Hold Date')
+        else:
+            hold_date = today() + timedelta(days=3)
+
+        self.hold_date = hold_date
+        action_elemt = add_element(actions_elemt, 'ACTION')
+        add_element(action_elemt, 'HOLD', HoldUntilDate=hold_date.strftime('%Y-%m-%d'))
+        return root
+
     @staticmethod
     def write_xml_to_file(xml_element, output_file):
+        xml_element.attrib['xmlns:xsi'] = 'http://www.w3.org/2001/XMLSchema-instance'
         etree = ElementTree(xml_element)
         with open(output_file, 'bw') as open_file:
             open_file.write(prettify(etree))
@@ -344,3 +362,23 @@ class EnaXlsxConverter(AppLogger):
         self.write_xml_to_file(submission_elemt, self.submission_file)
 
         return self.submission_file, project_file, self.analysis_file
+
+    def create_single_submission_file(self):
+        root = Element('WEBIN')
+        # Submission ELEMENT
+        action = 'ADD'
+        submissions_elemt = self._create_submission_single_xml(action, self.reader.project)
+        root.append(submissions_elemt)
+
+        # Project ELEMENT
+        if not self.is_existing_project:
+            projects_elemt = self._create_project_xml()
+            root.append(projects_elemt)
+
+        # Analysis ELEMENT
+        analysis_elemt = self._create_analysis_xml()
+        root.append(analysis_elemt)
+
+        self.write_xml_to_file(root, self.single_submission_file)
+
+        return self.single_submission_file
