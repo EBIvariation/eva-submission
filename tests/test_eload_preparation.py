@@ -103,3 +103,5 @@ class TestEloadPreparation(TestCase):
         assert self.eload.eload_cfg['submission']['analyses']['Analysis alias test']['assembly_fasta'] \
                == 'tests/resources/genomes/thingy_thingus/AJ312413.2/AJ312413.2.fa'
         assert 'assembly_report' not in self.eload.eload_cfg['submission']
+
+    def test_contig_alias_db_put_request(self):
