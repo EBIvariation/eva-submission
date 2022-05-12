@@ -3,7 +3,6 @@ import re
 from datetime import datetime, timedelta
 from functools import cached_property
 from io import BytesIO
-from pprint import pprint
 from xml.dom import minidom
 from xml.etree.ElementTree import Element, ElementTree
 
@@ -201,9 +200,6 @@ class EnaXlsxConverter(AppLogger):
         for analysis_row in self.reader.analysis:
             sample_rows = self.reader.samples_per_analysis[analysis_row.get('Analysis Alias')]
             file_rows = self.reader.files_per_analysis[analysis_row.get('Analysis Alias')]
-            print("======" + analysis_row.get('Analysis Alias') + "=====")
-            pprint(self.reader.files_per_analysis.keys())
-            pprint(file_rows)
             self._add_analysis(root, analysis_row, self.reader.project, sample_rows, file_rows)
         return root
 
