@@ -213,7 +213,6 @@ class TestBSDSubmitter(BSDTestCase):
     def test_submit_to_bsd_no_change(self):
         self.submitter.submit_to_bsd(self.sample_data)
         accession = self.submitter.sample_name_to_accession.get('LH1')
-        print(accession)
         # Make sure there are nothing in the sample_name_to_accession
         self.submitter.sample_name_to_accession.clear()
         with patch.object(HALCommunicator, 'follows_link', wraps=self.submitter.communicator.follows_link) as mock_fl:
