@@ -33,6 +33,7 @@ class ENAUploader(AppLogger):
         self.eload = eload
         self.results = {}
         self.converter = EnaXlsxConverter(ena_spreadsheet, output_dir, self.eload)
+        self.ena_auth = HTTPBasicAuth(cfg.query('ena', 'username'), cfg.query('ena', 'password'))
 
     def upload_vcf_files_to_ena_ftp(self, files_to_upload):
         host = cfg.query('ena', 'ftphost')
@@ -57,11 +58,12 @@ class ENAUploader(AppLogger):
     @retry(requests.exceptions.ConnectionError, tries=3, delay=2, backoff=1.2, jitter=(1, 3))
     def _post_xml_file_to_ena(self, url, file_dict):
         response = requests.post(
-            url, auth=HTTPBasicAuth(cfg.query('ena', 'username'), cfg.query('ena', 'password')), files=file_dict
+            url, auth=self.ena_auth, files=file_dict
         )
         return response
 
     def upload_xml_files_to_ena(self):
+        """Upload the xml files to the webin submission endpoint and parse the receipt."""
         submission_file, project_file, analysis_file = self.converter.create_submission_files()
         file_dict = {
             'SUBMISSION': (os.path.basename(submission_file), get_file_content(submission_file), 'application/xml'),
@@ -100,6 +102,8 @@ class ENAUploader(AppLogger):
 class ENAUploaderAsync(ENAUploader):
 
     def upload_xml_files_to_ena(self):
+        """Upload the xml file to the asynchronous endpoint and monitor the results from the poll endpoint."""
+
         webin_file = self.converter.create_single_submission_file()
         file_dict = {
             'file': (os.path.basename(webin_file), get_file_content(webin_file), 'application/xml'),
@@ -112,11 +116,11 @@ class ENAUploaderAsync(ENAUploader):
             self.results['poll-links'] = xml_link
             self.monitor_results()
         else:
-            self.results['errors'] = f'{json_data["status"]}: {json_data["error"]} - {json_data["message"]}'
+            self.results['errors'] = [f'{json_data["status"]}: {json_data["error"]} - {json_data["message"]}']
 
     def monitor_results(self, timeout=3600, wait_time=30):
         xml_link = self.results['poll-links']
-        response = requests.get(xml_link, auth=HTTPBasicAuth(cfg.query('ena', 'username'), cfg.query('ena', 'password')))
+        response = requests.get(xml_link, auth=self.ena_auth)
         time_lapsed = 0
         while response.status_code == 202:
             if time_lapsed > timeout:
@@ -125,7 +129,7 @@ class ENAUploaderAsync(ENAUploader):
             time.sleep(wait_time)
             time_lapsed += wait_time
 
-            response = requests.get(xml_link, auth=HTTPBasicAuth(cfg.query('ena', 'username'), cfg.query('ena', 'password')))
+            response = requests.get(xml_link, auth=self.ena_auth)
         self.parse_ena_receipt(response.text)
         self.results.update(self.parse_ena_receipt(response.text))
         if self.results['errors']:

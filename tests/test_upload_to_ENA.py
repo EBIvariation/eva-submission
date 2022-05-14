@@ -1,10 +1,11 @@
+import shutil
 from unittest import TestCase
 import os
 from unittest.mock import patch, Mock
 
 from eva_submission import ROOT_DIR
 from eva_submission.ENA_submission.upload_to_ENA import ENAUploader, ENAUploaderAsync
-from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsxConverter
+from eva_submission.eload_utils import get_file_content
 from eva_submission.submission_config import load_config
 
 
@@ -32,6 +33,10 @@ class TestENAUploader(TestCase):
         metadata_file = os.path.join(brokering_folder, 'metadata_sheet.xlsx')
         self.uploader = ENAUploader('ELOAD_1', metadata_file, brokering_folder)
         self.uploader_async = ENAUploaderAsync('ELOAD_1', metadata_file, brokering_folder)
+
+    def tearDown(self) -> None:
+        if os.path.exists(self.uploader_async.converter.single_submission_file):
+            os.remove(self.uploader_async.converter.single_submission_file)
 
     def test_parse_ena_receipt(self):
         assert self.uploader.parse_ena_receipt(self.receipt) == {
@@ -88,8 +93,29 @@ class TestENAUploader(TestCase):
     def test_single_upload_xml_files_to_ena(self):
         with patch.object(ENAUploader, '_post_xml_file_to_ena') as mock_post,\
              patch('eva_submission.ENA_submission.upload_to_ENA.requests.get') as mock_get:
-            json_data = {'submissionId': 'ERA123456', 'links': [{'rel': 'poll-xml', 'href': 'path/to/link'}]}
+            json_data = {'submissionId': 'ERA123456', 'links': [{'rel': 'poll-xml', 'href': 'https://example.com/link'}]}
             mock_post.return_value = Mock(json=Mock(return_value=json_data))
             mock_get.return_value = Mock(status_code=200, text=self.receipt)
+            self.assertFalse(os.path.isfile(self.uploader_async.converter.single_submission_file))
             self.uploader_async.upload_xml_files_to_ena()
+            self.assertTrue(os.path.isfile(self.uploader_async.converter.single_submission_file))
+            mock_post.assert_called_with(
+                'https://wwwdev.ebi.ac.uk/ena/submit/webin-v2/submit/queue',
+                {'file': (
+                    'ELOAD_1.SingleSubmission.xml',
+                    get_file_content(self.uploader_async.converter.single_submission_file),
+                    'application/xml'
+                )}
+            )
+            mock_get.assert_called_once_with('https://example.com/link', auth=self.uploader_async.ena_auth)
+            self.assertEqual(self.uploader_async.results, {
+                'submissionId': 'ERA123456', 'poll-links': 'https://example.com/link', 'errors': [],
+                'ANALYSIS': {'FGV analysis b': 'ERZ1695006'}, 'PROJECT': 'PRJEB42220', 'SUBMISSION': 'ERA3202812'
+            })
+
+    def test_single_upload_xml_files_to_ena_failed(self):
+        self.assertFalse(os.path.isfile(self.uploader_async.converter.single_submission_file))
+        self.uploader_async.upload_xml_files_to_ena()
+        self.assertTrue(os.path.isfile(self.uploader_async.converter.single_submission_file))
+        self.assertEqual(self.uploader_async.results, {'errors': ['403: Forbidden - Access Denied']})
 
