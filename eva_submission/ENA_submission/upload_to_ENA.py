@@ -1,5 +1,6 @@
 import ftplib
 import os
+import time
 from xml.etree import ElementTree as ET
 
 import requests
@@ -8,6 +9,7 @@ from ebi_eva_common_pyutils.config import cfg
 from requests.auth import HTTPBasicAuth
 from retry import retry
 
+from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsxConverter
 from eva_submission.eload_utils import get_file_content
 
 
@@ -27,9 +29,11 @@ class HackFTP_TLS(ftplib.FTP_TLS):
 
 
 class ENAUploader(AppLogger):
-    def __init__(self, eload):
+    def __init__(self, eload, ena_spreadsheet, output_dir):
         self.eload = eload
         self.results = {}
+        self.converter = EnaXlsxConverter(ena_spreadsheet, output_dir, self.eload)
+        self.ena_auth = HTTPBasicAuth(cfg.query('ena', 'username'), cfg.query('ena', 'password'))
 
     def upload_vcf_files_to_ena_ftp(self, files_to_upload):
         host = cfg.query('ena', 'ftphost')
@@ -52,15 +56,15 @@ class ENAUploader(AppLogger):
                 ftps.storbinary('STOR %s' % file_name, open_file)
 
     @retry(requests.exceptions.ConnectionError, tries=3, delay=2, backoff=1.2, jitter=(1, 3))
-    def _post_xml_file_to_ena(self, file_dict):
+    def _post_xml_file_to_ena(self, url, file_dict):
         response = requests.post(
-            cfg.query('ena', 'submit_url'),
-            auth=HTTPBasicAuth(cfg.query('ena', 'username'), cfg.query('ena', 'password')),
-            files=file_dict
+            url, auth=self.ena_auth, files=file_dict
         )
         return response
 
-    def upload_xml_files_to_ena(self, submission_file, project_file, analysis_file):
+    def upload_xml_files_to_ena(self):
+        """Upload the xml files to the webin submission endpoint and parse the receipt."""
+        submission_file, project_file, analysis_file = self.converter.create_submission_files()
         file_dict = {
             'SUBMISSION': (os.path.basename(submission_file), get_file_content(submission_file), 'application/xml'),
             'ANALYSIS': (os.path.basename(analysis_file), get_file_content(analysis_file), 'application/xml')
@@ -69,7 +73,7 @@ class ENAUploader(AppLogger):
         if project_file:
             file_dict['PROJECT'] = (os.path.basename(project_file), get_file_content(project_file), 'application/xml')
 
-        response = self._post_xml_file_to_ena(file_dict)
+        response = self._post_xml_file_to_ena(cfg.query('ena', 'submit_url'), file_dict)
         self.results['receipt'] = response.text
         self.results.update(self.parse_ena_receipt(response.text))
         if self.results['errors']:
@@ -93,3 +97,41 @@ class ENAUploader(AppLogger):
             self.error('Cannot parse ENA receipt: ' + ena_xml_receipt)
             results['errors'].append('Cannot parse ENA receipt: ' + ena_xml_receipt)
         return results
+
+
+class ENAUploaderAsync(ENAUploader):
+
+    def upload_xml_files_to_ena(self):
+        """Upload the xml file to the asynchronous endpoint and monitor the results from the poll endpoint."""
+
+        webin_file = self.converter.create_single_submission_file()
+        file_dict = {
+            'file': (os.path.basename(webin_file), get_file_content(webin_file), 'application/xml'),
+        }
+        response = self._post_xml_file_to_ena(cfg.query('ena', 'submit_async'), file_dict)
+        json_data = response.json()
+        if 'submissionId' in json_data:
+            xml_link = [link_dict['href'] for link_dict in json_data['links'] if link_dict['rel'] == 'poll-xml'][0]
+            self.results['submissionId'] = json_data['submissionId']
+            self.results['poll-links'] = xml_link
+            self.monitor_results()
+        else:
+            self.results['errors'] = [f'{json_data["status"]}: {json_data["error"]} - {json_data["message"]}']
+
+    def monitor_results(self, timeout=3600, wait_time=30):
+        xml_link = self.results['poll-links']
+        response = requests.get(xml_link, auth=self.ena_auth)
+        time_lapsed = 0
+        while response.status_code == 202:
+            if time_lapsed > timeout:
+                raise TimeoutError(f'Waiting for ENA receipt for more than {timeout} seconds')
+            self.info(f'Waiting {wait_time} for submission to ENA to be processed')
+            time.sleep(wait_time)
+            time_lapsed += wait_time
+
+            response = requests.get(xml_link, auth=self.ena_auth)
+        self.parse_ena_receipt(response.text)
+        self.results.update(self.parse_ena_receipt(response.text))
+        if self.results['errors']:
+            self.error('\n'.join(self.results['errors']))
+
