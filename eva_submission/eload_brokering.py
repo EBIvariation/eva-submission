@@ -39,7 +39,11 @@ class EloadBrokering(Eload):
         self.broker_to_ena(force=('ena' in brokering_tasks_to_force), existing_project=existing_project)
 
     def prepare_brokering(self, force=False):
-        if not self.eload_cfg.query('brokering', 'analyses', 'vcf_files') or force:
+        valid_analyses = self.eload_cfg.query('validation', 'valid', 'analyses', ret_default=[])
+        if not all([
+            self.eload_cfg.query('brokering', 'analyses', analysis, 'vcf_files')
+            for analysis in valid_analyses
+        ]) or force:
             output_dir = self._run_brokering_prep_workflow()
             self._collect_brokering_prep_results(output_dir)
             shutil.rmtree(output_dir)

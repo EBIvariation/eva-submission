@@ -135,6 +135,13 @@ class XlsxBaseParser(AppLogger):
                 return str(value)
         return value
 
+    @staticmethod
+    def trim_value(value):
+        """Remove whitespace from the start and end of cells"""
+        if isinstance(value, str):
+            return value.strip()
+        return value
+
 
 class XlsxReader(XlsxBaseParser):
     """
@@ -194,7 +201,9 @@ class XlsxReader(XlsxBaseParser):
                 cell = row[header_index]
                 if cell.value is not None:
                     has_notnull = True
-                data[header] = self.cast_value(cell.value, self.xls_conf[worksheet].get(CAST_KEY_NAME, {}).get(header))
+                data[header] = self.trim_value(self.cast_value(
+                    cell.value, self.xls_conf[worksheet].get(CAST_KEY_NAME, {}).get(header)
+                ))
 
             if has_notnull:
                 data['row_num'] = self.row_offset[worksheet]
@@ -244,7 +253,9 @@ class XlsxReader(XlsxBaseParser):
                 cell = row[header_index]
                 if cell.value is not None:
                     has_notnull = True
-                data[header] = self.cast_value(cell.value, self.xls_conf[worksheet].get(CAST_KEY_NAME, {}).get(header))
+                data[header] = self.trim_value(self.cast_value(
+                    cell.value, self.xls_conf[worksheet].get(CAST_KEY_NAME, {}).get(header)
+                ))
 
             if has_notnull:
                 data['row_num'] = self.row_offset[worksheet]

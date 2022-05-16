@@ -6,6 +6,7 @@ import requests
 from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.config import cfg
 from requests.auth import HTTPBasicAuth
+from retry import retry
 
 from eva_submission.eload_utils import get_file_content
 
@@ -50,6 +51,15 @@ class ENAUploader(AppLogger):
             with open(file_to_upload, 'rb') as open_file:
                 ftps.storbinary('STOR %s' % file_name, open_file)
 
+    @retry(requests.exceptions.ConnectionError, tries=3, delay=2, backoff=1.2, jitter=(1, 3))
+    def _post_xml_file_to_ena(self, file_dict):
+        response = requests.post(
+            cfg.query('ena', 'submit_url'),
+            auth=HTTPBasicAuth(cfg.query('ena', 'username'), cfg.query('ena', 'password')),
+            files=file_dict
+        )
+        return response
+
     def upload_xml_files_to_ena(self, submission_file, project_file, analysis_file):
         file_dict = {
             'SUBMISSION': (os.path.basename(submission_file), get_file_content(submission_file), 'application/xml'),
@@ -59,11 +69,7 @@ class ENAUploader(AppLogger):
         if project_file:
             file_dict['PROJECT'] = (os.path.basename(project_file), get_file_content(project_file), 'application/xml')
 
-        response = requests.post(
-            cfg.query('ena', 'submit_url'),
-            auth=HTTPBasicAuth(cfg.query('ena', 'username'), cfg.query('ena', 'password')),
-            files=file_dict
-        )
+        response = self._post_xml_file_to_ena(file_dict)
         self.results['receipt'] = response.text
         self.results.update(self.parse_ena_receipt(response.text))
         if self.results['errors']:
