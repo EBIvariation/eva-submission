@@ -1,6 +1,15 @@
 Changelog for eva-submission
 ============================
 
+1.6.0 (2022-05-16)
+------------------
+
+ - Write the configuration file explicitly via the context manager
+
+### Brokering
+ - Make BioSamples brokering more robust
+ - Allow submission to ENA via asynchronous endpoint
+
 1.5.2 (2022-05-03)
 ------------------
 
