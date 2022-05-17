@@ -105,5 +105,5 @@ class TestEloadPreparation(TestCase):
         assert 'assembly_report' not in self.eload.eload_cfg['submission']
 
     def test_contig_alias_db_update(self):
-        self.EloadPreparation.find_genome()
-        assert EloadPreparation.contig_alias_db_update_response == 200
+        self.eload.find_genome()
+        assert self.eload.contig_alias_db_update_response == 200

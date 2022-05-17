@@ -17,8 +17,8 @@ from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
 class EloadPreparation(Eload):
 
-    def __init__(self, response):
-        super().__init__()
+    def __init__(self, eload_num):
+        super().__init__(eload_num)
         self.contig_alias_db_update_response = None
 
     def copy_from_ftp(self, ftp_box, submitter):
