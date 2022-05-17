@@ -104,4 +104,6 @@ class TestEloadPreparation(TestCase):
                == 'tests/resources/genomes/thingy_thingus/AJ312413.2/AJ312413.2.fa'
         assert 'assembly_report' not in self.eload.eload_cfg['submission']
 
-    def test_contig_alias_db_put_request(self):
+    def test_contig_alias_db_update(self):
+        self.EloadPreparation.find_genome()
+        assert EloadPreparation.contig_alias_db_update_response == 200

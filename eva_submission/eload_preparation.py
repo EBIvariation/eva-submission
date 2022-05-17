@@ -17,6 +17,10 @@ from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
 class EloadPreparation(Eload):
 
+    def __init__(self, response):
+        super().__init__()
+        self.contig_alias_db_update_response = None
+
     def copy_from_ftp(self, ftp_box, submitter):
         box = FtpDepositBox(ftp_box, submitter)
 
@@ -177,6 +181,7 @@ class EloadPreparation(Eload):
                 self.eload_cfg.set('submission', 'analyses', analysis_alias, 'assembly_fasta', value=assembly_fasta_path)
 
             response = requests.put(contig_alias_url, auth=(contig_alias_user, contig_alias_pass), json=payload)
+            self.contig_alias_db_update_response = response
 
         else:
             self.error('No scientific name specified')
