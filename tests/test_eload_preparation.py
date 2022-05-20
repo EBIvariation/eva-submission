@@ -100,10 +100,12 @@ class TestEloadPreparation(TestCase):
         cfg.content['eutils_api_key'] = None
         self.eload.eload_cfg.set('submission', 'scientific_name', value='Thingy thingus')
         self.eload.eload_cfg.set('submission', 'analyses', 'Analysis alias test', 'assembly_accession', value='AJ312413.2')
-        self.eload.find_genome()
-        assert self.eload.eload_cfg['submission']['analyses']['Analysis alias test']['assembly_fasta'] \
-               == 'tests/resources/genomes/thingy_thingus/AJ312413.2/AJ312413.2.fa'
-        assert 'assembly_report' not in self.eload.eload_cfg['submission']
+
+        with mock.patch("eva_submission.eload_preparation.requests.put", return_value=Mock(status_code=200)):
+            self.eload.find_genome()
+            assert self.eload.eload_cfg['submission']['analyses']['Analysis alias test']['assembly_fasta'] \
+                   == 'tests/resources/genomes/thingy_thingus/AJ312413.2/AJ312413.2.fa'
+            assert 'assembly_report' not in self.eload.eload_cfg['submission']
 
     def test_contig_alias_db_update(self):
 
