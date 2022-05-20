@@ -1,8 +1,9 @@
 import glob
 import os
 import shutil
-from unittest import TestCase
-
+from unittest import TestCase, mock
+from unittest.mock import patch
+from unittest.mock import Mock
 from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission import ROOT_DIR
@@ -105,5 +106,12 @@ class TestEloadPreparation(TestCase):
         assert 'assembly_report' not in self.eload.eload_cfg['submission']
 
     def test_contig_alias_db_update(self):
-        self.eload.find_genome()
-        assert self.eload.contig_alias_db_update_response == 200
+
+        cfg.content['eutils_api_key'] = None
+        self.eload.eload_cfg.set('submission', 'scientific_name', value='Thingy thingus')
+        self.eload.eload_cfg.set('submission', 'analyses', 'Analysis alias test', 'assembly_accession',
+                                                   value='AJ312413.2')
+
+        with mock.patch("eva_submission.eload_preparation.requests.put", return_value=Mock(status_code=200)) as mockput:
+            self.eload.find_genome()
+            mockput.assert_called_once_with('host', auth=('user', 'pass'), json=['AJ312413.2'])

@@ -15,6 +15,9 @@
                 <eva.accession.jdbc.url>host</eva.accession.jdbc.url>
                 <eva.accession.user>user</eva.accession.user>
                 <eva.accession.password>pass</eva.accession.password>
+                <contig-alias.url>host</contig-alias.url>
+                <contig-alias.admin-user>user</contig-alias.admin-user>
+                <contig-alias.admin-password>pass</contig-alias.admin-password>
             </properties>
         </profile>
     </profiles>
