@@ -187,8 +187,10 @@ class EloadPreparation(Eload):
                 response_get_data = response_get.json()
 
                 if response_get_data['page']['size'] != 0:
-                    response_put = requests.put(contig_alias_url, auth=(contig_alias_user, contig_alias_pass), json=assembly)
+                    response_put = requests.put(os.path.join(contig_alias_url, assembly), auth=(contig_alias_user, contig_alias_pass), json=assembly)
                     response_put.raise_for_status()
+
+
 
         else:
             self.error('No scientific name specified')

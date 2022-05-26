@@ -116,7 +116,13 @@ class TestEloadPreparation(TestCase):
 
         with mock.patch("eva_submission.eload_preparation.get_reference_fasta_and_report", return_value=(mock.Mock, mock.Mock)), \
                 mock.patch("eva_submission.eload_preparation.requests.put", return_value=mock.Mock(status_code=200)) as mockput, \
-                mock.patch("eva_submission.eload_preparation.requests.get"):
+                mock.patch("eva_submission.eload_preparation.requests.get") as mockget:
+
             self.eload.find_genome()
-            mockput.assert_called_once_with('host', auth=('user', 'pass'), json='GCA_000001405.10')
+
+            mockput.assert_called_once_with('host/GCA_000001405.10', auth=('user', 'pass'), json='GCA_000001405.10')
+            mockget.assert_called_once_with('host/GCA_000001405.10', auth=('user', 'pass'))
+
+
+
 
