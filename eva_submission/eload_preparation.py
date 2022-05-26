@@ -190,7 +190,5 @@ class EloadPreparation(Eload):
                     response_put = requests.put(os.path.join(contig_alias_url, assembly), auth=(contig_alias_user, contig_alias_pass), json=assembly)
                     response_put.raise_for_status()
 
-
-
         else:
             self.error('No scientific name specified')
