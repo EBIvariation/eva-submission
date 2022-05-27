@@ -190,7 +190,7 @@ class EloadIngestion(Eload):
 
     def load_from_ena(self):
         if self.eload_cfg.query('brokering', 'ena', 'existing_project'):
-            analyses = self.eload_cfg.query('brokering', 'ANALYSIS')
+            analyses = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
             for analysis_accession in analyses.values():
                 self.load_from_ena_from_project_or_analysis(analysis_accession)
 
