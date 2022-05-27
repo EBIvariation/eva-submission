@@ -114,7 +114,7 @@ class TestEloadPreparation(TestCase):
         self.eload.eload_cfg.set('submission', 'analyses', 'Analysis alias test', 'assembly_accession',
                                                    value='GCA_000001405.10')
 
-        with mock.patch("eva_submission.eload_preparation.get_reference_fasta_and_report", return_value=(mock.Mock, mock.Mock)), \
+        with mock.patch("eva_submission.eload_preparation.get_reference_fasta_and_report", return_value=('assembly', 'report')), \
                 mock.patch("eva_submission.eload_preparation.requests.put") as mockput, \
                 mock.patch("eva_submission.eload_preparation.requests.get") as mockget:
 
