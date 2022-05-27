@@ -115,7 +115,7 @@ class TestEloadPreparation(TestCase):
                                                    value='GCA_000001405.10')
 
         with mock.patch("eva_submission.eload_preparation.get_reference_fasta_and_report", return_value=(mock.Mock, mock.Mock)), \
-                mock.patch("eva_submission.eload_preparation.requests.put", return_value=mock.Mock(status_code=200)) as mockput, \
+                mock.patch("eva_submission.eload_preparation.requests.put") as mockput, \
                 mock.patch("eva_submission.eload_preparation.requests.get") as mockget:
 
             self.eload.find_genome()
