@@ -185,8 +185,8 @@ class EloadPreparation(Eload):
                                             auth=(contig_alias_user, contig_alias_pass))
 
                 response_get_data = response_get.json()
-
-                if response_get_data['page']['size'] != 0:
+# The `get` endpoint always return 200 regardless of the presence/absence of the assembly in the contig alias
+                if response_get_data.get('page', {}).get('size', 0) != 0:
                     response_put = requests.put(os.path.join(contig_alias_url, assembly), auth=(contig_alias_user, contig_alias_pass), json=assembly)
                     response_put.raise_for_status()
 
