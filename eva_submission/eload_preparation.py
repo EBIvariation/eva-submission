@@ -3,6 +3,7 @@ import os
 import shutil
 import requests
 import json
+from retry import retry
 
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 from ebi_eva_common_pyutils.config import cfg
@@ -180,15 +181,22 @@ class EloadPreparation(Eload):
                     self.warning(f'Assembly report was not set for {assembly_accession}')
                 self.eload_cfg.set('submission', 'analyses', analysis_alias, 'assembly_fasta', value=assembly_fasta_path)
 
-            for assembly in contig_alias_payload:
-                response_get = requests.get(os.path.join(contig_alias_url, assembly),
-                                            auth=(contig_alias_user, contig_alias_pass))
-
-                response_get_data = response_get.json()
-                # The `get` endpoint always return 200 regardless of the presence/absence of the assembly in the contig alias
-                if response_get_data.get('page', {}).get('size', 0) != 0:
-                    response_put = requests.put(os.path.join(contig_alias_url, assembly), auth=(contig_alias_user, contig_alias_pass), json=assembly)
-                    response_put.raise_for_status()
+            contig_alias_put_db(contig_alias_payload, contig_alias_url, contig_alias_user,
+                                contig_alias_pass)
 
         else:
             self.error('No scientific name specified')
+
+
+@retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
+def contig_alias_put_db(contig_alias_payload, contig_alias_url, contig_alias_user, contig_alias_pass):
+    for assembly in contig_alias_payload:
+        response_get = requests.get(os.path.join(contig_alias_url, assembly),
+                                    auth=(contig_alias_user, contig_alias_pass))
+
+        response_get_data = response_get.json()
+
+        if response_get_data.get('page', {}).get('size', 0) != 0:
+            response_put = requests.put(os.path.join(contig_alias_url, assembly),
+                                        auth=(contig_alias_user, contig_alias_pass), json=assembly)
+            response_put.raise_for_status()
