@@ -25,6 +25,8 @@ class TestEloadBrokering(TestCase):
         # Need to set the directory so that the relative path set in the config file works from the top directory
         os.chdir(self.top_dir)
         self.eload = EloadBrokering(3)
+        # Ensure we've cleared any past brokering status
+        self.eload.eload_cfg.pop('brokering', 'Biosamples')
         self.existing_eload = EloadBrokering(4)
 
     def tearDown(self) -> None:
@@ -36,13 +38,29 @@ class TestEloadBrokering(TestCase):
         self.eload.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
                                  value=os.path.join(self.resources_folder, 'metadata.xlsx'))
 
-        with patch.object(SampleMetadataSubmitter, 'submit_to_bioSamples', return_value='samples') as mock_submit,\
+        samples = {f'S{i}': i for i in range(1, 101)}
+        with patch.object(SampleMetadataSubmitter, 'submit_to_bioSamples', return_value=samples) as mock_submit,\
                 patch.object(EloadBrokering, 'now', new_callable=PropertyMock(return_value='a_date')):
             self.eload.upload_to_bioSamples()
 
         assert mock_submit.call_count == 1
         assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'pass')
-        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'Samples') == 'samples'
+        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'Samples') == samples
+        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'date') == 'a_date'
+
+    def test_upload_to_bioSamples_incomplete(self):
+        self.eload.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
+                                 value=os.path.join(self.resources_folder, 'metadata.xlsx'))
+
+        incomplete = {'S1': 1}
+        with patch.object(SampleMetadataSubmitter, 'submit_to_bioSamples', return_value=incomplete) as mock_submit,\
+                patch.object(EloadBrokering, 'now', new_callable=PropertyMock(return_value='a_date')):
+            with self.assertRaises(ValueError):
+                self.eload.upload_to_bioSamples()
+
+        assert mock_submit.call_count == 1
+        assert not self.eload.eload_cfg.query('brokering', 'Biosamples', 'pass')
+        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'Samples') == incomplete
         assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'date') == 'a_date'
 
     def test_upload_to_bioSamples_not_required(self):
@@ -58,10 +76,8 @@ class TestEloadBrokering(TestCase):
         self.eload.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
                                  value=os.path.join(self.resources_folder, 'metadata.xlsx'))
         self.eload.eload_cfg.set('brokering', 'Biosamples', 'Samples', value={'sample1': 'SAMPLE1'})
-        self.eload.eload_cfg.set('brokering', 'Biosamples', 'pass', value=None)
+        self.eload.eload_cfg.set('brokering', 'Biosamples', 'pass', value=True)
         self.eload.upload_to_bioSamples()
-        # Pass is not set because it is expected to have been set when the samples
-        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'pass') is None
 
     def test_run_brokering_prep_workflow(self):
         cfg.content['executable'] = {
@@ -197,5 +213,3 @@ ANALYSIS: ERZ0000001
             {'Analysis Alias': 'GAE2', 'File Name': 'ELOAD_3/GAE2.vcf.gz', 'File Type': 'vcf', 'MD5': None, 'row_num': 4},
             {'Analysis Alias': 'GAE2', 'File Name': 'ELOAD_3/GAE2.vcf.gz.csi', 'File Type': 'csi', 'MD5': None, 'row_num': 5}
         ]
-
-

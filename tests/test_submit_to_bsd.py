@@ -176,6 +176,10 @@ class TestBSDSubmitter(BSDTestCase):
     def test_validate_in_bsd(self):
         self.submitter.validate_in_bsd(self.sample_data)
 
+    def test_validate_partial_data(self):
+        # Sample data without name should still validate
+        self.submitter.validate_in_bsd([{sample['name']: i} for i, sample in enumerate(self.sample_data)])
+
     def test_submit_to_bsd_create(self):
         self.submitter.submit_to_bsd(self.sample_data)
         self.assertEqual(len(self.submitter.sample_name_to_accession), len(self.sample_data))
