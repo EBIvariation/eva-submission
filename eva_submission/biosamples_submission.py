@@ -148,14 +148,15 @@ class BSDSubmitter(AppLogger):
 
     def validate_in_bsd(self, samples_data):
         for sample in samples_data:
-            sample['domain'] = self.domain
-            self.communicator.follows_link('samples', join_url='validate', method='POST', json=sample)
+            # Name present in sample implies we're not creating or updating, so don't validate.
+            if 'name' in sample:
+                sample['domain'] = self.domain
+                self.communicator.follows_link('samples', join_url='validate', method='POST', json=sample)
 
-    def submit_to_bsd(self,  samples_data):
+    def submit_to_bsd(self, samples_data):
         """
         This function creates or updates samples in BioSamples and return a map of sample name to sample accession
         """
-
         for sample in samples_data:
             sample['domain'] = self.domain
             if 'accession' not in sample:
@@ -343,8 +344,10 @@ class SampleMetadataSubmitter(SampleSubmitter):
     def check_submit_done(self):
         return all((s.get("accession") for s in self.sample_data))
 
-    def submit_to_bioSamples(self):
+    def all_sample_names(self):
+        return [s.get('name') for s in self.sample_data]
 
+    def submit_to_bioSamples(self):
         # Check that the data exists
         if self.sample_data:
             self.info('Validate {} sample(s) in BioSample'.format(len(self.sample_data)))

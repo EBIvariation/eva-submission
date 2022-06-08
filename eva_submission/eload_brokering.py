@@ -91,13 +91,25 @@ class EloadBrokering(Eload):
         if sample_tab_submitter.check_submit_done() and not force:
             self.info('Biosamples accession already provided in the metadata, Skip!')
             self.eload_cfg.set('brokering', 'Biosamples', 'pass', value=True)
-        elif self.eload_cfg.query('brokering', 'Biosamples', 'Samples') and not force:
+        elif (
+            self.eload_cfg.query('brokering', 'Biosamples', 'Samples')
+            and self.eload_cfg.query('brokering', 'Biosamples', 'pass')
+            and not force
+        ):
             self.info('BioSamples brokering is already done, Skip!')
         else:
             sample_name_to_accession = sample_tab_submitter.submit_to_bioSamples()
+            # Check whether all samples have been accessioned
+            passed = (
+                bool(sample_name_to_accession)
+                and all(sample_name in sample_name_to_accession for sample_name in sample_tab_submitter.all_sample_names())
+            )
             self.eload_cfg.set('brokering', 'Biosamples', 'date', value=self.now)
             self.eload_cfg.set('brokering', 'Biosamples', 'Samples', value=sample_name_to_accession)
-            self.eload_cfg.set('brokering', 'Biosamples', 'pass', value=bool(sample_name_to_accession))
+            self.eload_cfg.set('brokering', 'Biosamples', 'pass', value=passed)
+            # Make sure we crash if we haven't brokered everything
+            if not passed:
+                raise ValueError('Brokering to BioSamples failed!')
 
     def _get_valid_vcf_files(self):
         valid_vcf_files = []
