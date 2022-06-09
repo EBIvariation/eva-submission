@@ -146,10 +146,19 @@ class BSDSubmitter(AppLogger):
         self.domain = domain
         self.sample_name_to_accession = {}
 
+    def should_create(self, sample):
+        return 'accession' not in sample
+
+    def should_overwrite(self, sample):
+        return 'accession' in sample and 'name' in sample
+
+    def should_retrieve(self, sample):
+        return 'accession' in sample and 'name' not in sample
+
     def validate_in_bsd(self, samples_data):
         for sample in samples_data:
-            # Name present in sample implies we're not creating or updating, so don't validate.
-            if 'name' in sample:
+            # If we're only retrieving, don't need to validate.
+            if not self.should_retrieve(sample):
                 sample['domain'] = self.domain
                 self.communicator.follows_link('samples', join_url='validate', method='POST', json=sample)
 
@@ -159,14 +168,14 @@ class BSDSubmitter(AppLogger):
         """
         for sample in samples_data:
             sample['domain'] = self.domain
-            if 'accession' not in sample:
+            if self.should_create(sample):
                 # Create a sample
                 sample_json = self.communicator.follows_link('samples', method='POST', json=sample)
                 self.debug('Accession sample ' + sample.get('name') + ' as ' + sample_json.get('accession'))
             # To trigger and update we require at least the sample name to be populated
             # Then push the sample as it is documented
             # NOTE that it will replace the sample so potentially remove fields that were present before.
-            elif 'name' in sample:
+            elif self.should_overwrite(sample):
                 self.debug('Update sample ' + sample.get('name') + ' with accession ' + sample.get('accession'))
                 sample_json = self.communicator.follows_link('samples', method='PUT', join_url=sample.get('accession'),
                                                              json=sample)
