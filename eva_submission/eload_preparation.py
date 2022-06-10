@@ -1,11 +1,17 @@
 import glob
 import os
 import shutil
+import requests
+import json
+from retry import retry
 
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
+from ebi_eva_common_pyutils.config import cfg
+from ebi_eva_common_pyutils.config_utils import get_contig_alias_db_creds_for_profile
+
 
 from eva_submission.eload_submission import Eload, directory_structure
-from eva_submission.eload_utils import resolve_accession_from_text, get_reference_fasta_and_report
+from eva_submission.eload_utils import resolve_accession_from_text, get_reference_fasta_and_report, NCBIAssembly
 from eva_submission.submission_in_ftp import FtpDepositBox
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
@@ -154,14 +160,43 @@ class EloadPreparation(Eload):
     def find_genome(self):
         scientific_name = self.eload_cfg.query('submission', 'scientific_name')
         analyses = self.eload_cfg.query('submission', 'analyses')
+
+        contig_alias_url, contig_alias_user, contig_alias_pass = get_contig_alias_db_creds_for_profile(
+            cfg['maven']['environment'], cfg['maven']['settings_file'])
+
+        contig_alias_payload = []
+
         if scientific_name:
             for analysis_alias in analyses:
                 assembly_accession = self.eload_cfg.query('submission', 'analyses', analysis_alias, 'assembly_accession')
-                assembly_fasta_path, assembly_report_path = get_reference_fasta_and_report(scientific_name, assembly_accession)
+
+                if NCBIAssembly.is_assembly_accession_format(assembly_accession):
+                    contig_alias_payload.append(assembly_accession)
+
+                assembly_fasta_path, assembly_report_path = get_reference_fasta_and_report(scientific_name,
+                                                                                           assembly_accession)
                 if assembly_report_path:
                     self.eload_cfg.set('submission', 'analyses', analysis_alias, 'assembly_report', value=assembly_report_path)
                 else:
                     self.warning(f'Assembly report was not set for {assembly_accession}')
                 self.eload_cfg.set('submission', 'analyses', analysis_alias, 'assembly_fasta', value=assembly_fasta_path)
+
+            contig_alias_put_db(contig_alias_payload, contig_alias_url, contig_alias_user,
+                                contig_alias_pass)
+
         else:
             self.error('No scientific name specified')
+
+
+@retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
+def contig_alias_put_db(contig_alias_payload, contig_alias_url, contig_alias_user, contig_alias_pass):
+    for assembly in contig_alias_payload:
+        response_get = requests.get(os.path.join(contig_alias_url, assembly),
+                                    auth=(contig_alias_user, contig_alias_pass))
+
+        response_get_data = response_get.json()
+
+        if response_get_data.get('page', {}).get('size', 0) != 0:
+            response_put = requests.put(os.path.join(contig_alias_url, assembly),
+                                        auth=(contig_alias_user, contig_alias_pass), json=assembly)
+            response_put.raise_for_status()

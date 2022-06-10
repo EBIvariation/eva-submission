@@ -1,8 +1,9 @@
 import glob
 import os
 import shutil
-from unittest import TestCase
-
+from unittest import TestCase, mock
+from unittest.mock import patch
+from unittest.mock import Mock
 from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission import ROOT_DIR
@@ -99,7 +100,28 @@ class TestEloadPreparation(TestCase):
         cfg.content['eutils_api_key'] = None
         self.eload.eload_cfg.set('submission', 'scientific_name', value='Thingy thingus')
         self.eload.eload_cfg.set('submission', 'analyses', 'Analysis alias test', 'assembly_accession', value='AJ312413.2')
-        self.eload.find_genome()
-        assert self.eload.eload_cfg['submission']['analyses']['Analysis alias test']['assembly_fasta'] \
-               == 'tests/resources/genomes/thingy_thingus/AJ312413.2/AJ312413.2.fa'
-        assert 'assembly_report' not in self.eload.eload_cfg['submission']
+
+        with mock.patch("eva_submission.eload_preparation.requests.put", return_value=mock.Mock(status_code=200)):
+            self.eload.find_genome()
+            assert self.eload.eload_cfg['submission']['analyses']['Analysis alias test']['assembly_fasta'] \
+                   == 'tests/resources/genomes/thingy_thingus/AJ312413.2/AJ312413.2.fa'
+            assert 'assembly_report' not in self.eload.eload_cfg['submission']
+
+    def test_contig_alias_db_update(self):
+
+        cfg.content['eutils_api_key'] = None
+        self.eload.eload_cfg.set('submission', 'scientific_name', value='Thingy thingus')
+        self.eload.eload_cfg.set('submission', 'analyses', 'Analysis alias test', 'assembly_accession',
+                                                   value='GCA_000001405.10')
+
+        with mock.patch("eva_submission.eload_preparation.get_reference_fasta_and_report", return_value=('assembly', 'report')), \
+                mock.patch("eva_submission.eload_preparation.requests.put") as mockput, \
+                mock.patch("eva_submission.eload_preparation.requests.get") as mockget:
+
+            self.eload.find_genome()
+
+            mockput.assert_called_once_with('host/GCA_000001405.10', auth=('user', 'pass'), json='GCA_000001405.10')
+            mockget.assert_called_once_with('host/GCA_000001405.10', auth=('user', 'pass'))
+
+
+
