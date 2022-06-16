@@ -199,7 +199,7 @@ class EloadIngestion(Eload):
 
     def load_from_ena_from_project_or_analysis(self, analysis_accession=None):
         """
-        Loads Analysis metadata from ENA into EVADEV to the project associated with this ELOAD or to an analysis
+        Loads Analysis metadata from ENA into EVAPRO to the project associated with this ELOAD or to an analysis
         if it is specified.
         """
         # Current submission process never changes -c or -v
@@ -208,7 +208,7 @@ class EloadIngestion(Eload):
         if analysis_accession:
             command += f' -A -a {analysis_accession}'
         try:
-            command_utils.run_command_with_output('Load metadata from ENA to EVADEV', command)
+            command_utils.run_command_with_output('Load metadata from ENA to EVAPRO', command)
             self.eload_cfg.set(self.config_section, 'ena_load', value='success')
         except subprocess.CalledProcessError as e:
             self.error('ENA metadata load failed: aborting ingestion.')
