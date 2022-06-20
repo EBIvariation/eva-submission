@@ -3,7 +3,6 @@ import os
 import shutil
 import requests
 
-from requests import HTTPError
 from retry import retry
 
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
@@ -194,17 +193,13 @@ class EloadPreparation(Eload):
 
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
 def contig_alias_put_db(contig_alias_payload, contig_alias_url, contig_alias_user, contig_alias_pass):
-    request_url = os.path.join(contig_alias_url, 'v1/assemblies')
+    request_url = os.path.join(contig_alias_url, 'v1/admin/assemblies')
+
     for assembly in contig_alias_payload:
-        try:
-            requests.put(os.path.join(request_url, assembly), auth=(contig_alias_user, contig_alias_pass))
+        response = requests.put(os.path.join(request_url, assembly), auth=(contig_alias_user, contig_alias_pass))
+        if response.status_code == 200:
             logger.info(f'Assembly accession {assembly} successfully added to Contig-Alias DB')
-        except HTTPError as error:
-            if error.code == 409:
-                logger.warning(f'assembly already exist in Contig-Alias DB')
-            else:
-                logger.error(f'Could not save assembly to Contig-Alias DB. Error {error}')
-        except Exception as error:
-            logger.error(f'Could not save assembly to Contig-Alias DB. Exception : {error}')
-
-
+        elif response.status_code == 409:
+            logger.warning(f'assembly already exist in Contig-Alias DB. Response: {response.text}')
+        else:
+            logger.error(f'Could not save assembly to Contig-Alias DB. Error : {response.text}')

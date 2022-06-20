@@ -118,7 +118,7 @@ class TestEloadPreparation(TestCase):
 
             self.eload.find_genome()
 
-            mockput.assert_called_once_with('host/v1/assemblies/GCA_000001405.10', auth=('user', 'pass'))
+            mockput.assert_called_once_with('host/v1/admin/assemblies/GCA_000001405.10', auth=('user', 'pass'))
 
 
 
