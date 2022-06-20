@@ -2,7 +2,8 @@ import glob
 import os
 import shutil
 import requests
-import json
+
+from requests import HTTPError
 from retry import retry
 
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
@@ -15,6 +16,9 @@ from eva_submission.eload_utils import resolve_accession_from_text, get_referenc
 from eva_submission.submission_in_ftp import FtpDepositBox
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
+from ebi_eva_common_pyutils.logger import logging_config as log_cfg
+
+logger = log_cfg.get_logger(__name__)
 
 class EloadPreparation(Eload):
 
@@ -190,13 +194,17 @@ class EloadPreparation(Eload):
 
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
 def contig_alias_put_db(contig_alias_payload, contig_alias_url, contig_alias_user, contig_alias_pass):
+    request_url = os.path.join(contig_alias_url, 'v1/assemblies')
     for assembly in contig_alias_payload:
-        response_get = requests.get(os.path.join(contig_alias_url, assembly),
-                                    auth=(contig_alias_user, contig_alias_pass))
+        try:
+            requests.put(os.path.join(request_url, assembly), auth=(contig_alias_user, contig_alias_pass))
+            logger.info(f'Assembly accession {assembly} successfully added to Contig-Alias DB')
+        except HTTPError as error:
+            if error.code == 409:
+                logger.warning(f'assembly already exist in Contig-Alias DB')
+            else:
+                logger.error(f'Could not save assembly to Contig-Alias DB. Error {error}')
+        except Exception as error:
+            logger.error(f'Could not save assembly to Contig-Alias DB. Exception : {error}')
 
-        response_get_data = response_get.json()
 
-        if response_get_data.get('page', {}).get('size', 0) != 0:
-            response_put = requests.put(os.path.join(contig_alias_url, assembly),
-                                        auth=(contig_alias_user, contig_alias_pass), json=assembly)
-            response_put.raise_for_status()

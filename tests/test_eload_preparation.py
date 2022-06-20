@@ -2,8 +2,7 @@ import glob
 import os
 import shutil
 from unittest import TestCase, mock
-from unittest.mock import patch
-from unittest.mock import Mock
+
 from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission import ROOT_DIR
@@ -115,13 +114,11 @@ class TestEloadPreparation(TestCase):
                                                    value='GCA_000001405.10')
 
         with mock.patch("eva_submission.eload_preparation.get_reference_fasta_and_report", return_value=('assembly', 'report')), \
-                mock.patch("eva_submission.eload_preparation.requests.put") as mockput, \
-                mock.patch("eva_submission.eload_preparation.requests.get") as mockget:
+                mock.patch("eva_submission.eload_preparation.requests.put") as mockput:
 
             self.eload.find_genome()
 
-            mockput.assert_called_once_with('host/GCA_000001405.10', auth=('user', 'pass'), json='GCA_000001405.10')
-            mockget.assert_called_once_with('host/GCA_000001405.10', auth=('user', 'pass'))
+            mockput.assert_called_once_with('host/v1/assemblies/GCA_000001405.10', auth=('user', 'pass'))
 
 
 
