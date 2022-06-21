@@ -15,9 +15,6 @@ from eva_submission.eload_utils import resolve_accession_from_text, get_referenc
 from eva_submission.submission_in_ftp import FtpDepositBox
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
-from ebi_eva_common_pyutils.logger import logging_config as log_cfg
-
-logger = log_cfg.get_logger(__name__)
 
 class EloadPreparation(Eload):
 
@@ -184,7 +181,7 @@ class EloadPreparation(Eload):
                     self.warning(f'Assembly report was not set for {assembly_accession}')
                 self.eload_cfg.set('submission', 'analyses', analysis_alias, 'assembly_fasta', value=assembly_fasta_path)
 
-            contig_alias_put_db(contig_alias_payload, contig_alias_url, contig_alias_user,
+            contig_alias_put_db(self, contig_alias_payload, contig_alias_url, contig_alias_user,
                                 contig_alias_pass)
 
         else:
@@ -192,14 +189,14 @@ class EloadPreparation(Eload):
 
 
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
-def contig_alias_put_db(contig_alias_payload, contig_alias_url, contig_alias_user, contig_alias_pass):
+def contig_alias_put_db(self, contig_alias_payload, contig_alias_url, contig_alias_user, contig_alias_pass):
     request_url = os.path.join(contig_alias_url, 'v1/admin/assemblies')
 
     for assembly in contig_alias_payload:
         response = requests.put(os.path.join(request_url, assembly), auth=(contig_alias_user, contig_alias_pass))
         if response.status_code == 200:
-            logger.info(f'Assembly accession {assembly} successfully added to Contig-Alias DB')
+            self.info(f'Assembly accession {assembly} successfully added to Contig-Alias DB')
         elif response.status_code == 409:
-            logger.warning(f'assembly already exist in Contig-Alias DB. Response: {response.text}')
+            self.warning(f'Assembly accession {assembly} already exist in Contig-Alias DB. Response: {response.text}')
         else:
-            logger.error(f'Could not save assembly to Contig-Alias DB. Error : {response.text}')
+            self.error(f'Could not save Assembly accession {assembly} to Contig-Alias DB. Error : {response.text}')
