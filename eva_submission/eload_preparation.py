@@ -2,7 +2,7 @@ import glob
 import os
 import shutil
 import requests
-import json
+
 from retry import retry
 
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
@@ -181,22 +181,22 @@ class EloadPreparation(Eload):
                     self.warning(f'Assembly report was not set for {assembly_accession}')
                 self.eload_cfg.set('submission', 'analyses', analysis_alias, 'assembly_fasta', value=assembly_fasta_path)
 
-            contig_alias_put_db(contig_alias_payload, contig_alias_url, contig_alias_user,
-                                contig_alias_pass)
+            self.contig_alias_put_db(contig_alias_payload, contig_alias_url, contig_alias_user,
+                                     contig_alias_pass)
 
         else:
             self.error('No scientific name specified')
 
 
-@retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
-def contig_alias_put_db(contig_alias_payload, contig_alias_url, contig_alias_user, contig_alias_pass):
-    for assembly in contig_alias_payload:
-        response_get = requests.get(os.path.join(contig_alias_url, assembly),
-                                    auth=(contig_alias_user, contig_alias_pass))
+    @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
+    def contig_alias_put_db(self, contig_alias_payload, contig_alias_url, contig_alias_user, contig_alias_pass):
+        request_url = os.path.join(contig_alias_url, 'v1/admin/assemblies')
 
-        response_get_data = response_get.json()
-
-        if response_get_data.get('page', {}).get('size', 0) != 0:
-            response_put = requests.put(os.path.join(contig_alias_url, assembly),
-                                        auth=(contig_alias_user, contig_alias_pass), json=assembly)
-            response_put.raise_for_status()
+        for assembly in contig_alias_payload:
+            response = requests.put(os.path.join(request_url, assembly), auth=(contig_alias_user, contig_alias_pass))
+            if response.status_code == 200:
+                self.info(f'Assembly accession {assembly} successfully added to Contig-Alias DB')
+            elif response.status_code == 409:
+                self.warning(f'Assembly accession {assembly} already exist in Contig-Alias DB. Response: {response.text}')
+            else:
+                self.error(f'Could not save Assembly accession {assembly} to Contig-Alias DB. Error : {response.text}')
