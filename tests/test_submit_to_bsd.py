@@ -7,7 +7,8 @@ from unittest.mock import patch, Mock, PropertyMock
 import yaml
 
 from eva_submission import biosamples_submission, ROOT_DIR
-from eva_submission.biosamples_submission import HALCommunicator, BSDSubmitter, SampleMetadataSubmitter
+from eva_submission.biosamples_submission import HALCommunicator, BSDSubmitter, SampleMetadataSubmitter, \
+    SampleReferenceSubmitter
 
 
 class BSDTestCase(TestCase):
@@ -301,3 +302,19 @@ class TestSampleMetadataSubmitter(BSDTestCase):
     def test_check_submit_not_done(self):
         # This submitter contains data to broker to BioSamples
         self.assertFalse(self.submitter.check_submit_done())
+
+
+class TestSampleReferenceSubmitter(BSDTestCase):
+
+    def test_retrieve_biosamples(self):
+        sample_accessions = ['SAME001', 'SAME002']
+        project_accession = 'PRJEB001'
+        sample_1 = {"name": "FakeSample1", "accession": "SAME001", "domain": "self.ExampleDomain", "_links": {}}
+        sample_2 = {"name": "FakeSample2", "accession": "SAME002", "domain": "self.ExampleDomain", "_links": {}}
+        with patch.object(HALCommunicator, 'follows_link', side_effect=[sample_1, sample_2]):
+            self.submitter = SampleReferenceSubmitter(sample_accessions, project_accession)
+        assert self.submitter.sample_data == [
+            {'name': 'FakeSample1', 'accession': 'SAME001', 'domain': 'self.ExampleDomain', 'externalReferences': [{'url': 'https://www.ebi.ac.uk/eva/?eva-study=PRJEB001'}]},
+            {'name': 'FakeSample2', 'accession': 'SAME002', 'domain': 'self.ExampleDomain', 'externalReferences': [{'url': 'https://www.ebi.ac.uk/eva/?eva-study=PRJEB001'}]}
+        ]
+
