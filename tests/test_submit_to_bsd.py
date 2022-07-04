@@ -1,4 +1,3 @@
-import copy
 import os
 from copy import deepcopy
 from unittest import TestCase
@@ -7,7 +6,8 @@ from unittest.mock import patch, Mock, PropertyMock
 import yaml
 
 from eva_submission import biosamples_submission, ROOT_DIR
-from eva_submission.biosamples_submission import HALCommunicator, BSDSubmitter, SampleMetadataSubmitter
+from eva_submission.biosamples_submission import HALCommunicator, BSDSubmitter, SampleMetadataSubmitter, \
+    SampleReferenceSubmitter, AAPHALCommunicator, WebinHALCommunicator
 
 
 class BSDTestCase(TestCase):
@@ -124,6 +124,21 @@ class TestHALCommunicator(BSDTestCase):
             mocked_req.assert_any_call('GET', 'url')
 
 
+class TestWebinHALCommunicator(BSDTestCase):
+    def setUp(self) -> None:
+        self.comm = WebinHALCommunicator('http://webin.example.org', 'http://BSD.example.org', 'user', 'pass')
+
+    def test_communicator_attributes(self):
+        assert self.comm.communicator_attributes == {'webinSubmissionAccountId': 'user'}
+
+    def test_token(self):
+        with patch('requests.post', return_value=Mock(text='token', status_code=200)) as mocked_post:
+            self.assertEqual(self.comm.token, 'token')
+            print(mocked_post.mock_calls)
+            mocked_post.assert_called_once_with('http://webin.example.org',
+                                                json={'authRealms': ['ENA'], 'password': 'pass', 'username': 'user'})
+
+
 sample_data = [{
         'characteristics': {
             'description': [{'text': 'yellow croaker sample 12'}],
@@ -169,9 +184,10 @@ class TestBSDSubmitter(BSDTestCase):
             with open(file_name) as open_file:
                 self.config = yaml.safe_load(open_file)
         self.sample_data = deepcopy(sample_data)
-        communicator = HALCommunicator(self.config.get('aap_url'), self.config.get('bsd_url'),
-                                       self.config.get('username'), self.config.get('password'))
-        self.submitter = BSDSubmitter(communicator, self.config.get('domain'))
+        communicator = AAPHALCommunicator(self.config.get('aap_url'), self.config.get('bsd_url'),
+                                       self.config.get('username'), self.config.get('password'),
+                                       self.config.get('domain'))
+        self.submitter = BSDSubmitter(communicator)
 
     def test_validate_in_bsd(self):
         self.submitter.validate_in_bsd(self.sample_data)
@@ -179,6 +195,28 @@ class TestBSDSubmitter(BSDTestCase):
     def test_validate_partial_data(self):
         # Sample data without name should still validate
         self.submitter.validate_in_bsd([{'accession': 'SAME1234'}])
+
+    def test_convert_sample_data_to_curation_object(self):
+        sample_data = {
+            'characteristics': {'organism': [{'text': 'Larimichthys polyactis'}]},
+            'name': 'LH1',
+            'release': '2020-07-06T19:09:29.090Z'
+        }
+
+        self.submitter.submit_to_bsd([sample_data])
+        expected_curation = {
+            'curation': {'attributesPost': [{'type': 'description', 'value': 'yellow croaker sample 12'}],
+                         'attributesPre': [],
+                         'externalReferencesPost': [],
+                         'externalReferencesPre': [],
+                         'relationshipsPost': [],
+                         'relationshipsPre': []},
+            'sample': self.submitter.sample_name_to_accession.get('LH1')
+        }
+        sample_data_update = {'characteristics': {'description': [{'text': 'yellow croaker sample 12'}]},
+                              'accession': self.submitter.sample_name_to_accession.get('LH1')}
+        curation_object = self.submitter.convert_sample_data_to_curation_object(sample_data_update)
+        self.assertEqual(curation_object, expected_curation)
 
     def test_submit_to_bsd_create(self):
         self.submitter.submit_to_bsd(self.sample_data)
@@ -199,20 +237,24 @@ class TestBSDSubmitter(BSDTestCase):
         self.assertEqual(sample_json['characteristics']['collected_by'][0]['text'], 'first1 last1')
 
         # Modify the descriptions and remove the collected_by
-        updated_data = copy.deepcopy(self.sample_data)
         modified_text = 'blue croaker sample 12'
-        updated_data[0]['characteristics']['description'] = [{'text': modified_text}]
-        updated_data[0]['characteristics'].pop('collected_by')
-        updated_data[0]['characteristics']['new metadata'] = [{'text': 'New value'}]
-        updated_data[0]['accession'] = accession
-        self.submitter.submit_to_bsd(updated_data)
+        updated_sample = {
+            'accession': accession,
+            'name': 'LH1',
+            'characteristics': {
+                'description': [{'text': modified_text}],
+                'new metadata': [{'text': 'New value'}]
+            },
+            'externalReferences': [{'url': 'https://www.ebi.ac.uk/eva/?eva-study=PRJEB001'}]
+        }
+        self.submitter.submit_to_bsd([updated_sample])
         accession = self.submitter.sample_name_to_accession.get('LH1')
         # Needs to avoid requests' cache otherwise we get the previous version
         updated_sample_json = self.submitter.communicator.follows_link('samples', join_url=accession,
                                                                        headers={'Cache-Control': 'no-cache'})
         self.assertEqual(updated_sample_json['characteristics']['new metadata'][0]['text'], 'New value')
         self.assertEqual(updated_sample_json['characteristics']['description'][0]['text'], 'blue croaker sample 12')
-        self.assertNotIn('collected_by', updated_sample_json['characteristics'])
+        self.assertEqual(updated_sample_json['externalReferences'][0]['url'], 'https://www.ebi.ac.uk/eva/?eva-study=PRJEB001')
 
     def test_submit_to_bsd_no_change(self):
         self.submitter.submit_to_bsd(self.sample_data)
@@ -301,3 +343,19 @@ class TestSampleMetadataSubmitter(BSDTestCase):
     def test_check_submit_not_done(self):
         # This submitter contains data to broker to BioSamples
         self.assertFalse(self.submitter.check_submit_done())
+
+
+class TestSampleReferenceSubmitter(BSDTestCase):
+
+    def test_retrieve_biosamples(self):
+        sample_accessions = ['SAME001', 'SAME002']
+        project_accession = 'PRJEB001'
+        sample_1 = {"name": "FakeSample1", "accession": "SAME001", "domain": "self.ExampleDomain", "_links": {}}
+        sample_2 = {"name": "FakeSample2", "accession": "SAME002", "domain": "self.ExampleDomain", "_links": {}}
+        with patch.object(HALCommunicator, 'follows_link', side_effect=[sample_1, sample_2]):
+            self.submitter = SampleReferenceSubmitter(sample_accessions, project_accession)
+        assert self.submitter.sample_data == [
+            {'name': 'FakeSample1', 'accession': 'SAME001', 'domain': 'self.ExampleDomain', 'externalReferences': [{'url': 'https://www.ebi.ac.uk/eva/?eva-study=PRJEB001'}]},
+            {'name': 'FakeSample2', 'accession': 'SAME002', 'domain': 'self.ExampleDomain', 'externalReferences': [{'url': 'https://www.ebi.ac.uk/eva/?eva-study=PRJEB001'}]}
+        ]
+
