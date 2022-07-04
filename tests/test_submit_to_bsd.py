@@ -1,6 +1,4 @@
-import copy
 import os
-import time
 from copy import deepcopy
 from unittest import TestCase
 from unittest.mock import patch, Mock, PropertyMock
@@ -130,9 +128,8 @@ class TestWebinHALCommunicator(BSDTestCase):
     def setUp(self) -> None:
         self.comm = WebinHALCommunicator('http://webin.example.org', 'http://BSD.example.org', 'user', 'pass')
 
-    def test_webin_submission_account_id(self):
-        assert hasattr(self.comm, 'webin_submission_account_id')
-        assert self.comm.webin_submission_account_id == 'user'
+    def test_communicator_attributes(self):
+        assert self.comm.communicator_attributes == {'webinSubmissionAccountId': 'user'}
 
     def test_token(self):
         with patch('requests.post', return_value=Mock(text='token', status_code=200)) as mocked_post:

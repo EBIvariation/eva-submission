@@ -138,12 +138,20 @@ class HALCommunicator(AppLogger):
     def root(self):
         return self._req('GET', self.bsd_url).json()
 
+    @property
+    def communicator_attributes(self):
+        raise NotImplementedError
+
 
 class AAPHALCommunicator(HALCommunicator):
 
     def __init__(self, auth_url, bsd_url, username, password, domain=None):
         super(AAPHALCommunicator, self).__init__(auth_url, bsd_url, username, password)
         self.domain = domain
+
+    @property
+    def communicator_attributes(self):
+        return {'domain': self.domain}
 
 
 class WebinHALCommunicator(HALCommunicator):
@@ -158,8 +166,9 @@ class WebinHALCommunicator(HALCommunicator):
         return response.text
 
     @property
-    def webin_submission_account_id(self):
-        return self.username
+    def communicator_attributes(self):
+        return {'webinSubmissionAccountId': self.username}
+
 
 
 class BSDSubmitter(AppLogger):
@@ -181,10 +190,7 @@ class BSDSubmitter(AppLogger):
         for sample in samples_data:
             # If we're only retrieving, don't need to validate.
             if not self.should_retrieve(sample):
-                if hasattr(self.communicator, "domain"):
-                    sample['domain'] = self.communicator.domain
-                if hasattr(self.communicator, "webin_submission_account_id"):
-                    sample['webinSubmissionAccountId'] = self.communicator.webin_submission_account_id
+                sample.update(self.communicator.communicator_attributes)
                 self.communicator.follows_link('samples', join_url='validate', method='POST', json=sample)
 
     def convert_sample_data_to_curation_object(self, future_sample):
@@ -219,10 +225,7 @@ class BSDSubmitter(AppLogger):
         This function creates or updates samples in BioSamples and return a map of sample name to sample accession
         """
         for sample in samples_data:
-            if hasattr(self.communicator, "domain"):
-                sample['domain'] = self.communicator.domain
-            if hasattr(self.communicator, "webin_submission_account_id"):
-                sample['webinSubmissionAccountId'] = self.communicator.webin_submission_account_id
+            sample.update(self.communicator.communicator_attributes)
             if self.should_create(sample):
                 # Create a sample
                 sample_json = self.communicator.follows_link('samples', method='POST', json=sample)
