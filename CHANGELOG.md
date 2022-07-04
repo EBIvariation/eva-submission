@@ -1,6 +1,19 @@
 Changelog for eva-submission
 ============================
 
+1.6.1 (2022-07-04)
+------------------
+
+ - Write the configuration file explicitly via the context manager
+
+### Preparation
+ - Update the Contig alias while downloading a new genome
+
+### Brokering
+ - Use the curation object to update any BioSamples
+ - Add EVA Study link URL to all BioSamples created
+
+
 1.6.0 (2022-05-16)
 ------------------
 
