@@ -199,8 +199,6 @@ class BSDSubmitter(AppLogger):
                     'type': attribute,
                     'value': current_sample['characteristics'].get(attribute)[0].get('text')
                 })
-            # else:
-            #     attributes_pre.append({})
             attributes_post.append({
                 'type': attribute,
                 'value': future_sample['characteristics'].get(attribute)[0].get('text')
