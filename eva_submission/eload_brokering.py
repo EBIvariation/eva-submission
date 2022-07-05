@@ -92,6 +92,9 @@ class EloadBrokering(Eload):
         if sample_metadata_submitter.check_submit_done() and not force:
             self.info('Biosamples accession already provided in the metadata, Skip!')
             self.eload_cfg.set('brokering', 'Biosamples', 'pass', value=True)
+            # Retrieve the sample names to accession from the metadata
+            sample_name_to_accession = sample_metadata_submitter.already_submitted_sample_names_to_accessions()
+            self.eload_cfg.set('brokering', 'Biosamples', 'Samples', value=sample_name_to_accession)
         elif (
             self.eload_cfg.query('brokering', 'Biosamples', 'Samples')
             and self.eload_cfg.query('brokering', 'Biosamples', 'pass')
@@ -114,7 +117,7 @@ class EloadBrokering(Eload):
 
     def update_biosamples_with_study(self, force=False):
         if not self.eload_cfg.query('brokering', 'Biosamples', 'backlinks') or force:
-            biosample_accession_list = self.eload_cfg.query('brokering', 'Biosamples', 'Samples')
+            biosample_accession_list = self.eload_cfg.query('brokering', 'Biosamples', 'Samples').values()
             project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
             self.info(f'Add external reference to {len(biosample_accession_list)} BioSamples.')
             sample_reference_submitter = SampleReferenceSubmitter(biosample_accession_list, project_accession)

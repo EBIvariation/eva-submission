@@ -430,6 +430,12 @@ class SampleMetadataSubmitter(SampleSubmitter):
     def check_submit_done(self):
         return all((s.get("accession") for s in self.sample_data))
 
+    def already_submitted_sample_names_to_accessions(self):
+        if self.check_submit_done():
+            return dict([
+                (sample_row.get('Sample ID'), sample_row.get('Sample Accession')) for sample_row in self.reader.samples
+            ])
+
     def all_sample_names(self):
         return [s.get('name') for s in self.sample_data]
 
