@@ -1,10 +1,14 @@
 Changelog for eva-submission
 ============================
 
-1.6.1 (2022-07-04)
+1.6.2 (2022-07-05)
 ------------------
 
- - Write the configuration file explicitly via the context manager
+### Brokering
+ - Hot fix for update to BioSample during brokering 
+
+1.6.1 (2022-07-04)
+------------------
 
 ### Preparation
  - Update the Contig alias while downloading a new genome

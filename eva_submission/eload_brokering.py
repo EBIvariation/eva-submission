@@ -16,7 +16,7 @@ from eva_submission.submission_config import EloadConfig
 
 class EloadBrokering(Eload):
 
-    all_brokering_tasks = ['preparation', 'biosamples', 'ena']
+    all_brokering_tasks = ['preparation', 'biosamples', 'ena', 'update_biosamples']
 
     def __init__(self, eload_number: int, vcf_files: list = None, metadata_file: str = None,
                  config_object: EloadConfig = None):
@@ -36,7 +36,7 @@ class EloadBrokering(Eload):
         self.prepare_brokering(force=('preparation' in brokering_tasks_to_force))
         self.upload_to_bioSamples(force=('biosamples' in brokering_tasks_to_force))
         self.broker_to_ena(force=('ena' in brokering_tasks_to_force), existing_project=existing_project, async_upload=async_upload)
-        self.update_bioSamples(force=('update_biosamples' in brokering_tasks_to_force))
+        self.update_biosamples_with_study(force=('update_biosamples' in brokering_tasks_to_force))
 
     def prepare_brokering(self, force=False):
         valid_analyses = self.eload_cfg.query('validation', 'valid', 'analyses', ret_default=[])
@@ -112,9 +112,16 @@ class EloadBrokering(Eload):
             if not passed:
                 raise ValueError('Brokering to BioSamples failed!')
 
-    def updated_bioSamples(self):
-        sample_reference_submitter = SampleReferenceSubmitter(self.eload_cfg.query('brokering', 'ena', 'PROJECT'))
-        sample_reference_submitter.submit_to_bioSamples()
+    def update_biosamples_with_study(self, force=False):
+        if not self.eload_cfg.query('brokering', 'Biosamples', 'backlinks') or force:
+            biosample_accession_list = self.eload_cfg.query('brokering', 'Biosamples', 'Samples')
+            project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
+            self.info(f'Add external reference to {len(biosample_accession_list)} BioSamples.')
+            sample_reference_submitter = SampleReferenceSubmitter(biosample_accession_list, project_accession)
+            sample_reference_submitter.submit_to_bioSamples()
+            self.eload_cfg.set('brokering', 'Biosamples', 'backlinks', value=project_accession)
+        else:
+            self.info('Adding external reference to BioSamples has already been done, Skip!')
 
     def _get_valid_vcf_files(self):
         valid_vcf_files = []
