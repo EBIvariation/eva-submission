@@ -299,7 +299,7 @@ class TestSampleMetadataSubmitter(BSDTestCase):
             for i in range(100)
         ]
         payload = self.submitter.map_metadata_to_bsd_data()
-        self.assertEqual(payload[0], expected_payload[0])
+        self.assertEqual(payload, expected_payload)
 
     def test_map_partial_metadata_to_bsd_data(self):
         now = '2020-07-06T19:09:29.090Z'
