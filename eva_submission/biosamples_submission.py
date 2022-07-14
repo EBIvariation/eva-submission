@@ -14,7 +14,7 @@
 # limitations under the License.
 
 import re
-from datetime import datetime
+from datetime import datetime, date
 
 import requests
 from cached_property import cached_property
@@ -364,6 +364,13 @@ class SampleMetadataSubmitter(SampleSubmitter):
         self.reader = EvaXlsxReader(self.metadata_spreadsheet)
         self.sample_data = self.map_metadata_to_bsd_data()
 
+    @staticmethod
+    def serialize(value):
+        """Create a text representation of the value provided"""
+        if isinstance(value, date):
+            return value.strftime('%Y-%m-%d')
+        return str(value)
+
     def map_metadata_to_bsd_data(self):
         payloads = []
         for sample_row in self.reader.samples:
@@ -384,7 +391,7 @@ class SampleMetadataSubmitter(SampleSubmitter):
                         self.apply_mapping(
                             bsd_sample_entry['characteristics'],
                             self.map_sample_key(key.lower()),
-                            [{'text': sample_row[key]}]
+                            [{'text': self.serialize(sample_row[key])}]
                         )
                     else:
                         # Ignore the other values
@@ -395,14 +402,14 @@ class SampleMetadataSubmitter(SampleSubmitter):
                     self.apply_mapping(
                         bsd_sample_entry['characteristics'],
                         self.map_sample_key(attribute.lower()),
-                        [{'text': value}]
+                        [{'text': self.serialize(value)}]
                     )
 
             project_row = self.reader.project
             for key in self.reader.project:
                 if key in self.project_mapping:
                     self.apply_mapping(bsd_sample_entry['characteristics'], self.map_project_key(key),
-                                       [{'text': project_row[key]}])
+                                       [{'text': self.serialize(project_row[key])}])
                 else:
                     # Ignore the other values
                     pass

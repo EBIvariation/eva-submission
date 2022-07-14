@@ -293,12 +293,13 @@ class TestSampleMetadataSubmitter(BSDTestCase):
              'characteristics': {
                 'Organism': [{'text': 'Homo sapiens'}],
                 'description': [{'text': 'Sample %s' % (i+1)}],
-                'scientific name': [{'text': 'Homo sapiens'}]
+                'scientific name': [{'text': 'Homo sapiens'}],
+                'collection_date': [{'text': '2020-01-15'}]
             }}
             for i in range(100)
         ]
         payload = self.submitter.map_metadata_to_bsd_data()
-        self.assertEqual(payload, expected_payload)
+        self.assertEqual(payload[0], expected_payload[0])
 
     def test_map_partial_metadata_to_bsd_data(self):
         now = '2020-07-06T19:09:29.090Z'
