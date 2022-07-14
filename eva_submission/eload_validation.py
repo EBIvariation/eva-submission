@@ -20,7 +20,8 @@ from eva_submission.xlsx.xlsx_validation import EvaXlsxValidator
 
 class EloadValidation(Eload):
 
-    all_validation_tasks = ['metadata_check', 'assembly_check', 'aggregation_check', 'vcf_check', 'sample_check']
+    all_validation_tasks = ['metadata_check', 'assembly_check', 'aggregation_check', 'vcf_check', 'sample_check',
+                            'structural_variant_check']
 
     def validate(self, validation_tasks=None, set_as_valid=False, merge_per_analysis=False):
         if not validation_tasks:
@@ -43,6 +44,9 @@ class EloadValidation(Eload):
             output_dir = self._run_validation_workflow()
             self._collect_validation_workflow_results(output_dir)
             shutil.rmtree(output_dir)
+
+        if 'structural_variant_check' in validation_tasks:
+            self._detect_structural_variant()
 
         if set_as_valid is True:
             for validation_task in validation_tasks:
@@ -353,6 +357,140 @@ class EloadValidation(Eload):
             })
         self.eload_cfg.set('validation', 'assembly_check', 'pass', value=total_error == 0)
 
+    def _detect_structural_variant(self):
+
+        metadata_keywords = ["##INFO=<ID=IMPRECISE", "##INFO=<ID=SVTYPE", "##INFO=<ID=SVLEN", "##INFO=<ID=CIPOS",
+                             "##INFO=<ID=CIEND", "##INFO=<ID=HOMLEN", "##INFO=<ID=HOMSEQ", "##INFO=<ID=BKPTID",
+                             "##INFO=<ID=MEINFO", "##INFO=<ID=METRANS", "##INFO=<ID=DGVID", "##INFO=<ID=DBVARID",
+                             "##INFO=<ID=DBRIPID", "##INFO=<ID=MATEID", "##INFO=<ID=PARID", "##INFO=<ID=EVENT",
+                             "##INFO=<ID=CILEN", "##INFO=<ID=DPADJ", "##INFO=<ID=CN", "##INFO=<ID=CNADJ",
+                             "##INFO=<ID=CICN", "##INFO=<ID=CICNADJ", "##FORMAT=<ID=CN", "##FORMAT=<ID=CNQ", "##FORMAT=<ID=CNL",
+                             "##FORMAT=<ID=CNP", "##FORMAT=<ID=NQ", "##FORMAT=<ID=HAP", "##FORMAT=<ID=AHAP",
+                             "##ALT=<ID=DEL", "##ALT=<ID=INS", "##ALT=<ID=DUP", "##ALT=<ID=INV", "##ALT=<ID=CNV", "##ALT=<ID=BND",
+                             "##ALT=<ID=DUP:TANDEM", "##ALT=<ID=DEL:ME", "##ALT=<ID=INS:ME"]
+
+        variant_data_keywords = ["IMPRECISE=", "SVTYPE=", "SVLEN=", "CIPOS=", "CIEND=", "HOMLEN=", "HOMSEQ=", "BKPTID=",
+                                 "MEINFO=", "METRANS=", "DGVID=", "DBVARID=", "DBRIPID=", "MATEID=", "PARID=", "EVENT=", "CILEN=",
+                                 "DPADJ=", "CN=", "CNADJ=", "CICN=", "CICNADJ=", "<DEL>", "<INS>", "<DUP>", "<INV>", "<CNV>", "<BND>",
+                                 "<DUP:TANDEM>", "<DEL:ME>", "<INS:ME>"]
+
+        vcf_validator_keywords = ["INFO SVLEN should have the same number of values as ALT", "INFO SVLEN must be equal to",
+                                  "ALT metadata ID is not prefixed by DEL/INS/DUP/INV/CNV/BND and suffixed by",
+                                  "INFO SVTYPE must be one of: BND, CNV, DEL, DUP, INS, INV",
+                                  "INFO SVLEN must be a negative integer for shorter ALT alleles"]
+
+        # Initializing the list to store the number of metadata lines for all the VCFs
+        no_of_metadata_lines = []
+
+        # Initializing the list to store the number of variant lines for all the VCFs
+        no_of_variant_lines = []
+
+        # Initializing the list to store the status of the VCFs denoting whether it has a SV or not
+        has_sv = []
+
+        # Initializing the number of vcf files count
+        vcf_count = -1
+
+        # Storing the vcf_files list from the config
+        vcf_files = self._get_vcf_files()
+
+        # Initializing the vcf_validator output list
+        validator_outputs = []
+
+        for vcf_file in vcf_files:
+
+            vcf_count = vcf_count + 1
+
+            vcf_name = os.path.basename(vcf_file)
+
+            # Storing the full path of the vcf-validator output of the corresponding vcf files
+            validator_outputs.append(os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_validator.txt'))
+
+            no_of_metadata_lines_per_vcf = 0
+            no_of_variant_lines_per_vcf = 0
+            has_sv_per_vcf = False
+
+            with open(vcf_file) as open_file:
+                for file_line in open_file:
+                    if file_line[0:2] == "##":
+
+                        no_of_metadata_lines_per_vcf = no_of_metadata_lines_per_vcf + 1
+
+                        for keyword in metadata_keywords:
+                            if keyword in file_line:
+
+                                has_sv_per_vcf = True
+                                break
+
+                            else:
+                                has_sv_per_vcf = False
+
+                        if has_sv_per_vcf:
+                            break
+
+                    elif file_line[0] != "#":
+
+                        no_of_variant_lines_per_vcf = no_of_variant_lines_per_vcf + 1
+
+                        if no_of_variant_lines_per_vcf > 10000:
+                            break
+
+                        for keyword in variant_data_keywords:
+                            if keyword in file_line:
+
+                                has_sv_per_vcf = True
+                                break
+
+                            else:
+                                has_sv_per_vcf = False
+
+                        if has_sv_per_vcf:
+                            break
+
+            no_of_metadata_lines.append(no_of_metadata_lines_per_vcf)
+            no_of_variant_lines.append(no_of_variant_lines_per_vcf)
+            has_sv.append(has_sv_per_vcf)
+
+        # Initializing the number of vcf files count
+        validator_output_count = -1
+
+        for validator_output in validator_outputs:
+
+            validator_output_count = validator_output_count + 1
+            vcf_name = os.path.basename(vcf_files[validator_output_count])
+
+            if has_sv[validator_output_count]:
+
+                self.eload_cfg.set('validation', 'structural_variant_check', 'files', vcf_name,
+                                   value={'has_structural_variant': has_sv[validator_output_count]})
+                break
+
+            else:
+
+                has_sv_per_vcf = False
+
+                with open(validator_output) as open_file:
+
+                    for file_line in open_file:
+
+                        for keyword in vcf_validator_keywords:
+                            if keyword in file_line:
+                                has_sv_per_vcf = True
+                                break
+
+                            else:
+                                has_sv_per_vcf = False
+
+                        if has_sv_per_vcf:
+                            break
+
+            has_sv[validator_output_count] = has_sv_per_vcf
+
+            self.eload_cfg.set('validation', 'structural_variant_check', 'files', vcf_name, value={
+                'has_structural_variant': has_sv[validator_output_count]})
+
+            self.eload_cfg.set('validation', 'structural_variant_check', 'pass', value=True)
+
     def _metadata_check_report(self):
         reports = []
 
@@ -452,6 +590,22 @@ class EloadValidation(Eload):
             reports.append('Not performed')
         return '\n'.join(reports)
 
+    def _structural_variant_check_report(self):
+        sv_dict = self.eload_cfg.query('validation', 'structural_variant_check', 'files')
+        reports = []
+
+        if sv_dict:
+
+            for vcf_file, sv_check_status in sv_dict.items():
+
+                if sv_check_status['has_structural_variant']:
+                    reports.append(f'-{vcf_file} has structural variants')
+
+                else:
+                    reports.append(f'-{vcf_file} does not have structural variants')
+
+        return '\n'.join(reports)
+
     def report(self):
         """Collect information from the config and write the report."""
 
@@ -462,12 +616,14 @@ class EloadValidation(Eload):
             'assembly_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'assembly_check')),
             'sample_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'sample_check')),
             'aggregation_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'aggregation_check')),
+            'structural_variant_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'structural_variant_check')),
             'metadata_check_report': self._metadata_check_report(),
             'vcf_check_report': self._vcf_check_report(),
             'assembly_check_report': self._assembly_check_report(),
             'sample_check_report': self._sample_check_report(),
             'vcf_merge_report': self._vcf_merge_report(),
-            'aggregation_report': self._aggregation_report()
+            'aggregation_report': self._aggregation_report(),
+            'structural_variant_check_report': self._structural_variant_check_report()
         }
 
         report = """Validation performed on {validation_date}
@@ -476,6 +632,7 @@ VCF check: {vcf_check}
 Assembly check: {assembly_check}
 Sample names check: {sample_check}
 Aggregation check: {aggregation_check}
+Structural variant check: {structural_variant_check}
 ----------------------------------
 
 Metadata check:
@@ -501,6 +658,11 @@ Aggregation:
 
 VCF merge:
 {vcf_merge_report}
+
+----------------------------------
+
+Structural variant check:
+{structural_variant_check_report}
 
 ----------------------------------
 """
