@@ -1,0 +1,5 @@
+hi there
+how are you
+I am good
+how are you doing
+INFO SVTYPE must be one of: BND, CNV, DEL, DUP, INS, INV

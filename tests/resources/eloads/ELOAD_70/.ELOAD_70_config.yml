@@ -1,0 +1,41 @@
+brokering:
+  analyses:
+    Analysis alias test:
+      assembly_accession: GCA_000001000.1
+      assembly_fasta: tests/resources/genomes/fasta.fa
+      assembly_report: tests/resources/genomes/assembly_report.txt
+      vcf_files:
+        tests/resources/eloads/ELOAD_70/18_brokering/ena/test1.vcf:
+          csi: tests/resources/eloads/ELOAD_70/18_brokering/ena/test1.vcf.csi
+          index: tests/resources/eloads/ELOAD_70/18_brokering/ena/test1.vcf.tbi
+        tests/resources/eloads/ELOAD_70/18_brokering/ena/test2.vcf:
+          csi: tests/resources/eloads/ELOAD_70/18_brokering/ena/test2.vcf.csi
+          index: tests/resources/eloads/ELOAD_70/18_brokering/ena/test2.vcf.tbi
+  ena:
+    ANALYSIS:
+      Analysis alias test: ERZ2499196
+    PROJECT: PRJEB12345
+    hold_date: 2021-01-04
+ingestion:
+  project_dir: tests/resources/projects/PRJEB12345
+submission:
+  analyses:
+    Analysis alias test:
+      assembly_accession: GCA_002863925.1
+      assembly_fasta: fasta.fa
+      assembly_report: assembly_report.txt
+      vcf_files:
+      - tests/resources/eloads/ELOAD_70/10_submitted/vcf_files/test1.vcf
+      - tests/resources/eloads/ELOAD_70/10_submitted/vcf_files/test2.vcf
+  scientific_name: Equus caballus
+validation:
+  aggregation_check:
+    analyses:
+      Analysis alias test: none
+  structural_variant_check:
+    files:
+      test1.vcf:
+        has_structural_variant: true
+      test2.vcf:
+        has_structural_variant: false
+    pass: true
