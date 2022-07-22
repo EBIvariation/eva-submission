@@ -293,7 +293,8 @@ class TestSampleMetadataSubmitter(BSDTestCase):
              'characteristics': {
                 'Organism': [{'text': 'Homo sapiens'}],
                 'description': [{'text': 'Sample %s' % (i+1)}],
-                'scientific name': [{'text': 'Homo sapiens'}]
+                'scientific name': [{'text': 'Homo sapiens'}],
+                'collection_date': [{'text': '2020-01-15'}]
             }}
             for i in range(100)
         ]
