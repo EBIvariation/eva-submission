@@ -137,7 +137,7 @@ VCF merge:
 
 Structural variant check:
 -test1.vcf has structural variants
--test2.vcf does not have structural variants
+-test2.vcf.gz does not have structural variants
 -test3.vcf has structural variants
 -test4.vcf has structural variants
 

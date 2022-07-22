@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import subprocess
+import gzip
 
 import yaml
 from ebi_eva_common_pyutils import command_utils
@@ -389,29 +390,33 @@ class EloadValidation(Eload):
             vcf_count = vcf_count + 1
             no_of_variant_lines_per_vcf = 0
             has_sv_per_vcf = False
-            with open(vcf_file) as open_file:
-                for file_line in open_file:
-                    if file_line[0] == "#":
-                        continue;
-
-                    no_of_variant_lines_per_vcf = no_of_variant_lines_per_vcf + 1
-                    if no_of_variant_lines_per_vcf > 10000:
+            if vcf_file.endswith('.vcf.gz'):
+                open_file = gzip.open(vcf_file, mode="rt")
+            else:
+                open_file = open(vcf_file, mode="r")
+            for file_line in open_file:
+                if file_line[0] == "#":
+                    continue;
+                no_of_variant_lines_per_vcf = no_of_variant_lines_per_vcf + 1
+                if no_of_variant_lines_per_vcf > 10000:
+                    break
+                extract_columns = file_line.split("\t")
+                alt_allele_column = extract_columns[4]
+                alternate_alleles = alt_allele_column.split(",")
+                for alternate_allele in alternate_alleles:
+                    if re.search(symbolic_allele_pattern, alternate_allele) or \
+                            re.search(complex_rearrangements_breakend_pattern, alternate_allele) \
+                            or re.search(complex_rearrangements_special_breakend_pattern,
+                                         alternate_allele) or re.search(single_breakend_pattern, alternate_allele):
+                        has_sv_per_vcf = True
                         break
-                    extract_columns = file_line.split("\t")
-                    alt_allele_column = extract_columns[4]
-                    alternate_alleles = alt_allele_column.split(",")
-                    for alternate_allele in alternate_alleles:
-                        if re.search(symbolic_allele_pattern, alternate_allele) or \
-                                re.search(complex_rearrangements_breakend_pattern, alternate_allele) \
-                                or re.search(complex_rearrangements_special_breakend_pattern, alternate_allele) or re.search(single_breakend_pattern, alternate_allele):
-                            has_sv_per_vcf = True
-                            break
-                        else:
-                            has_sv_per_vcf = False
-                    if has_sv_per_vcf:
-                        break
-                no_of_variant_lines.append(no_of_variant_lines_per_vcf)
-                has_sv.append(has_sv_per_vcf)
+                    else:
+                        has_sv_per_vcf = False
+                if has_sv_per_vcf:
+                    break
+            open_file.close()
+            no_of_variant_lines.append(no_of_variant_lines_per_vcf)
+            has_sv.append(has_sv_per_vcf)
         return has_sv
 
     def _detect_structural_variant_from_validator_output(self, has_sv, validator_output_files):

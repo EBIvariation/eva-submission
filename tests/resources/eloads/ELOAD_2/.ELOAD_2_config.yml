@@ -32,7 +32,7 @@ validation:
     files:
       test1.vcf:
         has_structural_variant: true
-      test2.vcf:
+      test2.vcf.gz:
         has_structural_variant: false
       test3.vcf:
         has_structural_variant: true
