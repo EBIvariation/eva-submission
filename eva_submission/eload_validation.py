@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import csv
 import os
+import re
 import shutil
 import subprocess
 
@@ -44,7 +45,6 @@ class EloadValidation(Eload):
             output_dir = self._run_validation_workflow()
             self._collect_validation_workflow_results(output_dir)
             shutil.rmtree(output_dir)
-
         if 'structural_variant_check' in validation_tasks:
             self._detect_structural_variant()
 
