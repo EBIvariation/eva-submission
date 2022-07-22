@@ -87,7 +87,7 @@ VCF check: PASS
 Assembly check: PASS
 Sample names check: PASS
 Aggregation check: PASS
-Structural Variant check: PASS
+Structural variant check: PASS
 ----------------------------------
 
 Metadata check:
