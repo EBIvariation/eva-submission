@@ -1,2 +1,2 @@
 this is the second file
-INFO SVTYPE must be one of: BND, CNV, DEL, DUP, INS, INV
+
