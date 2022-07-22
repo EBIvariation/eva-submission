@@ -80,7 +80,6 @@ class TestEloadValidation(TestCase):
     def test_structural_variant(self):
         self.assertListEqual([True, False], self.sv_validation._detect_structural_variant())
 
-
     def test_report(self):
         expected_report = '''Validation performed on 2020-11-01 10:37:54.755607
 Metadata check: PASS
@@ -88,6 +87,7 @@ VCF check: PASS
 Assembly check: PASS
 Sample names check: PASS
 Aggregation check: PASS
+Structural Variant check: PASS
 ----------------------------------
 
 Metadata check:

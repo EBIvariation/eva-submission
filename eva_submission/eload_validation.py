@@ -362,7 +362,11 @@ class EloadValidation(Eload):
         # Initializing the list of boolean values to store the status of the VCFs denoting whether it has a SV or not
         has_sv = []
         vcf_files = self._get_vcf_files()
-        has_sv, validator_output_files = self._detect_structural_variant_from_variant_lines(vcf_files, has_sv)
+        has_sv = self._detect_structural_variant_from_variant_lines(vcf_files, has_sv)
+        validator_output_files = []
+        for vcf_file in vcf_files:
+            vcf_name = os.path.basename(vcf_file)
+            validator_output_files.append(os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_validator.txt'))
         has_sv = self._detect_structural_variant_from_validator_output(has_sv, validator_output_files)
         for index in range(len(vcf_files)):
             self.eload_cfg.set('validation', 'structural_variant_check', 'files', os.path.basename(vcf_files[index]),
@@ -373,40 +377,42 @@ class EloadValidation(Eload):
     def _detect_structural_variant_from_variant_lines(self, vcf_files, has_sv):
         no_of_variant_lines = []
         vcf_count = -1
-        pattern1 = re.compile("^<(DEL|INS|DUP|INV|CNV|BND|DUP:TANDEM|DEL:ME.*|INS:ME.*)>$")
-        pattern2 = re.compile("^[ATCGNatgcn]+\[.+:.+\[$|^[ATCGNatgcn]+\].+:.+\]$|^\].+:.+\][ATCGNatgcn]+$|^\[.+:.+\[[ATCGNatgcn]+$")
-        pattern3 = re.compile("^\.[ATGCNatgcn]+|[ATGCNatgcn]+\.$")
-        pattern4 = re.compile("^[ATGCNatgcn]+<[0-9A-Za-z!#$%&+./:;?@^_|~-][0-9A-Za-z!#$%&*+./:;=?@^_|~-]*>$")
-        validator_output_files = []
+        # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Pages: 6, 16)
+        symbolic_allele_pattern = re.compile("^<(DEL|INS|DUP|INV|CNV|BND|DUP:TANDEM|DEL:ME.*|INS:ME.*)>$")
+        # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Page: 17)
+        complex_rearrangements_breakend_pattern = re.compile("^[ATCGNatgcn]+\[.+:.+\[$|^[ATCGNatgcn]+\].+:.+\]$|^\].+:.+\][ATCGNatgcn]+$|^\[.+:.+\[[ATCGNatgcn]+$")
+        # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Page: 18)
+        complex_rearrangements_special_breakend_pattern = re.compile("^[ATGCNatgcn]+<[0-9A-Za-z!#$%&+./:;?@^_|~-][0-9A-Za-z!#$%&*+./:;=?@^_|~-]*>$")
+        # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Page: 22)
+        single_breakend_pattern = re.compile("^\.[ATGCNatgcn]+|[ATGCNatgcn]+\.$")
         for vcf_file in vcf_files:
             vcf_count = vcf_count + 1
-            vcf_name = os.path.basename(vcf_file)
-            validator_output_files.append(os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_validator.txt'))
             no_of_variant_lines_per_vcf = 0
             has_sv_per_vcf = False
             with open(vcf_file) as open_file:
                 for file_line in open_file:
                     if file_line[0] == "#":
                         continue;
-                    else:
-                        no_of_variant_lines_per_vcf = no_of_variant_lines_per_vcf + 1
-                        if no_of_variant_lines_per_vcf > 10000:
+
+                    no_of_variant_lines_per_vcf = no_of_variant_lines_per_vcf + 1
+                    if no_of_variant_lines_per_vcf > 10000:
+                        break
+                    extract_columns = file_line.split("\t")
+                    alt_allele_column = extract_columns[4]
+                    alternate_alleles = alt_allele_column.split(",")
+                    for alternate_allele in alternate_alleles:
+                        if re.search(symbolic_allele_pattern, alternate_allele) or \
+                                re.search(complex_rearrangements_breakend_pattern, alternate_allele) \
+                                or re.search(complex_rearrangements_special_breakend_pattern, alternate_allele) or re.search(single_breakend_pattern, alternate_allele):
+                            has_sv_per_vcf = True
                             break
-                        extract_columns = file_line.split("\t")
-                        alt_allele_column = extract_columns[4]
-                        alternate_alleles = alt_allele_column.split(",")
-                        for alternate_allele in alternate_alleles:
-                            if re.search(pattern1, alternate_allele) or re.search(pattern2, alternate_allele) \
-                                    or re.search(pattern3, alternate_allele) or re.search(pattern4, alternate_allele):
-                                has_sv_per_vcf = True
-                                break
-                            else:
-                                has_sv_per_vcf = False
-                        if has_sv_per_vcf:
-                            break
+                        else:
+                            has_sv_per_vcf = False
+                    if has_sv_per_vcf:
+                        break
                 no_of_variant_lines.append(no_of_variant_lines_per_vcf)
                 has_sv.append(has_sv_per_vcf)
-        return has_sv, validator_output_files
+        return has_sv
 
     def _detect_structural_variant_from_validator_output(self, has_sv, validator_output_files):
         vcf_validator_keywords = ["INFO SVLEN should have the same number of values as ALT",
