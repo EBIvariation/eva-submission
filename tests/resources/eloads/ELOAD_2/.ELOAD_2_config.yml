@@ -34,6 +34,10 @@ validation:
         has_structural_variant: true
       test2.vcf:
         has_structural_variant: false
+      test3.vcf:
+        has_structural_variant: true
+      test4.vcf:
+        has_structural_variant: true
     pass: true
   validation_date: 2020-11-01 10:37:54.755607
   vcf_check:

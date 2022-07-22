@@ -78,7 +78,7 @@ class TestEloadValidation(TestCase):
         assert nb_warning == 1
 
     def test_structural_variant(self):
-        self.assertListEqual([True, False], self.sv_validation._detect_structural_variant())
+        self.assertListEqual([True, False, True, True], self.sv_validation._detect_structural_variant())
 
     def test_report(self):
         expected_report = '''Validation performed on 2020-11-01 10:37:54.755607
@@ -138,6 +138,8 @@ VCF merge:
 Structural variant check:
 -test1.vcf has structural variants
 -test2.vcf does not have structural variants
+-test3.vcf has structural variants
+-test4.vcf has structural variants
 
 ----------------------------------
 '''
