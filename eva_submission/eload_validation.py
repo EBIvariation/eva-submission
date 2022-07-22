@@ -361,13 +361,14 @@ class EloadValidation(Eload):
 
         # Initializing the list of boolean values to store the status of the VCFs denoting whether it has a SV or not
         has_sv = []
-        vcf_files = vcf_files = self._get_vcf_files()
+        vcf_files = self._get_vcf_files()
         has_sv, validator_output_files = self._detect_structural_variant_from_variant_lines(vcf_files, has_sv)
         has_sv = self._detect_structural_variant_from_validator_output(has_sv, validator_output_files)
         for index in range(len(vcf_files)):
             self.eload_cfg.set('validation', 'structural_variant_check', 'files', os.path.basename(vcf_files[index]),
                                value={'has_structural_variant': has_sv[index]})
         self.eload_cfg.set('validation', 'structural_variant_check', 'pass', value=True)
+        return has_sv
 
     def _detect_structural_variant_from_variant_lines(self, vcf_files, has_sv):
         no_of_variant_lines = []
@@ -533,19 +534,16 @@ class EloadValidation(Eload):
         return '\n'.join(reports)
 
     def _structural_variant_check_report(self):
-        sv_dict = self.eload_cfg.query('validation', 'structural_variant_check', 'files')
+        sv_dict = self.eload_cfg.query('validation')
         reports = []
-
         if sv_dict:
-
             for vcf_file, sv_check_status in sv_dict.items():
-
                 if sv_check_status['has_structural_variant']:
                     reports.append(f'-{vcf_file} has structural variants')
-
+                    print(f'-{vcf_file} has structural variants')
                 else:
                     reports.append(f'-{vcf_file} does not have structural variants')
-
+                    print(f'-{vcf_file} does not have structural variants')
         return '\n'.join(reports)
 
     def report(self):
