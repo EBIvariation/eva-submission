@@ -1,3 +1,2 @@
-Heyy there
 this is the second file
-IKNFO SVTYPE must be one of: BND, CNV, DEL, DUP, INS, INV
+INFO SVTYPE must be one of: BND, CNV, DEL, DUP, INS, INV

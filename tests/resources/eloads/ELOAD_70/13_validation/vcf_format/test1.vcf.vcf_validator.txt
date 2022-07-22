@@ -1,5 +1,2 @@
-hi there
-how are you
-I am good
-how are you doing
+This is a test file
 INFO SVTYPE must be one of: BND, CNV, DEL, DUP, INS, INV
