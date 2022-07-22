@@ -540,16 +540,14 @@ class EloadValidation(Eload):
         return '\n'.join(reports)
 
     def _structural_variant_check_report(self):
-        sv_dict = self.eload_cfg.query('validation')
+        sv_dict = self.eload_cfg.query('validation', 'structural_variant_check', 'files')
         reports = []
         if sv_dict:
             for vcf_file, sv_check_status in sv_dict.items():
                 if sv_check_status['has_structural_variant']:
                     reports.append(f'-{vcf_file} has structural variants')
-                    print(f'-{vcf_file} has structural variants')
                 else:
                     reports.append(f'-{vcf_file} does not have structural variants')
-                    print(f'-{vcf_file} does not have structural variants')
         return '\n'.join(reports)
 
     def report(self):
