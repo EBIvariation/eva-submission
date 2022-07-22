@@ -134,6 +134,12 @@ VCF merge:
   * a1: horizontal
 
 ----------------------------------
+
+Structural variant check:
+-test1.vcf has structural variants
+-test2.vcf does not have structural variants
+
+----------------------------------
 '''
         with patch('builtins.print') as mprint:
             self.validation.report()
