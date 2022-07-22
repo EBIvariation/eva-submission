@@ -359,137 +359,79 @@ class EloadValidation(Eload):
 
     def _detect_structural_variant(self):
 
-        metadata_keywords = ["##INFO=<ID=IMPRECISE", "##INFO=<ID=SVTYPE", "##INFO=<ID=SVLEN", "##INFO=<ID=CIPOS",
-                             "##INFO=<ID=CIEND", "##INFO=<ID=HOMLEN", "##INFO=<ID=HOMSEQ", "##INFO=<ID=BKPTID",
-                             "##INFO=<ID=MEINFO", "##INFO=<ID=METRANS", "##INFO=<ID=DGVID", "##INFO=<ID=DBVARID",
-                             "##INFO=<ID=DBRIPID", "##INFO=<ID=MATEID", "##INFO=<ID=PARID", "##INFO=<ID=EVENT",
-                             "##INFO=<ID=CILEN", "##INFO=<ID=DPADJ", "##INFO=<ID=CN", "##INFO=<ID=CNADJ",
-                             "##INFO=<ID=CICN", "##INFO=<ID=CICNADJ", "##FORMAT=<ID=CN", "##FORMAT=<ID=CNQ", "##FORMAT=<ID=CNL",
-                             "##FORMAT=<ID=CNP", "##FORMAT=<ID=NQ", "##FORMAT=<ID=HAP", "##FORMAT=<ID=AHAP",
-                             "##ALT=<ID=DEL", "##ALT=<ID=INS", "##ALT=<ID=DUP", "##ALT=<ID=INV", "##ALT=<ID=CNV", "##ALT=<ID=BND",
-                             "##ALT=<ID=DUP:TANDEM", "##ALT=<ID=DEL:ME", "##ALT=<ID=INS:ME"]
+        # Initializing the list of boolean values to store the status of the VCFs denoting whether it has a SV or not
+        has_sv = []
+        vcf_files = vcf_files = self._get_vcf_files()
+        has_sv, validator_output_files = self._detect_structural_variant_from_variant_lines(vcf_files, has_sv)
+        has_sv = self._detect_structural_variant_from_validator_output(has_sv, validator_output_files)
+        for index in range(len(vcf_files)):
+            self.eload_cfg.set('validation', 'structural_variant_check', 'files', os.path.basename(vcf_files[index]),
+                               value={'has_structural_variant': has_sv[index]})
+        self.eload_cfg.set('validation', 'structural_variant_check', 'pass', value=True)
 
-        variant_data_keywords = ["IMPRECISE=", "SVTYPE=", "SVLEN=", "CIPOS=", "CIEND=", "HOMLEN=", "HOMSEQ=", "BKPTID=",
-                                 "MEINFO=", "METRANS=", "DGVID=", "DBVARID=", "DBRIPID=", "MATEID=", "PARID=", "EVENT=", "CILEN=",
-                                 "DPADJ=", "CN=", "CNADJ=", "CICN=", "CICNADJ=", "<DEL>", "<INS>", "<DUP>", "<INV>", "<CNV>", "<BND>",
-                                 "<DUP:TANDEM>", "<DEL:ME>", "<INS:ME>"]
+    def _detect_structural_variant_from_variant_lines(self, vcf_files, has_sv):
+        no_of_variant_lines = []
+        vcf_count = -1
+        pattern1 = re.compile("^<(DEL|INS|DUP|INV|CNV|BND|DUP:TANDEM|DEL:ME.*|INS:ME.*)>$")
+        pattern2 = re.compile("^[ATCGNatgcn]+\[.+:.+\[$|^[ATCGNatgcn]+\].+:.+\]$|^\].+:.+\][ATCGNatgcn]+$|^\[.+:.+\[[ATCGNatgcn]+$")
+        pattern3 = re.compile("^\.[ATGCNatgcn]+|[ATGCNatgcn]+\.$")
+        pattern4 = re.compile("^[ATGCNatgcn]+<[0-9A-Za-z!#$%&+./:;?@^_|~-][0-9A-Za-z!#$%&*+./:;=?@^_|~-]*>$")
+        validator_output_files = []
+        for vcf_file in vcf_files:
+            vcf_count = vcf_count + 1
+            vcf_name = os.path.basename(vcf_file)
+            validator_output_files.append(os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_validator.txt'))
+            no_of_variant_lines_per_vcf = 0
+            has_sv_per_vcf = False
+            with open(vcf_file) as open_file:
+                for file_line in open_file:
+                    if file_line[0] == "#":
+                        continue;
+                    else:
+                        no_of_variant_lines_per_vcf = no_of_variant_lines_per_vcf + 1
+                        if no_of_variant_lines_per_vcf > 10000:
+                            break
+                        extract_columns = file_line.split("\t")
+                        alt_allele_column = extract_columns[4]
+                        alternate_alleles = alt_allele_column.split(",")
+                        for alternate_allele in alternate_alleles:
+                            if re.search(pattern1, alternate_allele) or re.search(pattern2, alternate_allele) \
+                                    or re.search(pattern3, alternate_allele) or re.search(pattern4, alternate_allele):
+                                has_sv_per_vcf = True
+                                break
+                            else:
+                                has_sv_per_vcf = False
+                        if has_sv_per_vcf:
+                            break
+                no_of_variant_lines.append(no_of_variant_lines_per_vcf)
+                has_sv.append(has_sv_per_vcf)
+        return has_sv, validator_output_files
 
-        vcf_validator_keywords = ["INFO SVLEN should have the same number of values as ALT", "INFO SVLEN must be equal to",
+    def _detect_structural_variant_from_validator_output(self, has_sv, validator_output_files):
+        vcf_validator_keywords = ["INFO SVLEN should have the same number of values as ALT",
+                                  "INFO SVLEN must be equal to",
                                   "ALT metadata ID is not prefixed by DEL/INS/DUP/INV/CNV/BND and suffixed by",
                                   "INFO SVTYPE must be one of: BND, CNV, DEL, DUP, INS, INV",
                                   "INFO SVLEN must be a negative integer for shorter ALT alleles"]
-
-        # Initializing the list to store the number of metadata lines for all the VCFs
-        no_of_metadata_lines = []
-
-        # Initializing the list to store the number of variant lines for all the VCFs
-        no_of_variant_lines = []
-
-        # Initializing the list to store the status of the VCFs denoting whether it has a SV or not
-        has_sv = []
-
-        # Initializing the number of vcf files count
-        vcf_count = -1
-
-        # Storing the vcf_files list from the config
-        vcf_files = self._get_vcf_files()
-
-        # Initializing the vcf_validator output list
-        validator_outputs = []
-
-        for vcf_file in vcf_files:
-
-            vcf_count = vcf_count + 1
-
-            vcf_name = os.path.basename(vcf_file)
-
-            # Storing the full path of the vcf-validator output of the corresponding vcf files
-            validator_outputs.append(os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_validator.txt'))
-
-            no_of_metadata_lines_per_vcf = 0
-            no_of_variant_lines_per_vcf = 0
-            has_sv_per_vcf = False
-
-            with open(vcf_file) as open_file:
-                for file_line in open_file:
-                    if file_line[0:2] == "##":
-
-                        no_of_metadata_lines_per_vcf = no_of_metadata_lines_per_vcf + 1
-
-                        for keyword in metadata_keywords:
-                            if keyword in file_line:
-
-                                has_sv_per_vcf = True
-                                break
-
-                            else:
-                                has_sv_per_vcf = False
-
-                        if has_sv_per_vcf:
-                            break
-
-                    elif file_line[0] != "#":
-
-                        no_of_variant_lines_per_vcf = no_of_variant_lines_per_vcf + 1
-
-                        if no_of_variant_lines_per_vcf > 10000:
-                            break
-
-                        for keyword in variant_data_keywords:
-                            if keyword in file_line:
-
-                                has_sv_per_vcf = True
-                                break
-
-                            else:
-                                has_sv_per_vcf = False
-
-                        if has_sv_per_vcf:
-                            break
-
-            no_of_metadata_lines.append(no_of_metadata_lines_per_vcf)
-            no_of_variant_lines.append(no_of_variant_lines_per_vcf)
-            has_sv.append(has_sv_per_vcf)
-
-        # Initializing the number of vcf files count
         validator_output_count = -1
-
-        for validator_output in validator_outputs:
-
+        for validator_output_file in validator_output_files:
             validator_output_count = validator_output_count + 1
-            vcf_name = os.path.basename(vcf_files[validator_output_count])
-
             if has_sv[validator_output_count]:
-
-                self.eload_cfg.set('validation', 'structural_variant_check', 'files', vcf_name,
-                                   value={'has_structural_variant': has_sv[validator_output_count]})
                 break
-
             else:
-
                 has_sv_per_vcf = False
-
-                with open(validator_output) as open_file:
-
+                with open(validator_output_file) as open_file:
                     for file_line in open_file:
-
                         for keyword in vcf_validator_keywords:
                             if keyword in file_line:
                                 has_sv_per_vcf = True
                                 break
-
                             else:
                                 has_sv_per_vcf = False
-
                         if has_sv_per_vcf:
                             break
-
-            has_sv[validator_output_count] = has_sv_per_vcf
-
-            self.eload_cfg.set('validation', 'structural_variant_check', 'files', vcf_name, value={
-                'has_structural_variant': has_sv[validator_output_count]})
-
-            self.eload_cfg.set('validation', 'structural_variant_check', 'pass', value=True)
+                has_sv[validator_output_count] = has_sv_per_vcf
+        return has_sv
 
     def _metadata_check_report(self):
         reports = []
@@ -616,7 +558,8 @@ class EloadValidation(Eload):
             'assembly_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'assembly_check')),
             'sample_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'sample_check')),
             'aggregation_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'aggregation_check')),
-            'structural_variant_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'structural_variant_check')),
+            'structural_variant_check': self._check_pass_or_fail(self.eload_cfg.query('validation',
+                                                                                      'structural_variant_check')),
             'metadata_check_report': self._metadata_check_report(),
             'vcf_check_report': self._vcf_check_report(),
             'assembly_check_report': self._assembly_check_report(),
