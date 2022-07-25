@@ -22,8 +22,7 @@ class TestEloadMigration(TestCase):
 
     def tearDown(self):
         self.eload.eload_cfg.content = self.original_config
-        if os.path.isfile(self.eload.eload_cfg.config_file):
-            os.remove(self.eload.eload_cfg.config_file)
+        self.eload.eload_cfg.write()
 
     def test_update_and_reload_config(self):
         self.eload.update_and_reload_config()
