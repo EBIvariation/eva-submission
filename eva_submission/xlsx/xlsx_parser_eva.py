@@ -74,7 +74,8 @@ class EvaXlsxReader(AppLogger):
     def samples_per_analysis(self):
         samples_per_analysis = defaultdict(list)
         for row in self.samples:
-            samples_per_analysis[row.get('Analysis Alias')].append(row)
+            for analysis_alias in row.get('Analysis Alias').split(','):
+                samples_per_analysis[analysis_alias].append(row)
         return samples_per_analysis
 
     @property

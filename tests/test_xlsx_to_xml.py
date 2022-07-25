@@ -105,7 +105,6 @@ class TestEnaXlsConverter(TestCase):
         if os.path.exists(file_path):
             os.remove(file_path)
 
-
     def tearDown(self) -> None:
         self._delete_file(os.path.join(self.brokering_folder, 'TEST1.Submission.xml'))
         self._delete_file(os.path.join(self.brokering_folder, 'TEST1.Project.xml'))
