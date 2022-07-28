@@ -151,14 +151,14 @@ class EloadBacklog(Eload):
             vcf_file_list = []
             index_file_dict = {}
             for fn in filenames:
-                if not fn.endswith('.vcf.gz') and not fn.endswith('.vcf.gz.tbi') and not fn.endswith('.vcf.gz.csi'):
+                if not fn.endswith('.vcf.gz') and not fn.endswith('.vcf.gz.tbi'):
                     self.warning(f'Ignoring {fn} because it is not a VCF or an index')
                     continue
                 try:
                     full_path = self.find_local_file(fn)
                 except FileNotFoundError:
                     full_path = self.find_file_on_ena(fn, analysis_accession)
-                if full_path.endswith('.vcf.gz.tbi') or full_path.endswith('.vcf.gz.csi'):
+                if full_path.endswith('.vcf.gz.tbi'):
                     # Store with the basename of the VCF file for easy retrieval
                     index_file_dict[os.path.basename(full_path)[:-4]] = full_path
                 else:
