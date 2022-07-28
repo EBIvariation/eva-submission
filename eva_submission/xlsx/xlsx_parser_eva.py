@@ -75,7 +75,8 @@ class EvaXlsxReader(AppLogger):
         samples_per_analysis = defaultdict(list)
         for row in self.samples:
             for analysis_alias in row.get('Analysis Alias').split(','):
-                samples_per_analysis[analysis_alias].append(row)
+                # remove white space between analysis
+                samples_per_analysis[analysis_alias.strip()].append(row)
         return samples_per_analysis
 
     @property
