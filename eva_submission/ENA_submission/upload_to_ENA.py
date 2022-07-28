@@ -62,7 +62,7 @@ class ENAUploader(AppLogger):
         )
         return response
 
-    def upload_xml_files_to_ena(self):
+    def upload_xml_files_to_ena(self, dry_ena_upload=False):
         """Upload the xml files to the webin submission endpoint and parse the receipt."""
         submission_file, project_file, analysis_file = self.converter.create_submission_files()
         file_dict = {
@@ -72,7 +72,11 @@ class ENAUploader(AppLogger):
         # If we are uploading to an existing project the project_file is not set
         if project_file:
             file_dict['PROJECT'] = (os.path.basename(project_file), get_file_content(project_file), 'application/xml')
-
+        if dry_ena_upload:
+            self.info(f'Would have uploaded the following XML files to ENA submission endpoint:')
+            for key, (file_path, _, _) in file_dict.items():
+                self.info(f'{key}: {file_path}')
+            return
         response = self._post_xml_file_to_ena(cfg.query('ena', 'submit_url'), file_dict)
         self.results['receipt'] = response.text
         self.results.update(self.parse_ena_receipt(response.text))
@@ -101,13 +105,18 @@ class ENAUploader(AppLogger):
 
 class ENAUploaderAsync(ENAUploader):
 
-    def upload_xml_files_to_ena(self):
+    def upload_xml_files_to_ena(self, dry_ena_upload=False):
         """Upload the xml file to the asynchronous endpoint and monitor the results from the poll endpoint."""
 
         webin_file = self.converter.create_single_submission_file()
         file_dict = {
             'file': (os.path.basename(webin_file), get_file_content(webin_file), 'application/xml'),
         }
+        if dry_ena_upload:
+            self.info(f'Would have uploaded the following XML files to ENA asynchronous submission endpoint:')
+            for key, (file_path, _, _) in file_dict.items():
+                self.info(f'{key}: {file_path}')
+            return
         response = self._post_xml_file_to_ena(cfg.query('ena', 'submit_async'), file_dict)
         json_data = response.json()
         if 'submissionId' in json_data:
