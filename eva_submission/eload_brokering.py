@@ -75,11 +75,10 @@ class EloadBrokering(Eload):
                     vcf_file_info = self.eload_cfg['brokering']['analyses'][analysis]['vcf_files'][vcf_file_name]
                     files_to_upload.append(vcf_file_info['output_vcf_file'])
                     files_to_upload.append(vcf_file_info['csi'])
-            if not dry_ena_upload:
-                ena_uploader.upload_vcf_files_to_ena_ftp(files_to_upload)
-            else:
+            if dry_ena_upload:
                 self.info(f'Would have uploaded the following files to FTP: \n' + "\n".join(files_to_upload))
-
+                return
+            ena_uploader.upload_vcf_files_to_ena_ftp(files_to_upload)
             # Upload XML to ENA
             ena_uploader.upload_xml_files_to_ena(dry_ena_upload)
             self.eload_cfg.set('brokering', 'ena', value=ena_uploader.results)
