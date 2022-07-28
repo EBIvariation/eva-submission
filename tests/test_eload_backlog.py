@@ -160,3 +160,4 @@ class TestEloadBacklog(TestCase):
             assert m_get_results.call_args[0][1] == ("select distinct analysis_accession from analysis "
                                                      "where analysis_accession in ('ERZ9997','ERZ9998','ERZ9999') "
                                                      "and hidden_in_eva=0;")
+
