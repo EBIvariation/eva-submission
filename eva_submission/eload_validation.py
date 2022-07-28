@@ -360,10 +360,8 @@ class EloadValidation(Eload):
 
     def _detect_structural_variant(self):
 
-        # Initializing the list of boolean values to store the status of the VCFs denoting whether it has a SV or not
-        has_sv = []
         vcf_files = self._get_vcf_files()
-        has_sv = self._detect_structural_variant_from_variant_lines(vcf_files, has_sv)
+        has_sv = self._detect_structural_variant_from_variant_lines(vcf_files)
         validator_output_files = []
         for vcf_file in vcf_files:
             vcf_name = os.path.basename(vcf_file)
@@ -375,7 +373,9 @@ class EloadValidation(Eload):
         self.eload_cfg.set('validation', 'structural_variant_check', 'pass', value=True)
         return has_sv
 
-    def _detect_structural_variant_from_variant_lines(self, vcf_files, has_sv):
+    def _detect_structural_variant_from_variant_lines(self, vcf_files):
+        # Initializing the list of boolean values to store the status of the VCFs denoting whether it has a SV or not
+        has_sv = []
         no_of_variant_lines = []
         vcf_count = -1
         # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Pages: 6, 16)
@@ -550,9 +550,9 @@ class EloadValidation(Eload):
         if sv_dict:
             for vcf_file, sv_check_status in sv_dict.items():
                 if sv_check_status['has_structural_variant']:
-                    reports.append(f'-{vcf_file} has structural variants')
+                    reports.append(f'*{vcf_file} has structural variants')
                 else:
-                    reports.append(f'-{vcf_file} does not have structural variants')
+                    reports.append(f'*{vcf_file} does not have structural variants')
         return '\n'.join(reports)
 
     def report(self):
