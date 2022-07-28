@@ -60,7 +60,7 @@ class EvaXlsxValidator(AppLogger):
         analysis_aliases = [analysis_row['Analysis Alias'] for analysis_row in self.metadata['Analysis']]
         self.same_set(
             analysis_aliases,
-            [analysis_alias for sample_row in self.metadata['Sample'] for analysis_alias in sample_row['Analysis Alias'].split(',')],
+            [analysis_alias.strip() for sample_row in self.metadata['Sample'] for analysis_alias in sample_row['Analysis Alias'].split(',')],
             'Analysis Alias', 'Samples'
         )
         self.same_set(analysis_aliases, [file_row['Analysis Alias'] for file_row in self.metadata['Files']], 'Analysis Alias', 'Files')
