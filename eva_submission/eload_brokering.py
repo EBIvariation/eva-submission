@@ -77,14 +77,15 @@ class EloadBrokering(Eload):
                     files_to_upload.append(vcf_file_info['csi'])
             if dry_ena_upload:
                 self.info(f'Would have uploaded the following files to FTP: \n' + "\n".join(files_to_upload))
-                return
-            ena_uploader.upload_vcf_files_to_ena_ftp(files_to_upload)
+            else:
+                ena_uploader.upload_vcf_files_to_ena_ftp(files_to_upload)
             # Upload XML to ENA
             ena_uploader.upload_xml_files_to_ena(dry_ena_upload)
-            self.eload_cfg.set('brokering', 'ena', value=ena_uploader.results)
-            self.eload_cfg.set('brokering', 'ena', 'date', value=self.now)
-            self.eload_cfg.set('brokering', 'ena', 'hold_date', value=ena_uploader.converter.hold_date)
-            self.eload_cfg.set('brokering', 'ena', 'pass', value=not bool(ena_uploader.results['errors']))
+            if not dry_ena_upload:
+                self.eload_cfg.set('brokering', 'ena', value=ena_uploader.results)
+                self.eload_cfg.set('brokering', 'ena', 'date', value=self.now)
+                self.eload_cfg.set('brokering', 'ena', 'hold_date', value=ena_uploader.converter.hold_date)
+                self.eload_cfg.set('brokering', 'ena', 'pass', value=not bool(ena_uploader.results['errors']))
         else:
             self.info('Brokering to ENA has already been run, Skip!')
 
