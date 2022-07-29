@@ -6,7 +6,7 @@ from eva_submission.samples_checker import get_samples_from_vcf, get_sample_name
     compare_spreadsheet_and_vcf
 
 
-class TestFtpDepositBox(TestCase):
+class TestSampleChecker(TestCase):
 
     resources_folder = os.path.join(ROOT_DIR, 'tests', 'resources')
 
@@ -40,7 +40,3 @@ class TestSampleChecker(TestCase):
         overall_differences, results_per_analysis_alias = compare_spreadsheet_and_vcf(metadata_file, vcf_dir)
         assert not overall_differences
         assert results_per_analysis_alias == {'GAE': (False, [], []), 'GAE2': (False, [], [])}
-
-
-
-

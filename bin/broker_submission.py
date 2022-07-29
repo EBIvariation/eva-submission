@@ -44,8 +44,10 @@ def main():
     argparse.add_argument('--project_accession', required=False, type=ENA_Project,
                           help='Use this option to set an existing project accession that will be used to attach the '
                                'new analyses from this ELOAD.')
-    argparse.add_argument('--use_async_upload',  action='store_true', default=False,
+    argparse.add_argument('--use_async_upload', action='store_true', default=False,
                           help='Change the mode of upload to ENA to use the async queue.')
+    argparse.add_argument('--dry_ena_upload', action='store_true', default=False,
+                          help='Prevent the upload of files to ENA FTP and XML files to submission.')
     argparse.add_argument('--force', required=False, type=str, nargs='+', default=[],
                           choices=EloadBrokering.all_brokering_tasks,
                           help='When not set, the script only performs the tasks that were not successful. Can be '
@@ -66,7 +68,7 @@ def main():
         brokering.upgrade_config_if_needed()
         if not args.report:
             brokering.broker(brokering_tasks_to_force=args.force, existing_project=args.project_accession,
-                             async_upload=args.use_async_upload)
+                             async_upload=args.use_async_upload, dry_ena_upload=args.dry_ena_upload)
         brokering.report()
 
 
