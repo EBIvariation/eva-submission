@@ -1,2 +1,2 @@
 This is a test file
-INFO SVTYPE must be one of: BND, CNV, DEL, DUP, INS, INV
+Line 2: INFO SVTYPE must be one of: BND, CNV, DEL, DUP, INS, INV
