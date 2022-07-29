@@ -6,7 +6,7 @@ from eva_submission.samples_checker import get_samples_from_vcf, get_sample_name
     compare_spreadsheet_and_vcf
 
 
-class TestFtpDepositBox(TestCase):
+class TestSampleChecker(TestCase):
 
     resources_folder = os.path.join(ROOT_DIR, 'tests', 'resources')
 
@@ -15,11 +15,6 @@ class TestFtpDepositBox(TestCase):
 
     def test_get_sample_names(self):
         assert get_sample_names([{'Sample Name': 'S1'}, {'Sample ID': 'S2'}, {'Analysis': ''}]) == ['S1', 'S2']
-
-
-class TestSampleChecker(TestCase):
-
-    resources_folder = os.path.join(ROOT_DIR, 'tests', 'resources')
 
     def test_compare_names_in_files_and_samples(self):
         assert compare_names_in_files_and_samples(
