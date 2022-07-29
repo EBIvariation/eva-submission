@@ -16,6 +16,11 @@ class TestSampleChecker(TestCase):
     def test_get_sample_names(self):
         assert get_sample_names([{'Sample Name': 'S1'}, {'Sample ID': 'S2'}, {'Analysis': ''}]) == ['S1', 'S2']
 
+
+class TestSampleChecker(TestCase):
+
+    resources_folder = os.path.join(ROOT_DIR, 'tests', 'resources')
+
     def test_compare_names_in_files_and_samples(self):
         assert compare_names_in_files_and_samples(
             [os.path.join(self.resources_folder, 'test.vcf')],
@@ -35,5 +40,3 @@ class TestSampleChecker(TestCase):
         overall_differences, results_per_analysis_alias = compare_spreadsheet_and_vcf(metadata_file, vcf_dir)
         assert not overall_differences
         assert results_per_analysis_alias == {'GAE': (False, [], []), 'GAE2': (False, [], [])}
-
-
