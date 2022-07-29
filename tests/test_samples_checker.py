@@ -42,5 +42,3 @@ class TestSampleChecker(TestCase):
         assert results_per_analysis_alias == {'GAE': (False, [], []), 'GAE2': (False, [], [])}
 
 
-
-
