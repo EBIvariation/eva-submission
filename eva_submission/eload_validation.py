@@ -47,7 +47,7 @@ class EloadValidation(Eload):
             self._collect_validation_workflow_results(output_dir)
             shutil.rmtree(output_dir)
         if 'structural_variant_check' in validation_tasks:
-            self._detect_structural_variant()
+            has_sv = self._detect_structural_variant()
 
         if set_as_valid is True:
             for validation_task in validation_tasks:
@@ -369,6 +369,7 @@ class EloadValidation(Eload):
                 validator_output_file = os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_validator.txt')
                 has_sv_per_vcf = self._detect_structural_variant_from_validator_output(validator_output_file)
             has_sv.append(has_sv_per_vcf)
+        self.eload_cfg.set('validation', 'structural_variant_check', 'pass', value=True)
         return has_sv
 
     def _detect_structural_variant_from_variant_lines(self, vcf_file):
