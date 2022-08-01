@@ -52,7 +52,7 @@ class EloadBrokering(Eload):
             self.info('Preparation has already been run, Skip!')
 
     def broker_to_ena(self, force=False, existing_project=None, async_upload=False, dry_ena_upload=False):
-        if not self.eload_cfg.query('brokering', 'ena', 'PROJECT') or force:
+        if not self.eload_cfg.query('brokering', 'ena', 'pass') or force:
             ena_spreadsheet = os.path.join(self._get_dir('ena'), 'metadata_spreadsheet.xlsx')
             # Set the project in the metadata sheet which is then converted to XML
             self.update_metadata_spreadsheet(self.eload_cfg['validation']['valid']['metadata_spreadsheet'],

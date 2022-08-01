@@ -38,12 +38,16 @@ class ENAUploader(AppLogger):
     @retry(exceptions=ftplib.all_errors, tries=3, delay=2, backoff=1.2, jitter=(1, 3))
     def upload_vcf_files_to_ena_ftp(self, files_to_upload):
         host = cfg.query('ena', 'ftphost')
-        self.info(f'Connect to {host}')
+        # Heuristic to set the expected timeout assuming 10Mb/s upload speed but no less than 30 sec
+        # and no more than an hour
+        max_file_size = max([os.path.getsize(f) for f in files_to_upload])
+        timeout = min(max(int(max_file_size / 10000000), 30), 3600)
+        self.info(f'Connect to {host} with timeout: {timeout}')
         with HackFTP_TLS() as ftps:
             # Set a weak cipher to enable connection
             # https://stackoverflow.com/questions/38015537/python-requests-exceptions-sslerror-dh-key-too-small
             ftps.context.set_ciphers('DEFAULT:@SECLEVEL=1')
-            ftps.connect(host, port=int(cfg.query('ena', 'ftpport', ret_default=21)))
+            ftps.connect(host, port=int(cfg.query('ena', 'ftpport', ret_default=21)), timeout=timeout)
             ftps.login(cfg.query('ena', 'username'), cfg.query('ena', 'password'))
             ftps.prot_p()
             if self.eload not in ftps.nlst():
