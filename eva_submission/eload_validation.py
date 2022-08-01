@@ -41,13 +41,12 @@ class EloadValidation(Eload):
             self._validate_sample_names()
         if 'aggregation_check' in validation_tasks:
             self._validate_genotype_aggregation()
-
         if 'vcf_check' in validation_tasks or 'assembly_check' in validation_tasks:
             output_dir = self._run_validation_workflow()
             self._collect_validation_workflow_results(output_dir)
             shutil.rmtree(output_dir)
         if 'structural_variant_check' in validation_tasks:
-            has_sv = self._detect_structural_variant()
+            self._detect_structural_variant()
 
         if set_as_valid is True:
             for validation_task in validation_tasks:
@@ -359,8 +358,6 @@ class EloadValidation(Eload):
         self.eload_cfg.set('validation', 'assembly_check', 'pass', value=total_error == 0)
 
     def _detect_structural_variant(self):
-        # Initializing the list of boolean values to store the status of the VCFs denoting whether it has a SV or not
-        has_sv = []
         vcf_files = self._get_vcf_files()
         for vcf_file in vcf_files:
             has_sv_per_vcf = self._detect_structural_variant_from_variant_lines(vcf_file)
@@ -368,23 +365,23 @@ class EloadValidation(Eload):
                 vcf_name = os.path.basename(vcf_file)
                 validator_output_file = os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_validator.txt')
                 has_sv_per_vcf = self._detect_structural_variant_from_validator_output(validator_output_file)
-            has_sv.append(has_sv_per_vcf)
+            self.eload_cfg.set('validation', 'structural_variant_check', 'files', os.path.basename(vcf_file),
+                               value={'has_structural_variant': has_sv_per_vcf})
         self.eload_cfg.set('validation', 'structural_variant_check', 'pass', value=True)
-        return has_sv
 
     def _detect_structural_variant_from_variant_lines(self, vcf_file):
         no_of_variant_lines_per_vcf = 0
         has_sv_per_vcf = False
         # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Pages: 6, 16)
-        symbolic_allele_pattern = re.compile("^<(DEL|INS|DUP|INV|CNV|BND)")
+        symbolic_allele_pattern = "^<(DEL|INS|DUP|INV|CNV|BND)"
         # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Page: 17)
-        complex_rearrangements_breakend_pattern = re.compile(
-            "^[ATCGNatgcn]+\[.+:.+\[$|^[ATCGNatgcn]+\].+:.+\]$|^\].+:.+\][ATCGNatgcn]+$|^\[.+:.+\[[ATCGNatgcn]+$")
+        complex_rearrangements_breakend_pattern = "^[ATCGNatgcn]+\[.+:.+\[$|^[ATCGNatgcn]+\].+:.+\]$|^\].+:.+\][ATCGNatgcn]+$|^\[.+:.+\[[ATCGNatgcn]+$"
         # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Page: 18)
-        complex_rearrangements_special_breakend_pattern = re.compile(
-            "^[ATGCNatgcn]+<[0-9A-Za-z!#$%&+./:;?@^_|~-][0-9A-Za-z!#$%&*+./:;=?@^_|~-]*>$")
+        complex_rearrangements_special_breakend_pattern = "^[ATGCNatgcn]+<[0-9A-Za-z!#$%&+./:;?@^_|~-][0-9A-Za-z!#$%&*+./:;=?@^_|~-]*>$"
         # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Page: 22)
-        single_breakend_pattern = re.compile("^\.[ATGCNatgcn]+|[ATGCNatgcn]+\.$")
+        single_breakend_pattern = "^\.[ATGCNatgcn]+|[ATGCNatgcn]+\.$"
+        sv_regex = re.compile(f'{symbolic_allele_pattern}|{complex_rearrangements_breakend_pattern}|'
+                              f'{complex_rearrangements_special_breakend_pattern}|{single_breakend_pattern}')
         if vcf_file.endswith('.vcf.gz'):
             open_file = gzip.open(vcf_file, mode="rt")
         else:
@@ -399,14 +396,9 @@ class EloadValidation(Eload):
             alt_allele_column = extract_columns[4]
             alternate_alleles = alt_allele_column.split(",")
             for alternate_allele in alternate_alleles:
-                if re.search(symbolic_allele_pattern, alternate_allele) or \
-                        re.search(complex_rearrangements_breakend_pattern, alternate_allele) \
-                        or re.search(complex_rearrangements_special_breakend_pattern,
-                                     alternate_allele) or re.search(single_breakend_pattern, alternate_allele):
+                if re.search(sv_regex, alternate_allele):
                     has_sv_per_vcf = True
                     break
-                else:
-                    has_sv_per_vcf = False
             if has_sv_per_vcf:
                 break
         open_file.close()
@@ -420,8 +412,6 @@ class EloadValidation(Eload):
                 if re.search(vcf_validator_keywords_pattern, file_line):
                     has_sv_per_vcf = True
                     break
-                else:
-                    has_sv_per_vcf = False
         return has_sv_per_vcf
 
     def _metadata_check_report(self):

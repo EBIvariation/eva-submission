@@ -78,7 +78,14 @@ class TestEloadValidation(TestCase):
         assert nb_warning == 1
 
     def test_structural_variant(self):
-        self.assertListEqual([True, False, True, True], self.sv_validation._detect_structural_variant())
+        assert self.sv_validation.eload_cfg.query('validation', 'structural_variant_check', 'files', 'test1.vcf',
+                                                  'has_structural_variant') is True
+        assert self.sv_validation.eload_cfg.query('validation', 'structural_variant_check', 'files', 'test2.vcf.gz',
+                                                  'has_structural_variant') is None
+        assert self.sv_validation.eload_cfg.query('validation', 'structural_variant_check', 'files', 'test3.vcf',
+                                                  'has_structural_variant') is True
+        assert self.sv_validation.eload_cfg.query('validation', 'structural_variant_check', 'files', 'test4.vcf',
+                                                  'has_structural_variant') is True
 
     def test_report(self):
         expected_report = '''Validation performed on 2020-11-01 10:37:54.755607
