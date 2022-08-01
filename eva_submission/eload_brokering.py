@@ -82,7 +82,10 @@ class EloadBrokering(Eload):
             # Upload XML to ENA
             ena_uploader.upload_xml_files_to_ena(dry_ena_upload)
             if not dry_ena_upload:
-                self.eload_cfg.set('brokering', 'ena', value=ena_uploader.results)
+                # Update the accessions in case we're working with existing project
+                accessions = ena_uploader.results
+                accessions.update(self.eload_cfg.query('brokering', 'ena', ret_default={}))
+                self.eload_cfg.set('brokering', 'ena', value=accessions)
                 self.eload_cfg.set('brokering', 'ena', 'date', value=self.now)
                 self.eload_cfg.set('brokering', 'ena', 'hold_date', value=ena_uploader.converter.hold_date)
                 self.eload_cfg.set('brokering', 'ena', 'pass', value=not bool(ena_uploader.results['errors']))
