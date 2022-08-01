@@ -2,6 +2,7 @@ from unittest import TestCase
 import os
 from unittest.mock import patch, Mock
 
+import pytest
 from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission import ROOT_DIR
@@ -135,10 +136,8 @@ class TestENAUploader(TestCase):
             mock_post.assert_not_called()
             mock_get.assert_not_called()
 
+    @pytest.mark.skip(reason="Need to use real ENA credentials in submission_config.yml for this test to work")
     def test_upload_FTP(self):
-        # Need to use real ENA credentials in submission_config.yml for this test to work
-        assert True
-        return
         filename = 'test_vcf_file.vcf'
         with HackFTP_TLS() as ftps:
             # Connect to delete the file
