@@ -35,25 +35,34 @@ class ENAUploader(AppLogger):
         self.converter = EnaXlsxConverter(ena_spreadsheet, output_dir, self.eload)
         self.ena_auth = HTTPBasicAuth(cfg.query('ena', 'username'), cfg.query('ena', 'password'))
 
+    @retry(exceptions=ftplib.all_errors, tries=3, delay=2, backoff=1.2, jitter=(1, 3))
     def upload_vcf_files_to_ena_ftp(self, files_to_upload):
         host = cfg.query('ena', 'ftphost')
-        self.info(f'Connect to {host}')
-        ftps = HackFTP_TLS()
-        # Set a weak cipher to enable connection
-        # https://stackoverflow.com/questions/38015537/python-requests-exceptions-sslerror-dh-key-too-small
-        ftps.context.set_ciphers('DEFAULT:@SECLEVEL=1')
-        ftps.connect(host, port=int(cfg.query('ena', 'ftpport', ret_default=21)))
-        ftps.login(cfg.query('ena', 'username'), cfg.query('ena', 'password'))
-        ftps.prot_p()
-        if self.eload not in ftps.nlst():
-            self.info(f'Create {self.eload} directory')
-            ftps.mkd(self.eload)
-        ftps.cwd(self.eload)
-        for file_to_upload in files_to_upload:
-            file_name = os.path.basename(file_to_upload)
-            self.info(f'Upload {file_name} to FTP')
-            with open(file_to_upload, 'rb') as open_file:
-                ftps.storbinary('STOR %s' % file_name, open_file)
+        # Heuristic to set the expected timeout assuming 10Mb/s upload speed but no less than 30 sec
+        # and no more than an hour
+        max_file_size = max([os.path.getsize(f) for f in files_to_upload])
+        timeout = min(max(int(max_file_size / 10000000), 30), 3600)
+        self.info(f'Connect to {host} with timeout: {timeout}')
+        with HackFTP_TLS() as ftps:
+            # Set a weak cipher to enable connection
+            # https://stackoverflow.com/questions/38015537/python-requests-exceptions-sslerror-dh-key-too-small
+            ftps.context.set_ciphers('DEFAULT:@SECLEVEL=1')
+            ftps.connect(host, port=int(cfg.query('ena', 'ftpport', ret_default=21)), timeout=timeout)
+            ftps.login(cfg.query('ena', 'username'), cfg.query('ena', 'password'))
+            ftps.prot_p()
+            if self.eload not in ftps.nlst():
+                self.info(f'Create {self.eload} directory')
+                ftps.mkd(self.eload)
+            ftps.cwd(self.eload)
+            previous_content = ftps.nlst()
+            for file_to_upload in files_to_upload:
+                file_name = os.path.basename(file_to_upload)
+                if file_name in previous_content and ftps.size(file_name) == os.path.getsize(file_to_upload):
+                    self.warning(f'{file_name} Already exist and has the same size on the FTP. Skip upload.')
+                    continue
+                self.info(f'Upload {file_name} to FTP')
+                with open(file_to_upload, 'rb') as open_file:
+                    ftps.storbinary('STOR %s' % file_name, open_file)
 
     @retry(requests.exceptions.ConnectionError, tries=3, delay=2, backoff=1.2, jitter=(1, 3))
     def _post_xml_file_to_ena(self, url, file_dict):

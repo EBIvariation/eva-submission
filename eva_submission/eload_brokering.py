@@ -52,7 +52,7 @@ class EloadBrokering(Eload):
             self.info('Preparation has already been run, Skip!')
 
     def broker_to_ena(self, force=False, existing_project=None, async_upload=False, dry_ena_upload=False):
-        if not self.eload_cfg.query('brokering', 'ena', 'PROJECT') or force:
+        if not self.eload_cfg.query('brokering', 'ena', 'pass') or force:
             ena_spreadsheet = os.path.join(self._get_dir('ena'), 'metadata_spreadsheet.xlsx')
             # Set the project in the metadata sheet which is then converted to XML
             self.update_metadata_spreadsheet(self.eload_cfg['validation']['valid']['metadata_spreadsheet'],
@@ -82,7 +82,10 @@ class EloadBrokering(Eload):
             # Upload XML to ENA
             ena_uploader.upload_xml_files_to_ena(dry_ena_upload)
             if not dry_ena_upload:
-                self.eload_cfg.set('brokering', 'ena', value=ena_uploader.results)
+                # Update the accessions in case we're working with existing project
+                accessions = ena_uploader.results
+                accessions.update(self.eload_cfg.query('brokering', 'ena', ret_default={}))
+                self.eload_cfg.set('brokering', 'ena', value=accessions)
                 self.eload_cfg.set('brokering', 'ena', 'date', value=self.now)
                 self.eload_cfg.set('brokering', 'ena', 'hold_date', value=ena_uploader.converter.hold_date)
                 self.eload_cfg.set('brokering', 'ena', 'pass', value=not bool(ena_uploader.results['errors']))
