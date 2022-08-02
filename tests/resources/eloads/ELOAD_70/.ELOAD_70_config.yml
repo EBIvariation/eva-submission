@@ -14,14 +14,3 @@ validation:
   aggregation_check:
     analyses:
       Analysis alias test: none
-  structural_variant_check:
-    files:
-      test1.vcf:
-        has_structural_variant: true
-      test2.vcf:
-        has_structural_variant: false
-      test3.vcf:
-        has_structural_variant: true
-      test4.vcf:
-        has_structural_variant: true
-    pass: true
