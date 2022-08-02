@@ -1,6 +1,16 @@
 Changelog for eva-submission
 ============================
 
+1.6.3 (2022-08-02)
+------------------
+
+### Brokering
+ - Upload FTP to ENA FTP is resumable and retryable. 
+ - New option for dryrun for ENA upload 
+ - Fix metadata read:
+   - Support for Analysis list in Sample Sheet
+   - Serialise dates when uploading to BioSamples
+
 1.6.2 (2022-07-05)
 ------------------
 
