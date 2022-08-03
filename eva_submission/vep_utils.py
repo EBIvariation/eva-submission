@@ -156,6 +156,11 @@ def get_species_and_assembly(assembly_acc):
     if not response.ok:
         logger.warning(f'Got {response.status_code} when trying to get species and assembly from Ensembl.')
         return None, None, None
+    # Sometime ensembl responds with a 200 but still has no data
+    # See https://rest.ensembl.org/info/genomes/taxonomy/1010633?content-type=application/json
+    elif not response.json():
+        logger.warning(f'Ensembl return empty list when trying to get species and assembly.')
+        return None, None, None
     json_response = response.json()[0]
     return json_response['name'], assembly_name, assembly_acc == json_response['assembly_accession']
 

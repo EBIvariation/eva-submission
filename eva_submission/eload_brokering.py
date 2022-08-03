@@ -152,12 +152,12 @@ class EloadBrokering(Eload):
         brokering_config_file = os.path.join(self.eload_dir, 'brokering_config_file.yaml')
         with open(brokering_config_file, 'w') as open_file:
             yaml.safe_dump(brokering_config, open_file)
-        validation_script = os.path.join(NEXTFLOW_DIR, 'prepare_brokering.nf')
+        brokering_script = os.path.join(NEXTFLOW_DIR, 'prepare_brokering.nf')
         try:
             command_utils.run_command_with_output(
                 'Nextflow brokering preparation process',
                 ' '.join((
-                    cfg['executable']['nextflow'], validation_script,
+                    cfg['executable']['nextflow'], brokering_script,
                     '-params-file', brokering_config_file,
                     '-work-dir', output_dir
                 ))
