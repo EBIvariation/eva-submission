@@ -28,6 +28,11 @@ validation:
         in_VCF_not_in_metadata: []
         in_metadata_not_in_VCF: []
     pass: true
+  structural_variant_check:
+    files:
+      test.vcf:
+        has_structural_variant: true
+    pass: true
   validation_date: 2020-11-01 10:37:54.755607
   vcf_check:
     files:
@@ -37,3 +42,4 @@ validation:
         nb_warning: 2
         vcf_check_text_report: /path/to/report
     pass: true
+

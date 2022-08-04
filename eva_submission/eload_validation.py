@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 import csv
 import os
+import re
 import shutil
 import subprocess
+import gzip
 
 import yaml
 from ebi_eva_common_pyutils import command_utils
@@ -20,7 +22,8 @@ from eva_submission.xlsx.xlsx_validation import EvaXlsxValidator
 
 class EloadValidation(Eload):
 
-    all_validation_tasks = ['metadata_check', 'assembly_check', 'aggregation_check', 'vcf_check', 'sample_check']
+    all_validation_tasks = ['metadata_check', 'assembly_check', 'aggregation_check', 'vcf_check', 'sample_check',
+                            'structural_variant_check']
 
     def validate(self, validation_tasks=None, set_as_valid=False, merge_per_analysis=False):
         if not validation_tasks:
@@ -38,11 +41,12 @@ class EloadValidation(Eload):
             self._validate_sample_names()
         if 'aggregation_check' in validation_tasks:
             self._validate_genotype_aggregation()
-
         if 'vcf_check' in validation_tasks or 'assembly_check' in validation_tasks:
             output_dir = self._run_validation_workflow()
             self._collect_validation_workflow_results(output_dir)
             shutil.rmtree(output_dir)
+        if 'structural_variant_check' in validation_tasks:
+            self._detect_structural_variant()
 
         if set_as_valid is True:
             for validation_task in validation_tasks:
@@ -353,6 +357,63 @@ class EloadValidation(Eload):
             })
         self.eload_cfg.set('validation', 'assembly_check', 'pass', value=total_error == 0)
 
+    def _detect_structural_variant(self):
+        vcf_files = self._get_vcf_files()
+        for vcf_file in vcf_files:
+            has_sv_per_vcf = self._detect_structural_variant_from_variant_lines(vcf_file)
+            if not has_sv_per_vcf:
+                vcf_name = os.path.basename(vcf_file)
+                validator_output_file = os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_validator.txt')
+                has_sv_per_vcf = self._detect_structural_variant_from_validator_output(validator_output_file)
+            self.eload_cfg.set('validation', 'structural_variant_check', 'files', os.path.basename(vcf_file),
+                               value={'has_structural_variant': has_sv_per_vcf})
+        self.eload_cfg.set('validation', 'structural_variant_check', 'pass', value=True)
+
+    def _detect_structural_variant_from_variant_lines(self, vcf_file):
+        no_of_variant_lines_per_vcf = 0
+        has_sv_per_vcf = False
+        # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Pages: 6, 16)
+        symbolic_allele_pattern = "^<(DEL|INS|DUP|INV|CNV|BND)"
+        # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Page: 17)
+        complex_rearrangements_breakend_pattern = "^[ATCGNatgcn]+\[.+:.+\[$|^[ATCGNatgcn]+\].+:.+\]$|^\].+:.+\][ATCGNatgcn]+$|^\[.+:.+\[[ATCGNatgcn]+$"
+        # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Page: 18)
+        complex_rearrangements_special_breakend_pattern = "^[ATGCNatgcn]+<[0-9A-Za-z!#$%&+./:;?@^_|~-][0-9A-Za-z!#$%&*+./:;=?@^_|~-]*>$"
+        # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Page: 22)
+        single_breakend_pattern = "^\.[ATGCNatgcn]+|[ATGCNatgcn]+\.$"
+        sv_regex = re.compile(f'{symbolic_allele_pattern}|{complex_rearrangements_breakend_pattern}|'
+                              f'{complex_rearrangements_special_breakend_pattern}|{single_breakend_pattern}')
+        if vcf_file.endswith('.vcf.gz'):
+            open_file = gzip.open(vcf_file, mode="rt")
+        else:
+            open_file = open(vcf_file, mode="r")
+        for file_line in open_file:
+            if file_line[0] == "#":
+                continue;
+            no_of_variant_lines_per_vcf = no_of_variant_lines_per_vcf + 1
+            if no_of_variant_lines_per_vcf > 10000:
+                break
+            extract_columns = file_line.split("\t")
+            alt_allele_column = extract_columns[4]
+            alternate_alleles = alt_allele_column.split(",")
+            for alternate_allele in alternate_alleles:
+                if re.search(sv_regex, alternate_allele):
+                    has_sv_per_vcf = True
+                    break
+            if has_sv_per_vcf:
+                break
+        open_file.close()
+        return has_sv_per_vcf
+
+    def _detect_structural_variant_from_validator_output(self, validator_output_file):
+        vcf_validator_keywords_pattern = re.compile("^Line\s[1-9]+:\sINFO\s(SVLEN|SVTYPE).+")
+        has_sv_per_vcf = False
+        with open(validator_output_file) as open_file:
+            for file_line in open_file:
+                if re.search(vcf_validator_keywords_pattern, file_line):
+                    has_sv_per_vcf = True
+                    break
+        return has_sv_per_vcf
+
     def _metadata_check_report(self):
         reports = []
 
@@ -452,6 +513,17 @@ class EloadValidation(Eload):
             reports.append('Not performed')
         return '\n'.join(reports)
 
+    def _structural_variant_check_report(self):
+        sv_dict = self.eload_cfg.query('validation', 'structural_variant_check', 'files')
+        reports = []
+        if sv_dict:
+            for vcf_file, sv_check_status in sv_dict.items():
+                if sv_check_status['has_structural_variant']:
+                    reports.append(f'*{vcf_file} has structural variants')
+                else:
+                    reports.append(f'*{vcf_file} does not have structural variants')
+        return '\n'.join(reports)
+
     def report(self):
         """Collect information from the config and write the report."""
 
@@ -462,12 +534,15 @@ class EloadValidation(Eload):
             'assembly_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'assembly_check')),
             'sample_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'sample_check')),
             'aggregation_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'aggregation_check')),
+            'structural_variant_check': self._check_pass_or_fail(self.eload_cfg.query('validation',
+                                                                                      'structural_variant_check')),
             'metadata_check_report': self._metadata_check_report(),
             'vcf_check_report': self._vcf_check_report(),
             'assembly_check_report': self._assembly_check_report(),
             'sample_check_report': self._sample_check_report(),
             'vcf_merge_report': self._vcf_merge_report(),
-            'aggregation_report': self._aggregation_report()
+            'aggregation_report': self._aggregation_report(),
+            'structural_variant_check_report': self._structural_variant_check_report()
         }
 
         report = """Validation performed on {validation_date}
@@ -476,6 +551,7 @@ VCF check: {vcf_check}
 Assembly check: {assembly_check}
 Sample names check: {sample_check}
 Aggregation check: {aggregation_check}
+Structural variant check: {structural_variant_check}
 ----------------------------------
 
 Metadata check:
@@ -501,6 +577,11 @@ Aggregation:
 
 VCF merge:
 {vcf_merge_report}
+
+----------------------------------
+
+Structural variant check:
+{structural_variant_check_report}
 
 ----------------------------------
 """

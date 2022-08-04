@@ -2,6 +2,7 @@ import os
 from copy import deepcopy
 from unittest import TestCase
 from unittest.mock import patch
+import yaml
 
 from eva_vcf_merge.detect import MergeType
 from eva_vcf_merge.merge import VCFMerger
@@ -20,11 +21,14 @@ class TestEloadValidation(TestCase):
         # Need to set the directory so that the relative path set in the config file works from the top directory
         os.chdir(ROOT_DIR)
         self.validation = EloadValidation(2)
+        self.sv_validation = EloadValidation(70)
         # Used to restore test config after each test
         self.original_cfg = deepcopy(self.validation.eload_cfg.content)
+        self.original_sv_cfg = deepcopy(self.sv_validation.eload_cfg.content)
 
     def tearDown(self):
         self.validation.eload_cfg.content = self.original_cfg
+        self.sv_validation.eload_cfg.content = self.original_sv_cfg
 
     def test_parse_assembly_check_log_failed(self):
         assembly_check_log = os.path.join(self.resources_folder, 'validations', 'failed_assembly_check.log')
@@ -76,6 +80,15 @@ class TestEloadValidation(TestCase):
         assert nb_error == 8
         assert nb_warning == 1
 
+    def test_structural_variant(self):
+
+        self.sv_validation._detect_structural_variant()
+        self.sv_validation.eload_cfg.write()
+        with open(self.sv_validation.config_path, 'r') as config_file:
+            config_data = yaml.safe_load(config_file)
+            self.assertDictEqual(config_data['validation']['structural_variant_check']['files'],
+            {'test1.vcf': {'has_structural_variant': True}, 'test2.vcf.gz': {'has_structural_variant': False}, 'test3.vcf': {'has_structural_variant': True}, 'test4.vcf': {'has_structural_variant': True}})
+
     def test_report(self):
         expected_report = '''Validation performed on 2020-11-01 10:37:54.755607
 Metadata check: PASS
@@ -83,6 +96,7 @@ VCF check: PASS
 Assembly check: PASS
 Sample names check: PASS
 Aggregation check: PASS
+Structural variant check: PASS
 ----------------------------------
 
 Metadata check:
@@ -127,6 +141,11 @@ Aggregation:
 VCF merge:
   Merge types:
   * a1: horizontal
+
+----------------------------------
+
+Structural variant check:
+*test.vcf has structural variants
 
 ----------------------------------
 '''
