@@ -24,11 +24,11 @@ class TestEloadValidation(TestCase):
         self.sv_validation = EloadValidation(70)
         # Used to restore test config after each test
         self.original_cfg = deepcopy(self.validation.eload_cfg.content)
-        self.original_cfg = deepcopy(self.sv_validation.eload_cfg.content)
+        self.original_sv_cfg = deepcopy(self.sv_validation.eload_cfg.content)
 
     def tearDown(self):
         self.validation.eload_cfg.content = self.original_cfg
-        self.sv_validation.eload_cfg.content = self.original_cfg
+        self.sv_validation.eload_cfg.content = self.original_sv_cfg
 
     def test_parse_assembly_check_log_failed(self):
         assembly_check_log = os.path.join(self.resources_folder, 'validations', 'failed_assembly_check.log')
@@ -145,10 +145,7 @@ VCF merge:
 ----------------------------------
 
 Structural variant check:
-*test1.vcf has structural variants
-*test2.vcf.gz does not have structural variants
-*test3.vcf has structural variants
-*test4.vcf has structural variants
+*test.vcf has structural variants
 
 ----------------------------------
 '''
