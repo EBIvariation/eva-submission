@@ -20,6 +20,7 @@ from argparse import ArgumentParser
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
 from eva_submission.eload_backlog import EloadBacklog
+from eva_submission.eload_brokering import EloadBrokering
 from eva_submission.eload_validation import EloadValidation
 from eva_submission.submission_config import load_config
 
@@ -70,26 +71,34 @@ def main():
     with EloadBacklog(args.eload,
                       project_accession=args.project_accession,
                       analysis_accessions=args.analysis_accessions) as preparation:
-        # Pass the eload config object to validation so that the two objects share the same state
-        with EloadValidation(args.eload, preparation.eload_cfg) as validation:
-            if not args.report and not args.keep_config:
-                preparation.fill_in_config(args.force_config)
+        if not args.report and not args.keep_config:
+            preparation.fill_in_config(args.force_config)
+    # Pass the eload config object to validation so that the two objects share the same state
+    with EloadValidation(args.eload, preparation.eload_cfg) as validation:
+        if not args.report:
+            validation.validate(args.validation_tasks)
+            # Also mark the other validation tasks as force so they are all passable
 
-            if not args.report:
-                validation.validate(args.validation_tasks)
-                # Also mark the other validation tasks as force so they are all passable
+            if args.set_as_valid:
+                forced_validation_tasks = validation.all_validation_tasks
+            for validation_task in forced_validation_tasks:
+                validation.eload_cfg.set('validation', validation_task, 'forced', value=True)
+            validation.mark_valid_files_and_metadata(args.merge_per_analysis)
+            if args.merge_per_analysis:
+                preparation.copy_valid_config_to_brokering_after_merge()
 
-                if args.set_as_valid:
-                    forced_validation_tasks = validation.all_validation_tasks
-                for validation_task in forced_validation_tasks:
-                    validation.eload_cfg.set('validation', validation_task, 'forced', value=True)
-                validation.mark_valid_files_and_metadata(args.merge_per_analysis)
-                if args.merge_per_analysis:
-                    preparation.copy_valid_config_to_brokering_after_merge()
+    # Stop the processing if the validation did not pass
+    if not validation.eload_cfg.query('validation', 'valid', 'analyses'):
+        raise ValueError('Cannot proceed to the Brokering preparation because one of the validation did not pass.')
 
-            preparation.report()
-            validation.report()
-            logger.info('Preparation complete, if files are valid please run ingestion as normal.')
+    with EloadBrokering(args.eload, config_object=preparation.eload_cfg) as eload_brokering:
+        eload_brokering.prepare_brokering()
+
+    preparation.report()
+    validation.report()
+    eload_brokering.report()
+
+    logger.info('Preparation complete, if files are valid please run ingestion as normal.')
 
 
 if __name__ == "__main__":

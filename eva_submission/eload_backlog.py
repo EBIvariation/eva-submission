@@ -110,9 +110,6 @@ class EloadBacklog(Eload):
             fasta_path, report_path = get_reference_fasta_and_report(sci_name, asm_accession)
             self.eload_cfg.set('submission', 'analyses', analysis_accession, 'assembly_fasta', value=fasta_path)
             self.eload_cfg.set('submission', 'analyses', analysis_accession, 'assembly_report', value=report_path)
-            self.eload_cfg.set('brokering', 'analyses', analysis_accession, 'assembly_accession', value=asm_accession)
-            self.eload_cfg.set('brokering', 'analyses', analysis_accession, 'assembly_fasta', value=fasta_path)
-            self.eload_cfg.set('brokering', 'analyses', analysis_accession, 'assembly_report', value=report_path)
 
     def find_local_file(self, fn):
         full_path = os.path.join(self._get_dir('vcf'), fn)
@@ -123,7 +120,7 @@ class EloadBacklog(Eload):
 
     def find_file_on_ena(self, fn, analysis):
         basename = os.path.basename(fn)
-        full_path = os.path.join(self._get_dir('ena'), basename)
+        full_path = os.path.join(self._get_dir('vcf'), basename)
         if not os.path.exists(full_path):
             try:
                 self.info(f'Retrieve {basename} in {analysis} from ENA ftp')
@@ -149,61 +146,19 @@ class EloadBacklog(Eload):
             # Uses the analysis accession as analysis alias
             self.eload_cfg.set('brokering', 'ena', 'ANALYSIS', analysis_accession, value=analysis_accession)
             vcf_file_list = []
-            index_file_dict = {}
             for fn in filenames:
-                if not fn.endswith('.vcf.gz') and not fn.endswith('.vcf.gz.tbi'):
-                    self.warning(f'Ignoring {fn} because it is not a VCF or an index')
+                if not fn.endswith('.vcf.gz'):
+                    self.warning(f'Ignoring {fn} because it is not a VCF')
                     continue
                 try:
                     full_path = self.find_local_file(fn)
                 except FileNotFoundError:
                     full_path = self.find_file_on_ena(fn, analysis_accession)
-                if full_path.endswith('.vcf.gz.tbi'):
-                    # Store with the basename of the VCF file for easy retrieval
-                    index_file_dict[os.path.basename(full_path)[:-4]] = full_path
-                else:
-                    vcf_file_list.append(full_path)
-            for vcf_file in vcf_file_list:
-                basename = os.path.basename(vcf_file)
-                if basename not in index_file_dict:
-                    raise ValueError(f'Index file is missing from metadata DB for vcf {basename} analysis {analysis_accession}')
-                self.eload_cfg.set('brokering', 'analyses', analysis_accession, 'vcf_files', vcf_file, 'index',
-                                   value=index_file_dict.pop(basename))
+                vcf_file_list.append(full_path)
 
-            # Check if there are any orphaned index
-            if len(index_file_dict) > 0:
-                raise ValueError(f'VCF file is missing from metadata DB for index {", ".join(index_file_dict.values())}'
-                                 f' for analysis {analysis_accession}')
             # Using analysis_accession instead of analysis alias. This should not have any detrimental effect on
             # ingestion
             self.eload_cfg.set('submission', 'analyses', analysis_accession, 'vcf_files', value=vcf_file_list)
-
-    def copy_valid_config_to_brokering_after_merge(self):
-        """
-        Convert the valid entry in the config to the one that should be created after brokering.
-        This is only useful after we merged the vcf files otherwise this function will not do anything.
-        """
-        if not self.eload_cfg.query('validation', 'valid', 'analyses'):
-            raise ValueError('Merge did not complete, most likely because one of the validation did not pass.')
-        for analysis_alias, analysis_data in self.eload_cfg.query('validation', 'valid', 'analyses').items():
-            self.eload_cfg.set('brokering', 'analyses', analysis_alias, 'assembly_accession',
-                               value=analysis_data.get('assembly_accession'))
-            self.eload_cfg.set('brokering', 'analyses', analysis_alias, 'assembly_fasta',
-                               value=analysis_data.get('assembly_fasta'))
-            self.eload_cfg.set('brokering', 'analyses', analysis_alias, 'assembly_report',
-                               value=analysis_data.get('assembly_report'))
-            vcf_files_dict = {}
-            for vcf_file in analysis_data.get('vcf_files'):
-                vcf_files_dict[vcf_file] = {}
-                if os.path.exists(vcf_file + '.tbi'):
-                    vcf_files_dict[vcf_file]['index'] = vcf_file + '.tbi'
-                else:
-                    self.warning(f'Cannot find the tbi index for {vcf_file}')
-                if os.path.exists(vcf_file + '.csi'):
-                    vcf_files_dict[vcf_file]['csi'] = vcf_file + '.csi'
-                else:
-                    self.warning(f'Cannot find the csi index for {vcf_file}')
-            self.eload_cfg.set('brokering', 'analyses', analysis_alias, 'vcf_files', value=vcf_files_dict)
 
     def _analysis_report(self, all_analysis):
         reports = []
