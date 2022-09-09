@@ -1,6 +1,15 @@
 Changelog for eva-submission
 ============================
 
+1.7.0 (2022-09-09)
+------------------
+
+### Validation
+- Detect VCFs with structural variants
+
+### Backlog preparation
+- Create CSI index files
+
 1.6.3 (2022-08-02)
 ------------------
 
