@@ -5,7 +5,7 @@ def helpMessage() {
     Prepare vcf file ready to be broker to ENA.
 
     Inputs:
-            --vcf_files          list of vcf files that are meant to be prepared
+            --input_vcfs         csv file containing the input vcf files and there respective reference fasta
             --output_dir         output_directory where the final will be written
 
     """
@@ -22,27 +22,27 @@ params.help = null
 if (params.help) exit 0, helpMessage()
 
 // Test input files
-if (!params.vcf_files) {
-    if (!params.vcf_files)    log.warn('Provide a input vcf file using --vcf_files')
+if (!params.input_vcfs) {
+    if (!params.input_vcfs)    log.warn('Provide a csv containing the input vcf files and the references using --input_vcfs')
     if (!params.output_dir)    log.warn('Provide an output directory where the output file will be copied using --output_dir')
-
     exit 1, helpMessage()
 }
 
-// vcf files are used multiple times
-vcf_channel = Channel.fromPath(params.vcf_files)
+Channel.fromPath(params.input_vcfs)
+        .splitCsv(header:true)
+        .map{row -> tuple(file(row.vcf_file), file(row.fasta))}
+        .set{input_vcfs_ch}
 
 /*
-* compress the VCF file
+* Normalise the VCF files
 */
-
-process compress_vcf {
+process normalise_vcf {
     publishDir "$params.output_dir",
             overwrite: false,
             mode: "copy"
 
     input:
-    path vcf_file from vcf_channel
+    set file(vcf_file), file(fasta) from input_vcfs_ch
 
     output:
     path "output/*.gz" into compressed_vcf1
@@ -52,15 +52,15 @@ process compress_vcf {
     mkdir output
     if [[ $vcf_file =~ \\.gz\$ ]]
     then
-        gunzip -c $vcf_file | $params.executable.bgzip -c > output/$vcf_file
+        $params.executable.bcftools norm -f $fasta -O z -o output/$vcf_file $vcf_file
     else
-        $params.executable.bgzip -c $vcf_file > output/${vcf_file}.gz
+        $params.executable.bcftools norm -f $fasta -O z -o output/${vcf_file}.gz $vcf_file output/${vcf_file}.gz
     fi
     """
 }
 
 /*
-* Index the compressed VCF file
+* Index the normalised compressed VCF file
 */
 
 process csi_index_vcf {

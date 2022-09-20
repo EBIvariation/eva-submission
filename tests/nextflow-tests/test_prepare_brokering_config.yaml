@@ -1,0 +1,6 @@
+input_vcfs: vcf_files_to_broker.csv
+output_dir: output
+
+executable:
+  bcftools: ../../../bin/fake_bcftools.sh
+  md5sum: ../../../bin/fake_md5sum.sh

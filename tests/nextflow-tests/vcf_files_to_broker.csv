@@ -1,0 +1,4 @@
+vcf_file,fasta
+vcfs/not_compressed.vcf,fasta.fa
+vcfs/test1.vcf.gz,fasta.fa
+vcfs/test2.vcf.gz,fasta.fa
