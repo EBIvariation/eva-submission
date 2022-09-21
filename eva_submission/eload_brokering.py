@@ -150,7 +150,7 @@ class EloadBrokering(Eload):
     def _run_brokering_prep_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory()
         brokering_config = {
-            'input_vcfs': self._get_csv_valid_vcf_files(),
+            'input_vcfs': self._get_valid_vcf_file_list_as_csv(),
             'output_dir': output_dir,
             'executable': cfg['executable']
         }

@@ -52,9 +52,9 @@ process normalise_vcf {
     mkdir output
     if [[ $vcf_file =~ \\.gz\$ ]]
     then
-        $params.executable.bcftools norm -f $fasta -O z -o output/$vcf_file $vcf_file
+        $params.executable.bcftools norm --no-version -f $fasta -O z -o output/$vcf_file $vcf_file
     else
-        $params.executable.bcftools norm -f $fasta -O z -o output/${vcf_file}.gz $vcf_file output/${vcf_file}.gz
+        $params.executable.bcftools norm --no-version -f $fasta -O z -o output/${vcf_file}.gz $vcf_file output/${vcf_file}.gz
     fi
     """
 }
