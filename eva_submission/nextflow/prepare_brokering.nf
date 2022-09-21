@@ -5,7 +5,7 @@ def helpMessage() {
     Prepare vcf file ready to be broker to ENA.
 
     Inputs:
-            --input_vcfs         csv file containing the input vcf files and there respective reference fasta
+            --input_vcfs         csv file containing the input vcf files and their respective reference fasta
             --output_dir         output_directory where the final will be written
 
     """

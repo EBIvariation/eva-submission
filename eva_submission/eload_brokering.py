@@ -134,7 +134,7 @@ class EloadBrokering(Eload):
         else:
             self.info('Adding external reference to BioSamples has already been done, Skip!')
 
-    def _get_csv_valid_vcf_files(self):
+    def _get_valid_vcf_file_list_as_csv(self):
         valid_vcf_files = os.path.join(self.eload_dir, 'valid_vcf_files_to_broker.csv')
         with open(valid_vcf_files, 'w', newline='') as file:
             writer = csv.writer(file)
