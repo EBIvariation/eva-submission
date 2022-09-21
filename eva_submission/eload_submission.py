@@ -23,6 +23,7 @@ directory_structure = {
     'vcf_check': '13_validation/vcf_format',
     'assembly_check': '13_validation/assembly_check',
     'sample_check': '13_validation/sample_concordance',
+    'normalisation': '13_validation/normalisation',
     'merge': '14_merge',
     'biosamples': '18_brokering/biosamples',
     'ena': '18_brokering/ena',

@@ -1,4 +1,3 @@
-import csv
 import os
 import shutil
 import subprocess
@@ -134,23 +133,18 @@ class EloadBrokering(Eload):
         else:
             self.info('Adding external reference to BioSamples has already been done, Skip!')
 
-    def _get_valid_vcf_file_list_as_csv(self):
-        valid_vcf_files = os.path.join(self.eload_dir, 'valid_vcf_files_to_broker.csv')
-        with open(valid_vcf_files, 'w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(['vcf_file', 'fasta'])
-            analyses = self.eload_cfg.query('validation', 'valid', 'analyses')
-            for analysis_alias in analyses:
-                files = analyses[analysis_alias]['vcf_files']
-                fasta = analyses[analysis_alias]['assembly_fasta']
-                for f in files:
-                    writer.writerow([f, fasta])
+    def _get_valid_vcf_files(self):
+        valid_vcf_files = []
+        analyses = self.eload_cfg.query('validation', 'valid', 'analyses')
+        for analysis_alias in analyses:
+            files = analyses[analysis_alias]['vcf_files']
+            valid_vcf_files.extend(files) if files else None
         return valid_vcf_files
 
     def _run_brokering_prep_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory()
         brokering_config = {
-            'input_vcfs': self._get_valid_vcf_file_list_as_csv(),
+            'vcf_files': self._get_valid_vcf_files(),
             'output_dir': output_dir,
             'executable': cfg['executable']
         }

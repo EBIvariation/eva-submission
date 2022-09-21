@@ -95,7 +95,6 @@ class TestEloadBrokering(TestCase):
         temp_dir = 'temporary_directory'
         nf_script = os.path.join(NEXTFLOW_DIR, 'prepare_brokering.nf')
         config_file = os.path.join(self.eload.eload_dir, 'brokering_config_file.yaml')
-        csv_file = os.path.join(self.eload.eload_dir, 'valid_vcf_files_to_broker.csv')
 
         with patch('eva_submission.eload_brokering.command_utils.run_command_with_output') as m_execute, \
                 patch.object(Eload, 'create_nextflow_temp_output_directory', return_value=temp_dir):
@@ -104,19 +103,6 @@ class TestEloadBrokering(TestCase):
             'Nextflow brokering preparation process',
             f'path_to_nextflow {nf_script} -params-file {config_file} -work-dir {temp_dir}'
         )
-        with open(config_file) as open_yaml:
-            config = yaml.safe_load(open_yaml)
-            assert config['input_vcfs'] == csv_file
-
-        assert os.path.isfile(csv_file)
-        with open(csv_file) as open_csv:
-            rows = list(csv.DictReader(open_csv))
-            assert rows == [
-                {
-                    'vcf_file': os.path.join(self.resources_folder, 'vcf_file.vcf'),
-                    'fasta': os.path.join(self.resources_folder, 'reference_genome.fa')
-                }
-            ]
 
     def test_collect_brokering_workflow_results(self):
         tmp_dir = os.path.join(self.eload.eload_dir, 'tmp')

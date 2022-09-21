@@ -23,7 +23,7 @@ from eva_submission.xlsx.xlsx_validation import EvaXlsxValidator
 class EloadValidation(Eload):
 
     all_validation_tasks = ['metadata_check', 'assembly_check', 'aggregation_check', 'vcf_check', 'sample_check',
-                            'structural_variant_check']
+                            'structural_variant_check', 'normalisation_check']
 
     def validate(self, validation_tasks=None, set_as_valid=False, merge_per_analysis=False):
         if not validation_tasks:
@@ -41,9 +41,9 @@ class EloadValidation(Eload):
             self._validate_sample_names()
         if 'aggregation_check' in validation_tasks:
             self._validate_genotype_aggregation()
-        if 'vcf_check' in validation_tasks or 'assembly_check' in validation_tasks:
-            output_dir = self._run_validation_workflow()
-            self._collect_validation_workflow_results(output_dir)
+        if 'vcf_check' in validation_tasks or 'assembly_check' in validation_tasks or 'normalisation_check' in validation_tasks:
+            output_dir = self._run_validation_workflow(validation_tasks)
+            self._collect_validation_workflow_results(output_dir, validation_tasks)
             shutil.rmtree(output_dir)
         if 'structural_variant_check' in validation_tasks:
             self._detect_structural_variant()
@@ -215,6 +215,18 @@ class EloadValidation(Eload):
                         error_list.append(line.strip())
         return valid, error_list, error_count, warning_count
 
+    def parse_bcftools_norm_report(self, norm_report):
+        total = split = realigned = skipped = 0
+        error_list = []
+        with open(norm_report) as open_file:
+            for line in open_file:
+                if line.startswith('Lines   total/split/realigned/skipped:'):
+                    # Lines   total/split/realigned/skipped:  2/0/1/0
+                    total, split, realigned, skipped = line.strip().split()[-1].split('/')
+                else:
+                    error_list.append(line.strip())
+        return error_list, int(total), int(split), int(realigned), int(skipped)
+
     def _generate_csv_mappings(self):
         vcf_files_mapping_csv = os.path.join(self.eload_dir, 'vcf_files_mapping.csv')
         with open(vcf_files_mapping_csv, 'w', newline='') as file:
@@ -231,13 +243,14 @@ class EloadValidation(Eload):
                     self.warning(f"VCF files for analysis {analysis_alias} not found")
         return vcf_files_mapping_csv
 
-    def _run_validation_workflow(self):
+    def _run_validation_workflow(self, validation_tasks):
         output_dir = self.create_nextflow_temp_output_directory()
         vcf_files_mapping_csv = self._generate_csv_mappings()
         validation_config = {
             'vcf_files_mapping': vcf_files_mapping_csv,
             'output_dir': output_dir,
-            'executable': cfg['executable']
+            'executable': cfg['executable'],
+            'validation_tasks': validation_tasks
         }
         # run the validation
         validation_confg_file = os.path.join(self.eload_dir, 'validation_confg_file.yaml')
@@ -266,11 +279,19 @@ class EloadValidation(Eload):
         else:
             return None
 
-    def _collect_validation_workflow_results(self, output_dir):
+    def _collect_validation_workflow_results(self, output_dir, validation_tasks):
         # Collect information from the output and summarise in the config
+        vcf_files = self._get_vcf_files()
+        if 'vcf_check' in validation_tasks:
+            self._collect_vcf_check_results(vcf_files, output_dir)
+        if 'assembly_check' in validation_tasks:
+            self._collect_assembly_check_results(vcf_files, output_dir)
+        if 'normalisation_check' in validation_tasks:
+            self._collect_normalisation_check_results(vcf_files, output_dir)
+
+    def _collect_vcf_check_results(self, vcf_files, output_dir):
         total_error = 0
         # detect output files for vcf check
-        vcf_files = self._get_vcf_files()
         for vcf_file in vcf_files:
             vcf_name = os.path.basename(vcf_file)
 
@@ -310,6 +331,7 @@ class EloadValidation(Eload):
             })
         self.eload_cfg.set('validation', 'vcf_check', 'pass', value=total_error == 0)
 
+    def _collect_assembly_check_results(self, vcf_files, output_dir):
         # detect output files for assembly check
         total_error = 0
         for vcf_file in vcf_files:
@@ -356,6 +378,44 @@ class EloadValidation(Eload):
                 'assembly_check_text_report': assembly_check_text_report
             })
         self.eload_cfg.set('validation', 'assembly_check', 'pass', value=total_error == 0)
+
+    def _collect_normalisation_check_results(self, vcf_files, output_dir):
+        # detect output files for bcftools norm
+        total_error = 0
+        for vcf_file in vcf_files:
+            vcf_name = os.path.basename(vcf_file)
+            if vcf_name.endswith('.gz'):
+                # remove the gz extension if it is there
+                vcf_name = vcf_name[:-3]
+            tmp_normalisation_log = resolve_single_file_path(
+                os.path.join(output_dir, 'normalised_vcfs',  vcf_name + '_bcftools_norm.log')
+            )
+            tmp_normalised_vcf = resolve_single_file_path(
+                os.path.join(output_dir, 'normalised_vcfs', vcf_name + '.gz')
+            )
+
+            # move the output files
+            normalisation_log = self._move_file(
+                tmp_normalisation_log,
+                os.path.join(self._get_dir('normalisation'), vcf_name + '_bcftools_norm.log')
+            )
+            normalised_vcf = self._move_file(
+                tmp_normalised_vcf,
+                os.path.join(self._get_dir('normalisation'), vcf_name + '.gz')
+            )
+
+            if normalisation_log:
+                error_list, total, split, realigned, skipped = self.parse_bcftools_norm_report(normalisation_log)
+            else:
+                error_list, total, split, realigned, skipped = (['Process failed'], 0, 0, 0, 0)
+            self.eload_cfg.set('validation', 'normalisation', 'files', vcf_name, value={
+                'error_list': error_list, 'nb_variant': total, 'nb_split': split,
+                'nb_realigned': realigned, 'nb_skipped': skipped,
+                'normalisation_log': normalisation_log,
+                'normalised_vcf': normalised_vcf,
+            })
+            total_error += len(error_list)
+        self.eload_cfg.set('validation', 'normalisation', 'pass', value=total_error == 0)
 
     def _detect_structural_variant(self):
         vcf_files = self._get_vcf_files()
@@ -519,9 +579,27 @@ class EloadValidation(Eload):
         if sv_dict:
             for vcf_file, sv_check_status in sv_dict.items():
                 if sv_check_status['has_structural_variant']:
-                    reports.append(f'*{vcf_file} has structural variants')
+                    reports.append(f'  * {vcf_file} has structural variants')
                 else:
-                    reports.append(f'*{vcf_file} does not have structural variants')
+                    reports.append(f'  * {vcf_file} does not have structural variants')
+        return '\n'.join(reports)
+
+    def _normalisation_check_report(self):
+        reports = []
+        for vcf_file in self.eload_cfg.query('validation', 'normalisation', 'files', ret_default=[]):
+            results = self.eload_cfg.query('validation', 'normalisation', 'files', vcf_file)
+            report_data = {
+                'vcf_file': vcf_file,
+                'pass': 'PASS' if len(results.get('error_list')) == 0 else 'FAIL',
+                'nb_error': len(results.get('error_list')),
+                'errors': '\n'.join(results['error_list']),
+            }
+            report_data.update(results)
+            reports.append("""  * {vcf_file}: {pass}
+    - number of error: {nb_error}
+    - nb of variant: {nb_variant}
+    - nb of normalised: {nb_realigned}
+    - see report for detail: {normalisation_log}""".format(**report_data))
         return '\n'.join(reports)
 
     def report(self):
@@ -536,12 +614,14 @@ class EloadValidation(Eload):
             'aggregation_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'aggregation_check')),
             'structural_variant_check': self._check_pass_or_fail(self.eload_cfg.query('validation',
                                                                                       'structural_variant_check')),
+            'normalisation_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'normalisation')),
             'metadata_check_report': self._metadata_check_report(),
             'vcf_check_report': self._vcf_check_report(),
             'assembly_check_report': self._assembly_check_report(),
             'sample_check_report': self._sample_check_report(),
             'vcf_merge_report': self._vcf_merge_report(),
             'aggregation_report': self._aggregation_report(),
+            'normalisation_check_report': self._normalisation_check_report(),
             'structural_variant_check_report': self._structural_variant_check_report()
         }
 
@@ -551,6 +631,7 @@ VCF check: {vcf_check}
 Assembly check: {assembly_check}
 Sample names check: {sample_check}
 Aggregation check: {aggregation_check}
+Normalisation check: {normalisation_check}
 Structural variant check: {structural_variant_check}
 ----------------------------------
 
@@ -577,6 +658,11 @@ Aggregation:
 
 VCF merge:
 {vcf_merge_report}
+
+----------------------------------
+
+Normalisation:
+{normalisation_check_report}
 
 ----------------------------------
 

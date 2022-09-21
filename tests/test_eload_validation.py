@@ -80,6 +80,16 @@ class TestEloadValidation(TestCase):
         assert nb_error == 8
         assert nb_warning == 1
 
+    def test_parse_bcftools_norm_report(self):
+        normalisation_log = os.path.join(self.resources_folder, 'validations', 'bcftools_norm.log')
+        expected = ([], 2, 0, 1, 0)
+        assert self.validation.parse_bcftools_norm_report(normalisation_log) == expected
+
+    def test_parse_bcftools_norm_report_failed(self):
+        normalisation_log = os.path.join(self.resources_folder, 'validations', 'failed_bcftools_norm.log')
+        expected = (["Reference allele mismatch at 20:17331 .. REF_SEQ:'TA' vs VCF:'GT'"], 0, 0, 0, 0)
+        assert self.validation.parse_bcftools_norm_report(normalisation_log) == expected
+
     def test_structural_variant(self):
 
         self.sv_validation._detect_structural_variant()
@@ -96,6 +106,7 @@ VCF check: PASS
 Assembly check: PASS
 Sample names check: PASS
 Aggregation check: PASS
+Normalisation check: PASS
 Structural variant check: PASS
 ----------------------------------
 
@@ -144,11 +155,21 @@ VCF merge:
 
 ----------------------------------
 
+Normalisation:
+  * test.vcf: PASS
+    - number of error: 0
+    - nb of variant: 2
+    - nb of normalised: 1
+    - see report for detail: /path/to/report
+
+----------------------------------
+
 Structural variant check:
-*test.vcf has structural variants
+  * test.vcf has structural variants
 
 ----------------------------------
 '''
+        print(self.validation.report())
         with patch('builtins.print') as mprint:
             self.validation.report()
         mprint.assert_called_once_with(expected_report)
