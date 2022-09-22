@@ -57,5 +57,5 @@ validation:
         nb_realigned: 1
         nb_skipped: 0
         normalisation_log: /path/to/report
-        normalised_vcf: test.vcf.gz
+        normalised_vcf: normalised_test.vcf.gz
     pass: true

@@ -256,6 +256,7 @@ Structural variant check:
     def test_mark_valid_files_and_metadata(self):
         assert self.validation.eload_cfg.query('validation', 'valid') is None
         self.validation.mark_valid_files_and_metadata(merge_per_analysis=False)
-        expected = {'analyses': {'analysis_alias': {'vcf_files': ['test.vcf.gz']}},
+        # Check that the normalised file was picked up instead of the original file
+        expected = {'analyses': {'analysis_alias': {'vcf_files': ['normalised_test.vcf.gz']}},
                     'metadata_spreadsheet': '/path/to/the/spreadsheet'}
         assert self.validation.eload_cfg.query('validation', 'valid') == expected
