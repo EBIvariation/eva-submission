@@ -290,10 +290,10 @@ class EnaXlsxConverter(AppLogger):
             add_element(analysis_attrib_elemt, 'TAG', element_text='Pipeline_Description')
             add_element(analysis_attrib_elemt, 'VALUE', element_text=analysis_row.get('Pipeline Description').strip())
 
-    def _create_submission_xml(self, files_to_submit, action, project_row):
+    def _create_submission_xml(self, files_to_submit, action, project_row, eload):
         root = Element('SUBMISSION_SET')
         submission_elemt = add_element(root, 'SUBMISSION',
-                                       alias=project_row.get('Project Alias').strip(),
+                                       alias=eload,
                                        center_name=project_row.get('Center'))
         actions_elemt = add_element(submission_elemt, 'ACTIONS')
         for file_dict in files_to_submit:
@@ -313,10 +313,10 @@ class EnaXlsxConverter(AppLogger):
         add_element(action_elemt, 'HOLD', HoldUntilDate=hold_date.strftime('%Y-%m-%d'))
         return root
 
-    def _create_submission_single_xml(self,  action, project_row):
+    def _create_submission_single_xml(self,  action, project_row, eload):
         root = Element('SUBMISSION_SET')
         submission_elemt = add_element(root, 'SUBMISSION',
-                                       alias=project_row.get('Project Alias').strip(),
+                                       alias=eload,
                                        center_name=project_row.get('Center'))
         actions_elemt = add_element(submission_elemt, 'ACTIONS')
         action_elemt = add_element(actions_elemt, 'ACTION')
@@ -339,7 +339,7 @@ class EnaXlsxConverter(AppLogger):
         with open(output_file, 'bw') as open_file:
             open_file.write(prettify(etree))
 
-    def create_submission_files(self):
+    def create_submission_files(self, eload):
         files_to_submit = []
         if not self.is_existing_project:
             files_to_submit.append(
@@ -358,16 +358,16 @@ class EnaXlsxConverter(AppLogger):
         )
 
         action = 'ADD'
-        submission_elemt = self._create_submission_xml(files_to_submit, action, self.reader.project)
+        submission_elemt = self._create_submission_xml(files_to_submit, action, self.reader.project, eload)
         self.write_xml_to_file(submission_elemt, self.submission_file)
 
         return self.submission_file, project_file, self.analysis_file
 
-    def create_single_submission_file(self):
+    def create_single_submission_file(self, eload):
         root = Element('WEBIN')
         # Submission ELEMENT
         action = 'ADD'
-        submissions_elemt = self._create_submission_single_xml(action, self.reader.project)
+        submissions_elemt = self._create_submission_single_xml(action, self.reader.project, eload)
         root.append(submissions_elemt)
 
         # Project ELEMENT

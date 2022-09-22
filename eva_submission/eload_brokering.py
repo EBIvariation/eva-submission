@@ -119,7 +119,9 @@ class EloadBrokering(Eload):
             self.eload_cfg.set('brokering', 'Biosamples', 'pass', value=passed)
             # Make sure we crash if we haven't brokered everything
             if not passed:
-                raise ValueError('Brokering to BioSamples failed!')
+                raise ValueError(f'Not all samples were successfully brokered to BioSamples! '
+                                 f'Found {len(sample_name_to_accession)} and expected '
+                                 f'{len(sample_metadata_submitter.all_sample_names())}')
 
     def update_biosamples_with_study(self, force=False):
         if not self.eload_cfg.query('brokering', 'Biosamples', 'backlinks') or force:
