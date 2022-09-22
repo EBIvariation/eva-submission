@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import copy
 import csv
 import os
 import re
@@ -60,7 +61,19 @@ class EloadValidation(Eload):
             self.eload_cfg.query('validation', validation_task, 'forced', ret_default=False)
             for validation_task in self.all_validation_tasks
         ]):
-            self.eload_cfg.set('validation', 'valid', 'analyses', value=self.eload_cfg.query('submission', 'analyses'))
+            self.eload_cfg.set('validation', 'valid', 'analyses',
+                               value=copy.copy(self.eload_cfg.query('submission', 'analyses')))
+            # If the normalisation was successful and required then replace the valid submission file
+            # with the normalised one
+            for analysis_alias in self.eload_cfg.query('submission', 'analyses'):
+                normalised_vcf_file = []
+                for vcf_file in self.eload_cfg.query('submission', 'analyses', analysis_alias, 'vcf_files'):
+                    if self.eload_cfg.query('validation', 'normalisation_check', 'files', vcf_file, 'nb_realigned', ret_default=0) > 0:
+                        normalised_vcf_file.append(
+                            self.eload_cfg.query('validation', 'normalisation_check', 'files', vcf_file, 'normalised_vcf')
+                        )
+                self.eload_cfg.set('validation', 'valid', 'analyses', analysis_alias, 'vcf_files',
+                                   value=normalised_vcf_file)
             self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
                                value=self.eload_cfg.query('submission', 'metadata_spreadsheet'))
             self.detect_and_optionally_merge(merge_per_analysis)
@@ -384,38 +397,39 @@ class EloadValidation(Eload):
         total_error = 0
         for vcf_file in vcf_files:
             vcf_name = os.path.basename(vcf_file)
+            uncompressed_vcf_name = vcf_name
             if vcf_name.endswith('.gz'):
                 # remove the gz extension if it is there
-                vcf_name = vcf_name[:-3]
+                uncompressed_vcf_name = vcf_name[:-3]
             tmp_normalisation_log = resolve_single_file_path(
-                os.path.join(output_dir, 'normalised_vcfs',  vcf_name + '_bcftools_norm.log')
+                os.path.join(output_dir, 'normalised_vcfs',  uncompressed_vcf_name + '_bcftools_norm.log')
             )
             tmp_normalised_vcf = resolve_single_file_path(
-                os.path.join(output_dir, 'normalised_vcfs', vcf_name + '.gz')
+                os.path.join(output_dir, 'normalised_vcfs', uncompressed_vcf_name + '.gz')
             )
 
             # move the output files
             normalisation_log = self._move_file(
                 tmp_normalisation_log,
-                os.path.join(self._get_dir('normalisation'), vcf_name + '_bcftools_norm.log')
+                os.path.join(self._get_dir('normalisation_check'), uncompressed_vcf_name + '_bcftools_norm.log')
             )
             normalised_vcf = self._move_file(
                 tmp_normalised_vcf,
-                os.path.join(self._get_dir('normalisation'), vcf_name + '.gz')
+                os.path.join(self._get_dir('normalisation_check'), uncompressed_vcf_name + '.gz')
             )
 
             if normalisation_log:
                 error_list, total, split, realigned, skipped = self.parse_bcftools_norm_report(normalisation_log)
             else:
                 error_list, total, split, realigned, skipped = (['Process failed'], 0, 0, 0, 0)
-            self.eload_cfg.set('validation', 'normalisation', 'files', vcf_name, value={
+            self.eload_cfg.set('validation', 'normalisation_check', 'files', vcf_name, value={
                 'error_list': error_list, 'nb_variant': total, 'nb_split': split,
                 'nb_realigned': realigned, 'nb_skipped': skipped,
                 'normalisation_log': normalisation_log,
                 'normalised_vcf': normalised_vcf,
             })
             total_error += len(error_list)
-        self.eload_cfg.set('validation', 'normalisation', 'pass', value=total_error == 0)
+        self.eload_cfg.set('validation', 'normalisation_check', 'pass', value=total_error == 0)
 
     def _detect_structural_variant(self):
         vcf_files = self._get_vcf_files()
@@ -586,8 +600,8 @@ class EloadValidation(Eload):
 
     def _normalisation_check_report(self):
         reports = []
-        for vcf_file in self.eload_cfg.query('validation', 'normalisation', 'files', ret_default=[]):
-            results = self.eload_cfg.query('validation', 'normalisation', 'files', vcf_file)
+        for vcf_file in self.eload_cfg.query('validation', 'normalisation_check', 'files', ret_default=[]):
+            results = self.eload_cfg.query('validation', 'normalisation_check', 'files', vcf_file)
             report_data = {
                 'vcf_file': vcf_file,
                 'pass': 'PASS' if len(results.get('error_list')) == 0 else 'FAIL',
@@ -614,7 +628,7 @@ class EloadValidation(Eload):
             'aggregation_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'aggregation_check')),
             'structural_variant_check': self._check_pass_or_fail(self.eload_cfg.query('validation',
                                                                                       'structural_variant_check')),
-            'normalisation_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'normalisation')),
+            'normalisation_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'normalisation_check')),
             'metadata_check_report': self._metadata_check_report(),
             'vcf_check_report': self._vcf_check_report(),
             'assembly_check_report': self._assembly_check_report(),

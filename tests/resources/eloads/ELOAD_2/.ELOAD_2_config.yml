@@ -1,3 +1,9 @@
+submission:
+  metadata_spreadsheet: /path/to/the/spreadsheet
+  analyses:
+    analysis_alias:
+      vcf_files:
+        - test.vcf
 validation:
   aggregation_check:
     analyses:
@@ -42,7 +48,7 @@ validation:
         nb_warning: 2
         vcf_check_text_report: /path/to/report
     pass: true
-  normalisation:
+  normalisation_check:
     files:
       test.vcf:
         error_list: []
