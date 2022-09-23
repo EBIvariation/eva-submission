@@ -66,14 +66,16 @@ class EloadValidation(Eload):
             # If the normalisation was successful and required then replace the valid submission file
             # with the normalised one
             for analysis_alias in self.eload_cfg.query('submission', 'analyses'):
-                normalised_vcf_file = []
+                valid_vcf_files = []
                 for vcf_file in self.eload_cfg.query('submission', 'analyses', analysis_alias, 'vcf_files'):
                     if self.eload_cfg.query('validation', 'normalisation_check', 'files', vcf_file, 'nb_realigned', ret_default=0) > 0:
-                        normalised_vcf_file.append(
+                        valid_vcf_files.append(
                             self.eload_cfg.query('validation', 'normalisation_check', 'files', vcf_file, 'normalised_vcf')
                         )
+                    else:
+                        valid_vcf_files.append(vcf_file)
                 self.eload_cfg.set('validation', 'valid', 'analyses', analysis_alias, 'vcf_files',
-                                   value=normalised_vcf_file)
+                                   value=valid_vcf_files)
             self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
                                value=self.eload_cfg.query('submission', 'metadata_spreadsheet'))
             self.detect_and_optionally_merge(merge_per_analysis)
@@ -422,7 +424,7 @@ class EloadValidation(Eload):
                 error_list, total, split, realigned, skipped = self.parse_bcftools_norm_report(normalisation_log)
             else:
                 error_list, total, split, realigned, skipped = (['Process failed'], 0, 0, 0, 0)
-            self.eload_cfg.set('validation', 'normalisation_check', 'files', vcf_name, value={
+            self.eload_cfg.set('validation', 'normalisation_check', 'files', vcf_file, value={
                 'error_list': error_list, 'nb_variant': total, 'nb_split': split,
                 'nb_realigned': realigned, 'nb_skipped': skipped,
                 'normalisation_log': normalisation_log,
