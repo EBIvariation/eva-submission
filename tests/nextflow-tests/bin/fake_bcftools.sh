@@ -11,6 +11,9 @@ if [[ $1 == "merge" ]]; then
 elif [[ $1 == "sort" ]]; then
     filename=${*: -2}
     touch $filename
+elif [[ $1 == "norm" ]]; then
+    filename=${*: -2}
+    touch $filename
 else
     filename=$3
     touch ${filename}.csi

@@ -4,3 +4,8 @@ output_dir: output
 executable:
   vcf_validator: ../../../bin/fake_vcf_validator.sh
   vcf_assembly_checker: ../../../bin/fake_assembly_checker.sh
+  bcftools: ../../../bin/fake_bcftools.sh
+
+validation_tasks:
+  - assembly_check
+  - normalisation_check

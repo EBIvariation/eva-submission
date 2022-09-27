@@ -13,7 +13,9 @@ def helpMessage() {
 params.vcf_files_mapping = null
 params.output_dir = null
 // executables
-params.executable =["vcf_assembly_checker": "vcf_assembly_checker", "vcf_validator": "vcf_validator"]
+params.executable = ["vcf_assembly_checker": "vcf_assembly_checker", "vcf_validator": "vcf_validator"]
+// validation tasks
+params.validation_tasks = ["assembly_check", "vcf_check", "normalisation_check"]
 // help
 params.help = null
 
@@ -28,11 +30,12 @@ if (!params.vcf_files_mapping || !params.output_dir) {
     exit 1, helpMessage()
 }
 
+
 // vcf files are used multiple times
 Channel.fromPath(params.vcf_files_mapping)
     .splitCsv(header:true)
     .map{row -> tuple(file(row.vcf), file(row.fasta), file(row.report))}
-    .into{vcf_channel1; vcf_channel2}
+    .into{vcf_channel1; vcf_channel2; vcf_channel3}
 
 /*
 * Validate the VCF file format
@@ -44,6 +47,9 @@ process check_vcf_valid {
 
     input:
     set file(vcf), file(fasta), file(report) from vcf_channel1
+
+    when:
+    "vcf_check" in params.validation_tasks
 
     output:
     path "vcf_format/*.errors.*.db" into vcf_validation_db
@@ -75,10 +81,44 @@ process check_vcf_reference {
     path "assembly_check/*text_assembly_report*" into assembly_check_report
     path "assembly_check/*.assembly_check.log" into assembly_check_log
 
+    when:
+    "assembly_check" in params.validation_tasks
+
     """
     trap 'if [[ \$? == 1 || \$? == 139 ]]; then exit 0; fi' EXIT
 
     mkdir -p assembly_check
     $params.executable.vcf_assembly_checker -i $vcf -f $fasta -a $report -r summary,text,valid  -o assembly_check --require-genbank > assembly_check/${vcf}.assembly_check.log 2>&1
+    """
+}
+
+/*
+* Normalise the VCF files
+*/
+process normalise_vcf {
+    publishDir "$params.output_dir",
+            overwrite: false,
+            mode: "copy"
+
+    input:
+    set file(vcf_file), file(fasta), file(report) from vcf_channel3
+
+    output:
+    path "normalised_vcfs/*.gz" into normalised_vcf
+    path "normalised_vcfs/*.log" into normalisation_log
+
+    when:
+    "normalisation_check" in params.validation_tasks
+
+    """
+    trap 'if [[ \$? == 1 || \$? == 139 ]]; then exit 0; fi' EXIT
+
+    mkdir normalised_vcfs
+    if [[ $vcf_file =~ \\.gz\$ ]]
+    then
+        $params.executable.bcftools norm --no-version -f $fasta -O z -o normalised_vcfs/$vcf_file $vcf_file 2> normalised_vcfs/${vcf_file.getBaseName()}_bcftools_norm.log
+    else
+        $params.executable.bcftools norm --no-version -f $fasta -O z -o normalised_vcfs/${vcf_file}.gz $vcf_file 2> normalised_vcfs/${vcf_file}_bcftools_norm.log
+    fi
     """
 }

@@ -1,0 +1,11 @@
+input_vcfs: vcf_files_to_broker.csv
+vcf_files:
+  - vcfs/test1.vcf.gz
+  - vcfs/test2.vcf.gz
+  - vcfs/not_compressed.vcf
+output_dir: output
+
+executable:
+  md5sum: ../../../bin/fake_md5sum.sh
+  bcftools: ../../../bin/fake_bcftools.sh
+  bgzip: ../../../bin/fake_bgzip.sh
