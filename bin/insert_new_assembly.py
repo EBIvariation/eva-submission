@@ -33,7 +33,7 @@ def main():
                                           'Associate it with a taxonomy that will be inserted as well if it does not '
                                           'exist')
     argparse.add_argument('--assembly_accession', required=True, type=str, help='The assembly accession to add')
-    argparse.add_argument('--taxonomy_id', required=True, type=str, help='The taxonomy id to associate with the '
+    argparse.add_argument('--taxonomy_id', required=True, type=int, help='The taxonomy id to associate with the '
                                                                          'assembly')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
@@ -47,9 +47,9 @@ def main():
     load_config()
 
     assembly_accession = args.assembly_accession
-    taxon_id = args.assembly_accession
+    taxon_id = args.taxonomy_id
     with get_metadata_connection_handle(cfg['maven']['environment'], cfg['maven']['settings_file']) as conn:
-        db_name = resolve_variant_warehouse_db_name(conn, assembly_accession, taxon_id)
+        db_name = resolve_variant_warehouse_db_name(conn, assembly=assembly_accession, taxonomy=taxon_id)
         if not db_name:
             raise ValueError(f'Database name for taxid:{taxon_id} and assembly {assembly_accession} '
                              f'could not be retrieved or constructed')
