@@ -19,10 +19,9 @@ from argparse import ArgumentParser
 
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
-from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name, get_metadata_connection_handle
+from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name, get_metadata_connection_handle, \
+    insert_new_assembly_and_taxonomy
 
-from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy
-from eva_submission.eload_utils import provision_new_database_for_variant_warehouse
 from eva_submission.submission_config import load_config
 
 logger = log_cfg.get_logger(__name__)
@@ -55,10 +54,9 @@ def main():
                              f'could not be retrieved or constructed')
         # warns but doesn't crash if assembly set already exists
         insert_new_assembly_and_taxonomy(
+            metadata_connection_handle=conn,
             assembly_accession=assembly_accession,
-            taxonomy_id=taxon_id,
-            db_name=db_name,
-            conn=conn
+            taxonomy_id=taxon_id
         )
 
 
