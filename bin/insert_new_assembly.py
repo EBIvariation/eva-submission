@@ -48,10 +48,6 @@ def main():
     assembly_accession = args.assembly_accession
     taxon_id = args.taxonomy_id
     with get_metadata_connection_handle(cfg['maven']['environment'], cfg['maven']['settings_file']) as conn:
-        db_name = resolve_variant_warehouse_db_name(conn, assembly=assembly_accession, taxonomy=taxon_id)
-        if not db_name:
-            raise ValueError(f'Database name for taxid:{taxon_id} and assembly {assembly_accession} '
-                             f'could not be retrieved or constructed')
         # warns but doesn't crash if assembly set already exists
         insert_new_assembly_and_taxonomy(
             metadata_connection_handle=conn,
