@@ -28,8 +28,8 @@ logger = log_cfg.get_logger(__name__)
 
 
 def main():
-    validation_tasks = ['aggregation_check', 'assembly_check', 'vcf_check']
-    forced_validation_tasks = ['metadata_check', 'sample_check']
+    possible_validation_tasks = ['aggregation_check', 'assembly_check', 'vcf_check']
+    forced_validation_tasks = list(set(EloadValidation.all_validation_tasks) - set(possible_validation_tasks))
 
     argparse = ArgumentParser(description='Prepare to process backlog study and validate VCFs.')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
@@ -46,7 +46,7 @@ def main():
     argparse.add_argument('--keep_config', action='store_true', default=False,
                           help='Keep the configuration file as it is and only run the validation on it.')
     argparse.add_argument('--validation_tasks', required=False, type=str, nargs='+',
-                          default=validation_tasks, choices=validation_tasks,
+                          default=possible_validation_tasks, choices=possible_validation_tasks,
                           help='task or set of tasks to perform during validation')
     argparse.add_argument('--merge_per_analysis', action='store_true', default=False,
                           help='Whether to merge vcf files per analysis if possible.')

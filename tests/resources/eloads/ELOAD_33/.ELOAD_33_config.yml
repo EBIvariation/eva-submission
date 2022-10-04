@@ -28,6 +28,7 @@ submission:
       - tests/resources/eloads/ELOAD_33/18_brokering/ena/test1.vcf.gz
       - tests/resources/eloads/ELOAD_33/18_brokering/ena/test2.vcf.gz
   scientific_name: Equus caballus
+  taxonomy_id: 9796
 validation:
   aggregation_check:
     analyses:
