@@ -17,9 +17,10 @@ from eva_submission import NEXTFLOW_DIR
 from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy, get_assembly_set
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import provision_new_database_for_variant_warehouse
+from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
+from eva_submission.qc_ingestion import run_qc_check_for_ingestion
 from eva_submission.submission_config import EloadConfig
 from eva_submission.vep_utils import get_vep_and_vep_cache_version
-from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
 
 project_dirs = {
     'logs': '00_logs',
@@ -85,6 +86,16 @@ class EloadIngestion(Eload):
         if do_variant_load or annotation_only:
             self.run_variant_load_workflow(vcf_files_to_ingest, annotation_only, resume=resume)
             self.update_loaded_assembly_in_browsable_files()
+
+        if do_accession and do_variant_load:
+            taxonomy = self.eload_cfg.query('submission', 'taxonomy_id')
+            assembly = self._get_assembly_accessions()[0]
+            study_acc = self.project_accession
+            profile = cfg['maven']['environment']
+            private_config_xml_file = cfg['maven']['settings_file']
+            path_to_data_dir = self.eload_cfg.query(self.config_section, 'project_dir')
+            run_qc_check_for_ingestion(taxonomy, assembly, study_acc, profile, private_config_xml_file,
+                                       path_to_data_dir)
 
     def fill_vep_versions(self, vep_cache_assembly_name=None):
         analyses = self.eload_cfg.query('brokering', 'analyses')
@@ -267,7 +278,8 @@ class EloadIngestion(Eload):
                 analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
                 db_name = self.eload_cfg.query(self.config_section, 'database', assembly_accession, 'db_name')
                 vep_version = self.eload_cfg.query(self.config_section, 'vep', assembly_accession, 'version')
-                vep_cache_version = self.eload_cfg.query(self.config_section, 'vep', assembly_accession, 'cache_version')
+                vep_cache_version = self.eload_cfg.query(self.config_section, 'vep', assembly_accession,
+                                                         'cache_version')
                 vep_species = self.eload_cfg.query(self.config_section, 'vep', assembly_accession, 'species')
                 if not vep_version or not vep_cache_version:
                     vep_version = ''
@@ -283,9 +295,12 @@ class EloadIngestion(Eload):
         return vcf_files_to_ingest
 
     def run_accession_workflow(self, vcf_files_to_ingest, resume):
-        mongo_host, mongo_user, mongo_pass = get_primary_mongo_creds_for_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
-        pg_url, pg_user, pg_pass = get_accession_pg_creds_for_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
-        counts_url, counts_user, counts_pass = get_count_service_creds_for_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
+        mongo_host, mongo_user, mongo_pass = get_primary_mongo_creds_for_profile(cfg['maven']['environment'],
+                                                                                 cfg['maven']['settings_file'])
+        pg_url, pg_user, pg_pass = get_accession_pg_creds_for_profile(cfg['maven']['environment'],
+                                                                      cfg['maven']['settings_file'])
+        counts_url, counts_user, counts_pass = get_count_service_creds_for_profile(cfg['maven']['environment'],
+                                                                                   cfg['maven']['settings_file'])
         job_props = accession_props_template(
             taxonomy_id=self.eload_cfg.query('submission', 'taxonomy_id'),
             project_accession=self.project_accession,
@@ -316,11 +331,11 @@ class EloadIngestion(Eload):
 
     def run_variant_load_workflow(self, vcf_files_to_ingest, annotation_only, resume):
         job_props = variant_load_props_template(
-                project_accession=self.project_accession,
-                study_name=self.get_study_name(),
-                output_dir=self.project_dir.joinpath(project_dirs['transformed']),
-                annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
-                stats_dir=self.project_dir.joinpath(project_dirs['stats']),
+            project_accession=self.project_accession,
+            study_name=self.get_study_name(),
+            output_dir=self.project_dir.joinpath(project_dirs['transformed']),
+            annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
+            stats_dir=self.project_dir.joinpath(project_dirs['stats']),
         )
         load_config = {
             'valid_vcfs': vcf_files_to_ingest,
@@ -390,7 +405,7 @@ class EloadIngestion(Eload):
 
     def update_loaded_assembly_in_browsable_files(self):
         # find assembly associated with each browseable file and copy it to the browsable file table
-        query = ('select bf.file_id, a.vcf_reference_accession ' 
+        query = ('select bf.file_id, a.vcf_reference_accession '
                  'from analysis a '
                  'join analysis_file af on a.analysis_accession=af.analysis_accession '
                  'join browsable_file bf on af.file_id=bf.file_id '
@@ -417,7 +432,8 @@ class EloadIngestion(Eload):
             f"where pa.project_accession='{self.project_accession}';"
         )
         with self.metadata_connection_handle as conn:
-            for analysis_accession, assembly_set_id, file_id, assembly_set_id_from_browsable in get_all_results_for_query(conn, query):
+            for analysis_accession, assembly_set_id, file_id, assembly_set_id_from_browsable in get_all_results_for_query(
+                    conn, query):
                 if assembly_set_id != assembly_set_id_from_browsable:
                     self.error(f'assembly_set_id {assembly_set_id} from analysis table is different from '
                                f'assembly_set_id {assembly_set_id} from browsable_file')
