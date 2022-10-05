@@ -35,25 +35,34 @@ class ENAUploader(AppLogger):
         self.converter = EnaXlsxConverter(ena_spreadsheet, output_dir, self.eload)
         self.ena_auth = HTTPBasicAuth(cfg.query('ena', 'username'), cfg.query('ena', 'password'))
 
+    @retry(exceptions=ftplib.all_errors, tries=3, delay=2, backoff=1.2, jitter=(1, 3))
     def upload_vcf_files_to_ena_ftp(self, files_to_upload):
         host = cfg.query('ena', 'ftphost')
-        self.info(f'Connect to {host}')
-        ftps = HackFTP_TLS()
-        # Set a weak cipher to enable connection
-        # https://stackoverflow.com/questions/38015537/python-requests-exceptions-sslerror-dh-key-too-small
-        ftps.context.set_ciphers('DEFAULT:@SECLEVEL=1')
-        ftps.connect(host, port=int(cfg.query('ena', 'ftpport', ret_default=21)))
-        ftps.login(cfg.query('ena', 'username'), cfg.query('ena', 'password'))
-        ftps.prot_p()
-        if self.eload not in ftps.nlst():
-            self.info(f'Create {self.eload} directory')
-            ftps.mkd(self.eload)
-        ftps.cwd(self.eload)
-        for file_to_upload in files_to_upload:
-            file_name = os.path.basename(file_to_upload)
-            self.info(f'Upload {file_name} to FTP')
-            with open(file_to_upload, 'rb') as open_file:
-                ftps.storbinary('STOR %s' % file_name, open_file)
+        # Heuristic to set the expected timeout assuming 10Mb/s upload speed but no less than 30 sec
+        # and no more than an hour
+        max_file_size = max([os.path.getsize(f) for f in files_to_upload])
+        timeout = min(max(int(max_file_size / 10000000), 30), 3600)
+        self.info(f'Connect to {host} with timeout: {timeout}')
+        with HackFTP_TLS() as ftps:
+            # Set a weak cipher to enable connection
+            # https://stackoverflow.com/questions/38015537/python-requests-exceptions-sslerror-dh-key-too-small
+            ftps.context.set_ciphers('DEFAULT:@SECLEVEL=1')
+            ftps.connect(host, port=int(cfg.query('ena', 'ftpport', ret_default=21)), timeout=timeout)
+            ftps.login(cfg.query('ena', 'username'), cfg.query('ena', 'password'))
+            ftps.prot_p()
+            if self.eload not in ftps.nlst():
+                self.info(f'Create {self.eload} directory')
+                ftps.mkd(self.eload)
+            ftps.cwd(self.eload)
+            previous_content = ftps.nlst()
+            for file_to_upload in files_to_upload:
+                file_name = os.path.basename(file_to_upload)
+                if file_name in previous_content and ftps.size(file_name) == os.path.getsize(file_to_upload):
+                    self.warning(f'{file_name} Already exist and has the same size on the FTP. Skip upload.')
+                    continue
+                self.info(f'Upload {file_name} to FTP')
+                with open(file_to_upload, 'rb') as open_file:
+                    ftps.storbinary('STOR %s' % file_name, open_file)
 
     @retry(requests.exceptions.ConnectionError, tries=3, delay=2, backoff=1.2, jitter=(1, 3))
     def _post_xml_file_to_ena(self, url, file_dict):
@@ -62,9 +71,9 @@ class ENAUploader(AppLogger):
         )
         return response
 
-    def upload_xml_files_to_ena(self):
+    def upload_xml_files_to_ena(self, dry_ena_upload=False):
         """Upload the xml files to the webin submission endpoint and parse the receipt."""
-        submission_file, project_file, analysis_file = self.converter.create_submission_files()
+        submission_file, project_file, analysis_file = self.converter.create_submission_files(self.eload)
         file_dict = {
             'SUBMISSION': (os.path.basename(submission_file), get_file_content(submission_file), 'application/xml'),
             'ANALYSIS': (os.path.basename(analysis_file), get_file_content(analysis_file), 'application/xml')
@@ -72,7 +81,11 @@ class ENAUploader(AppLogger):
         # If we are uploading to an existing project the project_file is not set
         if project_file:
             file_dict['PROJECT'] = (os.path.basename(project_file), get_file_content(project_file), 'application/xml')
-
+        if dry_ena_upload:
+            self.info(f'Would have uploaded the following XML files to ENA submission endpoint:')
+            for key, (file_path, _, _) in file_dict.items():
+                self.info(f'{key}: {file_path}')
+            return
         response = self._post_xml_file_to_ena(cfg.query('ena', 'submit_url'), file_dict)
         self.results['receipt'] = response.text
         self.results.update(self.parse_ena_receipt(response.text))
@@ -101,13 +114,18 @@ class ENAUploader(AppLogger):
 
 class ENAUploaderAsync(ENAUploader):
 
-    def upload_xml_files_to_ena(self):
+    def upload_xml_files_to_ena(self, dry_ena_upload=False):
         """Upload the xml file to the asynchronous endpoint and monitor the results from the poll endpoint."""
 
-        webin_file = self.converter.create_single_submission_file()
+        webin_file = self.converter.create_single_submission_file(self.eload)
         file_dict = {
             'file': (os.path.basename(webin_file), get_file_content(webin_file), 'application/xml'),
         }
+        if dry_ena_upload:
+            self.info(f'Would have uploaded the following XML files to ENA asynchronous submission endpoint:')
+            for key, (file_path, _, _) in file_dict.items():
+                self.info(f'{key}: {file_path}')
+            return
         response = self._post_xml_file_to_ena(cfg.query('ena', 'submit_async'), file_dict)
         json_data = response.json()
         if 'submissionId' in json_data:

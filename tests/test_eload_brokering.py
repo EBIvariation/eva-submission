@@ -1,9 +1,11 @@
+import csv
 import glob
 import os
 import shutil
 from unittest import TestCase
 from unittest.mock import patch, PropertyMock
 
+import yaml
 from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission import NEXTFLOW_DIR
@@ -69,7 +71,8 @@ class TestEloadBrokering(TestCase):
 
         with patch.object(SampleMetadataSubmitter, 'check_submit_done', return_value=True) as check_submit_done:
             self.eload.upload_to_bioSamples()
-        assert check_submit_done.call_count == 1
+        assert check_submit_done.call_count == 2
+        assert check_submit_done.call_count == 2
         assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'pass')
 
     def test_upload_to_bioSamples_done(self):
@@ -80,6 +83,12 @@ class TestEloadBrokering(TestCase):
         self.eload.upload_to_bioSamples()
 
     def test_run_brokering_prep_workflow(self):
+        self.eload.eload_cfg.set('validation', 'valid', 'analyses', value={
+            'analysis_alias1': {
+                'vcf_files': [os.path.join(self.resources_folder, 'vcf_file.vcf')],
+                'assembly_fasta': os.path.join(self.resources_folder, 'reference_genome.fa'),
+            },
+        })
         cfg.content['executable'] = {
             'nextflow': 'path_to_nextflow'
         }

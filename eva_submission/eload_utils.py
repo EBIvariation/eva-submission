@@ -7,6 +7,7 @@ from xml.etree import ElementTree as ET
 import pysam
 import requests
 from ebi_eva_common_pyutils.config import cfg
+from ebi_eva_common_pyutils.ena_utils import download_xml_from_ena
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from ebi_eva_common_pyutils.metadata_utils import get_metadata_connection_handle
 from ebi_eva_common_pyutils.mongodb import MongoDatabase
@@ -15,8 +16,6 @@ from ebi_eva_common_pyutils.reference import NCBIAssembly, NCBISequence
 from ebi_eva_common_pyutils.variation.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
 from requests.auth import HTTPBasicAuth
 from retry import retry
-
-from eva_submission.assembly_taxonomy_insertion import download_xml_from_ena
 
 logger = log_cfg.get_logger(__name__)
 

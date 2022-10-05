@@ -49,12 +49,6 @@ class TestEloadBacklog(TestCase):
                 'taxonomy_id': 9823,
             },
             'brokering': {
-                'analyses': {'ERZ999999': {
-                    'assembly_accession': 'GCA_000003025.4',
-                    'assembly_fasta': 'assembly.fa',
-                    'assembly_report': 'assembly.txt',
-                    'vcf_files': {expected_vcf: {'index': expected_index}}
-                }},
                 'ena': {
                     'hold_date':  datetime(2021, 1, 1, 0, 0, tzinfo=timezone(timedelta(seconds=3600))),
                     'ANALYSIS': {'ERZ999999': 'ERZ999999'},
@@ -115,7 +109,7 @@ class TestEloadBacklog(TestCase):
 
     def test_find_file_on_ena(self):
         self.eload.find_file_on_ena('IRIS_313-8755.snp.vcf.gz.tbi', 'ERZ325199')
-        assert os.path.exists(os.path.join(self.eload._get_dir('ena'), 'IRIS_313-8755.snp.vcf.gz.tbi'))
+        assert os.path.exists(os.path.join(self.eload._get_dir('vcf'), 'IRIS_313-8755.snp.vcf.gz.tbi'))
 
     def test_report(self):
         self.eload.report()

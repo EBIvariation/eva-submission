@@ -10,11 +10,11 @@ from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile, get_primary_mongo_creds_for_profile, \
     get_accession_pg_creds_for_profile, get_count_service_creds_for_profile
-from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name
+from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name, insert_new_assembly_and_taxonomy, \
+    get_assembly_set_from_metadata
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
 
 from eva_submission import NEXTFLOW_DIR
-from eva_submission.assembly_taxonomy_insertion import insert_new_assembly_and_taxonomy, get_assembly_set
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import provision_new_database_for_variant_warehouse
 from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
@@ -190,10 +190,9 @@ class EloadIngestion(Eload):
             for assembly, db in assembly_to_db_name.items():
                 # warns but doesn't crash if assembly set already exists
                 insert_new_assembly_and_taxonomy(
+                    metadata_connection_handle=conn,
                     assembly_accession=assembly,
                     taxonomy_id=self.eload_cfg.query('submission', 'taxonomy_id'),
-                    db_name=db['db_name'],
-                    conn=conn
                 )
 
         for db_info in assembly_to_db_name.values():
@@ -201,7 +200,7 @@ class EloadIngestion(Eload):
 
     def load_from_ena(self):
         if self.eload_cfg.query('brokering', 'ena', 'existing_project'):
-            analyses = self.eload_cfg.query('brokering', 'ANALYSIS')
+            analyses = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
             for analysis_accession in analyses.values():
                 self.load_from_ena_from_project_or_analysis(analysis_accession)
 
@@ -444,7 +443,7 @@ class EloadIngestion(Eload):
         with self.metadata_connection_handle as conn:
             for analysis_alias, analysis_data in analyses.items():
                 assembly_accession = analysis_data['assembly_accession']
-                assembly_set_id = get_assembly_set(conn, taxonomy, assembly_accession)
+                assembly_set_id = get_assembly_set_from_metadata(conn, taxonomy, assembly_accession)
                 analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
                 # Check if the update is needed
                 check_query = (f"select assembly_set_id from evapro.analysis "

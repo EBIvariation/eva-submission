@@ -1,6 +1,42 @@
 Changelog for eva-submission
 ============================
 
+1.7.0 (2022-09-09)
+------------------
+
+### Validation
+- Detect VCFs with structural variants
+
+### Backlog preparation
+- Create CSI index files
+
+1.6.3 (2022-08-02)
+------------------
+
+### Brokering
+ - Upload FTP to ENA FTP is resumable and retryable. 
+ - New option for dryrun for ENA upload 
+ - Fix metadata read:
+   - Support for Analysis list in Sample Sheet
+   - Serialise dates when uploading to BioSamples
+
+1.6.2 (2022-07-05)
+------------------
+
+### Brokering
+ - Hot fix for update to BioSample during brokering 
+
+1.6.1 (2022-07-04)
+------------------
+
+### Preparation
+ - Update the Contig alias while downloading a new genome
+
+### Brokering
+ - Use the curation object to update any BioSamples
+ - Add EVA Study link URL to all BioSamples created
+
+
 1.6.0 (2022-05-16)
 ------------------
 

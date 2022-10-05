@@ -8,7 +8,7 @@ from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.ENA_submission.upload_to_ENA import ENAUploader, ENAUploaderAsync
-from eva_submission.biosamples_submission import SampleMetadataSubmitter
+from eva_submission.biosamples_submission import SampleMetadataSubmitter, SampleReferenceSubmitter
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import read_md5
 from eva_submission.submission_config import EloadConfig
@@ -16,7 +16,7 @@ from eva_submission.submission_config import EloadConfig
 
 class EloadBrokering(Eload):
 
-    all_brokering_tasks = ['preparation', 'biosamples', 'ena']
+    all_brokering_tasks = ['preparation', 'biosamples', 'ena', 'update_biosamples']
 
     def __init__(self, eload_number: int, vcf_files: list = None, metadata_file: str = None,
                  config_object: EloadConfig = None):
@@ -30,12 +30,14 @@ class EloadBrokering(Eload):
             if metadata_file:
                 self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet', value=os.path.abspath(metadata_file))
 
-    def broker(self, brokering_tasks_to_force=None, existing_project=None, async_upload=False):
+    def broker(self, brokering_tasks_to_force=None, existing_project=None, async_upload=False, dry_ena_upload=False):
         """Run the brokering process"""
         self.eload_cfg.set('brokering', 'brokering_date', value=self.now)
         self.prepare_brokering(force=('preparation' in brokering_tasks_to_force))
         self.upload_to_bioSamples(force=('biosamples' in brokering_tasks_to_force))
-        self.broker_to_ena(force=('ena' in brokering_tasks_to_force), existing_project=existing_project, async_upload=async_upload)
+        self.broker_to_ena(force=('ena' in brokering_tasks_to_force), existing_project=existing_project,
+                           async_upload=async_upload, dry_ena_upload=dry_ena_upload)
+        self.update_biosamples_with_study(force=('update_biosamples' in brokering_tasks_to_force))
 
     def prepare_brokering(self, force=False):
         valid_analyses = self.eload_cfg.query('validation', 'valid', 'analyses', ret_default=[])
@@ -49,8 +51,8 @@ class EloadBrokering(Eload):
         else:
             self.info('Preparation has already been run, Skip!')
 
-    def broker_to_ena(self, force=False, existing_project=None, async_upload=False):
-        if not self.eload_cfg.query('brokering', 'ena', 'PROJECT') or force:
+    def broker_to_ena(self, force=False, existing_project=None, async_upload=False, dry_ena_upload=False):
+        if not self.eload_cfg.query('brokering', 'ena', 'pass') or force:
             ena_spreadsheet = os.path.join(self._get_dir('ena'), 'metadata_spreadsheet.xlsx')
             # Set the project in the metadata sheet which is then converted to XML
             self.update_metadata_spreadsheet(self.eload_cfg['validation']['valid']['metadata_spreadsheet'],
@@ -62,7 +64,7 @@ class EloadBrokering(Eload):
 
             if ena_uploader.converter.is_existing_project:
                 # Set the project in the config, based on the spreadsheet
-                self.eload_cfg.set('brokering', 'ena', 'PROJECT', value=ena_uploader.converter.is_existing_project)
+                self.eload_cfg.set('brokering', 'ena', 'PROJECT', value=ena_uploader.converter.existing_project)
                 self.eload_cfg.set('brokering', 'ena', 'existing_project', value=True)
 
             # Upload the VCF to ENA FTP
@@ -73,24 +75,32 @@ class EloadBrokering(Eload):
                     vcf_file_info = self.eload_cfg['brokering']['analyses'][analysis]['vcf_files'][vcf_file_name]
                     files_to_upload.append(vcf_file_info['output_vcf_file'])
                     files_to_upload.append(vcf_file_info['csi'])
-
-            ena_uploader.upload_vcf_files_to_ena_ftp(files_to_upload)
-
+            if dry_ena_upload:
+                self.info(f'Would have uploaded the following files to FTP: \n' + "\n".join(files_to_upload))
+            else:
+                ena_uploader.upload_vcf_files_to_ena_ftp(files_to_upload)
             # Upload XML to ENA
-            ena_uploader.upload_xml_files_to_ena()
-            self.eload_cfg.set('brokering', 'ena', value=ena_uploader.results)
-            self.eload_cfg.set('brokering', 'ena', 'date', value=self.now)
-            self.eload_cfg.set('brokering', 'ena', 'hold_date', value=ena_uploader.converter.hold_date)
-            self.eload_cfg.set('brokering', 'ena', 'pass', value=not bool(ena_uploader.results['errors']))
+            ena_uploader.upload_xml_files_to_ena(dry_ena_upload)
+            if not dry_ena_upload:
+                # Update the accessions in case we're working with existing project
+                accessions = ena_uploader.results
+                accessions.update(self.eload_cfg.query('brokering', 'ena', ret_default={}))
+                self.eload_cfg.set('brokering', 'ena', value=accessions)
+                self.eload_cfg.set('brokering', 'ena', 'date', value=self.now)
+                self.eload_cfg.set('brokering', 'ena', 'hold_date', value=ena_uploader.converter.hold_date)
+                self.eload_cfg.set('brokering', 'ena', 'pass', value=not bool(ena_uploader.results['errors']))
         else:
             self.info('Brokering to ENA has already been run, Skip!')
 
     def upload_to_bioSamples(self, force=False):
         metadata_spreadsheet = self.eload_cfg['validation']['valid']['metadata_spreadsheet']
-        sample_tab_submitter = SampleMetadataSubmitter(metadata_spreadsheet)
-        if sample_tab_submitter.check_submit_done() and not force:
+        sample_metadata_submitter = SampleMetadataSubmitter(metadata_spreadsheet)
+        if sample_metadata_submitter.check_submit_done() and not force:
             self.info('Biosamples accession already provided in the metadata, Skip!')
             self.eload_cfg.set('brokering', 'Biosamples', 'pass', value=True)
+            # Retrieve the sample names to accession from the metadata
+            sample_name_to_accession = sample_metadata_submitter.already_submitted_sample_names_to_accessions()
+            self.eload_cfg.set('brokering', 'Biosamples', 'Samples', value=sample_name_to_accession)
         elif (
             self.eload_cfg.query('brokering', 'Biosamples', 'Samples')
             and self.eload_cfg.query('brokering', 'Biosamples', 'pass')
@@ -98,18 +108,32 @@ class EloadBrokering(Eload):
         ):
             self.info('BioSamples brokering is already done, Skip!')
         else:
-            sample_name_to_accession = sample_tab_submitter.submit_to_bioSamples()
+            sample_name_to_accession = sample_metadata_submitter.submit_to_bioSamples()
             # Check whether all samples have been accessioned
             passed = (
                 bool(sample_name_to_accession)
-                and all(sample_name in sample_name_to_accession for sample_name in sample_tab_submitter.all_sample_names())
+                and all(sample_name in sample_name_to_accession for sample_name in sample_metadata_submitter.all_sample_names())
             )
             self.eload_cfg.set('brokering', 'Biosamples', 'date', value=self.now)
             self.eload_cfg.set('brokering', 'Biosamples', 'Samples', value=sample_name_to_accession)
             self.eload_cfg.set('brokering', 'Biosamples', 'pass', value=passed)
             # Make sure we crash if we haven't brokered everything
             if not passed:
-                raise ValueError('Brokering to BioSamples failed!')
+                raise ValueError(f'Not all samples were successfully brokered to BioSamples! '
+                                 f'Found {len(sample_name_to_accession)} and expected '
+                                 f'{len(sample_metadata_submitter.all_sample_names())}')
+
+    def update_biosamples_with_study(self, force=False):
+        if not self.eload_cfg.query('brokering', 'Biosamples', 'backlinks') or force:
+            biosample_accession_list = self.eload_cfg.query('brokering', 'Biosamples', 'Samples').values()
+            project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
+            if project_accession:
+                self.info(f'Add external reference to {len(biosample_accession_list)} BioSamples.')
+                sample_reference_submitter = SampleReferenceSubmitter(biosample_accession_list, project_accession)
+                sample_reference_submitter.submit_to_bioSamples()
+                self.eload_cfg.set('brokering', 'Biosamples', 'backlinks', value=project_accession)
+        else:
+            self.info('Adding external reference to BioSamples has already been done, Skip!')
 
     def _get_valid_vcf_files(self):
         valid_vcf_files = []
@@ -130,12 +154,12 @@ class EloadBrokering(Eload):
         brokering_config_file = os.path.join(self.eload_dir, 'brokering_config_file.yaml')
         with open(brokering_config_file, 'w') as open_file:
             yaml.safe_dump(brokering_config, open_file)
-        validation_script = os.path.join(NEXTFLOW_DIR, 'prepare_brokering.nf')
+        brokering_script = os.path.join(NEXTFLOW_DIR, 'prepare_brokering.nf')
         try:
             command_utils.run_command_with_output(
                 'Nextflow brokering preparation process',
                 ' '.join((
-                    cfg['executable']['nextflow'], validation_script,
+                    cfg['executable']['nextflow'], brokering_script,
                     '-params-file', brokering_config_file,
                     '-work-dir', output_dir
                 ))

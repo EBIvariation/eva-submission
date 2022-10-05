@@ -105,7 +105,6 @@ class TestEnaXlsConverter(TestCase):
         if os.path.exists(file_path):
             os.remove(file_path)
 
-
     def tearDown(self) -> None:
         self._delete_file(os.path.join(self.brokering_folder, 'TEST1.Submission.xml'))
         self._delete_file(os.path.join(self.brokering_folder, 'TEST1.Project.xml'))
@@ -182,7 +181,7 @@ class TestEnaXlsConverter(TestCase):
     def test_process_metadata_spreadsheet(self):
         with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_ensembl') as m_sci_name:
             m_sci_name.return_value = 'Oncorhynchus mykiss'
-            self.converter.create_submission_files()
+            self.converter.create_submission_files('TEST1')
         assert os.path.isfile(os.path.join(self.brokering_folder, 'TEST1.Submission.xml'))
         assert os.path.isfile(os.path.join(self.brokering_folder, 'TEST1.Project.xml'))
         assert os.path.isfile(os.path.join(self.brokering_folder, 'TEST1.Analysis.xml'))
@@ -190,7 +189,7 @@ class TestEnaXlsConverter(TestCase):
     def test_create_submission(self):
         expected_submission = '''
 <SUBMISSION_SET>
-  <SUBMISSION alias="TechFish" center_name="Laboratory of Aquatic Pathobiology">
+  <SUBMISSION alias="ELOAD_1" center_name="Laboratory of Aquatic Pathobiology">
     <ACTIONS>
       <ACTION>
         <ADD source="project.xml" schema="project"/>
@@ -211,7 +210,7 @@ class TestEnaXlsConverter(TestCase):
         ]
         with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.today',
                    return_value=datetime(year=2021, month=1, day=1)):
-            root = self.converter._create_submission_xml(files_to_submit, 'ADD', self.project_row)
+            root = self.converter._create_submission_xml(files_to_submit, 'ADD', self.project_row, 'ELOAD_1')
             expected_root = ET.fromstring(expected_submission)
         assert elements_equal(root, expected_root)
 
@@ -219,7 +218,7 @@ class TestEnaXlsConverter(TestCase):
         self.project_row['Hold Date'] = datetime(year=2023, month=6, day=25)
         expected_submission = '''
 <SUBMISSION_SET>
-  <SUBMISSION alias="TechFish" center_name="Laboratory of Aquatic Pathobiology">
+  <SUBMISSION alias="ELOAD_1" center_name="Laboratory of Aquatic Pathobiology">
     <ACTIONS>
       <ACTION>
         <ADD source="project.xml" schema="project"/>
@@ -239,12 +238,12 @@ class TestEnaXlsConverter(TestCase):
             {'file_name': 'path/to/project.xml', 'schema': 'project'},
             {'file_name': 'path/to/analysis.xml', 'schema': 'analysis'}
         ]
-        root = self.converter._create_submission_xml(files_to_submit, 'ADD', self.project_row)
+        root = self.converter._create_submission_xml(files_to_submit, 'ADD', self.project_row, 'ELOAD_1')
         expected_root = ET.fromstring(expected_submission)
         assert elements_equal(root, expected_root)
 
     def test_create_submission_files(self):
-        submission_file, project_file, analysis_file = self.converter.create_submission_files()
+        submission_file, project_file, analysis_file = self.converter.create_submission_files('ELOAD_1')
         assert os.path.exists(submission_file)
         assert os.path.exists(project_file)
         assert os.path.exists(analysis_file)
@@ -252,13 +251,13 @@ class TestEnaXlsConverter(TestCase):
     def test_create_submission_files_for_existing_project(self):
         # When the project already exist not PROJECT XML will be generated
         with patch.object(EnaXlsxConverter, 'is_existing_project', return_value=True):
-            submission_file, project_file, analysis_file = self.converter.create_submission_files()
+            submission_file, project_file, analysis_file = self.converter.create_submission_files('ELOAD_1')
             assert os.path.exists(submission_file)
             assert project_file is None
             assert os.path.exists(analysis_file)
             assert not os.path.exists(self.converter.project_file)
 
     def test_create_single_submission_files(self):
-        self.converter.create_single_submission_file()
+        self.converter.create_single_submission_file('ELOAD_1')
 
 
