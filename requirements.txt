@@ -1,6 +1,6 @@
 cached-property
 cerberus
-git+https://github.com/tcezard/eva-common-pyutils@EVA3012_add_assembly#egg=ebi-eva-common-pyutils
+ebi-eva-common-pyutils>=0.4.0
 eva-vcf-merge>=0.0.6
 humanize
 lxml
