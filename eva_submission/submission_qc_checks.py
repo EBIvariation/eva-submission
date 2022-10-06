@@ -59,8 +59,8 @@ class EloadQC(Eload):
             query = f"select filename from evapro.browsable_file where project_accession='{project_accession}'"
             return [filename for filename, in get_all_results_for_query(pg_conn, query)]
 
-    def check_all_browsable_files_are_available_in_ftp(self, taxonomy, project_accession, browsable_files):
-        logger.info(f'Browsable files in db for study {project_accession}: {browsable_files}')
+    def check_all_browsable_files_are_available_in_ftp(self, taxonomy, project_accession, vcf_files):
+        logger.info(f'Browsable files in db for study {project_accession}: {vcf_files}')
 
         try:
             files_in_ftp = self.get_files_from_ftp(project_accession)
@@ -74,7 +74,7 @@ class EloadQC(Eload):
 
         logger.info(f'Files in ftp for study {project_accession}: {files_in_ftp}')
 
-        for file in browsable_files:
+        for file in vcf_files:
             if file not in files_in_ftp:
                 logger.error(f'{file} not found in ftp')
             if f'{file}.tbi' not in files_in_ftp:
@@ -129,8 +129,8 @@ class EloadQC(Eload):
                 if 'Encountered an error executing step' in line:
                     logger.error(f'Following error was found in log file related to execution of step: \n{line}')
 
-    def check_if_accessioning_completed_successfully(self, project_accession, browsable_files, path_to_data_dir):
-        for file in browsable_files:
+    def check_if_accessioning_completed_successfully(self, project_accession, vcf_files, path_to_data_dir):
+        for file in vcf_files:
             accessioning_log_files = glob.glob(f"{path_to_data_dir}/00_logs/accessioning.*{file}*.log")
             if accessioning_log_files:
                 # check if accessioning job completed successfullyy
@@ -152,8 +152,8 @@ class EloadQC(Eload):
             else:
                 logger.error(f'No accessioning log file could be found for study {project_accession}')
 
-    def check_if_variant_load_completed_successfully(self, project_accession, browsable_files, path_to_data_dir):
-        for file in browsable_files:
+    def check_if_variant_load_completed_successfully(self, project_accession, vcf_files, path_to_data_dir):
+        for file in vcf_files:
             pipeline_log_files = glob.glob(f"{path_to_data_dir}/00_logs/pipeline.*{file}*.log")
             if pipeline_log_files:
                 # check if variant load job completed successfully
@@ -168,15 +168,15 @@ class EloadQC(Eload):
             else:
                 logger.error(f'No pipeline log file could be found for study {project_accession}')
 
-    def check_if_browsable_files_entered_correctly_in_db(self, browsable_files, profile, private_config_xml_file,
+    def check_if_browsable_files_entered_correctly_in_db(self, vcf_files, profile, private_config_xml_file,
                                                          project_accession):
         browsable_files_from_db = self.get_browsable_files_for_study(profile, private_config_xml_file,
                                                                      project_accession)
-        if set(browsable_files) - set(browsable_files_from_db):
-            logger.error(f"There are some browsable files missing in db. "
-                         f"Missing Files : {set(browsable_files) - set(browsable_files_from_db)}")
+        if set(vcf_files) - set(browsable_files_from_db):
+            logger.error(f"There are some VCF files missing in db. "
+                         f"Missing Files : {set(vcf_files) - set(browsable_files_from_db)}")
         else:
-            logger.info(f"Browsable Files entered correctly in DB. Browsable files : {browsable_files}")
+            logger.info(f"Browsable Files entered correctly in DB. Browsable files : {vcf_files}")
 
     def run_qc_checks_for_submission(self):
         profile = cfg['maven']['environment']
@@ -186,26 +186,25 @@ class EloadQC(Eload):
         taxonomy = self.eload_cfg.query('submission', 'taxonomy_id')
         analyses = self.eload_cfg.query('brokering', 'analyses')
 
-        browsable_files = []
+        vcf_files = []
         for analysis_data in analyses.values():
-            for vcf_files in analysis_data['vcf_files'].values():
-                browsable_files.append(os.path.basename(vcf_files['output_vcf_file']))
-
+            for v_files in analysis_data['vcf_files'].values():
+                vcf_files.append(os.path.basename(v_files['output_vcf_file']))
 
         logger.info(f'----------------------------Check Browsable Files Entered Correctly-----------------------------')
-        self.check_if_browsable_files_entered_correctly_in_db(browsable_files, profile, private_config_xml_file,
+        self.check_if_browsable_files_entered_correctly_in_db(vcf_files, profile, private_config_xml_file,
                                                               project_accession)
 
         # No accessioning check is required for human
         if taxonomy != 9606:
             logger.info(f'----------------------------Check Accessioning Job-----------------------------')
-            self.check_if_accessioning_completed_successfully(project_accession, browsable_files, path_to_data_dir)
+            self.check_if_accessioning_completed_successfully(project_accession, vcf_files, path_to_data_dir)
 
         logger.info(f'------------------------------Check Variant Load Job------------------------------')
-        self.check_if_variant_load_completed_successfully(project_accession, browsable_files, path_to_data_dir)
+        self.check_if_variant_load_completed_successfully(project_accession, vcf_files, path_to_data_dir)
 
         logger.info(f'-----------------------------Check All Files present in FTP----------------------------')
-        self.check_all_browsable_files_are_available_in_ftp(taxonomy, project_accession, browsable_files)
+        self.check_all_browsable_files_are_available_in_ftp(taxonomy, project_accession, vcf_files)
 
         logger.info(f'-------------------------------Check Study appears in DEV-------------------------------')
         self.check_if_study_appears_in_dev(project_accession)
