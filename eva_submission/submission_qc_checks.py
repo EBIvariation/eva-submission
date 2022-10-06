@@ -1,7 +1,7 @@
 import glob
+import os
 from ftplib import FTP
 from pathlib import Path
-import os
 
 import requests
 from ebi_eva_common_pyutils.config import cfg
@@ -98,7 +98,7 @@ class EloadQC(Eload):
         ftp.login()
         ftp.cwd(f'pub/databases/eva/{project_accession}')
         logger.info(f"Trying to fetch files for study {project_accession} "
-            f"from ftp location: ftp.ebi.ac.uk/pub/databases/eva/{project_accession}")
+                    f"from ftp location: ftp.ebi.ac.uk/pub/databases/eva/{project_accession}")
         return ftp.nlst()
 
     def check_if_job_completed_successfully(self, file_path):
@@ -168,6 +168,16 @@ class EloadQC(Eload):
             else:
                 logger.error(f'No pipeline log file could be found for study {project_accession}')
 
+    def check_if_browsable_files_entered_correctly_in_db(self, browsable_files, profile, private_config_xml_file,
+                                                         project_accession):
+        browsable_files_from_db = self.get_browsable_files_for_study(profile, private_config_xml_file,
+                                                                     project_accession)
+        if set(browsable_files) - set(browsable_files_from_db):
+            logger.error(f"There are some browsable files missing in db. "
+                         f"Missing Files : {set(browsable_files) - set(browsable_files_from_db)}")
+        else:
+            logger.info(f"Browsable Files entered correctly in DB. Browsable files : {browsable_files}")
+
     def run_qc_checks_for_submission(self):
         profile = cfg['maven']['environment']
         private_config_xml_file = cfg['maven']['settings_file']
@@ -176,21 +186,26 @@ class EloadQC(Eload):
         taxonomy = self.eload_cfg.query('submission', 'taxonomy_id')
         analyses = self.eload_cfg.query('brokering', 'analyses')
 
-        browsable_files = self.get_browsable_files_for_study(profile, private_config_xml_file, project_accession)
+        browsable_files = []
+        for analysis_data in analyses.values():
+            for vcf_files in analysis_data['vcf_files'].values():
+                browsable_files.append(os.path.basename(vcf_files['output_vcf_file']))
 
-        if browsable_files:
-            # No accessioning check is required for human
-            if taxonomy != 9606:
-                logger.info(f'----------------------------Check Accessioning Job-----------------------------')
-                self.check_if_accessioning_completed_successfully(project_accession, browsable_files, path_to_data_dir)
 
-            logger.info(f'------------------------------Check Variant Load Job------------------------------')
-            self.check_if_variant_load_completed_successfully(project_accession, browsable_files, path_to_data_dir)
+        logger.info(f'----------------------------Check Browsable Files Entered Correctly-----------------------------')
+        self.check_if_browsable_files_entered_correctly_in_db(browsable_files, profile, private_config_xml_file,
+                                                              project_accession)
 
-            logger.info(f'-----------------------------Check All Files present in FTP----------------------------')
-            self.check_all_browsable_files_are_available_in_ftp(taxonomy, project_accession, browsable_files)
-        else:
-            logger.error(f'No browsable files found in DB for study {project_accession}')
+        # No accessioning check is required for human
+        if taxonomy != 9606:
+            logger.info(f'----------------------------Check Accessioning Job-----------------------------')
+            self.check_if_accessioning_completed_successfully(project_accession, browsable_files, path_to_data_dir)
+
+        logger.info(f'------------------------------Check Variant Load Job------------------------------')
+        self.check_if_variant_load_completed_successfully(project_accession, browsable_files, path_to_data_dir)
+
+        logger.info(f'-----------------------------Check All Files present in FTP----------------------------')
+        self.check_all_browsable_files_are_available_in_ftp(taxonomy, project_accession, browsable_files)
 
         logger.info(f'-------------------------------Check Study appears in DEV-------------------------------')
         self.check_if_study_appears_in_dev(project_accession)
