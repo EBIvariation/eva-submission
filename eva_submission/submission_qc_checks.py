@@ -29,7 +29,7 @@ class EloadQC(Eload):
     def check_if_study_appears_in_dev(self):
         dev_url = f"https://wwwdev.ebi.ac.uk/eva/webservices/rest/v1/studies/{self.project_accession}/summary"
         json_response = self.get_result_from_webservice(dev_url)
-        if self.check_if_study_present_in_response(json_response, 'id', self.project_accession):
+        if self.check_if_study_present_in_response(json_response, 'id'):
             self._study_dev_check_result = "PASS"
         else:
             self._study_dev_check_result = "FAIL"
@@ -40,7 +40,7 @@ class EloadQC(Eload):
     def check_if_study_appears_in_variant_browser(self, species_name):
         dev_url = f"https://wwwdev.ebi.ac.uk/eva/webservices/rest/v1/meta/studies/list?species={species_name}"
         json_response = self.get_result_from_webservice(dev_url)
-        if self.check_if_study_present_in_response(json_response, 'studyId', self.project_accession):
+        if self.check_if_study_present_in_response(json_response, 'studyId'):
             return True
         else:
             return False
@@ -63,12 +63,12 @@ class EloadQC(Eload):
         response.raise_for_status()
         return response.json()
 
-    def check_if_study_present_in_response(self, res, key, project_accession):
+    def check_if_study_present_in_response(self, res, key):
         if any(res) and 'response' in res and len(res['response']) > 0:
             for response in res['response']:
                 if response['numTotalResults'] >= 1:
                     for result in response['result']:
-                        if result[key] == project_accession:
+                        if result[key] == self.project_accession:
                             return True
         return False
 
@@ -129,6 +129,7 @@ class EloadQC(Eload):
 
     def check_if_job_completed_successfully(self, file_path):
         with open(file_path, 'r') as f:
+            job_status = 'FAILED'
             for line in f:
                 if "Job: [SimpleJob: [name=CREATE_SUBSNP_ACCESSION_JOB]] launched" in line or \
                         "Running job 'genotyped-vcf-job' with parameters" in line or \
@@ -147,6 +148,7 @@ class EloadQC(Eload):
 
     def check_if_variants_were_skipped(self, file_path):
         with open(file_path, 'r') as f:
+            variants_skipped = -1
             for line in f:
                 if "Job: [SimpleJob: [name=CREATE_SUBSNP_ACCESSION_JOB]] launched" in line:
                     variants_skipped = None
@@ -157,6 +159,7 @@ class EloadQC(Eload):
 
     def check_for_errors_in_case_of_job_failure(self, file_name):
         with open(file_name, 'r') as f:
+            job_name = None
             for line in f:
                 if "Job: [SimpleJob: [name=CREATE_SUBSNP_ACCESSION_JOB]] launched" in line or \
                         "Running job 'genotyped-vcf-job' with parameters" in line or \
@@ -225,7 +228,10 @@ class EloadQC(Eload):
                 # check if any variants were skippped while accessioning
                 variants_skipped = self.check_if_variants_were_skipped(accessioning_log_files[0])
                 if variants_skipped:
-                    failed_files[file] = f"{variants_skipped} variants skipped"
+                    if variants_skipped == -1:
+                        failed_files[file] = f"could not retrieve skipped variants count"
+                    else:
+                        failed_files[file] = f"{variants_skipped} variants skipped"
             else:
                 failed_files[file] = f"error : No accessioning file found for {file}"
 
@@ -264,6 +270,13 @@ class EloadQC(Eload):
         if self.taxonomy != 9606:
             accessioning_job_report = self.check_if_accessioning_completed_successfully(vcf_files)
             variants_skipped_report = self.check_if_variants_were_skipped_while_accessioning(vcf_files)
+        else:
+            self._accessioning_job_check_result = 'N/A - Human Taxonomy'
+            self._variants_skipped_accessioning_check_result = 'N/A - Human Taxonomy'
+            accessioning_job_report = f"""
+            pass: {self._accessioning_job_check_result}"""
+            variants_skipped_report = f"""
+            pass: {self._variants_skipped_accessioning_check_result}"""
 
         variant_load_report = self.check_if_variant_load_completed_successfully(vcf_files)
 
