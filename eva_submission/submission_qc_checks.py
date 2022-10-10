@@ -26,35 +26,35 @@ class EloadQC(Eload):
         self.taxonomy = self.eload_cfg.query('submission', 'taxonomy_id')
         self.analyses = self.eload_cfg.query('brokering', 'analyses')
 
-    def check_if_study_appears_in_dev(self):
-        dev_url = f"https://wwwdev.ebi.ac.uk/eva/webservices/rest/v1/studies/{self.project_accession}/summary"
-        json_response = self.get_result_from_webservice(dev_url)
+    def check_if_study_appears(self):
+        url = f"https://wwwint.ebi.ac.uk/eva/webservices/rest/v1/studies/{self.project_accession}/summary"
+        json_response = self.get_result_from_webservice(url)
         if self.check_if_study_present_in_response(json_response, 'id'):
-            self._study_dev_check_result = "PASS"
+            self._study_check_result = "PASS"
         else:
-            self._study_dev_check_result = "FAIL"
+            self._study_check_result = "FAIL"
 
         return f"""
-                pass: {self._study_dev_check_result}"""
+                pass: {self._study_check_result}"""
 
     def check_if_study_appears_in_variant_browser(self, species_name):
-        dev_url = f"https://wwwdev.ebi.ac.uk/eva/webservices/rest/v1/meta/studies/list?species={species_name}"
-        json_response = self.get_result_from_webservice(dev_url)
+        url = f"https://wwwint.ebi.ac.uk/eva/webservices/rest/v1/meta/studies/list?species={species_name}"
+        json_response = self.get_result_from_webservice(url)
         if self.check_if_study_present_in_response(json_response, 'studyId'):
             return True
         else:
             return False
 
-    def check_if_study_appears_in_dev_metadata(self):
+    def check_if_study_appears_in_metadata(self):
         missing_assemblies = []
         for analysis_data in self.analyses.values():
             species_name = self.get_species_name(analysis_data['assembly_accession'])
             if not self.check_if_study_appears_in_variant_browser(species_name):
                 missing_assemblies.append(f"{species_name}({analysis_data['assembly_accession']})")
 
-        self._study_dev_metadata_check_result = "PASS" if not missing_assemblies else "FAIL"
+        self._study_metadata_check_result = "PASS" if not missing_assemblies else "FAIL"
         return f"""
-                pass: {self._study_dev_metadata_check_result}
+                pass: {self._study_metadata_check_result}
                 missing assemblies: {missing_assemblies if missing_assemblies else None}"""
 
     @retry(tries=3, delay=2, backoff=1.5, jitter=(1, 3))
@@ -235,7 +235,7 @@ class EloadQC(Eload):
             else:
                 failed_files[file] = f"error : No accessioning file found for {file}"
 
-        self._variants_skipped_accessioning_check_result = "PASS" if not failed_files else "FAIL"
+        self._variants_skipped_accessioning_check_result = "PASS" if not failed_files else "PASS with Warning (Manual Check Required)"
         report = f"""
                 pass: {self._variants_skipped_accessioning_check_result}"""
         if failed_files:
@@ -282,9 +282,9 @@ class EloadQC(Eload):
 
         ftp_report = self.check_all_browsable_files_are_available_in_ftp(vcf_files)
 
-        study_dev_report = self.check_if_study_appears_in_dev()
+        study_report = self.check_if_study_appears()
 
-        study_dev_metadata_report = self.check_if_study_appears_in_dev_metadata()
+        study_metadata_report = self.check_if_study_appears_in_metadata()
 
         report = f"""
         QC Result Summary:
@@ -294,8 +294,8 @@ class EloadQC(Eload):
         Variants Skipped accessioning check: {self._variants_skipped_accessioning_check_result}
         Variant load check: {self._variant_load_job_check_result}
         FTP check: {self._ftp_check_result}
-        Study dev check: {self._study_dev_check_result}
-        Study dev metadata check: {self._study_dev_metadata_check_result}
+        Study check: {self._study_check_result}
+        Study metadata check: {self._study_metadata_check_result}
         ----------------------------------
 
         Browsable files check:
@@ -318,12 +318,12 @@ class EloadQC(Eload):
         {ftp_report}
         ----------------------------------
         
-        Study dev check:
-        {study_dev_report}
+        Study check:
+        {study_report}
         ----------------------------------
 
-        Study dev metadata check:
-        {study_dev_metadata_report}
+        Study metadata check:
+        {study_metadata_report}
         ----------------------------------
         """
         print(report)
