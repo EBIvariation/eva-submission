@@ -11,32 +11,57 @@ from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
 from retry import retry
 
 from eva_submission.eload_submission import Eload
+from eva_submission.submission_config import EloadConfig
 
 logger = logging_config.get_logger(__name__)
 
 
 class EloadQC(Eload):
-    def check_if_study_appears_in_dev(self, project_accession):
-        dev_url = f"https://wwwdev.ebi.ac.uk/eva/webservices/rest/v1/studies/{project_accession}/summary"
-        response = self.get_result_from_webservice(dev_url)
-        json_response = response.json()
-        if self.check_if_study_present_in_response(json_response, 'id', project_accession):
-            logger.info(f"{project_accession} found in DEV. Result Summary:: {json_response}")
-        else:
-            logger.error(f"Could not find study {project_accession} in DEV. Result Summary:: {json_response}")
+    def __init__(self, eload_number, config_object: EloadConfig = None):
+        super().__init__(eload_number, config_object)
+        self.profile = cfg['maven']['environment']
+        self.private_config_xml_file = cfg['maven']['settings_file']
+        self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
+        self.path_to_data_dir = Path(cfg['projects_dir'], self.project_accession)
+        self.taxonomy = self.eload_cfg.query('submission', 'taxonomy_id')
+        self.analyses = self.eload_cfg.query('brokering', 'analyses')
 
-    def check_if_study_appears_in_variant_browser(self, species_name, project_accession):
-        dev_url = f"https://wwwdev.ebi.ac.uk/eva/webservices/rest/v1/meta/studies/list?species={species_name}"
-        response = self.get_result_from_webservice(dev_url)
-        json_response = response.json()
-        if self.check_if_study_present_in_response(json_response, 'studyId', project_accession):
-            logger.info(f"{project_accession} found in DEV metadata. Result Summary:: {json_response}")
+    def check_if_study_appears_in_dev(self):
+        dev_url = f"https://wwwdev.ebi.ac.uk/eva/webservices/rest/v1/studies/{self.project_accession}/summary"
+        json_response = self.get_result_from_webservice(dev_url)
+        if self.check_if_study_present_in_response(json_response, 'id', self.project_accession):
+            self._study_dev_check_result = "PASS"
         else:
-            logger.error(f"Could not find study {project_accession} in DEV metadata. Result Summary:: {json_response}")
+            self._study_dev_check_result = "FAIL"
+
+        return f"""
+                pass: {self._study_dev_check_result}"""
+
+    def check_if_study_appears_in_variant_browser(self, species_name):
+        dev_url = f"https://wwwdev.ebi.ac.uk/eva/webservices/rest/v1/meta/studies/list?species={species_name}"
+        json_response = self.get_result_from_webservice(dev_url)
+        if self.check_if_study_present_in_response(json_response, 'studyId', self.project_accession):
+            return True
+        else:
+            return False
+
+    def check_if_study_appears_in_dev_metadata(self):
+        missing_assemblies = []
+        for analysis_data in self.analyses.values():
+            species_name = self.get_species_name(analysis_data['assembly_accession'])
+            if not self.check_if_study_appears_in_variant_browser(species_name):
+                missing_assemblies.append(f"{species_name}({analysis_data['assembly_accession']})")
+
+        self._study_dev_metadata_check_result = "PASS" if not missing_assemblies else "FAIL"
+        return f"""
+                pass: {self._study_dev_metadata_check_result}
+                missing assemblies: {missing_assemblies if missing_assemblies else None}"""
 
     @retry(tries=3, delay=2, backoff=1.5, jitter=(1, 3))
     def get_result_from_webservice(self, url):
-        return requests.get(url)
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.json()
 
     def check_if_study_present_in_response(self, res, key, project_accession):
         if any(res) and 'response' in res and len(res['response']) > 0:
@@ -47,58 +72,63 @@ class EloadQC(Eload):
                             return True
         return False
 
-    def get_species_name(self, taxonomy, assembly, profile, private_config_xml_file):
-        with get_metadata_connection_handle(profile, private_config_xml_file) as pg_conn:
+    def get_species_name(self, assembly):
+        with get_metadata_connection_handle(self.profile, self.private_config_xml_file) as pg_conn:
             query = f"""select concat(t.taxonomy_code, '_',a.assembly_code) from evapro.taxonomy t 
                         join evapro.assembly a on a.taxonomy_id = t.taxonomy_id 
-                        where t.taxonomy_id = {taxonomy} and assembly_accession='{assembly}'"""
+                        where t.taxonomy_id = {self.taxonomy} and assembly_accession='{assembly}'"""
             return get_all_results_for_query(pg_conn, query)[0][0]
 
-    def get_browsable_files_for_study(self, profile, private_config_xml_file, project_accession):
-        with get_metadata_connection_handle(profile, private_config_xml_file) as pg_conn:
-            query = f"select filename from evapro.browsable_file where project_accession='{project_accession}'"
+    def get_browsable_files_for_study(self):
+        with get_metadata_connection_handle(self.profile, self.private_config_xml_file) as pg_conn:
+            query = f"select filename from evapro.browsable_file where project_accession='{self.project_accession}'"
             return [filename for filename, in get_all_results_for_query(pg_conn, query)]
 
-    def check_all_browsable_files_are_available_in_ftp(self, taxonomy, project_accession, vcf_files):
-        logger.info(f'Browsable files in db for study {project_accession}: {vcf_files}')
-
+    def check_all_browsable_files_are_available_in_ftp(self, vcf_files):
         try:
-            files_in_ftp = self.get_files_from_ftp(project_accession)
+            files_in_ftp = self.get_files_from_ftp(self.project_accession)
         except Exception as e:
-            logger.error(f'Error fetching files from ftp for study {project_accession}. Error {e}')
-            return
+            logger.error(f"Error fetching files from ftp for study {self.study_accession}. Exception  {e}")
+            self._ftp_check_result = "FAIL"
+            return f"""
+                Error: Error fetching files from ftp for study {self.project_accession}"""
 
         if not files_in_ftp:
-            logger.error(f'No files found in ftp for study {project_accession}')
-            return
+            logger.error(f"No file found in ftp for study {self.study_accession}")
+            self._ftp_check_result = "FAIL"
+            return f"""
+                Error: No files found in FTP for study {self.project_accession}"""
 
-        logger.info(f'Files in ftp for study {project_accession}: {files_in_ftp}')
+        missing_files = []
 
         for file in vcf_files:
             if file not in files_in_ftp:
-                logger.error(f'{file} not found in ftp')
+                missing_files.append(file)
             if f'{file}.tbi' not in files_in_ftp:
-                logger.error(f'{file}.tbi not found in ftp')
+                missing_files.append(f'{file}.tbi')
             if f'{file}.csi' not in files_in_ftp:
-                logger.error(f'{file}.csi not found in ftp')
+                missing_files.append(f'{file}.csi')
 
             # accessioned files will not be present for human taxonomy
-            if taxonomy != 9606:
+            if self.taxonomy != 9606:
                 accessioned_file = file.replace('.vcf.gz', '.accessioned.vcf.gz')
                 if accessioned_file not in files_in_ftp:
-                    logger.error(f'{accessioned_file} not found in ftp')
+                    missing_files.append(accessioned_file)
                 if f'{accessioned_file}.tbi' not in files_in_ftp:
-                    logger.error(f'{accessioned_file}.tbi not found in ftp')
+                    missing_files.append(f'{accessioned_file}.tbi')
                 if f'{accessioned_file}.csi' not in files_in_ftp:
-                    logger.error(f'{accessioned_file}.csi not found in ftp')
+                    missing_files.append(f'{accessioned_file}.csi')
+
+        self._ftp_check_result = "PASS" if not missing_files else "FAIL"
+        return f"""
+                pass: {self._ftp_check_result} 
+                missing files: {missing_files if missing_files else None}"""
 
     @retry(tries=3, delay=2, backoff=1.5, jitter=(1, 3))
     def get_files_from_ftp(self, project_accession):
         ftp = FTP('ftp.ebi.ac.uk', timeout=600)
         ftp.login()
         ftp.cwd(f'pub/databases/eva/{project_accession}')
-        logger.info(f"Trying to fetch files for study {project_accession} "
-                    f"from ftp location: ftp.ebi.ac.uk/pub/databases/eva/{project_accession}")
         return ftp.nlst()
 
     def check_if_job_completed_successfully(self, file_path):
@@ -119,7 +149,8 @@ class EloadQC(Eload):
         with open(file_path, 'r') as f:
             for line in f:
                 if 'lines in the original VCF were skipped' in line:
-                    return line
+                    variants_skipped = line.strip().split(":")[-1].strip().split(" ")[0].strip()
+                    return variants_skipped
 
             return None
 
@@ -127,90 +158,152 @@ class EloadQC(Eload):
         with open(file_name, 'r') as f:
             for line in f:
                 if 'Encountered an error executing step' in line:
-                    logger.error(f'Following error was found in log file related to execution of step: \n{line}')
+                    job_name = line[line.index("Encountered an error executing step"): line.rindex("in job")] \
+                            .strip().split(" ")[-1]
+                    return job_name
 
-    def check_if_accessioning_completed_successfully(self, project_accession, vcf_files, path_to_data_dir):
+    def check_if_accessioning_completed_successfully(self, vcf_files):
+        failed_files = {}
         for file in vcf_files:
-            accessioning_log_files = glob.glob(f"{path_to_data_dir}/00_logs/accessioning.*{file}*.log")
+            accessioning_log_files = glob.glob(f"{self.path_to_data_dir}/00_logs/accessioning.*{file}*.log")
             if accessioning_log_files:
                 # check if accessioning job completed successfullyy
-                if self.check_if_job_completed_successfully(accessioning_log_files[0]):
-                    logger.info(f'Accessioning completed successfully for study {project_accession} '
-                                f'and file {os.path.basename(accessioning_log_files[0])}')
-                else:
-                    logger.error(f'Accessioning failed for study {project_accession} '
-                                 f'and file {os.path.basename(accessioning_log_files[0])}')
-
-                    self.check_for_errors_in_case_of_job_failure(accessioning_log_files[0])
-
-                # check if any variants were skippped while accessioning
-                variants_skipped_line = self.check_if_variants_were_skipped(accessioning_log_files[0])
-                if variants_skipped_line:
-                    logger.error(f'Some of the variants were skipped while accessioning. '
-                                 f'The following line from logs describes the total variants that were skipped.'
-                                 f'\n{variants_skipped_line}')
+                if not self.check_if_job_completed_successfully(accessioning_log_files[0]):
+                    failed_job = self.check_for_errors_in_case_of_job_failure(accessioning_log_files[0])
+                    failed_files[file] = f"failed_job - {failed_job}"
             else:
-                logger.error(f'No accessioning log file could be found for study {project_accession}')
+                failed_files[file] = f"error : No accessioning file found for {file}"
 
-    def check_if_variant_load_completed_successfully(self, project_accession, vcf_files, path_to_data_dir):
+        self._accessioning_job_check_result = "PASS" if not failed_files else "FAIL"
+        report = f"""
+                pass: {self._accessioning_job_check_result}"""
+        if failed_files:
+            report += f"""
+                failed_files:"""
+            for file, value in failed_files.items():
+                report += f"""
+                    {file} - {value}"""
+
+        return report
+
+    def check_if_variant_load_completed_successfully(self, vcf_files):
+        failed_files = {}
         for file in vcf_files:
-            pipeline_log_files = glob.glob(f"{path_to_data_dir}/00_logs/pipeline.*{file}*.log")
+            pipeline_log_files = glob.glob(f"{self.path_to_data_dir}/00_logs/pipeline.*{file}*.log")
             if pipeline_log_files:
                 # check if variant load job completed successfully
-                if self.check_if_job_completed_successfully(pipeline_log_files[0]):
-                    logger.info(f'Variant load stage completed successfully for study {project_accession} '
-                                f'and file {os.path.basename(pipeline_log_files[0])}')
-                else:
-                    logger.error(f'Variant load stage failed for study {project_accession} '
-                                 f'and file {os.path.basename(pipeline_log_files[0])}')
-
-                    self.check_for_errors_in_case_of_job_failure(pipeline_log_files[0])
+                if not self.check_if_job_completed_successfully(pipeline_log_files[0]):
+                    failed_job = self.check_for_errors_in_case_of_job_failure(pipeline_log_files[0])
+                    failed_files[file] = f"failed_job - {failed_job}"
             else:
-                logger.error(f'No pipeline log file could be found for study {project_accession}')
+                failed_files[file] = f"error : No pipeline file found for {file}"
 
-    def check_if_browsable_files_entered_correctly_in_db(self, vcf_files, profile, private_config_xml_file,
-                                                         project_accession):
-        browsable_files_from_db = self.get_browsable_files_for_study(profile, private_config_xml_file,
-                                                                     project_accession)
-        if set(vcf_files) - set(browsable_files_from_db):
-            logger.error(f"There are some VCF files missing in db. "
-                         f"Missing Files : {set(vcf_files) - set(browsable_files_from_db)}")
-        else:
-            logger.info(f"Browsable Files entered correctly in DB. Browsable files : {vcf_files}")
+        self._variant_load_job_check_result = "PASS" if not failed_files else "FAIL"
+        report = f"""
+                pass: {self._variant_load_job_check_result}"""
+        if failed_files:
+            report += f"""
+                failed_files:"""
+            for file, value in failed_files.items():
+                report += f"""
+                    {file} - {value}"""
+
+        return report
+
+    def check_if_variants_were_skipped_while_accessioning(self, vcf_files):
+        failed_files = {}
+        for file in vcf_files:
+            accessioning_log_files = glob.glob(f"{self.path_to_data_dir}/00_logs/accessioning.*{file}*.log")
+            if accessioning_log_files:
+                # check if any variants were skippped while accessioning
+                variants_skipped = self.check_if_variants_were_skipped(accessioning_log_files[0])
+                if variants_skipped:
+                    failed_files[file] = f"{variants_skipped} variants skipped"
+            else:
+                failed_files[file] = f"error : No accessioning file found for {file}"
+
+        self._variants_skipped_accessioning_check_result = "PASS" if not failed_files else "FAIL"
+        report = f"""
+                pass: {self._variants_skipped_accessioning_check_result}"""
+        if failed_files:
+            report += f"""
+                failed_files:"""
+            for file, value in failed_files.items():
+                report += f"""
+                    {file} - {value}"""
+
+        return report
+
+    def check_if_browsable_files_entered_correctly_in_db(self, vcf_files):
+        browsable_files_from_db = self.get_browsable_files_for_study()
+        missing_files = set(vcf_files) - set(browsable_files_from_db)
+        self._browsable_files_check_result = "PASS" if len(missing_files) == 0 else "FAIL"
+
+        return f"""
+            pass : {self._browsable_files_check_result}
+            expected files: {vcf_files}
+            missing files: {missing_files if missing_files else 'None'}"""
 
     def run_qc_checks_for_submission(self):
-        profile = cfg['maven']['environment']
-        private_config_xml_file = cfg['maven']['settings_file']
-        project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
-        path_to_data_dir = Path(cfg['projects_dir'], project_accession)
-        taxonomy = self.eload_cfg.query('submission', 'taxonomy_id')
-        analyses = self.eload_cfg.query('brokering', 'analyses')
-
+        """Collect information from different qc methods and write the report."""
         vcf_files = []
-        for analysis_data in analyses.values():
+        for analysis_data in self.analyses.values():
             for v_files in analysis_data['vcf_files'].values():
                 vcf_files.append(os.path.basename(v_files['output_vcf_file']))
 
-        logger.info(f'----------------------------Check Browsable Files Entered Correctly-----------------------------')
-        self.check_if_browsable_files_entered_correctly_in_db(vcf_files, profile, private_config_xml_file,
-                                                              project_accession)
+        browsable_files_report = self.check_if_browsable_files_entered_correctly_in_db(vcf_files)
 
         # No accessioning check is required for human
-        if taxonomy != 9606:
-            logger.info(f'----------------------------Check Accessioning Job-----------------------------')
-            self.check_if_accessioning_completed_successfully(project_accession, vcf_files, path_to_data_dir)
+        if self.taxonomy != 9606:
+            accessioning_job_report = self.check_if_accessioning_completed_successfully(vcf_files)
+            variants_skipped_report = self.check_if_variants_were_skipped_while_accessioning(vcf_files)
 
-        logger.info(f'------------------------------Check Variant Load Job------------------------------')
-        self.check_if_variant_load_completed_successfully(project_accession, vcf_files, path_to_data_dir)
+        variant_load_report = self.check_if_variant_load_completed_successfully(vcf_files)
 
-        logger.info(f'-----------------------------Check All Files present in FTP----------------------------')
-        self.check_all_browsable_files_are_available_in_ftp(taxonomy, project_accession, vcf_files)
+        ftp_report = self.check_all_browsable_files_are_available_in_ftp(vcf_files)
 
-        logger.info(f'-------------------------------Check Study appears in DEV-------------------------------')
-        self.check_if_study_appears_in_dev(project_accession)
+        study_dev_report = self.check_if_study_appears_in_dev()
 
-        logger.info(f'---------------------------Check Study appears in DEV Metadata---------------------------')
-        for analysis_data in analyses.values():
-            species_name = self.get_species_name(taxonomy, analysis_data['assembly_accession'], profile,
-                                                 private_config_xml_file)
-            self.check_if_study_appears_in_variant_browser(species_name, project_accession)
+        study_dev_metadata_report = self.check_if_study_appears_in_dev_metadata()
+
+        report = f"""
+        QC Result Summary:
+        ------------------
+        Browsable files check: {self._browsable_files_check_result}
+        Accessioning job check: {self._accessioning_job_check_result}
+        Variants Skipped accessioning check: {self._variants_skipped_accessioning_check_result}
+        Variant load check: {self._variant_load_job_check_result}
+        FTP check: {self._ftp_check_result}
+        Study dev check: {self._study_dev_check_result}
+        Study dev metadata check: {self._study_dev_metadata_check_result}
+        ----------------------------------
+
+        Browsable files check:
+        {browsable_files_report}
+        ---------------------------------
+        
+        Accessioning job check:
+        {accessioning_job_report}
+        ----------------------------------
+        
+        Variants skipped check:
+        {variants_skipped_report}
+        ----------------------------------
+        
+        Variant load check:
+        {variant_load_report}
+        ----------------------------------
+        
+        FTP check:
+        {ftp_report}
+        ----------------------------------
+        
+        Study dev check:
+        {study_dev_report}
+        ----------------------------------
+
+        Study dev metadata check:
+        {study_dev_metadata_report}
+        ----------------------------------
+        """
+        print(report)
