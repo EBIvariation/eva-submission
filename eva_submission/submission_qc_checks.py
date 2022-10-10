@@ -134,33 +134,42 @@ class EloadQC(Eload):
     def check_if_job_completed_successfully(self, file_path):
         with open(file_path, 'r') as f:
             for line in f:
+                if "Job: [SimpleJob: [name=CREATE_SUBSNP_ACCESSION_JOB]] launched" in line or \
+                        "Running job 'genotyped-vcf-job' with parameters" in line or \
+                        "Running job 'aggregated-vcf-job' with parameters" in line:
+                    job_status = ""
                 if 'Job: [FlowJob: [name=genotyped-vcf-job]] completed' in line or \
                         'Job: [FlowJob: [name=aggregated-vcf-job]] completed' in line or \
                         'Job: [SimpleJob: [name=CREATE_SUBSNP_ACCESSION_JOB]] completed' in line:
                     job_status = line.split(" ")[-1].replace("[", "").replace("]", "").strip()
-                    if job_status == 'COMPLETED':
-                        return True
-                    elif job_status == 'FAILED':
-                        return False
-                    else:
-                        logger.error(f'Could not determine status of variant load job in file {file_path}')
+            if job_status == 'COMPLETED':
+                return True
+            elif job_status == 'FAILED':
+                return False
+            else:
+                logger.error(f'Could not determine status of variant load job in file {file_path}')
 
     def check_if_variants_were_skipped(self, file_path):
         with open(file_path, 'r') as f:
             for line in f:
+                if "Job: [SimpleJob: [name=CREATE_SUBSNP_ACCESSION_JOB]] launched" in line:
+                    variants_skipped = None
                 if 'lines in the original VCF were skipped' in line:
                     variants_skipped = line.strip().split(":")[-1].strip().split(" ")[0].strip()
-                    return variants_skipped
 
-            return None
+            return variants_skipped
 
     def check_for_errors_in_case_of_job_failure(self, file_name):
         with open(file_name, 'r') as f:
             for line in f:
+                if "Job: [SimpleJob: [name=CREATE_SUBSNP_ACCESSION_JOB]] launched" in line or \
+                        "Running job 'genotyped-vcf-job' with parameters" in line or \
+                        "Running job 'aggregated-vcf-job' with parameters" in line:
+                    job_name = None
                 if 'Encountered an error executing step' in line:
                     job_name = line[line.index("Encountered an error executing step"): line.rindex("in job")] \
-                            .strip().split(" ")[-1]
-                    return job_name
+                        .strip().split(" ")[-1]
+            return job_name
 
     def check_if_accessioning_completed_successfully(self, vcf_files):
         failed_files = {}
@@ -170,7 +179,8 @@ class EloadQC(Eload):
                 # check if accessioning job completed successfullyy
                 if not self.check_if_job_completed_successfully(accessioning_log_files[0]):
                     failed_job = self.check_for_errors_in_case_of_job_failure(accessioning_log_files[0])
-                    failed_files[file] = f"failed_job - {failed_job}"
+                    failed_files[
+                        file] = f"failed_job - {failed_job}" if failed_job else f"failed_job name could not be retrieved"
             else:
                 failed_files[file] = f"error : No accessioning file found for {file}"
 
@@ -194,7 +204,8 @@ class EloadQC(Eload):
                 # check if variant load job completed successfully
                 if not self.check_if_job_completed_successfully(pipeline_log_files[0]):
                     failed_job = self.check_for_errors_in_case_of_job_failure(pipeline_log_files[0])
-                    failed_files[file] = f"failed_job - {failed_job}"
+                    failed_files[
+                        file] = f"failed_job - {failed_job}" if failed_job else f"failed_job name could not be retrieved"
             else:
                 failed_files[file] = f"error : No pipeline file found for {file}"
 
