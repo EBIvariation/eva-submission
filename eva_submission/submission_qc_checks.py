@@ -104,8 +104,6 @@ class EloadQC(Eload):
         for file in vcf_files:
             if file not in files_in_ftp:
                 missing_files.append(file)
-            if f'{file}.tbi' not in files_in_ftp:
-                missing_files.append(f'{file}.tbi')
             if f'{file}.csi' not in files_in_ftp:
                 missing_files.append(f'{file}.csi')
 
@@ -114,8 +112,6 @@ class EloadQC(Eload):
                 accessioned_file = file.replace('.vcf.gz', '.accessioned.vcf.gz')
                 if accessioned_file not in files_in_ftp:
                     missing_files.append(accessioned_file)
-                if f'{accessioned_file}.tbi' not in files_in_ftp:
-                    missing_files.append(f'{accessioned_file}.tbi')
                 if f'{accessioned_file}.csi' not in files_in_ftp:
                     missing_files.append(f'{accessioned_file}.csi')
 
