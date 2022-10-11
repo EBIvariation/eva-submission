@@ -27,7 +27,7 @@ class EloadQC(Eload):
         self.analyses = self.eload_cfg.query('brokering', 'analyses')
 
     def check_if_study_appears(self):
-        url = f"https://wwwint.ebi.ac.uk/eva/webservices/rest/v1/studies/{self.project_accession}/summary"
+        url = f"https://wwwdev.ebi.ac.uk/eva/webservices/rest/v1/studies/{self.project_accession}/summary"
         json_response = self.get_result_from_webservice(url)
         if self.check_if_study_present_in_response(json_response, 'id'):
             self._study_check_result = "PASS"
@@ -38,7 +38,7 @@ class EloadQC(Eload):
                 pass: {self._study_check_result}"""
 
     def check_if_study_appears_in_variant_browser(self, species_name):
-        url = f"https://wwwint.ebi.ac.uk/eva/webservices/rest/v1/meta/studies/list?species={species_name}"
+        url = f"https://wwwdev.ebi.ac.uk/eva/webservices/rest/v1/meta/studies/list?species={species_name}"
         json_response = self.get_result_from_webservice(url)
         if self.check_if_study_present_in_response(json_response, 'studyId'):
             return True
