@@ -8,6 +8,7 @@ from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config
 from ebi_eva_common_pyutils.metadata_utils import get_metadata_connection_handle
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
+from requests import HTTPError
 from retry import retry
 
 from eva_submission.eload_submission import Eload
@@ -28,7 +29,11 @@ class EloadQC(Eload):
 
     def check_if_study_appears(self):
         url = f"https://wwwdev.ebi.ac.uk/eva/webservices/rest/v1/studies/{self.project_accession}/summary"
-        json_response = self.get_result_from_webservice(url)
+        try:
+            json_response = self.get_result_from_webservice(url)
+        except HTTPError as e:
+            logger.error(str(e))
+            json_response = {}
         if self.check_if_study_present_in_response(json_response, 'id'):
             self._study_check_result = "PASS"
         else:
@@ -39,7 +44,11 @@ class EloadQC(Eload):
 
     def check_if_study_appears_in_variant_browser(self, species_name):
         url = f"https://wwwdev.ebi.ac.uk/eva/webservices/rest/v1/meta/studies/list?species={species_name}"
-        json_response = self.get_result_from_webservice(url)
+        try:
+            json_response = self.get_result_from_webservice(url)
+        except HTTPError as e:
+            logger.error(str(e))
+            json_response = {}
         if self.check_if_study_present_in_response(json_response, 'studyId'):
             return True
         else:
@@ -88,13 +97,13 @@ class EloadQC(Eload):
         try:
             files_in_ftp = self.get_files_from_ftp(self.project_accession)
         except Exception as e:
-            logger.error(f"Error fetching files from ftp for study {self.study_accession}. Exception  {e}")
+            logger.error(f"Error fetching files from ftp for study {self.project_accession}. Exception  {e}")
             self._ftp_check_result = "FAIL"
             return f"""
                 Error: Error fetching files from ftp for study {self.project_accession}"""
 
         if not files_in_ftp:
-            logger.error(f"No file found in ftp for study {self.study_accession}")
+            logger.error(f"No file found in ftp for study {self.project_accession}")
             self._ftp_check_result = "FAIL"
             return f"""
                 Error: No files found in FTP for study {self.project_accession}"""
@@ -102,18 +111,20 @@ class EloadQC(Eload):
         missing_files = []
 
         for file in vcf_files:
+            no_ext_file, _ = os.path.splitext(file)
             if file not in files_in_ftp:
                 missing_files.append(file)
-            if f'{file}.csi' not in files_in_ftp:
-                missing_files.append(f'{file}.csi')
+            if f'{file}.csi' not in files_in_ftp or f'{no_ext_file}.csi' not in files_in_ftp:
+                missing_files.append(f'{file}.csi or {no_ext_file}.csi')
 
             # accessioned files will not be present for human taxonomy
             if self.taxonomy != 9606:
                 accessioned_file = file.replace('.vcf.gz', '.accessioned.vcf.gz')
+                no_ext_accessioned_file, _ = os.path.splitext(accessioned_file)
                 if accessioned_file not in files_in_ftp:
                     missing_files.append(accessioned_file)
-                if f'{accessioned_file}.csi' not in files_in_ftp:
-                    missing_files.append(f'{accessioned_file}.csi')
+                if f'{accessioned_file}.csi' not in files_in_ftp or f'{no_ext_accessioned_file}.csi' not in files_in_ftp:
+                    missing_files.append(f'{accessioned_file}.csi or {no_ext_accessioned_file}.csi')
 
         self._ftp_check_result = "PASS" if not missing_files else "FAIL"
         return f"""
