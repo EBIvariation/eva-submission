@@ -239,7 +239,26 @@ def download_and_extract_vep_cache(ftp, species_name, vep_cache_file):
     with open(destination, 'wb+') as dest:
         ftp.retrbinary(f'RETR {vep_cache_file}', dest.write)
     with tarfile.open(destination, 'r:gz') as tar:
-        tar.extractall(path=tmp_dir.name)
+        def is_within_directory(directory, target):
+            
+            abs_directory = os.path.abspath(directory)
+            abs_target = os.path.abspath(target)
+        
+            prefix = os.path.commonprefix([abs_directory, abs_target])
+            
+            return prefix == abs_directory
+        
+        def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+        
+            for member in tar.getmembers():
+                member_path = os.path.join(path, member.name)
+                if not is_within_directory(path, member_path):
+                    raise Exception("Attempted Path Traversal in Tar File")
+        
+            tar.extractall(path, members, numeric_owner=numeric_owner) 
+            
+        
+        safe_extract(tar, path=tmp_dir.name)
     sources = glob.glob(os.path.join(tmp_dir.name, '*', '*'))
     if len(sources) != 1:
         raise ValueError(f'Extraction failure for {species_name} in {tmp_dir.name}')
