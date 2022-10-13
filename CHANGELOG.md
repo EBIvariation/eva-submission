@@ -1,6 +1,34 @@
 Changelog for eva-submission
 ============================
 
+1.8.0 (2022-10-13)
+------------------
+
+### Validation
+- Add normalisation step during validation. The file used after that will be the normalised file.
+
+### Brokering 
+- Fix brokering to existing project (use ELOAD as project alias)
+
+### Ingestion
+- New validation script that checks verify all ingestion steps have been successful and the data appear where it should.
+
+### Other
+- New script to add a taxonomy/assembly to the metadata ()
+
+
+1.7.0 (2022-09-09)
+------------------
+
+### Validation
+- Add new validation that normalise all the input VCF files as they are being validated
+- Make validations run through nextflow run based on the tasks specified on command line
+- 
+
+### Backlog preparation
+- Create CSI index files
+
+
 1.7.0 (2022-09-09)
 ------------------
 
