@@ -1,8 +1,10 @@
 import os
+import shutil
 from unittest import TestCase
 from unittest.mock import patch
 
 from eva_submission import ROOT_DIR
+from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 from eva_submission.xlsx.xlsx_validation import EvaXlsxValidator
 
 
@@ -14,6 +16,15 @@ class TestEvaXlsValidator(TestCase):
         metadata_file_fail = os.path.join(brokering_folder, 'metadata_sheet_fail.xlsx')
         self.validator = EvaXlsxValidator(metadata_file)
         self.validator_fail = EvaXlsxValidator(metadata_file_fail)
+
+        metadata_file_wrong_sc_name = os.path.join(brokering_folder, 'metadata_wrong_scientific_name.xlsx')
+        self.metadata_file_wrong_sc_name_copy = os.path.join(brokering_folder, 'metadata_wrong_scientific_name_copy.xlsx')
+        shutil.copy(metadata_file_wrong_sc_name, self.metadata_file_wrong_sc_name_copy)
+        self.validator_sc_name = EvaXlsxValidator(self.metadata_file_wrong_sc_name_copy)
+
+    def tearDown(self) -> None:
+        os.remove(self.metadata_file_wrong_sc_name_copy)
+
 
     def test_cerberus_validation(self):
         self.validator.cerberus_validation()
@@ -41,3 +52,20 @@ class TestEvaXlsValidator(TestCase):
             m_sci_name.return_value = 'Homo sapiens'
             self.validator.validate()
         assert self.validator.error_list == []
+
+    def test_correct_scientific_name_in_metadata(self):
+        reader_before_modification = EvaXlsxReader(self.metadata_file_wrong_sc_name_copy)
+        scientific_name_list = [sample['Scientific Name'] for sample in reader_before_modification.samples]
+        assert len(scientific_name_list) == 100
+        assert len([s for s in scientific_name_list if s != 'Homo sapiens']) == 20
+
+        with patch('eva_submission.xlsx.xlsx_validation.get_scientific_name_from_ensembl') as m_sci_name:
+            m_sci_name.return_value = 'Homo sapiens'
+            self.validator_sc_name.validate()
+        assert self.validator_sc_name.error_list == []
+
+        reader_after_modification = EvaXlsxReader(self.metadata_file_wrong_sc_name_copy)
+        scientific_name_list = [sample['Scientific Name'] for sample in reader_after_modification.samples]
+        assert len(scientific_name_list) == 100
+        assert len([s for s in scientific_name_list if s != 'Homo sapiens']) == 0
+
