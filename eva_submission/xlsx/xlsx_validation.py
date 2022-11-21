@@ -96,7 +96,11 @@ class EvaXlsxValidator(AppLogger):
             try:
                 scientific_name = get_scientific_name_from_ensembl(int(taxid))
                 if species != scientific_name:
-                    correct_taxid_sc_name[taxid] = scientific_name
+                    if species.lower() == scientific_name.lower():
+                        correct_taxid_sc_name[taxid] = scientific_name
+                    else:
+                        self.error_list.append(
+                            f'In Samples, Taxonomy {taxid} and scientific name {species} are inconsistent')
             except ValueError as e:
                 self.error(str(e))
                 self.error_list.append(str(e))
@@ -110,7 +114,8 @@ class EvaXlsxValidator(AppLogger):
     def correct_taxid_scientific_name_in_metadata(self, correct_taxid_sc_name, metadata_file, samples):
         eva_xls_writer = EvaXlsxWriter(metadata_file)
         samples_to_be_corrected = [sample for sample in samples if sample['Tax Id'] in correct_taxid_sc_name and
-                         sample['Scientific Name'] != correct_taxid_sc_name[sample['Tax Id']]]
+                         sample['Scientific Name'] != correct_taxid_sc_name[sample['Tax Id']] and
+                                   sample['Scientific Name'].lower() == correct_taxid_sc_name[sample['Tax Id']].lower()]
         for sample in samples_to_be_corrected:
            sample['Scientific Name'] = correct_taxid_sc_name[sample['Tax Id']]
 

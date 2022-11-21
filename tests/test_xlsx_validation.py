@@ -57,15 +57,19 @@ class TestEvaXlsValidator(TestCase):
         reader_before_modification = EvaXlsxReader(self.metadata_file_wrong_sc_name_copy)
         scientific_name_list = [sample['Scientific Name'] for sample in reader_before_modification.samples]
         assert len(scientific_name_list) == 100
-        assert len([s for s in scientific_name_list if s != 'Homo sapiens']) == 20
+        assert len([s for s in scientific_name_list if s == 'Homo sapiens']) == 80
+        assert len([s for s in scientific_name_list if s == 'Homo Sapiens']) == 10
+        assert len([s for s in scientific_name_list if s == 'HS']) == 10
 
         with patch('eva_submission.xlsx.xlsx_validation.get_scientific_name_from_ensembl') as m_sci_name:
             m_sci_name.return_value = 'Homo sapiens'
             self.validator_sc_name.validate()
-        assert self.validator_sc_name.error_list == []
+        assert self.validator_sc_name.error_list == ['In Samples, Taxonomy 9606 and scientific name HS are inconsistent']
 
         reader_after_modification = EvaXlsxReader(self.metadata_file_wrong_sc_name_copy)
         scientific_name_list = [sample['Scientific Name'] for sample in reader_after_modification.samples]
         assert len(scientific_name_list) == 100
-        assert len([s for s in scientific_name_list if s != 'Homo sapiens']) == 0
+        assert len([s for s in scientific_name_list if s == 'Homo sapiens']) == 90
+        assert len([s for s in scientific_name_list if s == 'Homo Sapiens']) == 0
+        assert len([s for s in scientific_name_list if s == 'HS']) == 10
 
