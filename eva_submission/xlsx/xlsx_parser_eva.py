@@ -102,6 +102,10 @@ class EvaXlsxWriter(AppLogger):
         self.writer.active_worksheet = active_sheet
         self.writer.set_rows(rows, empty_remaining_rows=True)
 
+    def _update_rows(self, active_sheet, rows):
+        self.writer.active_worksheet = active_sheet
+        self.writer.update_rows(rows)
+
     def save(self):
         self.writer.save(self.metadata_dest)
 
@@ -119,4 +123,9 @@ class EvaXlsxWriter(AppLogger):
 
     def set_files(self, file_dicts):
         self._set_all_rows('Files', file_dicts)
+
+    def update_samples(self, sample_dicts):
+        self._update_rows('Sample', sample_dicts)
+
+
 

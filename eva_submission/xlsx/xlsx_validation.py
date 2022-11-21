@@ -9,7 +9,7 @@ from requests import HTTPError
 
 from eva_submission import ETC_DIR
 from eva_submission.eload_utils import cast_list
-from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
+from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
 
 class EvaXlsxValidator(AppLogger):
@@ -89,20 +89,38 @@ class EvaXlsxValidator(AppLogger):
             elif len(accessions) > 1:
                 self.error_list.append(f'In Analysis, Reference {reference} resolve to more than one accession: {accessions}')
 
+        correct_taxid_sc_name = {}
         # Check taxonomy scientific name pair
         taxid_and_species_list = set([(row['Tax Id'], row['Scientific Name']) for row in self.metadata['Sample'] if row['Tax Id']])
         for taxid, species in taxid_and_species_list:
             try:
                 scientific_name = get_scientific_name_from_ensembl(int(taxid))
                 if species != scientific_name:
-                    self.error_list.append(
-                        f'In Samples, Taxonomy {taxid} and scientific name {species} are inconsistent')
+                    if species.lower() == scientific_name.lower():
+                        correct_taxid_sc_name[taxid] = scientific_name
+                    else:
+                        self.error_list.append(
+                            f'In Samples, Taxonomy {taxid} and scientific name {species} are inconsistent')
             except ValueError as e:
                 self.error(str(e))
                 self.error_list.append(str(e))
             except HTTPError as e:
                 self.error(str(e))
                 self.error_list.append(str(e))
+        if correct_taxid_sc_name:
+            self.warning(f'In some Samples, Taxonomy and scientific names are inconsistent. TaxId - {correct_taxid_sc_name.keys()}')
+            self.correct_taxid_scientific_name_in_metadata(correct_taxid_sc_name, self.metadata_file, self.metadata['Sample'])
+
+    def correct_taxid_scientific_name_in_metadata(self, correct_taxid_sc_name, metadata_file, samples):
+        eva_xls_writer = EvaXlsxWriter(metadata_file)
+        samples_to_be_corrected = [sample for sample in samples if sample['Tax Id'] in correct_taxid_sc_name and
+                         sample['Scientific Name'] != correct_taxid_sc_name[sample['Tax Id']] and
+                                   sample['Scientific Name'].lower() == correct_taxid_sc_name[sample['Tax Id']].lower()]
+        for sample in samples_to_be_corrected:
+           sample['Scientific Name'] = correct_taxid_sc_name[sample['Tax Id']]
+
+        eva_xls_writer.update_samples(samples_to_be_corrected)
+        eva_xls_writer.save()
 
     def group_of_fields_required(self, sheet_name, row, *args):
         if not any(

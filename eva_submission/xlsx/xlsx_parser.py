@@ -324,5 +324,16 @@ class XlsxWriter(XlsxBaseParser):
         if empty_remaining_rows:
             self.workbook[worksheet].delete_rows(first_row + len(rows), amount=self.workbook[worksheet].max_row - first_row + len(rows))
 
+    def update_rows(self, rows):
+        """
+        Update a set of rows with their row num
+        """
+        worksheet = self.active_worksheet
+        if worksheet is None:
+            raise ValueError('No worksheet is specified!')
+
+        for row in rows:
+            self.edit_row(row)
+
     def save(self, filename):
         self.workbook.save(filename)
