@@ -13,9 +13,9 @@ def helpMessage() {
 params.vcf_files_mapping = null
 params.output_dir = null
 // executables
-params.executable = ["vcf_assembly_checker": "vcf_assembly_checker", "vcf_validator": "vcf_validator"]
+params.executable = ["vcf_assembly_checker": "vcf_assembly_checker", "vcf_validator": "vcf_validator", "bgzip"]
 // validation tasks
-params.validation_tasks = ["assembly_check", "vcf_check", "normalisation_check"]
+params.validation_tasks = ["assembly_check", "vcf_check", "normalisation_check", "structural_variant_check"]
 // help
 params.help = null
 
@@ -122,3 +122,38 @@ process normalise_vcf {
     fi
     """
 }
+
+/*
+* Detect the structural variant in VCF
+*/
+process detect_sv {
+    publishDir "$params.output_dir",
+            overwrite: false,
+            mode: "copy"
+
+    input:
+    set file(vcf_file) from vcf_channel4
+
+    output:
+    path "sv_check/*.sv_check.log" into sv_check_log
+    path "sv_check/*.sv_list.vcf.gz" into sv_list_vcf
+
+
+    when:
+    "structural_variant_check" in params.validation_tasks
+
+    script:
+    """
+    mkdir sv_check
+
+    export PYTHONPATH="$params.executable.python.script_path"
+
+    if [[ $vcf_file =~ \\.vcf\$ ]]
+    then
+    $params.executable.bgzip -c $vcf_file
+    fi
+    ($params.executable.python.interpreter \
+        -m eva_submission.eload_structural_variant_detection \
+        --vcf_file $vcf_file
+     )  >> $params.sv_check/$vcf_file.detect_sv.log 2 >
+    """
