@@ -135,8 +135,8 @@ process detect_sv {
     set file(vcf_file) from vcf_channel4
 
     output:
-    path "sv_check/*.sv_check.log" into sv_check_log
-    path "sv_check/*.sv_list.vcf.gz" into sv_list_vcf
+    path "sv_check/*_sv_check.log" into sv_check_log
+    path "sv_check/*_sv_list.vcf.gz" into sv_list_vcf
 
 
     when:
@@ -147,13 +147,9 @@ process detect_sv {
     mkdir sv_check
 
     export PYTHONPATH="$params.executable.python.script_path"
-
-    if [[ $vcf_file =~ \\.vcf\$ ]]
-    then
-    $params.executable.bgzip -c $vcf_file
-    fi
-    ($params.executable.python.interpreter \
-        -m eva_submission.eload_structural_variant_detection \
-        --vcf_file $vcf_file
-     )  >> $params.sv_check/$vcf_file.detect_sv.log 2 >
+    $params.executable.python.interpreter -m eva_submission.eload_structural_variant_detection \
+    --vcf_file $vcf_file --output_vcf_file_with_sv sv_check/${vcf_file.getSimpleName()}_sv_list.vcf \
+    > sv_check/${vcf_file.getSimpleName()}_sv_check.log 2 > &1
+    $params.executable.bgzip -c sv_check/${vcf_file.getSimpleName()}_sv_list.vcf > sv_check/${vcf_file.getSimpleName()}_sv_list.vcf.gz
+    rm sv_check/${vcf_file.getSimpleName()}_sv_list.vcf
     """

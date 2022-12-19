@@ -42,10 +42,9 @@ class EloadValidation(Eload):
             self._validate_sample_names()
         if 'aggregation_check' in validation_tasks:
             self._validate_genotype_aggregation()
-        if 'vcf_check' in validation_tasks \
-                or 'assembly_check' in validation_tasks \
-                or 'normalisation_check' in validation_tasks \
-                or 'structural_variant_check' in validation_tasks:
+        if set(validation_tasks).intersection(
+                {'vcf_check', 'assembly_check', 'normalisation_check', 'structural_variant_check'}
+        ):
             output_dir = self._run_validation_workflow(validation_tasks)
             self._collect_validation_workflow_results(output_dir, validation_tasks)
             shutil.rmtree(output_dir)
@@ -243,23 +242,10 @@ class EloadValidation(Eload):
                     error_list.append(line.strip())
         return error_list, int(total), int(split), int(realigned), int(skipped)
 
-
-    def parse_sv_check_report(self, sv_check_report):
-        valid = True
-        error_list = []
-        warning_count = error_count = 0
-        with open(sv_check_report) as open_file:
-            for line in open_file:
-                if 'warning' in line:
-                    warning_count = 1
-                elif line.startswith('According to the VCF specification'):
-                    if 'not' in line:
-                        valid = False
-                else:
-                    error_count += 1
-                    if error_count < 11:
-                        error_list.append(line.strip())
-        return valid, error_list, error_count, warning_count
+    def parse_sv_check_log(self, sv_check_log):
+        with open(sv_check_log) as open_file:
+            nb_sv = int(open_file.readline().split()[0])
+        return nb_sv
 
     def _generate_csv_mappings(self):
         vcf_files_mapping_csv = os.path.join(self.eload_dir, 'vcf_files_mapping.csv')
@@ -280,6 +266,7 @@ class EloadValidation(Eload):
     def _run_validation_workflow(self, validation_tasks):
         output_dir = self.create_nextflow_temp_output_directory()
         vcf_files_mapping_csv = self._generate_csv_mappings()
+        cfg['executable']['python']['script_path'] = os.path.dirname(os.path.dirname(__file__))
         validation_config = {
             'vcf_files_mapping': vcf_files_mapping_csv,
             'output_dir': output_dir,
@@ -453,8 +440,6 @@ class EloadValidation(Eload):
             })
             total_error += len(error_list)
         self.eload_cfg.set('validation', 'normalisation_check', 'pass', value=total_error == 0)
-
-
     def _collect_structural_variant_check_results(self, vcf_files, output_dir):
         # detect output files for structural variant check
         total_error = 0
@@ -479,10 +464,10 @@ class EloadValidation(Eload):
             )
 
             if sv_check_log and sv_check_sv_vcf:
-                error_list_from_log, nb_error_from_log, match, total = \
-                    self.parse_sv_check_log(sv_check_log)
-            #total_error += len(error_list)
-        self.eload_cfg.set('validation', 'structural_variant_check', 'pass', value=total_error == 0)
+                nb_sv = self.parse_sv_check_log(sv_check_log)
+            self.eload_cfg.set('validation', 'structural_variant_check', 'files', os.path.basename(vcf_file),
+                               value={'has_structural_variant': nb_sv > 0, 'number_sv': nb_sv})
+        self.eload_cfg.set('validation', 'structural_variant_check', 'pass', value=True)
 
     def _metadata_check_report(self):
         reports = []
