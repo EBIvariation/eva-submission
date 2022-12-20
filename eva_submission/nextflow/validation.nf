@@ -147,7 +147,7 @@ process detect_sv {
     mkdir sv_check
 
     export PYTHONPATH="$params.executable.python.script_path"
-    $params.executable.python.interpreter -m eva_submission.eload_structural_variant_detection \
+    $params.executable.python.interpreter -m eva_submission.steps.structural_variant_detection \
     --vcf_file $vcf_file --output_vcf_file_with_sv sv_check/${vcf_file.getSimpleName()}_sv_list.vcf \
     > sv_check/${vcf_file.getSimpleName()}_sv_check.log 2 > &1
     $params.executable.bgzip -c sv_check/${vcf_file.getSimpleName()}_sv_list.vcf > sv_check/${vcf_file.getSimpleName()}_sv_list.vcf.gz

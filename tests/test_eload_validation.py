@@ -90,14 +90,6 @@ class TestEloadValidation(TestCase):
         expected = (["Reference allele mismatch at 20:17331 .. REF_SEQ:'TA' vs VCF:'GT'"], 0, 0, 0, 0)
         assert self.validation.parse_bcftools_norm_report(normalisation_log) == expected
 
-    def test_structural_variant(self):
-
-        self.sv_validation._detect_structural_variant()
-        self.sv_validation.eload_cfg.write()
-        with open(self.sv_validation.config_path, 'r') as config_file:
-            config_data = yaml.safe_load(config_file)
-            self.assertDictEqual(config_data['validation']['structural_variant_check']['files'],
-            {'test1.vcf': {'has_structural_variant': True}, 'test2.vcf.gz': {'has_structural_variant': False}, 'test3.vcf': {'has_structural_variant': True}, 'test4.vcf': {'has_structural_variant': True}})
 
     def test_report(self):
         expected_report = '''Validation performed on 2020-11-01 10:37:54.755607
