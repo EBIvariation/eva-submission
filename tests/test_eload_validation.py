@@ -90,6 +90,9 @@ class TestEloadValidation(TestCase):
         expected = (["Reference allele mismatch at 20:17331 .. REF_SEQ:'TA' vs VCF:'GT'"], 0, 0, 0, 0)
         assert self.validation.parse_bcftools_norm_report(normalisation_log) == expected
 
+    def test_parse_sv_check_log(self):
+        sv_check_log = os.path.join(self.resources_folder, 'validations', 'sv_check.log')
+        assert self.validation.parse_sv_check_log(sv_check_log) == 33
 
     def test_report(self):
         expected_report = '''Validation performed on 2020-11-01 10:37:54.755607

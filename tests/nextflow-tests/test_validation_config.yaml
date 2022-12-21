@@ -5,7 +5,12 @@ executable:
   vcf_validator: ../../../bin/fake_vcf_validator.sh
   vcf_assembly_checker: ../../../bin/fake_assembly_checker.sh
   bcftools: ../../../bin/fake_bcftools.sh
+  bgzip: ../../../bin/fake_bgzip.sh
+  python:
+    script_path: ../../../../../
+    interpreter: '`which python`'
 
 validation_tasks:
   - assembly_check
   - normalisation_check
+  - structural_variant_check

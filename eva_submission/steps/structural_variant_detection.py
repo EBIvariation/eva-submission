@@ -26,6 +26,7 @@ def detect_structural_variant(vcf_file, output_vcf):
         for line in open_input:
             if line.startswith("#"):
                 open_output.write(line)
+                continue
             sp_line = line.split('\t')
             alt_allele_column = sp_line[4]
             alternate_alleles = alt_allele_column.split(",")

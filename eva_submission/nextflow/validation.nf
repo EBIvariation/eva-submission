@@ -13,7 +13,7 @@ def helpMessage() {
 params.vcf_files_mapping = null
 params.output_dir = null
 // executables
-params.executable = ["vcf_assembly_checker": "vcf_assembly_checker", "vcf_validator": "vcf_validator", "bgzip"]
+params.executable = ["vcf_assembly_checker": "vcf_assembly_checker", "vcf_validator": "vcf_validator", "bgzip": "bgzip"]
 // validation tasks
 params.validation_tasks = ["assembly_check", "vcf_check", "normalisation_check", "structural_variant_check"]
 // help
@@ -35,7 +35,7 @@ if (!params.vcf_files_mapping || !params.output_dir) {
 Channel.fromPath(params.vcf_files_mapping)
     .splitCsv(header:true)
     .map{row -> tuple(file(row.vcf), file(row.fasta), file(row.report))}
-    .into{vcf_channel1; vcf_channel2; vcf_channel3}
+    .into{vcf_channel1; vcf_channel2; vcf_channel3; vcf_channel4}
 
 /*
 * Validate the VCF file format
@@ -132,7 +132,7 @@ process detect_sv {
             mode: "copy"
 
     input:
-    set file(vcf_file) from vcf_channel4
+    set file(vcf_file), file(fasta), file(report) from vcf_channel4
 
     output:
     path "sv_check/*_sv_check.log" into sv_check_log
@@ -149,7 +149,8 @@ process detect_sv {
     export PYTHONPATH="$params.executable.python.script_path"
     $params.executable.python.interpreter -m eva_submission.steps.structural_variant_detection \
     --vcf_file $vcf_file --output_vcf_file_with_sv sv_check/${vcf_file.getSimpleName()}_sv_list.vcf \
-    > sv_check/${vcf_file.getSimpleName()}_sv_check.log 2 > &1
+    > sv_check/${vcf_file.getSimpleName()}_sv_check.log 2>&1
     $params.executable.bgzip -c sv_check/${vcf_file.getSimpleName()}_sv_list.vcf > sv_check/${vcf_file.getSimpleName()}_sv_list.vcf.gz
     rm sv_check/${vcf_file.getSimpleName()}_sv_list.vcf
     """
+}
