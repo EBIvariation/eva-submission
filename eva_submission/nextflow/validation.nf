@@ -144,7 +144,7 @@ process detect_sv {
 
     script:
     """
-    mkdir sv_check
+    mkdir -p sv_check
 
     export PYTHONPATH="$params.executable.python.script_path"
     $params.executable.python.interpreter -m eva_submission.steps.structural_variant_detection \
