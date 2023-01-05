@@ -440,6 +440,7 @@ class EloadValidation(Eload):
             })
             total_error += len(error_list)
         self.eload_cfg.set('validation', 'normalisation_check', 'pass', value=total_error == 0)
+
     def _collect_structural_variant_check_results(self, vcf_files, output_dir):
         # detect output files for structural variant check
         total_error = 0
@@ -447,20 +448,20 @@ class EloadValidation(Eload):
             vcf_name = os.path.basename(vcf_file)
 
             tmp_sv_check_log = resolve_single_file_path(
-                os.path.join(output_dir, 'sv_check',  vcf_name + '.sv_check.log')
+                os.path.join(output_dir, 'sv_check',  vcf_name + '_sv_check.log')
             )
             tmp_sv_check_sv_vcf = resolve_single_file_path(
-                os.path.join(output_dir, 'sv_check', vcf_name + '.sv_list.vcf')
+                os.path.join(output_dir, 'sv_check', vcf_name + '_sv_list.vcf')
             )
 
             # move the output files
             sv_check_log = self._move_file(
                 tmp_sv_check_log,
-                os.path.join(self._get_dir('sv_check'), vcf_name + '.sv_check.log')
+                os.path.join(self._get_dir('sv_check'), vcf_name + '_sv_check.log')
             )
             sv_check_sv_vcf = self._move_file(
                 tmp_sv_check_sv_vcf,
-                os.path.join(self._get_dir('sv_check'), vcf_name + '.sv_list.vcf')
+                os.path.join(self._get_dir('sv_check'), vcf_name + '_sv_list.vcf')
             )
 
             if sv_check_log and sv_check_sv_vcf:

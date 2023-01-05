@@ -5,7 +5,6 @@ from argparse import ArgumentParser
 
 
 def detect_structural_variant(vcf_file, output_vcf):
-    has_sv_per_vcf = False
     # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Pages: 6, 16)
     symbolic_allele_pattern = "^<(DEL|INS|DUP|INV|CNV|BND)"
     # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Page: 17)
