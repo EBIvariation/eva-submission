@@ -42,12 +42,12 @@ class EloadValidation(Eload):
             self._validate_sample_names()
         if 'aggregation_check' in validation_tasks:
             self._validate_genotype_aggregation()
-        if 'vcf_check' in validation_tasks or 'assembly_check' in validation_tasks or 'normalisation_check' in validation_tasks:
+        if set(validation_tasks).intersection(
+                {'vcf_check', 'assembly_check', 'normalisation_check', 'structural_variant_check'}
+        ):
             output_dir = self._run_validation_workflow(validation_tasks)
             self._collect_validation_workflow_results(output_dir, validation_tasks)
             shutil.rmtree(output_dir)
-        if 'structural_variant_check' in validation_tasks:
-            self._detect_structural_variant()
 
         if set_as_valid is True:
             for validation_task in validation_tasks:
@@ -242,6 +242,11 @@ class EloadValidation(Eload):
                     error_list.append(line.strip())
         return error_list, int(total), int(split), int(realigned), int(skipped)
 
+    def parse_sv_check_log(self, sv_check_log):
+        with open(sv_check_log) as open_file:
+            nb_sv = int(open_file.readline().split()[0])
+        return nb_sv
+
     def _generate_csv_mappings(self):
         vcf_files_mapping_csv = os.path.join(self.eload_dir, 'vcf_files_mapping.csv')
         with open(vcf_files_mapping_csv, 'w', newline='') as file:
@@ -261,6 +266,7 @@ class EloadValidation(Eload):
     def _run_validation_workflow(self, validation_tasks):
         output_dir = self.create_nextflow_temp_output_directory()
         vcf_files_mapping_csv = self._generate_csv_mappings()
+        cfg['executable']['python']['script_path'] = os.path.dirname(os.path.dirname(__file__))
         validation_config = {
             'vcf_files_mapping': vcf_files_mapping_csv,
             'output_dir': output_dir,
@@ -303,6 +309,8 @@ class EloadValidation(Eload):
             self._collect_assembly_check_results(vcf_files, output_dir)
         if 'normalisation_check' in validation_tasks:
             self._collect_normalisation_check_results(vcf_files, output_dir)
+        if 'structural_variant_check' in validation_tasks:
+            self._collect_structural_variant_check_results(vcf_files, output_dir)
 
     def _collect_vcf_check_results(self, vcf_files, output_dir):
         total_error = 0
@@ -433,62 +441,34 @@ class EloadValidation(Eload):
             total_error += len(error_list)
         self.eload_cfg.set('validation', 'normalisation_check', 'pass', value=total_error == 0)
 
-    def _detect_structural_variant(self):
-        vcf_files = self._get_vcf_files()
+    def _collect_structural_variant_check_results(self, vcf_files, output_dir):
+        # detect output files for structural variant check
+        total_error = 0
         for vcf_file in vcf_files:
-            has_sv_per_vcf = self._detect_structural_variant_from_variant_lines(vcf_file)
-            if not has_sv_per_vcf:
-                vcf_name = os.path.basename(vcf_file)
-                validator_output_file = os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_validator.txt')
-                has_sv_per_vcf = self._detect_structural_variant_from_validator_output(validator_output_file)
+            vcf_name = os.path.basename(vcf_file)
+
+            tmp_sv_check_log = resolve_single_file_path(
+                os.path.join(output_dir, 'sv_check',  vcf_name + '_sv_check.log')
+            )
+            tmp_sv_check_sv_vcf = resolve_single_file_path(
+                os.path.join(output_dir, 'sv_check', vcf_name + '_sv_list.vcf')
+            )
+
+            # move the output files
+            sv_check_log = self._move_file(
+                tmp_sv_check_log,
+                os.path.join(self._get_dir('sv_check'), vcf_name + '_sv_check.log')
+            )
+            sv_check_sv_vcf = self._move_file(
+                tmp_sv_check_sv_vcf,
+                os.path.join(self._get_dir('sv_check'), vcf_name + '_sv_list.vcf')
+            )
+
+            if sv_check_log and sv_check_sv_vcf:
+                nb_sv = self.parse_sv_check_log(sv_check_log)
             self.eload_cfg.set('validation', 'structural_variant_check', 'files', os.path.basename(vcf_file),
-                               value={'has_structural_variant': has_sv_per_vcf})
+                               value={'has_structural_variant': nb_sv > 0, 'number_sv': nb_sv})
         self.eload_cfg.set('validation', 'structural_variant_check', 'pass', value=True)
-
-    def _detect_structural_variant_from_variant_lines(self, vcf_file):
-        no_of_variant_lines_per_vcf = 0
-        has_sv_per_vcf = False
-        # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Pages: 6, 16)
-        symbolic_allele_pattern = "^<(DEL|INS|DUP|INV|CNV|BND)"
-        # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Page: 17)
-        complex_rearrangements_breakend_pattern = "^[ATCGNatgcn]+\[.+:.+\[$|^[ATCGNatgcn]+\].+:.+\]$|^\].+:.+\][ATCGNatgcn]+$|^\[.+:.+\[[ATCGNatgcn]+$"
-        # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Page: 18)
-        complex_rearrangements_special_breakend_pattern = "^[ATGCNatgcn]+<[0-9A-Za-z!#$%&+./:;?@^_|~-][0-9A-Za-z!#$%&*+./:;=?@^_|~-]*>$"
-        # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Page: 22)
-        single_breakend_pattern = "^\.[ATGCNatgcn]+|[ATGCNatgcn]+\.$"
-        sv_regex = re.compile(f'{symbolic_allele_pattern}|{complex_rearrangements_breakend_pattern}|'
-                              f'{complex_rearrangements_special_breakend_pattern}|{single_breakend_pattern}')
-        if vcf_file.endswith('.vcf.gz'):
-            open_file = gzip.open(vcf_file, mode="rt")
-        else:
-            open_file = open(vcf_file, mode="r")
-        for file_line in open_file:
-            if file_line[0] == "#":
-                continue;
-            no_of_variant_lines_per_vcf = no_of_variant_lines_per_vcf + 1
-            if no_of_variant_lines_per_vcf > 10000:
-                break
-            extract_columns = file_line.split("\t")
-            alt_allele_column = extract_columns[4]
-            alternate_alleles = alt_allele_column.split(",")
-            for alternate_allele in alternate_alleles:
-                if re.search(sv_regex, alternate_allele):
-                    has_sv_per_vcf = True
-                    break
-            if has_sv_per_vcf:
-                break
-        open_file.close()
-        return has_sv_per_vcf
-
-    def _detect_structural_variant_from_validator_output(self, validator_output_file):
-        vcf_validator_keywords_pattern = re.compile("^Line\s[1-9]+:\sINFO\s(SVLEN|SVTYPE).+")
-        has_sv_per_vcf = False
-        with open(validator_output_file) as open_file:
-            for file_line in open_file:
-                if re.search(vcf_validator_keywords_pattern, file_line):
-                    has_sv_per_vcf = True
-                    break
-        return has_sv_per_vcf
 
     def _metadata_check_report(self):
         reports = []

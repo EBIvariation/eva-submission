@@ -24,6 +24,7 @@ directory_structure = {
     'assembly_check': '13_validation/assembly_check',
     'sample_check': '13_validation/sample_concordance',
     'normalisation_check': '13_validation/normalisation',
+    'sv_check': '13_validation/structural_variant',
     'merge': '14_merge',
     'biosamples': '18_brokering/biosamples',
     'ena': '18_brokering/ena',
