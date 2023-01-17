@@ -29,3 +29,8 @@ brokering:
       md5: b3fe0a9bbd876e4117dfbe27dbb03cb6
       original_vcf: /path/to/original.vcf
 validation: {}
+submission:
+  metadata_spreadsheet: path/dynamically/populated/in/test
+  scientific_name: Non Human Study
+  taxonomy_id: 1111
+

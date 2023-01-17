@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import datetime
 
 import yaml
 from ebi_eva_common_pyutils import command_utils
@@ -12,6 +13,7 @@ from eva_submission.biosamples_submission import SampleMetadataSubmitter, Sample
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import read_md5
 from eva_submission.submission_config import EloadConfig
+from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 
 class EloadBrokering(Eload):
@@ -233,6 +235,43 @@ class EloadBrokering(Eload):
     - receipt: {receipt}
 """.format(**report_data))
         return '\n'.join(reports)
+    
+    def _archival_confirmation_text(self):
+        metadata_file = self.eload_cfg.query('submission', 'metadata_spreadsheet')
+        reader = EvaXlsxReader(metadata_file)
+        study_title = reader.project_title
+
+        hold_date = self.eload_cfg.query('brokering', 'ena', 'hold_date')
+        brokering_date = self.eload_cfg.query('brokering', 'brokering_date')
+        brokering_date_plus_3 = datetime.datetime.strptime(brokering_date.split(" ")[0].strip(), "%Y-%m-%d").date() + datetime.timedelta(days=3)
+        available_date = hold_date if hold_date is not None else brokering_date_plus_3
+
+        project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
+        analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
+
+        taxonomy_id = self.eload_cfg.query('submission', 'taxonomy_id')
+        non_human_study_text = 'Please allow at least 48 hours from the initial release date provided for the data to first be made available through this link. Each variant will be issued a unique SS# ID which will be made available to download via the "browsable files" link on the EVA study page.' if taxonomy_id!=9606 else ""
+
+        archival_text_data = {
+            'study_title': study_title,
+            'available_date': available_date,
+            'project_accession': project_accession,
+            'analysis_accession': analysis_accession,
+            'non_human_study': non_human_study_text
+        }
+        
+        archival_text = """
+Your EVA submission {study_title} has now been archived and will be made available to the public on {available_date}. The accessions associated with your submission are:
+Project: {project_accession}
+Analyses: {analysis_accession} 
+If you wish your data to be held private beyond the date specified above, please let us know. Once released, the data will be made available to download from this link: https://www.ebi.ac.uk/eva/?eva-study={project_accession}
+{non_human_study}
+You can also notify us when your paper has been assigned a PMID. We will add this to your study page in the EVA. If there is anything else you need please do not hesitate to notify me. Archived data can be referenced using the project accession & associated URL e.g. The variant data for this study have been deposited in the European Variation Archive (EVA) at EMBL-EBI under accession number {project_accession} (https://www.ebi.ac.uk/eva/?eva-study={project_accession})
+The EVA can be cited directly using the associated literature:
+Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva AF, Tsukanov K, Venkataraman S, Flicek P, Parkinson H, Keane TM. The European Variation Archive: a FAIR resource of genomic variation for all species. Nucleic Acids Res. 2021 Oct 28:gkab960. doi: 10.1093/nar/gkab960. PMID: 34718739.
+        """
+        
+        return archival_text.format(**archival_text_data)
 
     def report(self):
         """Collect information from the config and write the report."""
@@ -242,7 +281,7 @@ class EloadBrokering(Eload):
             'ena_status': self._check_pass_or_fail(self.eload_cfg.query('brokering', 'ena')),
             'biosamples_report': self._biosamples_report(),
             'ena_report': self._ena_report(),
-
+            'archival_confirmation_test': self._archival_confirmation_text()
         }
         report = """Brokering performed on {brokering_date}
 BioSamples: {biosamples_status}
@@ -255,5 +294,9 @@ BioSamples brokering:
 
 ENA brokering:
 {ena_report}
-----------------------------------"""
+----------------------------------
+
+Archival Confirmation Text:
+{archival_confirmation_test}
+"""
         print(report.format(**report_data))
