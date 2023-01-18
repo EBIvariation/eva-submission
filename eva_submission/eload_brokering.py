@@ -250,7 +250,7 @@ class EloadBrokering(Eload):
         analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
 
         taxonomy_id = self.eload_cfg.query('submission', 'taxonomy_id')
-        non_human_study_text = 'Please allow at least 48 hours from the initial release date provided for the data to first be made available through this link. Each variant will be issued a unique SS# ID which will be made available to download via the "browsable files" link on the EVA study page.' if taxonomy_id!=9606 else ""
+        non_human_study_text = 'Please allow at least 48 hours from the initial release date provided for the data to be made available through this link. Each variant will be issued a unique SS# ID which will be made available to download via the "browsable files" link on the EVA study page.' if taxonomy_id!=9606 else ""
 
         archival_text_data = {
             'study_title': study_title,
