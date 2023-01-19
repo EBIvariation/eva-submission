@@ -85,7 +85,9 @@ class TestEloadPreparation(TestCase):
         assert self.eload.eload_cfg.query('submission', 'taxonomy_id') == 9606
         assert self.eload.eload_cfg.query('submission', 'scientific_name') == 'Homo sapiens'
         assert self.eload.eload_cfg.query('submission', 'analyses', 'GAE', 'assembly_accession') == 'GCA_000001405.1'
-        assert self.eload.eload_cfg.query('submission', 'analyses', 'GAE', 'vcf_files') == ['/home/nkumar2/PycharmProjects/eva-submission/tests/resources/eloads/ELOAD_1/10_submitted/vcf_files/T100.vcf.gz']
+        vcf_files = self.eload.eload_cfg.query('submission', 'analyses', 'GAE', 'vcf_files')
+        assert len(vcf_files) == 1
+        assert '10_submitted/vcf_files/T100.vcf.gz' in vcf_files[0]
 
     def test_check_submitted_filenames_multiple_analyses(self):
         # create some extra vcf files and analyses
