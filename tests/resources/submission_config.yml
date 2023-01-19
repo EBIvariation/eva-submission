@@ -34,6 +34,9 @@ jar:
   accession_pipeline: /path/to/accession_pipeline.jar
   eva_pipeline: /path/to/eva_pipeline.jar
 
+nextflow:
+  remapping: /path/to/remapping.nf
+
 ena:
   submit_url: https://www-test.ebi.ac.uk/ena/submit/drop-box/submit/
   submit_async: https://wwwdev.ebi.ac.uk/ena/submit/webin-v2/submit/queue

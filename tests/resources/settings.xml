@@ -15,6 +15,7 @@
                 <eva.accession.jdbc.url>host</eva.accession.jdbc.url>
                 <eva.accession.user>user</eva.accession.user>
                 <eva.accession.password>pass</eva.accession.password>
+                <eva.accession.mongo.database>accession</eva.accession.mongo.database>
                 <contig-alias.url>host</contig-alias.url>
                 <contig-alias.admin-user>user</contig-alias.admin-user>
                 <contig-alias.admin-password>pass</contig-alias.admin-password>
