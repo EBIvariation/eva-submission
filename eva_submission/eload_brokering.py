@@ -13,7 +13,6 @@ from eva_submission.biosamples_submission import SampleMetadataSubmitter, Sample
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import read_md5
 from eva_submission.submission_config import EloadConfig
-from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 
 class EloadBrokering(Eload):
@@ -237,9 +236,7 @@ class EloadBrokering(Eload):
         return '\n'.join(reports)
     
     def _archival_confirmation_text(self):
-        metadata_file = self.eload_cfg.query('submission', 'metadata_spreadsheet')
-        reader = EvaXlsxReader(metadata_file)
-        study_title = reader.project_title
+        study_title = self.eload_cfg.query('submission', 'project_title')
 
         hold_date = self.eload_cfg.query('brokering', 'ena', 'hold_date')
         brokering_date = self.eload_cfg.query('brokering', 'brokering_date')
@@ -261,7 +258,7 @@ class EloadBrokering(Eload):
         }
         
         archival_text = """
-Your EVA submission {study_title} has now been archived and will be made available to the public on {available_date}. The accessions associated with your submission are:
+Your EVA submission "{study_title}" has now been archived and will be made available to the public on {available_date}. The accessions associated with your submission are:
 Project: {project_accession}
 Analyses: {analysis_accession} 
 If you wish your data to be held private beyond the date specified above, please let us know. Once released, the data will be made available to download from this link: https://www.ebi.ac.uk/eva/?eva-study={project_accession}
@@ -281,7 +278,7 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
             'ena_status': self._check_pass_or_fail(self.eload_cfg.query('brokering', 'ena')),
             'biosamples_report': self._biosamples_report(),
             'ena_report': self._ena_report(),
-            'archival_confirmation_test': self._archival_confirmation_text()
+            'archival_confirmation_text': self._archival_confirmation_text()
         }
         report = """Brokering performed on {brokering_date}
 BioSamples: {biosamples_status}
@@ -297,6 +294,6 @@ ENA brokering:
 ----------------------------------
 
 Archival Confirmation Text:
-{archival_confirmation_test}
+{archival_confirmation_text}
 """
         print(report.format(**report_data))

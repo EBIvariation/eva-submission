@@ -146,6 +146,8 @@ class EloadPreparation(Eload):
                 analysis_reference[analysis_alias]['vcf_files'].append(file_full)
         self.eload_cfg.set('submission', 'analyses', value=analysis_reference)
 
+        self.eload_cfg.set('submission', 'project_title', value=eva_metadata.project_title)
+
         taxonomy_id = eva_metadata.project.get('Tax ID')
         if taxonomy_id and (isinstance(taxonomy_id, int) or taxonomy_id.isdigit()):
             self.eload_cfg.set('submission', 'taxonomy_id', value=int(taxonomy_id))

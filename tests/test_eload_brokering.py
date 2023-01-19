@@ -179,7 +179,7 @@ ANALYSIS: ERZ0000001
 
 Archival Confirmation Text:
 
-Your EVA submission Greatest project ever has now been archived and will be made available to the public on 2021-01-04. The accessions associated with your submission are:
+Your EVA submission "Greatest project ever" has now been archived and will be made available to the public on 2021-01-04. The accessions associated with your submission are:
 Project: PRJEB00001
 Analyses: ERZ0000001 
 If you wish your data to be held private beyond the date specified above, please let us know. Once released, the data will be made available to download from this link: https://www.ebi.ac.uk/eva/?eva-study=PRJEB00001
