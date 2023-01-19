@@ -175,8 +175,22 @@ ANALYSIS: ERZ0000001
      <ACTIONS>ADD</ACTIONS>
 </RECEIPT>
 
-----------------------------------'''
+----------------------------------
+
+Archival Confirmation Text:
+
+Your EVA submission "Greatest project ever" has now been archived and will be made available to the public on 2021-01-04. The accessions associated with your submission are:
+Project: PRJEB00001
+Analyses: ERZ0000001 
+If you wish your data to be held private beyond the date specified above, please let us know. Once released, the data will be made available to download from this link: https://www.ebi.ac.uk/eva/?eva-study=PRJEB00001
+Please allow at least 48 hours from the initial release date provided for the data to be made available through this link. Each variant will be issued a unique SS# ID which will be made available to download via the "browsable files" link on the EVA study page.
+You can also notify us when your paper has been assigned a PMID. We will add this to your study page in the EVA. If there is anything else you need please do not hesitate to notify me. Archived data can be referenced using the project accession & associated URL e.g. The variant data for this study have been deposited in the European Variation Archive (EVA) at EMBL-EBI under accession number PRJEB00001 (https://www.ebi.ac.uk/eva/?eva-study=PRJEB00001)
+The EVA can be cited directly using the associated literature:
+Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva AF, Tsukanov K, Venkataraman S, Flicek P, Parkinson H, Keane TM. The European Variation Archive: a FAIR resource of genomic variation for all species. Nucleic Acids Res. 2021 Oct 28:gkab960. doi: 10.1093/nar/gkab960. PMID: 34718739.
+        
+'''
         with patch('builtins.print') as mprint:
+            self.existing_eload.eload_cfg.set('submission', 'metadata_spreadsheet', value=os.path.join(self.existing_eload.eload_dir, '10_submitted/metadata_file/metadata_sheet.xlsx'))
             self.existing_eload.report()
         mprint.assert_called_once_with(expected_report)
 

@@ -75,6 +75,20 @@ class TestEloadPreparation(TestCase):
         # Check that the metadata spreadsheet is in the config file
         assert self.eload.eload_cfg.query('submission', 'metadata_spreadsheet') == metadata
 
+    def test_detect_metadata_attributes(self):
+        self.create_vcfs()
+        metadata = self.create_metadata()
+        self.eload.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata)
+        self.eload.detect_metadata_attributes()
+
+        assert self.eload.eload_cfg.query('submission', 'project_title') == 'Greatest project ever'
+        assert self.eload.eload_cfg.query('submission', 'taxonomy_id') == 9606
+        assert self.eload.eload_cfg.query('submission', 'scientific_name') == 'Homo sapiens'
+        assert self.eload.eload_cfg.query('submission', 'analyses', 'GAE', 'assembly_accession') == 'GCA_000001405.1'
+        vcf_files = self.eload.eload_cfg.query('submission', 'analyses', 'GAE', 'vcf_files')
+        assert len(vcf_files) == 1
+        assert '10_submitted/vcf_files/T100.vcf.gz' in vcf_files[0]
+
     def test_check_submitted_filenames_multiple_analyses(self):
         # create some extra vcf files and analyses
         vcfs = self.create_vcfs(num_files=5)
