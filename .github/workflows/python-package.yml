@@ -57,3 +57,4 @@ jobs:
         tests/nextflow-tests/run_tests_prep_brokering.sh
         tests/nextflow-tests/run_tests.sh
         tests/nextflow-tests/run_tests_human.sh
+        tests/nextflow-tests/run_tests_clustering.sh

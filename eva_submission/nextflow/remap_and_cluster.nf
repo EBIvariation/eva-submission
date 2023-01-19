@@ -44,7 +44,8 @@ species_name = params.species_name.toLowerCase().replace(" ", "_")
 // Create an channel that will either be empty if remapping will take place or contain a dummy value if not
 // This will allow to trigger the clustering even if no remapping is required
 // We're using params.genome_assembly_dir because cluster_studies_from_mongo needs to receive a file object
-empty_ch = params.remapping_required ? Channel.empty() : Channel.of(params.genome_assembly_dir)
+remapping_required = params.source_assemblies.any {it != params.target_assembly_accession}
+empty_ch = remapping_required ? Channel.empty() : Channel.of(params.genome_assembly_dir)
 
 process retrieve_source_genome {
     when:
@@ -89,7 +90,7 @@ process update_source_genome {
     tuple val(source_assembly_accession), path("${source_fasta.getBaseName()}_custom.fa"), path("${source_report.getBaseName()}_custom.txt") into updated_source_assembly
 
     """
-    ${params.executable.custom_assembly} --assembly-accession ${params.source_assembly_accession} --fasta-file ${source_fasta} --report-file ${source_report}
+    ${params.executable.custom_assembly} --assembly-accession ${source_assembly_accession} --fasta-file ${source_fasta} --report-file ${source_report}
     """
 }
 
@@ -198,7 +199,7 @@ process ingest_vcf_into_mongo {
     """
     java -Xmx8G -jar $params.jar.vcf_ingestion \
         --spring.config.location=file:${params.ingestion_properties} \
-        --parameters.remappedFrom=${source_assembly_accession}
+        --parameters.remappedFrom=${source_assembly_accession} \
         --parameters.vcf=${remapped_vcf} \
         --parameters.assemblyReportUrl=file:${target_report} \
         > ${remapped_vcf}_ingestion.log
