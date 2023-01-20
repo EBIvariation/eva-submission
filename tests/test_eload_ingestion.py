@@ -373,7 +373,7 @@ class TestEloadIngestion(TestCase):
                 self._patch_mongo_database():
             m_get_results.side_effect = default_db_results_for_clustering()
             self.eload.ingest(tasks=['cluster'])
-            assert self.eload.eload_cfg.query('ingestion', 'clustering', 'target_assembly') == 'GCA_123'
+            assert self.eload.eload_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly') == 'GCA_123'
             assert m_run_command.call_count == 1
 
     def test_ingest_clustering_no_supported_assembly(self):
@@ -383,7 +383,7 @@ class TestEloadIngestion(TestCase):
                 self._patch_mongo_database():
             m_get_results.return_value = []
             self.eload.ingest(tasks=['cluster'])
-            assert self.eload.eload_cfg.query('ingestion', 'clustering', 'target_assembly') is None
+            assert self.eload.eload_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly') is None
             assert m_run_command.call_count == 0
 
     def test_resume_when_step_fails(self):

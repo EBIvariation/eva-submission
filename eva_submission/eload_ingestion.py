@@ -394,7 +394,7 @@ class EloadIngestion(Eload):
             )
             results = get_all_results_for_query(conn, current_query)
             if len(results) > 0:
-                self.eload_cfg.set(self.config_section, 'clustering', 'target_assembly', value=results[0][0])
+                self.eload_cfg.set(self.config_section, 'remap_and_cluster', 'target_assembly', value=results[0][0])
                 return results[0][0]
         self.warning(f'Could not find any current supported assembly for {self.taxonomy}, skipping clustering')
         return None
