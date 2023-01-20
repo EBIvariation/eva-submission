@@ -421,6 +421,7 @@ class EloadIngestion(Eload):
         properties = self.properties_generator.get_clustering_properties(
             instance=instance,
             target_assembly=target_assembly,
+            projects=self.project_accession,
             rs_report_path=f'{target_assembly}_rs_report.txt'
         )
         with open(output_file_path, 'w') as open_file:
