@@ -372,7 +372,7 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_run_command, \
                 self._patch_mongo_database():
             m_get_results.side_effect = default_db_results_for_clustering()
-            self.eload.ingest(tasks=['cluster'])
+            self.eload.ingest(tasks=['optional_remap_and_cluster'])
             assert self.eload.eload_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly') == 'GCA_123'
             assert m_run_command.call_count == 1
 
@@ -382,7 +382,7 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_run_command, \
                 self._patch_mongo_database():
             m_get_results.return_value = []
-            self.eload.ingest(tasks=['cluster'])
+            self.eload.ingest(tasks=['optional_remap_and_cluster'])
             assert self.eload.eload_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly') is None
             assert m_run_command.call_count == 0
 

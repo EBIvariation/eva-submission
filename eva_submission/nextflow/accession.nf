@@ -133,7 +133,7 @@ process create_properties {
  * Accession VCFs
  */
 process accession_vcf {
-    clusterOptions "-g /accession \
+    clusterOptions "-g /accession/instance-${params.instance_id} \
                     -o $params.logs_dir/${log_filename}.log \
                     -e $params.logs_dir/${log_filename}.err"
 

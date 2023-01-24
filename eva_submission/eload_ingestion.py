@@ -38,7 +38,7 @@ project_dirs = {
 
 class EloadIngestion(Eload):
     config_section = 'ingestion'  # top-level config key
-    all_tasks = ['metadata_load', 'accession', 'variant_load', 'annotation', 'cluster']
+    all_tasks = ['metadata_load', 'accession', 'variant_load', 'annotation', 'optional_remap_and_cluster']
     nextflow_complete_value = '<complete>'
 
     def __init__(self, eload_number, config_object: EloadConfig = None):
@@ -88,7 +88,7 @@ class EloadIngestion(Eload):
             self.update_files_with_ftp_path()
             self.refresh_study_browser()
 
-        if 'cluster' in tasks:
+        if 'optional_remap_and_cluster' in tasks:
             target_assembly = self._get_target_assembly()
             if target_assembly:
                 self.run_remap_and_cluster_workflow(target_assembly, resume=resume)
