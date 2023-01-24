@@ -212,7 +212,7 @@ process ingest_vcf_into_mongo {
  */
 process cluster_studies_from_mongo {
     memory "${params.memory}GB"
-    clusterOptions "-g /accession/instance-${params.instance_id}"
+    clusterOptions "-g /accession/instance-${params.clustering_instance}"
 
     input:
     path ingestion_log from empty_ch.mix(ingestion_log_filename.collect())
