@@ -1,6 +1,18 @@
 Changelog for eva-submission
 ============================
 
+1.9.0 (2023-01-25)
+------------------
+
+### Validation
+- Separate structural variation check in the Nextflow
+
+### Brokering
+- Generate archival confirmation text after brokering
+
+### Ingestion
+- Fix to QC report
+
 1.8.0 (2022-10-13)
 ------------------
 
