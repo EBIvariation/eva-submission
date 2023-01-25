@@ -13,6 +13,7 @@ from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile, g
 from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name, insert_new_assembly_and_taxonomy, \
     get_assembly_set_from_metadata
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
+from ebi_eva_common_pyutils.spring_properties import SpringPropertiesGenerator
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
@@ -28,6 +29,7 @@ project_dirs = {
     'stats': '50_stats',
     'annotation': '51_annotation',
     'accessions': '52_accessions',
+    'clustering': '53_clustering',
     'public': '60_eva_public',
     'external': '70_external_submissions',
     'deprecated': '80_deprecated'
@@ -36,13 +38,17 @@ project_dirs = {
 
 class EloadIngestion(Eload):
     config_section = 'ingestion'  # top-level config key
-    all_tasks = ['metadata_load', 'accession', 'variant_load', 'annotation']
+    all_tasks = ['metadata_load', 'accession', 'variant_load', 'annotation', 'optional_remap_and_cluster']
     nextflow_complete_value = '<complete>'
 
     def __init__(self, eload_number, config_object: EloadConfig = None):
         super().__init__(eload_number, config_object)
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
-        self.mongo_uri = get_mongo_uri_for_eva_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
+        self.taxonomy = self.eload_cfg.query('submission', 'taxonomy_id')
+        self.private_settings_file = cfg['maven']['settings_file']
+        self.maven_profile = cfg['maven']['environment']
+        self.mongo_uri = get_mongo_uri_for_eva_profile(self.maven_profile, self.private_settings_file)
+        self.properties_generator = SpringPropertiesGenerator(self.maven_profile, self.private_settings_file)
 
     def ingest(
             self,
@@ -81,6 +87,11 @@ class EloadIngestion(Eload):
             self.update_browsable_files_with_date()
             self.update_files_with_ftp_path()
             self.refresh_study_browser()
+
+        if 'optional_remap_and_cluster' in tasks:
+            target_assembly = self._get_target_assembly()
+            if target_assembly:
+                self.run_remap_and_cluster_workflow(target_assembly, resume=resume)
 
         if do_variant_load or annotation_only:
             self.run_variant_load_workflow(vcf_files_to_ingest, annotation_only, resume=resume)
@@ -143,12 +154,11 @@ class EloadIngestion(Eload):
         """
         Constructs the expected database name in mongo, based on assembly info retrieved from EVAPRO.
         """
-        taxon_id = self.eload_cfg.query('submission', 'taxonomy_id')
         # query EVAPRO for db name based on taxonomy id and accession
         with self.metadata_connection_handle as conn:
-            db_name = resolve_variant_warehouse_db_name(conn, assembly_accession, taxon_id)
+            db_name = resolve_variant_warehouse_db_name(conn, assembly_accession, self.taxonomy)
             if not db_name:
-                raise ValueError(f'Database name for taxid:{taxon_id} and assembly {assembly_accession} '
+                raise ValueError(f'Database name for taxid:{self.taxonomy} and assembly {assembly_accession} '
                                  f'could not be retrieved or constructed')
         return db_name
 
@@ -181,7 +191,7 @@ class EloadIngestion(Eload):
                 insert_new_assembly_and_taxonomy(
                     metadata_connection_handle=conn,
                     assembly_accession=assembly,
-                    taxonomy_id=self.eload_cfg.query('submission', 'taxonomy_id'),
+                    taxonomy_id=self.taxonomy,
                 )
 
         for db_info in assembly_to_db_name.values():
@@ -282,11 +292,11 @@ class EloadIngestion(Eload):
         return vcf_files_to_ingest
 
     def run_accession_workflow(self, vcf_files_to_ingest, resume):
-        mongo_host, mongo_user, mongo_pass = get_primary_mongo_creds_for_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
-        pg_url, pg_user, pg_pass = get_accession_pg_creds_for_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
-        counts_url, counts_user, counts_pass = get_count_service_creds_for_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
+        mongo_host, mongo_user, mongo_pass = get_primary_mongo_creds_for_profile(self.maven_profile, self.private_settings_file)
+        pg_url, pg_user, pg_pass = get_accession_pg_creds_for_profile(self.maven_profile, self.private_settings_file)
+        counts_url, counts_user, counts_pass = get_count_service_creds_for_profile(self.maven_profile, self.private_settings_file)
         job_props = accession_props_template(
-            taxonomy_id=self.eload_cfg.query('submission', 'taxonomy_id'),
+            taxonomy_id=self.taxonomy,
             project_accession=self.project_accession,
             instance_id=self.eload_cfg.query(self.config_section, 'accession', 'instance_id'),
             mongo_host=mongo_host,
@@ -334,6 +344,89 @@ class EloadIngestion(Eload):
             'annotation_only': annotation_only,
         }
         self.run_nextflow('variant_load', load_config, resume)
+
+    def run_remap_and_cluster_workflow(self, target_assembly, resume):
+        instance = self.eload_cfg.query(self.config_section, 'accession', 'instance_id')
+        scientific_name = self.eload_cfg.query('submission', 'scientific_name')
+        # this is where all the output will get stored - logs, properties, work dirs...
+        output_dir = os.path.join(self.project_dir, project_dirs['clustering'])
+
+        source_asms = self._get_assembly_accessions()
+        extraction_properties_file = self.create_extraction_properties(
+            output_file_path=os.path.join(output_dir, 'remapping_extraction.properties'),
+            taxonomy=self.taxonomy
+        )
+        ingestion_properties_file = self.create_ingestion_properties(
+            output_file_path=os.path.join(output_dir, 'remapping_ingestion.properties'),
+            target_assembly=target_assembly
+        )
+        clustering_template_file = self.create_clustering_properties(
+            output_file_path=os.path.join(output_dir, 'clustering_template.properties'),
+            instance=instance,
+            target_assembly=target_assembly
+        )
+
+        remap_cluster_config = {
+            'taxonomy_id': self.taxonomy,
+            'source_assemblies': source_asms,
+            'target_assembly_accession': target_assembly,
+            'species_name': scientific_name,
+            'output_dir': output_dir,
+            'genome_assembly_dir': cfg['genome_downloader']['output_directory'],
+            'extraction_properties': extraction_properties_file,
+            'ingestion_properties': ingestion_properties_file,
+            'clustering_properties': clustering_template_file,
+            'clustering_instance': instance,
+            'remapping_config': cfg.config_file
+        }
+        for part in ['executable', 'nextflow', 'jar']:
+            remap_cluster_config[part] = cfg[part]
+        self.run_nextflow('remap_and_cluster', remap_cluster_config, resume)
+
+    def _get_target_assembly(self):
+        if self.taxonomy == 9606:
+            self.info('No remapping or clustering for human studies')
+            return None
+        with self.metadata_connection_handle as conn:
+            current_query = (
+                f"SELECT assembly_id FROM evapro.supported_assembly_tracker "
+                f"WHERE taxonomy_id={self.taxonomy} AND current=true;"
+            )
+            results = get_all_results_for_query(conn, current_query)
+            if len(results) > 0:
+                self.eload_cfg.set(self.config_section, 'remap_and_cluster', 'target_assembly', value=results[0][0])
+                return results[0][0]
+        self.warning(f'Could not find any current supported assembly for {self.taxonomy}, skipping clustering')
+        return None
+
+    def create_extraction_properties(self, output_file_path, taxonomy):
+        properties = self.properties_generator.get_remapping_extraction_properties(
+            taxonomy=taxonomy,
+            projects=self.project_accession
+        )
+        with open(output_file_path, 'w') as open_file:
+            open_file.write(properties)
+        return output_file_path
+
+    def create_ingestion_properties(self, output_file_path, target_assembly):
+        properties = self.properties_generator.get_remapping_ingestion_properties(
+            target_assembly=target_assembly,
+            load_to='EVA'
+        )
+        with open(output_file_path, 'w') as open_file:
+            open_file.write(properties)
+        return output_file_path
+
+    def create_clustering_properties(self, output_file_path, instance, target_assembly):
+        properties = self.properties_generator.get_clustering_properties(
+            instance=instance,
+            target_assembly=target_assembly,
+            projects=self.project_accession,
+            rs_report_path=f'{target_assembly}_rs_report.txt'
+        )
+        with open(output_file_path, 'w') as open_file:
+            open_file.write(properties)
+        return output_file_path
 
     def insert_browsable_files(self):
         with self.metadata_connection_handle as conn:
@@ -389,7 +482,7 @@ class EloadIngestion(Eload):
 
     def update_loaded_assembly_in_browsable_files(self):
         # find assembly associated with each browseable file and copy it to the browsable file table
-        query = ('select bf.file_id, a.vcf_reference_accession ' 
+        query = ('select bf.file_id, a.vcf_reference_accession '
                  'from analysis a '
                  'join analysis_file af on a.analysis_accession=af.analysis_accession '
                  'join browsable_file bf on af.file_id=bf.file_id '
@@ -422,12 +515,11 @@ class EloadIngestion(Eload):
                                f'assembly_set_id {assembly_set_id} from browsable_file')
 
     def update_assembly_set_in_analysis(self):
-        taxonomy = self.eload_cfg.query('submission', 'taxonomy_id')
         analyses = self.eload_cfg.query('submission', 'analyses')
         with self.metadata_connection_handle as conn:
             for analysis_alias, analysis_data in analyses.items():
                 assembly_accession = analysis_data['assembly_accession']
-                assembly_set_id = get_assembly_set_from_metadata(conn, taxonomy, assembly_accession)
+                assembly_set_id = get_assembly_set_from_metadata(conn, self.taxonomy, assembly_accession)
                 analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
                 # Check if the update is needed
                 check_query = (f"select assembly_set_id from evapro.analysis "

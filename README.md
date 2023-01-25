@@ -85,11 +85,12 @@ python broker_submission.py --eload 677 --project_accession PRJEB00001
 ### Data ingestion
 
 After validation and brokering are done, the data can be loaded into our databases and made publicly available.
-This involves three main steps:
+This involves four main steps:
 
 1. Loading submission metadata from ENA into EVAPRO (`metadata_load`)
-2. Accessioning VCF files (`accession`)
+2. Accessioning VCF files and making files public (`accession`)
 3. Loading into the variant warehouse (`variant_load`)
+4. Clustering in the current supported assembly, including remapping to that assembly if necessary (`optional_remap_and_cluster`)
 
 By default, the script will run all of these tasks, though you may specify a subset using the flag `--tasks`.
 Note that as some steps are long-running the script is best run in a screen/tmux session.

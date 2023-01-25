@@ -32,10 +32,17 @@ def default_db_results_for_variant_load():
     ]
 
 
+def default_db_results_for_clustering():
+    return [
+        [('GCA_123',)]  # current supported assembly
+    ]
+
+
 def default_db_results_for_ingestion():
     return (
             default_db_results_for_metadata_load()
             + default_db_results_for_accession()
+            + default_db_results_for_clustering()
             + default_db_results_for_variant_load()
     )
 
@@ -359,6 +366,26 @@ class TestEloadIngestion(TestCase):
                 os.path.join(self.resources_folder, 'projects/PRJEB12345/variant_load_params.yaml')
             )
 
+    def test_ingest_clustering(self):
+        with self._patch_metadata_handle(), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_run_command, \
+                self._patch_mongo_database():
+            m_get_results.side_effect = default_db_results_for_clustering()
+            self.eload.ingest(tasks=['optional_remap_and_cluster'])
+            assert self.eload.eload_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly') == 'GCA_123'
+            assert m_run_command.call_count == 1
+
+    def test_ingest_clustering_no_supported_assembly(self):
+        with self._patch_metadata_handle(), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_run_command, \
+                self._patch_mongo_database():
+            m_get_results.return_value = []
+            self.eload.ingest(tasks=['optional_remap_and_cluster'])
+            assert self.eload.eload_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly') is None
+            assert m_run_command.call_count == 0
+
     def test_resume_when_step_fails(self):
         with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
@@ -378,6 +405,7 @@ class TestEloadIngestion(TestCase):
                 subprocess.CalledProcessError(1, 'nextflow accession'),  # first accession fails
                 None,  # metadata load on resume
                 None,  # accession on resume
+                None,  # clustering
                 None,  # variant load
             ]
 
@@ -406,13 +434,13 @@ class TestEloadIngestion(TestCase):
             # Resuming with no existing job execution is fine
             self.eload.ingest(resume=True)
             num_db_calls = m_get_results.call_count
-            assert m_run_command.call_count == 3
+            assert m_run_command.call_count == 4
 
             # If we resume a successfully completed job, everything in the python will re-run (including db queries)
             # but the nextflow calls will not
             self.eload.ingest(resume=True)
             assert m_get_results.call_count == 2*num_db_calls
-            assert m_run_command.call_count == 4  # 3+1 for metadata
+            assert m_run_command.call_count == 5  # 1 per task, plus 1 for metadata
 
     def test_resume_with_tasks(self):
         with self._patch_metadata_handle(), \
