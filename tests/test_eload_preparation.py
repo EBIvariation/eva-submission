@@ -112,6 +112,8 @@ class TestEloadPreparation(TestCase):
     def test_find_genome_single_sequence(self):
         cfg.content['eutils_api_key'] = None
         self.eload.eload_cfg.set('submission', 'scientific_name', value='Thingy thingus')
+        # Ensure no other analyses present in the config
+        self.eload.eload_cfg.set('submission', 'analyses', value={})
         self.eload.eload_cfg.set('submission', 'analyses', 'Analysis alias test', 'assembly_accession', value='AJ312413.2')
 
         with mock.patch("eva_submission.eload_preparation.requests.put", return_value=mock.Mock(status_code=200)):
@@ -121,11 +123,10 @@ class TestEloadPreparation(TestCase):
             assert 'assembly_report' not in self.eload.eload_cfg['submission']
 
     def test_contig_alias_db_update(self):
-
         cfg.content['eutils_api_key'] = None
         self.eload.eload_cfg.set('submission', 'scientific_name', value='Thingy thingus')
         self.eload.eload_cfg.set('submission', 'analyses', 'Analysis alias test', 'assembly_accession',
-                                                   value='GCA_000001405.10')
+                                 value='GCA_000001405.10')
 
         with mock.patch("eva_submission.eload_preparation.get_reference_fasta_and_report", return_value=('assembly', 'report')), \
                 mock.patch("eva_submission.eload_preparation.requests.put") as mockput:
@@ -133,6 +134,3 @@ class TestEloadPreparation(TestCase):
             self.eload.find_genome()
 
             mockput.assert_called_once_with('host/v1/admin/assemblies/GCA_000001405.10', auth=('user', 'pass'))
-
-
-
