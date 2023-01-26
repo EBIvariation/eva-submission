@@ -443,7 +443,6 @@ class EloadValidation(Eload):
 
     def _collect_structural_variant_check_results(self, vcf_files, output_dir):
         # detect output files for structural variant check
-        total_error = 0
         for vcf_file in vcf_files:
             vcf_name = os.path.basename(vcf_file)
 
@@ -466,8 +465,8 @@ class EloadValidation(Eload):
 
             if sv_check_log and sv_check_sv_vcf:
                 nb_sv = self.parse_sv_check_log(sv_check_log)
-            self.eload_cfg.set('validation', 'structural_variant_check', 'files', os.path.basename(vcf_file),
-                               value={'has_structural_variant': nb_sv > 0, 'number_sv': nb_sv})
+                self.eload_cfg.set('validation', 'structural_variant_check', 'files', os.path.basename(vcf_file),
+                                   value={'has_structural_variant': nb_sv > 0, 'number_sv': nb_sv})
         self.eload_cfg.set('validation', 'structural_variant_check', 'pass', value=True)
 
     def _metadata_check_report(self):
