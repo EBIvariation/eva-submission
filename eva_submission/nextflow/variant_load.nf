@@ -122,7 +122,7 @@ process load_vcf {
 }
 
 
-accession_reports = Channel.fromPath(params.valid_vcfs)
+vcf_files_list = Channel.fromPath(params.valid_vcfs)
             .splitCsv(header:true)
             .map{row -> tuple(file(row.vcf_file), row.db_name)}
 
@@ -132,23 +132,27 @@ accession_reports = Channel.fromPath(params.valid_vcfs)
  */
 process create_properties_for_acc_import_job {
     input:
-    tuple accession_report, db_name from accession_reports
+    tuple vcf_file, db_name from vcf_files_list
 
     output:
-    path "acc_import_${accession_report.getFileName()}.properties" into accession_import_props
+    path "${acc_import_property_file_name}" into accession_import_props
 
     exec:
     props = new Properties()
     params.acc_import_job_props.each { k, v ->
         props.setProperty(k, v.toString())
     }
+
+    accessioned_report_name = vcf_file.getFileName().toString().replace('.vcf','.accessioned.vcf')
+
+    props.setProperty("input.accession.report", "${params.project_dir}/60_eva_public/${accessioned_report_name}")
     props.setProperty("spring.batch.job.names", "accession-import-job")
-    props.setProperty("input.accession.report", accession_report.toRealPath().toString())
     props.setProperty("spring.data.mongodb.database", db_name.toString())
 
     // need to explicitly store in workDir so next process can pick it up
     // see https://github.com/nextflow-io/nextflow/issues/942#issuecomment-441536175
-    props_file = new File("${task.workDir}/acc_import_${accession_report.getFileName()}.properties")
+    acc_import_property_file_name = "acc_import_${accessioned_report_name}.properties"
+    props_file = new File("${task.workDir}/${acc_import_property_file_name}")
     props_file.createNewFile()
     props_file.newWriter().withWriter { w ->
         props.each { k, v ->
@@ -156,7 +160,7 @@ process create_properties_for_acc_import_job {
         }
     }
     // make a copy for debugging purposes
-    new File("${params.project_dir}/acc_import_${accession_report.getFileName()}.properties") << props_file.asWritable()
+    new File("${params.project_dir}/${acc_import_property_file_name}") << props_file.asWritable()
 }
 
 
