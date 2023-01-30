@@ -5,14 +5,15 @@ def helpMessage() {
     Load variant files into variant warehouse.
 
     Inputs:
-            --valid_vcfs            csv file with the mappings for vcf file, assembly accession, fasta, assembly report,
+            --valid_vcfs                csv file with the mappings for vcf file, assembly accession, fasta, assembly report,
                                         analysis_accession, db_name, vep version, vep cache version, aggregation
-            --project_accession     project accession
-            --load_job_props        job-specific properties, passed as a map
-            --eva_pipeline_props    main properties file for eva pipeline
-            --annotation_only       whether to only run annotation job
-            --project_dir           project directory
-            --logs_dir              logs directory
+            --project_accession         project accession
+            --load_job_props            variant load job-specific properties, passed as a map
+            --acc_import_job_props      import accession job-specific properties, passed as a map
+            --eva_pipeline_props        main properties file for eva pipeline
+            --annotation_only           whether to only run annotation job
+            --project_dir               project directory
+            --logs_dir                  logs directory
     """
 }
 
@@ -118,4 +119,66 @@ process load_vcf {
     """
     java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.eva_pipeline_props --parameters.path=$variant_load_properties
     """
+}
+
+
+accession_reports = Channel.fromPath(params.valid_vcfs)
+            .splitCsv(header:true)
+            .map{row -> tuple(file(row.vcf_file), row.db_name)}
+
+
+/*
+ * Create properties files for Accession Import Job.
+ */
+process create_properties_for_acc_import_job {
+    input:
+    tuple accession_report, db_name from accession_reports
+
+    output:
+    path "acc_import_${accession_report.getFileName()}.properties" into accession_import_props
+
+    exec:
+    props = new Properties()
+    params.acc_import_job_props.each { k, v ->
+        props.setProperty(k, v.toString())
+    }
+    props.setProperty("spring.batch.job.names", "accession-import-job")
+    props.setProperty("input.accession.report", accession_report.toRealPath().toString())
+    props.setProperty("spring.data.mongodb.database", db_name.toString())
+
+    // need to explicitly store in workDir so next process can pick it up
+    // see https://github.com/nextflow-io/nextflow/issues/942#issuecomment-441536175
+    props_file = new File("${task.workDir}/acc_import_${accession_report.getFileName()}.properties")
+    props_file.createNewFile()
+    props_file.newWriter().withWriter { w ->
+        props.each { k, v ->
+            w.write("$k=$v\n")
+        }
+    }
+    // make a copy for debugging purposes
+    new File("${params.project_dir}/acc_import_${accession_report.getFileName()}.properties") << props_file.asWritable()
+}
+
+
+
+/*
+ * Import Accession Into Variant warehouse
+ */
+process import_accession{
+    clusterOptions {
+        log_filename = accession_import_properties.getFileName().toString()
+        log_filename = log_filename.substring(11, log_filename.indexOf('.properties'))
+        return "-o $params.logs_dir/pipeline.${log_filename}.log \
+                -e $params.logs_dir/pipeline.${log_filename}.err"
+    }
+
+    input:
+    path accession_import_properties from accession_import_props
+
+    memory '5 GB'
+
+    """
+    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.eva_pipeline_props --parameters.path=$accession_import_properties
+    """
+
 }
