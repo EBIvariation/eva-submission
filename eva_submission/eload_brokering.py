@@ -239,8 +239,12 @@ class EloadBrokering(Eload):
         study_title = self.eload_cfg.query('submission', 'project_title')
 
         hold_date = self.eload_cfg.query('brokering', 'ena', 'hold_date')
-        brokering_date = self.eload_cfg.query('brokering', 'brokering_date')
-        brokering_date_plus_3 = datetime.datetime.strptime(brokering_date.split(" ")[0].strip(), "%Y-%m-%d").date() + datetime.timedelta(days=3)
+        brokering_date_from_config = self.eload_cfg.query('brokering', 'brokering_date')
+        try:
+            brokering_date = datetime.datetime.strptime(brokering_date_from_config.split(" ")[0].strip(), "%Y-%m-%d").date()
+        except:
+            brokering_date = datetime.date.today()
+        brokering_date_plus_3 = brokering_date + datetime.timedelta(days=3)
         available_date = hold_date if hold_date is not None else brokering_date_plus_3
 
         project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
