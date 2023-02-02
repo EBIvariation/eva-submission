@@ -114,6 +114,9 @@ process load_vcf {
     input:
     path variant_load_properties from variant_load_props
 
+    output:
+    val "variant_load_completed" into variant_load_output
+
     memory '5 GB'
 
     """
@@ -177,6 +180,7 @@ process import_accession{
     }
 
     input:
+    val variant_load_output
     path accession_import_properties from accession_import_props
 
     memory '5 GB'
