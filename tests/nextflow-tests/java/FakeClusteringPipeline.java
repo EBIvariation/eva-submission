@@ -8,14 +8,7 @@ public class FakeClusteringPipeline {
         for (String arg: args) {
             outString += " " + arg;
         }
-         String inFile = null;
-        for (String arg: args) {
-            outString += " " + arg;
-            if (arg.startsWith("--spring.config.location="))
-            inFile = arg.substring("--spring.config.location".length(), arg.length()-".properties".length());
-        }
         System.out.println(outString);
-        System.out.println(inFile);
 
         // real pipeline gets this from properties
 	    String outFile1 =  System.getProperty("user.dir") + "/GCA_0000003_rs_report.txt";
