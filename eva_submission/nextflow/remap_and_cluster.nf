@@ -154,6 +154,7 @@ process remap_variants {
 
     output:
     tuple val(source_assembly_accession), path("${basename_source_vcf}_remapped.vcf") into remapped_vcfs
+    tuple val(source_assembly_accession), path("${basename_source_vcf}_remapped.vcf") into remapped_vcfs2
     path "${basename_source_vcf}_remapped_unmapped.vcf" into unmapped_vcfs
     path "${basename_source_vcf}_remapped_counts.yml" into remapped_ymls
 
@@ -221,7 +222,7 @@ process cluster_studies_from_mongo {
     path "${params.target_assembly_accession}_clustering.log" into clustering_log_filename
     path "${params.target_assembly_accession}_rs_report.txt" optional true into rs_report_filename
 
-    publishDir "$params.output_dir/logs", overwrite: true, mode: "copy", pattern: "*.log*"
+    publishDir "$params.output_dir/logs", overwrite: true, mode: "copy"
 
     """
     java -Xmx8G -jar $params.jar.clustering \
@@ -253,3 +254,33 @@ process qc_clustering {
         > ${params.target_assembly_accession}_clustering_qc.log
     """
 }
+
+
+/*
+ * Run Back propagation of new clustered RS
+ */
+process backpropagate_clusters {
+    memory "${params.memory}GB"
+    clusterOptions "-g /accession"
+
+    when:
+    source_assembly_accession != params.target_assembly_accession
+
+    input:
+    tuple val(source_assembly_accession), path(remapped_vcf) from remapped_vcfs2
+    path "clustering_qc.log" from clustering_qc_log_filename
+
+    output:
+    path "${params.target_assembly_accession}_backpropagate_to_${source_assembly_accession}.log" into backpropagate_log_filename
+
+    publishDir "$params.output_dir/logs", overwrite: true, mode: "copy", pattern: "*.log*"
+
+    """
+    java -Xmx8G -jar $params.jar.clustering \
+        --spring.config.location=file:${params.clustering_properties} \
+        --parameters.remappedFrom=${source_assembly_accession} \
+        --spring.batch.job.names=BACK_PROPAGATE_NEW_RS_JOB \
+        > ${params.target_assembly_accession}_backpropagate_to_${source_assembly_accession}.log
+    """
+}
+
