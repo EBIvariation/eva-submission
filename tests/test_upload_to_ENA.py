@@ -121,7 +121,7 @@ class TestENAUploader(TestCase):
         self.assertFalse(os.path.isfile(self.uploader_async.converter.single_submission_file))
         self.uploader_async.upload_xml_files_to_ena()
         self.assertTrue(os.path.isfile(self.uploader_async.converter.single_submission_file))
-        self.assertEqual(self.uploader_async.results, {'errors': ['403: Forbidden - Access Denied']})
+        self.assertEqual(self.uploader_async.results, {'errors': ['403']})
 
     def test_single_dry_upload_xml_files_to_ena(self):
         with patch.object(ENAUploader, '_post_xml_file_to_ena') as mock_post,\

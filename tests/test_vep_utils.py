@@ -63,8 +63,8 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
 
     def test_get_vep_versions_from_ensembl(self):
         vep_version, cache_version, vep_species = get_vep_and_vep_cache_version_from_ensembl('GCA_000827895.1')
-        self.assertEqual(vep_version, 108)
-        self.assertEqual(cache_version, 55)
+        self.assertEqual(vep_version, 109)
+        self.assertEqual(cache_version, 56)
         self.assertEqual(vep_species, 'thelohanellus_kitauei')
         assert os.path.exists(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei'))
         assert os.listdir(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei')) == ['55_ASM82789v1']
