@@ -266,8 +266,8 @@ class EnaXlsxConverter(AppLogger):
             platforms = analysis_row.get('Platform').strip().split(',')
             for platform in platforms:
                 add_element(seq_var_elemt, 'PLATFORM', element_text=platform)
-        if 'Imputation' in analysis_row and analysis_row.get('inputation') \
-                and str(analysis_row.get('inputation').strip()) == '1':
+        if 'Imputation' in analysis_row and analysis_row.get('imputation') \
+                and str(analysis_row.get('imputation').strip()) == '1':
             add_element(seq_var_elemt, 'IMPUTATION', element_text='1')
 
         files_elemt = add_element(analysis_elemt, 'FILES')

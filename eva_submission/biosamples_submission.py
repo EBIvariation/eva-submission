@@ -340,12 +340,13 @@ class SampleMetadataSubmitter(SampleSubmitter):
         'Scientific Name': ['characteristics.scientific name', 'characteristics.Organism']
     }
     accepted_characteristics = ['Unique Name Prefix', 'Subject', 'Derived From', 'Scientific Name', 'Common Name',
-                                'mating_type', 'sex', 'cell_type', 'dev_stage', 'germline', 'tissue_lib', 'tissue_type',
-                                'culture_collection', 'specimen_voucher', 'collected_by', 'collection_date',
-                                'geographic location (country and/or sea)', 'geographic location (region and locality)',
-                                'host', 'identified_by', 'isolation_source', 'lat_lon', 'lab_host',
-                                'environmental_sample', 'cultivar', 'ecotype', 'isolate', 'strain', 'sub_species',
-                                'variety', 'sub_strain', 'cell_line', 'serotype', 'serovar']
+                                'mating_type', 'sex', 'population', 'cell_type', 'dev_stage', 'germline', 'tissue_lib',
+                                'tissue_type', 'culture_collection', 'specimen_voucher', 'collected_by',
+                                'collection_date', 'geographic location (country and/or sea)',
+                                'geographic location (region and locality)', 'host', 'identified_by',
+                                'isolation_source', 'lat_lon', 'lab_host', 'environmental_sample', 'cultivar',
+                                'ecotype', 'isolate', 'strain', 'sub_species', 'variety', 'sub_strain', 'cell_line',
+                                'serotype', 'serovar']
 
     submitter_mapping = {
         'Email Address': 'E-mail',
