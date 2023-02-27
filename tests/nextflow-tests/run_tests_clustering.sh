@@ -38,7 +38,9 @@ ls ${SCRIPT_DIR}/output/logs/GCA_0000001_vcf_extractor.log \
    ${SCRIPT_DIR}/output/logs/GCA_0000001_eva_remapped.vcf_ingestion.log \
    ${SCRIPT_DIR}/output/logs/GCA_0000002_vcf_extractor.log \
    ${SCRIPT_DIR}/output/logs/GCA_0000002_eva_remapped.vcf_ingestion.log \
-   ${SCRIPT_DIR}/output/logs/GCA_0000003_clustering.log
+   ${SCRIPT_DIR}/output/logs/GCA_0000003_clustering.log \
+   ${SCRIPT_DIR}/output/logs/GCA_0000003_rs_report.txt \
+   ${SCRIPT_DIR}/output/logs/GCA_0000003_backpropagate_to_GCA_0000001.log
 
 # clean up
 rm -rf work .nextflow*
