@@ -257,14 +257,11 @@ process qc_clustering {
 
 
 /*
- * Run Back propagation of new clustered RS
+ * Run Back propagation of new clustered RS only if the remapping was performed
  */
 process backpropagate_clusters {
     memory "${params.memory}GB"
     clusterOptions "-g /accession"
-
-    when:
-    source_assembly_accession != params.target_assembly_accession
 
     input:
     tuple val(source_assembly_accession), path(remapped_vcf) from remapped_vcfs2
