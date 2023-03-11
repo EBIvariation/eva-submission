@@ -93,6 +93,41 @@ process check_vcf_reference {
 }
 
 /*
+* Convert the genome to the same naming convention as the VCF
+*/
+process prepare_genome {
+    publishDir "$params.output_dir",
+            overwrite: false,
+            mode: "copy"
+
+    input:
+    set file(vcf_file), file(fasta), file(report) from vcf_channel3
+
+
+    output:
+    path "sv_check/*_sv_check.log" into sv_check_log
+    path "sv_check/*_sv_list.vcf.gz" into sv_list_vcf
+
+
+    when:
+    "normalisation_check" in params.validation_tasks
+
+    script:
+    """
+    mkdir -p sv_check
+
+    export PYTHONPATH="$params.executable.python.script_path"
+    $params.executable.python.interpreter -m eva_submission.steps.rename_contigs_from_insdc_in_assembly \
+    --vcf_file $vcf_file --output_vcf_file_with_sv sv_check/${vcf_file.getSimpleName()}_sv_list.vcf \
+    > sv_check/${vcf_file.getSimpleName()}_sv_check.log 2>&1
+    $params.executable.bgzip -c sv_check/${vcf_file.getSimpleName()}_sv_list.vcf > sv_check/${vcf_file.getSimpleName()}_sv_list.vcf.gz
+    rm sv_check/${vcf_file.getSimpleName()}_sv_list.vcf
+    """
+}
+
+
+
+/*
 * Normalise the VCF files
 */
 process normalise_vcf {

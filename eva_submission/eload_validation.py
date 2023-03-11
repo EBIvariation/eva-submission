@@ -29,7 +29,6 @@ class EloadValidation(Eload):
     def validate(self, validation_tasks=None, set_as_valid=False, merge_per_analysis=False):
         if not validation_tasks:
             validation_tasks = self.all_validation_tasks
-
         # FIXME: remove when normalisation is fixed see EVA-3181
         if 'normalisation_check' in validation_tasks:
             validation_tasks.remove('normalisation_check')
