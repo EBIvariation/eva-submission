@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import gzip
-import os
 from argparse import ArgumentParser
 from csv import DictReader, excel_tab
 
@@ -24,7 +23,7 @@ from retry import retry
 
 class RenameContigsInAssembly(AppLogger):
     """
-    This class renames all the sequence using the specified mapping.
+    This class renames sequences based on the one provided in a set of VCFs
     """
     def __init__(self, assembly_accession, assembly_fasta_path, assembly_report_path, input_vcfs):
         self.input_vcfs = input_vcfs
@@ -67,7 +66,59 @@ class RenameContigsInAssembly(AppLogger):
         self.assembly_report_headers = headers
         return rows
 
+    @cached_property
+    def assembly_report_map(self):
+        """
+        Dictionary of INSDC accession to naming convention used in the VCF constructed based on the assembly report.
+        """
+        assembly_report_map = {}
+        for row in self.assembly_report_rows:
+            # Search if the contig name is found in the VCF
+            for header in ['# Sequence-Name', 'GenBank-Accn', 'RefSeq-Accn', 'UCSC-style-name']:
+                if row[header] in self.contigs_found_in_vcf:
+                    assembly_report_map[row['GenBank-Accn']] = row[header]
+        return assembly_report_map
+
+    @retry(tries=3, delay=2, backoff=1.2, jitter=(1, 3))
+    def _contig_alias_assembly_get(self, page=0, size=10):
+        """queries the contig alias to retrieve the list of chromosome associated with the assembly"""
+        url = (f'https://www.ebi.ac.uk/eva/webservices/contig-alias/v1/assemblies/{self.assembly_accession}/'
+               f'chromosomes?page={page}&size={size}')
+        response = requests.get(url, headers={'accept': 'application/json'})
+        response.raise_for_status()
+        response_json = response.json()
+        return response_json
+
+    @staticmethod
+    def _add_chromosomes_to_map(assembly_data, contig_alias_map):
+        """Add entries to a map based on the contig alias response."""
+        for entity in assembly_data.get('chromosomeEntities', []):
+            for naming_convention in ['refseq', 'enaSequenceName', 'genbankSequenceName', 'ucscName']:
+                if naming_convention in entity and entity[naming_convention]:
+                    contig_alias_map[entity[naming_convention]] = entity['insdcAccession']
+
+    @cached_property
+    def contig_alias_map(self):
+        """
+        Dictionary of INSDC accession to naming convention used in the VCF constructed based on the contig alias.
+        """
+        contig_alias_map_tmp = {}
+        page = 0
+        size = 1000
+        response_json = self._contig_alias_assembly_get(page=page, size=size)
+        self._add_chromosomes_to_map(response_json.get('_embedded', {}), contig_alias_map_tmp)
+        while 'next' in response_json['_links']:
+            page += 1
+            response_json = self._contig_alias_assembly_get(page=page, size=size)
+            self._add_chromosomes_to_map(response_json.get('_embedded', {}), contig_alias_map_tmp)
+        contig_alias_map = {}
+        for contig in self.contigs_found_in_vcf:
+            if contig in contig_alias_map_tmp:
+                contig_alias_map[contig_alias_map_tmp[contig]] = contig
+        return contig_alias_map
+
     def rewrite_changing_names(self, output_fasta):
+        """Create a new fasta file with contig names use in the VCF."""
         with open(self.assembly_fasta_path) as open_input, open(output_fasta, 'w') as open_output:
             for line in open_input:
                 if line.startswith('>'):
@@ -81,60 +132,6 @@ class RenameContigsInAssembly(AppLogger):
                     line = '>' + contig_name + '\n'
                 open_output.write(line)
 
-    @cached_property
-    def assembly_report_map(self):
-        assembly_report_map = {}
-        for row in self.assembly_report_rows:
-            # Search if the contig name is found in the VCF
-            for header in ['# Sequence-Name', 'GenBank-Accn', 'RefSeq-Accn', 'UCSC-style-name']:
-                if row[header] in self.contigs_found_in_vcf:
-                    assembly_report_map[row['GenBank-Accn']] = row[header]
-        return assembly_report_map
-
-    @retry(tries=3, delay=2, backoff=1.2, jitter=(1, 3))
-    def _assembly_get(self, page=0, size=10):
-        url = (f'https://www.ebi.ac.uk/eva/webservices/contig-alias/v1/assemblies/{self.assembly_accession}/'
-               f'chromosomes?page={page}&size={size}')
-        response = requests.get(url, headers={'accept': 'application/json'})
-        response.raise_for_status()
-        response_json = response.json()
-        return response_json
-
-    @staticmethod
-    def _add_chromosomes_to_map(assembly_data, contig_alias_map):
-        for entity in assembly_data.get('chromosomeEntities', []):
-            for naming_convention in ['refseq', 'enaSequenceName', 'genbankSequenceName', 'ucscName']:
-                if naming_convention in entity and entity[naming_convention]:
-                    contig_alias_map[entity[naming_convention]] = entity['insdcAccession']
-
-    @cached_property
-    def contig_alias_map(self):
-        contig_alias_map_tmp = {}
-        page = 0
-        size = 1000
-        response_json = self._assembly_get(page=page, size=size)
-        self._add_chromosomes_to_map(response_json.get('_embedded', {}), contig_alias_map_tmp)
-        while 'next' in response_json['_links']:
-            page += 1
-            response_json = self._assembly_get(page=page, size=size)
-            self._add_chromosomes_to_map(response_json.get('_embedded', {}), contig_alias_map_tmp)
-        contig_alias_map = {}
-        for contig in self.contigs_found_in_vcf:
-            if contig in contig_alias_map_tmp:
-                contig_alias_map[contig_alias_map_tmp[contig]] = contig
-        return contig_alias_map
-
-    @cached_property
-    def contig_to_rename(self):
-        rename_map = {}
-        for row in self.assembly_report_rows:
-            for header in ['# Sequence-Name', 'RefSeq-Accn', 'UCSC-style-name']:
-                if row[header] in self.contigs_found_in_vcf:
-                    rename_map[row[header]] = row['GenBank-Accn']
-        assert self.contigs_found_in_vcf == set(rename_map), \
-            f'There are {len(self.contigs_found_in_vcf - set(rename_map))} contigs missing from the translation map'
-        return rename_map
-
 
 def main():
     argparse = ArgumentParser(description='Convert a genome file from INSDC accession to the naming convention '
@@ -146,14 +143,15 @@ def main():
     argparse.add_argument('--custom_fasta', required=True, type=str,
                           help='The path to the fasta file containing the renamed sequences')
     argparse.add_argument('--assembly_report', required=True, type=str,
-                              help='The path to the file containing the assembly report')
+                          help='The path to the file containing the assembly report')
     argparse.add_argument('--vcf_files', required=True, type=str, nargs='+',
                           help='Path to one or several VCF files')
 
     args = argparse.parse_args()
-    rename = RenameContigsInAssembly(assembly_accession=args.assembly_accession, assembly_fasta_path=args.assembly_fasta,
-                            assembly_report_path=args.assembly_report, input_vcfs=args.vcf_files)
-    rename.rewrite_changing_names(args.custom_fasta)
+    RenameContigsInAssembly(
+        assembly_accession=args.assembly_accession, assembly_fasta_path=args.assembly_fasta,
+        assembly_report_path=args.assembly_report, input_vcfs=args.vcf_files
+    ).rewrite_changing_names(args.custom_fasta)
 
 
 if __name__ == "__main__":

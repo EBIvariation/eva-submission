@@ -102,9 +102,6 @@ process check_vcf_reference {
 * Convert the genome to the same naming convention as the VCF
 */
 process prepare_genome {
-    publishDir "$params.output_dir",
-            overwrite: false,
-            mode: "copy"
 
     input:
     set file(fasta), file(report), assembly_accession, file(vcf_files) from fasta_channel
