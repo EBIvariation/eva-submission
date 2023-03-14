@@ -11,14 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import gzip
 import os
 from argparse import ArgumentParser
 from csv import DictReader, excel_tab
 
-import pysam
 import requests
 from cached_property import cached_property
-from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 from retry import retry
 
@@ -38,9 +37,14 @@ class RenameContigsInAssembly(AppLogger):
         """Provides the contigs present in the VCF file"""
         contigs = set()
         for input_vcf in self.input_vcfs:
-            with pysam.VariantFile(input_vcf, 'r') as vcf_in:
-                for vcf_rec in vcf_in:
-                    contigs.add(vcf_rec.contig)
+            if input_vcf.endswith('.gz'):
+                vcf_in = gzip.open(input_vcf, mode="rt")
+            else:
+                vcf_in = open(input_vcf, mode="r")
+            for line in vcf_in:
+                if line.startswith("#"):
+                    continue
+                contigs.add(line.split('\t')[0])
         return contigs
 
     @staticmethod
@@ -138,14 +142,17 @@ def main():
                           help='The assembly accession of this genome')
     argparse.add_argument('--assembly_fasta', required=True, type=str,
                           help='The path to the fasta file containing the genome sequences')
+    argparse.add_argument('--custom_fasta', required=True, type=str,
+                          help='The path to the fasta file containing the renamed sequences')
     argparse.add_argument('--assembly_report', required=True, type=str,
-                          help='The path to the file containing the assembly report')
+                              help='The path to the file containing the assembly report')
     argparse.add_argument('--vcf_files', required=True, type=str, nargs='+',
                           help='Path to one or several VCF files')
 
     args = argparse.parse_args()
-    RenameContigsInAssembly(assembly_accession=args.assembly_accession, assembly_fasta_path=args.assembly_fasta,
+    rename = RenameContigsInAssembly(assembly_accession=args.assembly_accession, assembly_fasta_path=args.assembly_fasta,
                             assembly_report_path=args.assembly_report, input_vcfs=args.vcf_files)
+    rename.rewrite_changing_names(args.custom_fasta)
 
 
 if __name__ == "__main__":

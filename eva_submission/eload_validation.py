@@ -29,9 +29,6 @@ class EloadValidation(Eload):
     def validate(self, validation_tasks=None, set_as_valid=False, merge_per_analysis=False):
         if not validation_tasks:
             validation_tasks = self.all_validation_tasks
-        # FIXME: remove when normalisation is fixed see EVA-3181
-        if 'normalisation_check' in validation_tasks:
-            validation_tasks.remove('normalisation_check')
 
         # (Re-)Initialise the config file output
         self.eload_cfg.set('validation', 'validation_date', value=self.now)
@@ -55,9 +52,6 @@ class EloadValidation(Eload):
         if set_as_valid is True:
             for validation_task in validation_tasks:
                 self.eload_cfg.set('validation', validation_task, 'forced', value=True)
-
-        # FIXME: remove when normalisation is fixed see EVA-3181
-        self.eload_cfg.set('validation', 'normalisation_check', 'forced', value=True)
 
         self.mark_valid_files_and_metadata(merge_per_analysis)
 

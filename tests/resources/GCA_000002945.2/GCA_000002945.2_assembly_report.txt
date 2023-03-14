@@ -1,0 +1,34 @@
+# Assembly name:  ASM294v2
+# Organism name:  Schizosaccharomyces pombe (fission yeast)
+# Infraspecific name:  strain=972h-
+# Taxid:          4896
+# BioSample:      SAMEA3138176
+# BioProject:     PRJNA13836
+# Submitter:      S. pombe European Sequencing Consortium (EUPOM)
+# Date:           2007-11-09
+# Assembly type:  haploid
+# Release type:   major
+# Assembly level: Chromosome
+# Genome representation: full
+# RefSeq category: Representative Genome
+# GenBank assembly accession: GCA_000002945.2
+# RefSeq assembly accession: GCF_000002945.1
+# RefSeq assembly and GenBank assemblies identical: yes
+#
+## Assembly-Units:
+## GenBank Unit Accession	RefSeq Unit Accession	Assembly-Unit name
+## GCA_000001135.1	GCF_000001135.1	Primary Assembly
+## GCA_000189475.1	GCF_000189475.1	non-nuclear
+#
+# Ordered by chromosome/plasmid; the chromosomes/plasmids are followed by
+# unlocalized scaffolds.
+# Unplaced scaffolds are listed at the end.
+# RefSeq is equal or derived from GenBank object.
+#
+# Sequence-Name	Sequence-Role	Assigned-Molecule	Assigned-Molecule-Location/Type	GenBank-Accn	Relationship	RefSeq-Accn	Assembly-Unit	Sequence-Length	UCSC-style-name
+I	assembled-molecule	I	Chromosome	CU329670.1	=	NC_003424.3	Primary Assembly	5579133	na
+II	assembled-molecule	II	Chromosome	CU329671.1	=	NC_003423.3	Primary Assembly	4539804	na
+III	assembled-molecule	III	Chromosome	CU329672.1	=	NC_003421.2	Primary Assembly	2452883	na
+MT	assembled-molecule	MT	Mitochondrion	X54421.1	=	NC_001326.1	non-nuclear	19431	na
+AB325691.1	assembled-molecule	AB325691	Linkage Group	AB325691.1	=	na	Primary Assembly	na	na
+MTR	assembled-molecule	MTR	Linkage Group	FP565355.1	=	na	Primary Assembly	na	na

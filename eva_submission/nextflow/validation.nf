@@ -37,6 +37,12 @@ Channel.fromPath(params.vcf_files_mapping)
     .map{row -> tuple(file(row.vcf), file(row.fasta), file(row.report))}
     .into{vcf_channel1; vcf_channel2; vcf_channel3; vcf_channel4}
 
+Channel.fromPath(params.vcf_files_mapping)
+    .splitCsv(header:true)
+    .map{row -> tuple(file(row.fasta), file(row.report), row.assembly_accession, file(row.vcf))}
+    .groupTuple(by: [0, 1, 2])
+    .set{fasta_channel}
+
 /*
 * Validate the VCF file format
 */
@@ -101,12 +107,11 @@ process prepare_genome {
             mode: "copy"
 
     input:
-    set file(vcf_file), file(fasta), file(report) from vcf_channel3
+    set file(fasta), file(report), assembly_accession, file(vcf_files) from fasta_channel
 
 
     output:
-    path "sv_check/*_sv_check.log" into sv_check_log
-    path "sv_check/*_sv_list.vcf.gz" into sv_list_vcf
+    tuple assembly_accession, path("${fasta.getSimpleName()}_custom.fa") into custom_fasta
 
 
     when:
@@ -114,16 +119,19 @@ process prepare_genome {
 
     script:
     """
-    mkdir -p sv_check
-
     export PYTHONPATH="$params.executable.python.script_path"
     $params.executable.python.interpreter -m eva_submission.steps.rename_contigs_from_insdc_in_assembly \
-    --vcf_file $vcf_file --output_vcf_file_with_sv sv_check/${vcf_file.getSimpleName()}_sv_list.vcf \
-    > sv_check/${vcf_file.getSimpleName()}_sv_check.log 2>&1
-    $params.executable.bgzip -c sv_check/${vcf_file.getSimpleName()}_sv_list.vcf > sv_check/${vcf_file.getSimpleName()}_sv_list.vcf.gz
-    rm sv_check/${vcf_file.getSimpleName()}_sv_list.vcf
+    --assembly_accession $assembly_accession --assembly_fasta $fasta --custom_fasta ${fasta.getSimpleName()}_custom.fa \
+    --assembly_report $report --vcf_files $vcf_files
     """
 }
+
+
+Channel.fromPath(params.vcf_files_mapping)
+    .splitCsv(header:true)
+    .map{row -> tuple(row.assembly_accession, file(row.vcf))}
+    .combine(custom_fasta, by: 0)
+    .set{assembly_and_vcf_channel}
 
 
 
@@ -136,7 +144,7 @@ process normalise_vcf {
             mode: "copy"
 
     input:
-    set file(vcf_file), file(fasta), file(report) from vcf_channel3
+    set assembly_accession, file(vcf_file), file(fasta) from assembly_and_vcf_channel
 
     output:
     path "normalised_vcfs/*.gz" into normalised_vcf
@@ -167,7 +175,7 @@ process detect_sv {
             mode: "copy"
 
     input:
-    set file(vcf_file), file(fasta), file(report) from vcf_channel4
+    set file(vcf_file), file(fasta), file(report) from vcf_channel3
 
     output:
     path "sv_check/*_sv_check.log" into sv_check_log
