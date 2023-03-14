@@ -72,11 +72,12 @@ class RenameContigsInAssembly(AppLogger):
             for line in open_input:
                 if line.startswith('>'):
                     contig_name = line.split()[0][1:]
-                    new_name = self.assembly_report_map.get(contig_name)
-                    new_name2 = self.contig_alias_map.get(contig_name)
-                    print(contig_name, new_name, new_name2)
-                    if new_name:
-                        contig_name = new_name
+                    assembly_report_name = self.assembly_report_map.get(contig_name)
+                    contig_alias_name = self.contig_alias_map.get(contig_name)
+                    if assembly_report_name:
+                        contig_name = assembly_report_name
+                    elif contig_alias_name:
+                        contig_name = contig_alias_name
                     line = '>' + contig_name + '\n'
                 open_output.write(line)
 
@@ -112,11 +113,11 @@ class RenameContigsInAssembly(AppLogger):
         page = 0
         size = 1000
         response_json = self._assembly_get(page=page, size=size)
-        self._add_chromosomes_to_map(response_json['_embedded'], contig_alias_map_tmp)
+        self._add_chromosomes_to_map(response_json.get('_embedded', {}), contig_alias_map_tmp)
         while 'next' in response_json['_links']:
             page += 1
             response_json = self._assembly_get(page=page, size=size)
-            self._add_chromosomes_to_map(response_json['_embedded'], contig_alias_map_tmp)
+            self._add_chromosomes_to_map(response_json.get('_embedded', {}), contig_alias_map_tmp)
         contig_alias_map = {}
         for contig in self.contigs_found_in_vcf:
             if contig in contig_alias_map_tmp:
