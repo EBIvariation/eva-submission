@@ -98,7 +98,7 @@ class TestENAUploader(TestCase):
         with patch.object(ENAUploader, '_post_xml_file_to_ena') as mock_post,\
              patch('eva_submission.ENA_submission.upload_to_ENA.requests.get') as mock_get:
             json_data = {'submissionId': 'ERA123456', 'links': [{'rel': 'poll-xml', 'href': 'https://example.com/link'}]}
-            mock_post.return_value = Mock(json=Mock(return_value=json_data))
+            mock_post.return_value = Mock(status_code=200, json=Mock(return_value=json_data))
             mock_get.return_value = Mock(status_code=200, text=self.receipt)
             self.assertFalse(os.path.isfile(self.uploader_async.converter.single_submission_file))
             self.uploader_async.upload_xml_files_to_ena()
