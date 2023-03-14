@@ -154,7 +154,7 @@ process normalise_vcf {
     "normalisation_check" in params.validation_tasks
 
     """
-    trap 'if [[ \$? == 1 || \$? == 139 ]]; then exit 0; fi' EXIT
+    trap 'if [[ \$? == 1 || \$? == 139 || \$? == 255 ]]; then exit 0; fi' EXIT
 
     mkdir normalised_vcfs
     if [[ $vcf_file =~ \\.gz\$ ]]
