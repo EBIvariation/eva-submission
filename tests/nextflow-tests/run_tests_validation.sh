@@ -13,9 +13,9 @@ nextflow run "${SOURCE_DIR}/validation.nf" -params-file test_validation_config.y
 
 ls output/sv_check/test1_sv_check.log \
 output/sv_check/test1_sv_list.vcf.gz \
-output/assembly_check/test1.vcf.assembly_check.log \
-output/assembly_check/test1.vcf.text_assembly_report \
-output/assembly_check/test1.vcf.valid_assembly_report \
+output/assembly_check/test1.vcf.gz.assembly_check.log \
+output/assembly_check/test1.vcf.gz.text_assembly_report \
+output/assembly_check/test1.vcf.gz.valid_assembly_report \
 output/normalised_vcfs/test1.vcf.gz \
 output/normalised_vcfs/test1.vcf_bcftools_norm.log
 
