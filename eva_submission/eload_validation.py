@@ -30,10 +30,6 @@ class EloadValidation(Eload):
         if not validation_tasks:
             validation_tasks = self.all_validation_tasks
 
-        # FIXME: remove when normalisation is fixed see EVA-3181
-        if 'normalisation_check' in validation_tasks:
-            validation_tasks.remove('normalisation_check')
-
         # (Re-)Initialise the config file output
         self.eload_cfg.set('validation', 'validation_date', value=self.now)
         self.eload_cfg.set('validation', 'valid', value={})
@@ -56,9 +52,6 @@ class EloadValidation(Eload):
         if set_as_valid is True:
             for validation_task in validation_tasks:
                 self.eload_cfg.set('validation', validation_task, 'forced', value=True)
-
-        # FIXME: remove when normalisation is fixed see EVA-3181
-        self.eload_cfg.set('validation', 'normalisation_check', 'forced', value=True)
 
         self.mark_valid_files_and_metadata(merge_per_analysis)
 
@@ -258,14 +251,15 @@ class EloadValidation(Eload):
         vcf_files_mapping_csv = os.path.join(self.eload_dir, 'vcf_files_mapping.csv')
         with open(vcf_files_mapping_csv, 'w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(['vcf', 'fasta', 'report'])
+            writer.writerow(['vcf', 'fasta', 'report', 'assembly_accession'])
             analyses = self.eload_cfg.query('submission', 'analyses')
             for analysis_alias, analysis_data in analyses.items():
                 fasta = analysis_data['assembly_fasta']
                 report = analysis_data['assembly_report']
+                assembly_accession = analysis_data['assembly_accession']
                 if analysis_data['vcf_files']:
                     for vcf_file in analysis_data['vcf_files']:
-                        writer.writerow([vcf_file, fasta, report])
+                        writer.writerow([vcf_file, fasta, report, assembly_accession])
                 else:
                     self.warning(f"VCF files for analysis {analysis_alias} not found")
         return vcf_files_mapping_csv

@@ -1,0 +1,45 @@
+project_accession: PRJEB12345
+instance_id: 1
+public_ftp_dir: ../../ftp
+logs_dir: ../../../project/logs
+public_dir: ../../../project/public
+valid_vcfs: vcf_files_to_ingest.csv
+vep_path: /path/to/vep
+
+source_assemblies:
+  - GCA_0000003
+target_assembly_accession: GCA_0000003
+
+accession_job_props:
+  test.prop1: x
+  test.prop2: y
+  parameters.taxonomyAccession: 1234
+eva_pipeline_props: test_eva_pipeline.properties
+load_job_props:
+  test.prop1: a
+  test.prop2: b
+acc_import_job_props:
+  test.prop1: a
+  test.prop2: b
+
+executable:
+  bcftools: ../../../bin/fake_bcftools.sh
+  bgzip: ../../../bin/fake_bgzip.sh
+  tabix: ../../../bin/fake_tabix.sh
+  samtools: samtools
+  bedtools: bedtools
+  minimap2: minimap2
+  nextflow: nextflow
+  genome_downloader: ../../../bin/fake_genome_downloader.py
+  custom_assembly: ../../../bin/fake_custom_assembly.py
+  python_activate: ../../../bin/venv_activate
+
+nextflow:
+  remapping: ../../../bin/fake_remapping_pipeline.nf
+
+jar:
+  accession_pipeline: ../../../java/accession.jar
+  eva_pipeline: ../../../java/variant-load.jar
+  vcf_extractor: ../../../java/extraction.jar
+  vcf_ingestion: ../../../java/remap-loading.jar
+  clustering: ../../../java/clustering.jar

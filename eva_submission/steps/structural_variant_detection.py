@@ -17,7 +17,7 @@ def detect_structural_variant(vcf_file, output_vcf):
                           f'{complex_rearrangements_special_breakend_pattern}|{single_breakend_pattern}')
     nb_sv = 0
     if vcf_file.endswith('.gz'):
-        ctx = gzip.open(vcf_file, mode="rb")
+        ctx = gzip.open(vcf_file, mode="rt")
     else:
         ctx = open(vcf_file, mode="r")
     has_sv_in_vcf = False
