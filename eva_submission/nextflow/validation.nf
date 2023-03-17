@@ -105,12 +105,8 @@ process prepare_genome {
 
     input:
     set file(fasta), file(report), assembly_accession, file(vcf_files) from fasta_channel
-
-
     output:
     tuple assembly_accession, path("${fasta.getSimpleName()}_custom.fa") into custom_fasta
-
-
     when:
     "normalisation_check" in params.validation_tasks
 
