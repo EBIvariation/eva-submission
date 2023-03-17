@@ -90,12 +90,12 @@ class RenameContigsInAssembly(AppLogger):
         return response_json
 
     @staticmethod
-    def _add_chromosomes_to_map(assembly_data, contig_alias_map):
-        """Add entries to a map based on the contig alias response."""
+    def _add_chromosomes_to_map(assembly_data, contig_alias_map_tmp):
+        """Add non-INSDC to INSDC accession mapping based on the contig alias response."""
         for entity in assembly_data.get('chromosomeEntities', []):
             for naming_convention in ['refseq', 'enaSequenceName', 'genbankSequenceName', 'ucscName']:
                 if naming_convention in entity and entity[naming_convention]:
-                    contig_alias_map[entity[naming_convention]] = entity['insdcAccession']
+                    contig_alias_map_tmp[entity[naming_convention]] = entity['insdcAccession']
 
     @cached_property
     def contig_alias_map(self):
@@ -112,6 +112,7 @@ class RenameContigsInAssembly(AppLogger):
             response_json = self._contig_alias_assembly_get(page=page, size=size)
             self._add_chromosomes_to_map(response_json.get('_embedded', {}), contig_alias_map_tmp)
         contig_alias_map = {}
+        # Reverse the map to get the INSDC to Non-INSDC name found in the VCF files
         for contig in self.contigs_found_in_vcf:
             if contig in contig_alias_map_tmp:
                 contig_alias_map[contig_alias_map_tmp[contig]] = contig

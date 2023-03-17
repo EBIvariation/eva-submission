@@ -62,8 +62,6 @@ process retrieve_source_genome {
 
 
 process retrieve_target_genome {
-    when:
-    params.source_assemblies.any{it != params.target_assembly_accession}
 
     input:
     val target_assembly_accession
@@ -284,21 +282,22 @@ workflow {
     main:
         species_name = params.species_name.toLowerCase().replace(" ", "_")
 
-        // Create an channel that will either be empty if remapping will take place or contain a dummy value if not
-        // This will allow to trigger the clustering even if no remapping is required
-        // We're using params.genome_assembly_dir because cluster_studies_from_mongo needs to receive a file object
         remapping_required = params.source_assemblies.any {it != params.target_assembly_accession}
-        retrieve_source_genome(params.source_assemblies, species_name)
-        retrieve_target_genome(params.target_assembly_accession, species_name)
-        update_source_genome(retrieve_source_genome.out.source_assembly, params.remapping_config)
-        update_target_genome(retrieve_target_genome.out.target_fasta, retrieve_target_genome.out.target_report, params.remapping_config)
-        extract_vcf_from_mongo(update_source_genome.out.updated_source_assembly)
-        remap_variants(extract_vcf_from_mongo.out.source_vcfs, update_target_genome.out.updated_target_fasta)
-        ingest_vcf_into_mongo(remap_variants.out.remapped_vcfs, update_target_genome.out.updated_target_report)
-        // This is done to ensure that the clustering is run even if there are no remapping required
-        empty_ch = remapping_required ? Channel.empty() : Channel.of(params.genome_assembly_dir)
-        clustering_trigger_ch = empty_ch.mix(ingest_vcf_into_mongo.out.ingestion_log_filename.collect())
-        cluster_studies_from_mongo(clustering_trigger_ch)
-        qc_clustering(cluster_studies_from_mongo.out.rs_report_filename)
-        backpropagate_clusters(remap_variants.out.remapped_vcfs, Channel.value(qc_clustering.out.clustering_qc_log_filename))
+        if (remapping_required){
+            retrieve_source_genome(params.source_assemblies, species_name)
+            retrieve_target_genome(params.target_assembly_accession, species_name)
+            update_source_genome(retrieve_source_genome.out.source_assembly, params.remapping_config)
+            update_target_genome(retrieve_target_genome.out.target_fasta, retrieve_target_genome.out.target_report, params.remapping_config)
+            extract_vcf_from_mongo(update_source_genome.out.updated_source_assembly)
+            remap_variants(extract_vcf_from_mongo.out.source_vcfs, update_target_genome.out.updated_target_fasta)
+            ingest_vcf_into_mongo(remap_variants.out.remapped_vcfs, update_target_genome.out.updated_target_report)
+            cluster_studies_from_mongo(ingest_vcf_into_mongo.out.ingestion_log_filename.collect())
+            qc_clustering(cluster_studies_from_mongo.out.rs_report_filename)
+            backpropagate_clusters(remap_variants.out.remapped_vcfs, Channel.value(qc_clustering.out.clustering_qc_log_filename))
+        }else{
+            // We're using params.genome_assembly_dir because cluster_studies_from_mongo needs to receive a file object
+            cluster_studies_from_mongo(params.genome_assembly_dir)
+            qc_clustering(cluster_studies_from_mongo.out.rs_report_filename)
+        }
+
 }
