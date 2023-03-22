@@ -406,7 +406,7 @@ class EloadIngestion(Eload):
         _, taxonomy_id_from_target = get_assembly_name_and_taxonomy_id(target_assembly)
         if int(taxonomy_id_from_target) != int(self.taxonomy):
             self.warning(f'Target assembly {target_assembly} is from a different taxonomy {taxonomy_id_from_target} '
-                         f'compare to the current project {self.taxonomy}')
+                         f'compared to the current project {self.taxonomy}. Therefore remapping will not be carried out!')
             return False
         return True
 
