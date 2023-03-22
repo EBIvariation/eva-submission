@@ -10,6 +10,7 @@ from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile, get_primary_mongo_creds_for_profile, \
     get_accession_pg_creds_for_profile, get_count_service_creds_for_profile
+from ebi_eva_common_pyutils.ena_utils import get_assembly_name_and_taxonomy_id
 from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name, insert_new_assembly_and_taxonomy, \
     get_assembly_set_from_metadata
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
@@ -90,7 +91,8 @@ class EloadIngestion(Eload):
 
         if 'optional_remap_and_cluster' in tasks:
             target_assembly = self._get_target_assembly()
-            if target_assembly:
+            # EVA-3207: Temporary limitation while we sort out the remapping across species
+            if target_assembly and self._target_assembly_from_same_taxonomy(target_assembly):
                 self.run_remap_and_cluster_workflow(target_assembly, resume=resume)
 
         if do_variant_load or annotation_only:
@@ -398,6 +400,15 @@ class EloadIngestion(Eload):
                 return results[0][0]
         self.warning(f'Could not find any current supported assembly for {self.taxonomy}, skipping clustering')
         return None
+
+    def _target_assembly_from_same_taxonomy(self, target_assembly):
+        # Find taxonomy of the target assembly
+        _, taxonomy_id_from_target = get_assembly_name_and_taxonomy_id(target_assembly)
+        if int(taxonomy_id_from_target) != int(self.taxonomy):
+            self.warning(f'Target assembly {target_assembly} is from a different taxonomy {taxonomy_id_from_target} '
+                         f'compared to the current project {self.taxonomy}. Therefore remapping will not be carried out!')
+            return False
+        return True
 
     def create_extraction_properties(self, output_file_path, taxonomy):
         properties = self.properties_generator.get_remapping_extraction_properties(

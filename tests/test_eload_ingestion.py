@@ -151,11 +151,13 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
                 patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
+                patch('eva_submission.eload_ingestion.get_assembly_name_and_taxonomy_id') as m_get_tax, \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = default_db_results_for_ingestion()
+            m_get_tax.return_value = ('name', '9090')
             self.eload.ingest(1)
 
     def test_ingest_metadata_load(self):
@@ -370,8 +372,10 @@ class TestEloadIngestion(TestCase):
         with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_run_command, \
+                patch('eva_submission.eload_ingestion.get_assembly_name_and_taxonomy_id') as m_get_tax, \
                 self._patch_mongo_database():
             m_get_results.side_effect = default_db_results_for_clustering()
+            m_get_tax.return_value = ('name', '9796')
             self.eload.ingest(tasks=['optional_remap_and_cluster'])
             assert self.eload.eload_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly') == 'GCA_123'
             assert m_run_command.call_count == 1
@@ -394,6 +398,7 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
                 patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
+                patch('eva_submission.eload_ingestion.get_assembly_name_and_taxonomy_id') as m_get_tax, \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
@@ -408,6 +413,7 @@ class TestEloadIngestion(TestCase):
                 None,  # clustering
                 None,  # variant load
             ]
+            m_get_tax.return_value = ('name', '9090')
 
             with self.assertRaises(subprocess.CalledProcessError):
                 self.eload.ingest()
@@ -425,11 +431,13 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
                 patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
+                patch('eva_submission.eload_ingestion.get_assembly_name_and_taxonomy_id') as m_get_tax, \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100, 'homo_sapiens')
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = default_db_results_for_ingestion() + default_db_results_for_ingestion()
+            m_get_tax.return_value = ('name', '9796')
 
             # Resuming with no existing job execution is fine
             self.eload.ingest(resume=True)
