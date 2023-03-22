@@ -15,8 +15,6 @@ from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_n
     get_assembly_set_from_metadata
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
 from ebi_eva_common_pyutils.spring_properties import SpringPropertiesGenerator
-from ebi_eva_common_pyutils.taxonomy import taxonomy
-from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_taxonomy
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
