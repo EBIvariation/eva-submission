@@ -1,6 +1,20 @@
 Changelog for eva-submission
 ============================
 
+1.10.0 (2023-03-23)
+------------------
+
+### Validation
+- Prepare reference genome to allow normlaisation to happen without error 
+
+### Brokering
+- Add population and imputation to BioSamples when available
+
+### Ingestion
+- Load Submitted variant accession to the variant warehouse during variant load
+- Add remapping, clustering and backpropagation steps
+- skip remapping, clustering and backpropagation when target assembly is from a different taxonomy
+
 1.9.0 (2023-01-25)
 ------------------
 
