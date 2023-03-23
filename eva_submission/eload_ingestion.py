@@ -339,6 +339,7 @@ class EloadIngestion(Eload):
             'valid_vcfs': vcf_files_to_ingest,
             'vep_path': cfg['vep_path'],
             'load_job_props': job_props,
+            'acc_import_job_props': {'db.collections.variants.name': 'variants_2_0'},
             'project_accession': self.project_accession,
             'project_dir': str(self.project_dir),
             'logs_dir': os.path.join(self.project_dir, project_dirs['logs']),
