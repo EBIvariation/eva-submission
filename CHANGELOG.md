@@ -1,6 +1,12 @@
 Changelog for eva-submission
 ============================
 
+1.10.1 (2023-03-24)
+------------------
+### Ingestion
+ - default clustering instance to 6
+ - Bugfixes for accession load  
+
 1.10.0 (2023-03-23)
 ------------------
 
