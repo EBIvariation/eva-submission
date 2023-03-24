@@ -54,6 +54,7 @@ class EloadIngestion(Eload):
     def ingest(
             self,
             instance_id=None,
+            clustering_instance_id=None,
             tasks=None,
             vep_cache_assembly_name=None,
             resume=False
@@ -90,6 +91,7 @@ class EloadIngestion(Eload):
             self.refresh_study_browser()
 
         if 'optional_remap_and_cluster' in tasks:
+            self.eload_cfg.set(self.config_section, 'clustering', 'instance_id', value=clustering_instance_id)
             target_assembly = self._get_target_assembly()
             # EVA-3207: Temporary limitation while we sort out the remapping across species
             if target_assembly and self._target_assembly_from_same_taxonomy(target_assembly):
@@ -337,6 +339,7 @@ class EloadIngestion(Eload):
             'valid_vcfs': vcf_files_to_ingest,
             'vep_path': cfg['vep_path'],
             'load_job_props': job_props,
+            'acc_import_job_props': {'db.collections.variants.name': 'variants_2_0'},
             'project_accession': self.project_accession,
             'project_dir': str(self.project_dir),
             'logs_dir': os.path.join(self.project_dir, project_dirs['logs']),
@@ -348,7 +351,7 @@ class EloadIngestion(Eload):
         self.run_nextflow('variant_load', load_config, resume)
 
     def run_remap_and_cluster_workflow(self, target_assembly, resume):
-        instance = self.eload_cfg.query(self.config_section, 'accession', 'instance_id')
+        clustering_instance = self.eload_cfg.query(self.config_section, 'clustering', 'instance_id')
         scientific_name = self.eload_cfg.query('submission', 'scientific_name')
         # this is where all the output will get stored - logs, properties, work dirs...
         output_dir = os.path.join(self.project_dir, project_dirs['clustering'])
@@ -364,7 +367,7 @@ class EloadIngestion(Eload):
         )
         clustering_template_file = self.create_clustering_properties(
             output_file_path=os.path.join(output_dir, 'clustering_template.properties'),
-            instance=instance,
+            clustering_instance=clustering_instance,
             target_assembly=target_assembly
         )
 
@@ -378,7 +381,7 @@ class EloadIngestion(Eload):
             'extraction_properties': extraction_properties_file,
             'ingestion_properties': ingestion_properties_file,
             'clustering_properties': clustering_template_file,
-            'clustering_instance': instance,
+            'clustering_instance': clustering_instance,
             'remapping_config': cfg.config_file
         }
         for part in ['executable', 'nextflow', 'jar']:
@@ -413,7 +416,8 @@ class EloadIngestion(Eload):
     def create_extraction_properties(self, output_file_path, taxonomy):
         properties = self.properties_generator.get_remapping_extraction_properties(
             taxonomy=taxonomy,
-            projects=self.project_accession
+            projects=self.project_accession,
+            output_folder='.'
         )
         with open(output_file_path, 'w') as open_file:
             open_file.write(properties)
@@ -428,9 +432,9 @@ class EloadIngestion(Eload):
             open_file.write(properties)
         return output_file_path
 
-    def create_clustering_properties(self, output_file_path, instance, target_assembly):
+    def create_clustering_properties(self, output_file_path, clustering_instance, target_assembly):
         properties = self.properties_generator.get_clustering_properties(
-            instance=instance,
+            instance=clustering_instance,
             target_assembly=target_assembly,
             projects=self.project_accession,
             rs_report_path=f'{target_assembly}_rs_report.txt'
