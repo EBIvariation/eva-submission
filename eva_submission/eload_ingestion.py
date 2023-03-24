@@ -416,7 +416,8 @@ class EloadIngestion(Eload):
     def create_extraction_properties(self, output_file_path, taxonomy):
         properties = self.properties_generator.get_remapping_extraction_properties(
             taxonomy=taxonomy,
-            projects=self.project_accession
+            projects=self.project_accession,
+            output_folder='.'
         )
         with open(output_file_path, 'w') as open_file:
             open_file.write(properties)
