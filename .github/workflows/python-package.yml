@@ -5,7 +5,7 @@ name: Python package
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, nf-hackathon ]
   pull_request:
     branches: [ master ]
 
@@ -52,7 +52,6 @@ jobs:
     - name: Test nextflow workflows
       run: |
         # Run nextflow tests
-        export NXF_DEFAULT_DSL=1
         tests/nextflow-tests/run_tests_validation.sh
         tests/nextflow-tests/run_tests_prep_brokering.sh
         tests/nextflow-tests/run_tests.sh

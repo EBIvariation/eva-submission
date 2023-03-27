@@ -1,5 +1,7 @@
 #!/usr/bin/env nextflow
 
+nextflow.enable.dsl=2
+
 def helpMessage() {
     log.info"""
     Accession variant files and copy to public FTP.
@@ -73,19 +75,26 @@ human study:
     "accession_vcf" depends on the output channels created by the process create_properties.
   - Initialize csi_vcfs with values enabling them to start the processes "csi_index_vcf".
 */
-is_human_study = (params.accession_job_props.'parameters.taxonomyAccession' == 9606)
-if (is_human_study) {
-    valid_vcfs = Channel.empty()
-    Channel.fromPath(params.valid_vcfs)
-        .splitCsv(header:true)
-        .map{row -> tuple(file(row.vcf_file))}
-        .into{csi_vcfs}
-} else {
-    csi_vcfs = Channel.empty()
-    Channel.fromPath(params.valid_vcfs)
-        .splitCsv(header:true)
-        .map{row -> tuple(file(row.vcf_file), row.assembly_accession, row.aggregation, file(row.fasta), file(row.report))}
-        .set{valid_vcfs}
+workflow {
+    is_human_study = (params.accession_job_props.'parameters.taxonomyAccession' == 9606)
+
+    if (is_human_study) {
+        csi_vcfs = Channel.fromPath(params.valid_vcfs)
+            .splitCsv(header:true)
+            .map{row -> tuple(file(row.vcf_file))}
+        accessioned_files_to_rm = Channel.empty()
+    } else {
+        valid_vcfs = Channel.fromPath(params.valid_vcfs)
+            .splitCsv(header:true)
+            .map{row -> tuple(file(row.vcf_file), row.assembly_accession, row.aggregation, file(row.fasta), file(row.report))}
+        create_properties(valid_vcfs)
+        accession_vcf(create_properties.out.accession_props, create_properties.out.accessioned_filenames, create_properties.out.log_filenames)
+        sort_and_compress_vcf(accession_vcf.out.accession_done)
+        csi_vcfs = sort_and_compress_vcf.out.compressed_vcf
+        accessioned_files_to_rm = create_properties.out.accessioned_filenames
+    }
+    csi_index_vcf(csi_vcfs)
+    copy_to_ftp(csi_index_vcf.out.csi_indexed_vcf.toList(), accessioned_files_to_rm.toList())
 }
 
 /*
@@ -93,12 +102,12 @@ if (is_human_study) {
  */
 process create_properties {
     input:
-    set vcf_file, assembly_accession, aggregation, fasta, report from valid_vcfs
+    tuple path(vcf_file), val(assembly_accession), val(aggregation), path(fasta), path(report)
 
     output:
-    path "${vcf_file.getFileName()}_accessioning.properties" into accession_props
-    val accessioned_filename into accessioned_filenames, accessioned_files_to_rm
-    val log_filename into log_filenames
+    path "${vcf_file.getFileName()}_accessioning.properties", emit: accession_props
+    val accessioned_filename, emit: accessioned_filenames
+    val log_filename, emit: log_filenames
 
     exec:
     props = new Properties()
@@ -140,12 +149,12 @@ process accession_vcf {
     memory '6.7 GB'
 
     input:
-    path accession_properties from accession_props
-    val accessioned_filename from accessioned_filenames
-    val log_filename from log_filenames
+    path accession_properties
+    val accessioned_filename
+    val log_filename
 
     output:
-    path "${accessioned_filename}.tmp" into accession_done
+    path "${accessioned_filename}.tmp", emit: accession_done
 
     """
     filename=\$(basename $accession_properties)
@@ -169,11 +178,11 @@ process sort_and_compress_vcf {
 	mode: 'copy'
 
     input:
-    path tmp_file from accession_done
+    path tmp_file
 
     output:
     // used by csi indexing process
-    path "*.gz" into compressed_vcf
+    path "*.gz", emit: compressed_vcf
 
     """
     filename=\$(basename $tmp_file)
@@ -188,10 +197,10 @@ process csi_index_vcf {
 	mode: 'copy'
 
     input:
-    path compressed_vcf from csi_vcfs.mix(compressed_vcf)
+    path compressed_vcf
 
     output:
-    path "${compressed_vcf}.csi" into csi_indexed_vcf
+    path "${compressed_vcf}.csi", emit: csi_indexed_vcf
 
     """
     $params.executable.bcftools index -c $compressed_vcf
@@ -207,8 +216,8 @@ process csi_index_vcf {
 
     input:
     // ensures that all indices are done before we copy
-    file csi_indices from csi_indexed_vcf.toList()
-    val accessioned_vcfs from accessioned_files_to_rm.toList()
+    file csi_indices
+    val accessioned_vcfs
 
     script:
     if( accessioned_vcfs.size() > 0 )

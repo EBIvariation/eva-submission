@@ -31,6 +31,14 @@ if (!params.eload || !params.old_eloads_dir || !params.new_eloads_dir || !params
 }
 
 
+workflow {
+    copy_submission_dir()
+    if (params.project_accession != null) {
+        copy_project_dir()
+    }
+}
+
+
 process copy_submission_dir {
     label 'datamover'
 
@@ -43,9 +51,6 @@ process copy_submission_dir {
 
 process copy_project_dir {
     label 'datamover'
-
-    when:
-    params.project_accession != null
 
     script:
     """
