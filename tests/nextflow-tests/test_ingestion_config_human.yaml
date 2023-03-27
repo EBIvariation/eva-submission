@@ -14,6 +14,9 @@ eva_pipeline_props: test_eva_pipeline.properties
 load_job_props:
   test.prop1: a
   test.prop2: b
+acc_import_job_props:
+  test.prop1: a
+  test.prop2: b
 
 aggregation_type: none
 
