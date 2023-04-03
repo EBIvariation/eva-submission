@@ -1,6 +1,12 @@
 Changelog for eva-submission
 ============================
 
+
+1.10.2 (2023-04-03)
+------------------
+### Preparation
+ - Fix how the species name in Ensembl is resolved within the VEP cache 
+
 1.10.1 (2023-03-24)
 ------------------
 ### Ingestion
