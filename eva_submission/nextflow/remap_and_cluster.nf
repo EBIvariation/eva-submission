@@ -296,11 +296,11 @@ workflow {
             // The `qc_clustering.out.clustering_qc_log_filename` had to be put in a value channel
             // to make sure it does not run out of values when multiple remapping are performed
             // See https://www.nextflow.io/docs/latest/process.html#multiple-input-channels
-            backpropagate_clusters(remap_variants.out.remapped_vcfs, Channel.value(qc_clustering.out.clustering_qc_log_filename))
+            backpropagate_clusters(remap_variants.out.remapped_vcfs, qc_clustering.out.clustering_qc_log_filename)
         }else{
             // We're using params.genome_assembly_dir because cluster_studies_from_mongo needs to receive a file object
             cluster_studies_from_mongo(params.genome_assembly_dir)
-            qc_clustering(cluster_studies_from_mongo.out.rs_report_filename)
+            qc_clu  stering(cluster_studies_from_mongo.out.rs_report_filename)
         }
 
 }
