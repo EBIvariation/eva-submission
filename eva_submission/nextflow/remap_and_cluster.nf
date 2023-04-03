@@ -300,7 +300,7 @@ workflow {
         }else{
             // We're using params.genome_assembly_dir because cluster_studies_from_mongo needs to receive a file object
             cluster_studies_from_mongo(params.genome_assembly_dir)
-            qc_clu  stering(cluster_studies_from_mongo.out.rs_report_filename)
+            qc_clustering(cluster_studies_from_mongo.out.rs_report_filename)
         }
 
 }
