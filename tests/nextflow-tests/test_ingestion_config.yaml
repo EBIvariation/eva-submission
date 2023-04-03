@@ -1,4 +1,5 @@
 project_accession: PRJEB12345
+taxonomy: 1234
 instance_id: 1
 public_ftp_dir: ../../ftp
 logs_dir: ../../../project/logs

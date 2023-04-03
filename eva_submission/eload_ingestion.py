@@ -347,6 +347,7 @@ class EloadIngestion(Eload):
             'executable': cfg['executable'],
             'jar': cfg['jar'],
             'annotation_only': annotation_only,
+            'taxonomy': self.taxonomy
         }
         self.run_nextflow('variant_load', load_config, resume)
 

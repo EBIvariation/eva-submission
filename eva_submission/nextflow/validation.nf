@@ -1,5 +1,7 @@
 #!/usr/bin/env nextflow
 
+nextflow.enable.dsl=2
+
 def helpMessage() {
     log.info"""
     Validate a set of VCF files and metadata to check if they are valid to be submitted to EVA.
@@ -31,17 +33,34 @@ if (!params.vcf_files_mapping || !params.output_dir) {
 }
 
 
-// vcf files are used multiple times
-Channel.fromPath(params.vcf_files_mapping)
-    .splitCsv(header:true)
-    .map{row -> tuple(file(row.vcf), file(row.fasta), file(row.report))}
-    .into{vcf_channel1; vcf_channel2; vcf_channel3; vcf_channel4}
+workflow {
+    vcf_channel = Channel.fromPath(params.vcf_files_mapping)
+        .splitCsv(header:true)
+        .map{row -> tuple(file(row.vcf), file(row.fasta), file(row.report))}
 
-Channel.fromPath(params.vcf_files_mapping)
-    .splitCsv(header:true)
-    .map{row -> tuple(file(row.fasta), file(row.report), row.assembly_accession, file(row.vcf))}
-    .groupTuple(by: [0, 1, 2])
-    .set{fasta_channel}
+    if ("vcf_check" in params.validation_tasks) {
+        check_vcf_valid(vcf_channel)
+    }
+    if ("assembly_check" in params.validation_tasks) {
+        check_vcf_reference(vcf_channel)
+    }
+    if ("normalisation_check" in params.validation_tasks) {
+        fasta_channel = Channel.fromPath(params.vcf_files_mapping)
+            .splitCsv(header:true)
+            .map{row -> tuple(file(row.fasta), file(row.report), row.assembly_accession, file(row.vcf))}
+            .groupTuple(by: [0, 1, 2])
+        prepare_genome(fasta_channel)
+        assembly_and_vcf_channel = Channel.fromPath(params.vcf_files_mapping)
+            .splitCsv(header:true)
+            .map{row -> tuple(row.assembly_accession, file(row.vcf))}
+            .combine(prepare_genome.out.custom_fasta, by: 0)
+        normalise_vcf(assembly_and_vcf_channel)
+    }
+    if ("structural_variant_check" in params.validation_tasks) {
+        detect_sv(vcf_channel)
+    }
+}
+
 
 /*
 * Validate the VCF file format
@@ -52,16 +71,14 @@ process check_vcf_valid {
             mode: "copy"
 
     input:
-    set file(vcf), file(fasta), file(report) from vcf_channel1
-
-    when:
-    "vcf_check" in params.validation_tasks
+    tuple path(vcf), path(fasta), path(report)
 
     output:
-    path "vcf_format/*.errors.*.db" into vcf_validation_db
-    path "vcf_format/*.errors.*.txt" into vcf_validation_txt
-    path "vcf_format/*.vcf_format.log" into vcf_validation_log
+    path "vcf_format/*.errors.*.db", emit: vcf_validation_db
+    path "vcf_format/*.errors.*.txt", emit: vcf_validation_txt
+    path "vcf_format/*.vcf_format.log", emit: vcf_validation_log
 
+    script:
     """
     trap 'if [[ \$? == 1 ]]; then exit 0; fi' EXIT
 
@@ -80,16 +97,14 @@ process check_vcf_reference {
             mode: "copy"
 
     input:
-    set file(vcf), file(fasta), file(report) from vcf_channel2
+    tuple path(vcf), path(fasta), path(report)
 
     output:
-    path "assembly_check/*valid_assembly_report*" into vcf_assembly_valid
-    path "assembly_check/*text_assembly_report*" into assembly_check_report
-    path "assembly_check/*.assembly_check.log" into assembly_check_log
+    path "assembly_check/*valid_assembly_report*", emit: vcf_assembly_valid
+    path "assembly_check/*text_assembly_report*", emit: assembly_check_report
+    path "assembly_check/*.assembly_check.log", emit: assembly_check_log
 
-    when:
-    "assembly_check" in params.validation_tasks
-
+    script:
     """
     trap 'if [[ \$? == 1 || \$? == 139 ]]; then exit 0; fi' EXIT
 
@@ -98,17 +113,17 @@ process check_vcf_reference {
     """
 }
 
+
 /*
 * Convert the genome to the same naming convention as the VCF
 */
 process prepare_genome {
 
     input:
-    set file(fasta), file(report), assembly_accession, file(vcf_files) from fasta_channel
+    tuple path(fasta), path(report), val(assembly_accession), path(vcf_files)
+
     output:
-    tuple assembly_accession, path("${fasta.getSimpleName()}_custom.fa") into custom_fasta
-    when:
-    "normalisation_check" in params.validation_tasks
+    tuple val(assembly_accession), path("${fasta.getSimpleName()}_custom.fa"), emit: custom_fasta
 
     script:
     """
@@ -120,14 +135,6 @@ process prepare_genome {
 }
 
 
-Channel.fromPath(params.vcf_files_mapping)
-    .splitCsv(header:true)
-    .map{row -> tuple(row.assembly_accession, file(row.vcf))}
-    .combine(custom_fasta, by: 0)
-    .set{assembly_and_vcf_channel}
-
-
-
 /*
 * Normalise the VCF files
 */
@@ -137,15 +144,13 @@ process normalise_vcf {
             mode: "copy"
 
     input:
-    set assembly_accession, file(vcf_file), file(fasta) from assembly_and_vcf_channel
+    tuple val(assembly_accession), path(vcf_file), path(fasta)
 
     output:
-    path "normalised_vcfs/*.gz" into normalised_vcf
-    path "normalised_vcfs/*.log" into normalisation_log
+    path "normalised_vcfs/*.gz", emit: normalised_vcf
+    path "normalised_vcfs/*.log", emit: normalisation_log
 
-    when:
-    "normalisation_check" in params.validation_tasks
-
+    script:
     """
     trap 'if [[ \$? == 1 || \$? == 139 || \$? == 255 ]]; then exit 0; fi' EXIT
 
@@ -160,23 +165,19 @@ process normalise_vcf {
 }
 
 /*
-* Detect the structural variant in VCF
-*/
+ * Detect the structural variant in VCF
+ */
 process detect_sv {
     publishDir "$params.output_dir",
             overwrite: false,
             mode: "copy"
 
     input:
-    set file(vcf_file), file(fasta), file(report) from vcf_channel3
+    tuple path(vcf_file), path(fasta), path(report)
 
     output:
-    path "sv_check/*_sv_check.log" into sv_check_log
-    path "sv_check/*_sv_list.vcf.gz" into sv_list_vcf
-
-
-    when:
-    "structural_variant_check" in params.validation_tasks
+    path "sv_check/*_sv_check.log", emit: sv_check_log
+    path "sv_check/*_sv_list.vcf.gz", emit: sv_list_vcf
 
     script:
     """

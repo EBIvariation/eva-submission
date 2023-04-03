@@ -1,5 +1,7 @@
 #!/usr/bin/env nextflow
 
+nextflow.enable.dsl=2
+
 def helpMessage() {
     log.info"""
     Prepare vcf file ready to be broker to ENA.
@@ -29,24 +31,29 @@ if (!params.vcf_files) {
     exit 1, helpMessage()
 }
 
-// vcf files are used multiple times
-vcf_channel = Channel.fromPath(params.vcf_files)
+
+workflow {
+    vcf_channel = Channel.fromPath(params.vcf_files)
+    compress_vcf(vcf_channel)
+    csi_index_vcf(compress_vcf.out.compressed_vcf)
+    md5_vcf_and_index(compress_vcf.out.compressed_vcf, csi_index_vcf.out.csi_indexed_vcf)
+
+}
+
 
 /*
-* compress the VCF file
+* Compress the VCF file
 */
-
 process compress_vcf {
     publishDir "$params.output_dir",
             overwrite: false,
             mode: "copy"
 
     input:
-    path vcf_file from vcf_channel
+    path vcf_file
 
     output:
-    path "output/*.gz" into compressed_vcf1
-    path "output/*.gz" into compressed_vcf2
+    path "output/*.gz", emit: compressed_vcf
 
     """
     mkdir output
@@ -59,10 +66,10 @@ process compress_vcf {
     """
 }
 
+
 /*
 * Index the compressed VCF file
 */
-
 process csi_index_vcf {
 
     publishDir "$params.output_dir",
@@ -70,10 +77,10 @@ process csi_index_vcf {
             mode: "copy"
 
     input:
-    path compressed_vcf from compressed_vcf1
+    path compressed_vcf
 
     output:
-    path "${compressed_vcf}.csi" into csi_indexed_vcf
+    path "${compressed_vcf}.csi", emit: csi_indexed_vcf
 
     """
     $params.executable.bcftools index -c $compressed_vcf
@@ -84,7 +91,6 @@ process csi_index_vcf {
 /*
 * md5 the compressed vcf and its index
 */
-
 process md5_vcf_and_index {
 
     publishDir "$params.output_dir",
@@ -92,17 +98,15 @@ process md5_vcf_and_index {
             mode: "copy"
 
     input:
-    path vcf from compressed_vcf2
-    path index from csi_indexed_vcf
+    path vcf
+    path index
 
     output:
-    path "${vcf}.md5" into vcf_md5
-    path "${index}.md5" into index_md5
+    path "${vcf}.md5", emit: vcf_md5
+    path "${index}.md5", emit: index_md5
 
     """
     $params.executable.md5sum ${vcf} > ${vcf}.md5
     $params.executable.md5sum ${index} > ${index}.md5
     """
 }
-
-

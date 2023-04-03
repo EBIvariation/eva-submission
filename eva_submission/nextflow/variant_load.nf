@@ -1,5 +1,7 @@
 #!/usr/bin/env nextflow
 
+nextflow.enable.dsl=2
+
 def helpMessage() {
     log.info"""
     Load variant files into variant warehouse.
@@ -12,6 +14,7 @@ def helpMessage() {
             --acc_import_job_props      import accession job-specific properties, passed as a map
             --eva_pipeline_props        main properties file for eva pipeline
             --annotation_only           whether to only run annotation job
+            --taxonomy                  taxonomy id
             --project_dir               project directory
             --logs_dir                  logs directory
     """
@@ -21,8 +24,10 @@ params.valid_vcfs = null
 params.vep_path = null
 params.project_accession = null
 params.load_job_props = null
+params.acc_import_job_props = null
 params.eva_pipeline_props = null
 params.annotation_only = false
+params.taxonomy = null
 params.project_dir = null
 params.logs_dir = null
 // executables
@@ -36,31 +41,45 @@ params.help = null
 if (params.help) exit 0, helpMessage()
 
 // Test inputs
-if (!params.valid_vcfs || !params.vep_path || !params.project_accession || !params.load_job_props || !params.eva_pipeline_props || !params.project_dir || !params.logs_dir) {
+if (!params.valid_vcfs || !params.vep_path || !params.project_accession || !params.taxonomy || !params.load_job_props || !params.acc_import_job_props || !params.eva_pipeline_props || !params.project_dir || !params.logs_dir) {
     if (!params.valid_vcfs) log.warn('Provide a csv file with the mappings (vcf file, assembly accession, fasta, assembly report, analysis_accession, db_name) --valid_vcfs')
     if (!params.vep_path) log.warn('Provide path to VEP installations using --vep_path')
     if (!params.project_accession) log.warn('Provide project accession using --project_accession')
+    if (!params.taxonomy) log.warn('Provide taxonomy id using --taxonomy')
     if (!params.load_job_props) log.warn('Provide job-specific properties using --load_job_props')
+    if (!params.acc_import_job_props) log.warn('Provide accession load properties using --acc_import_job_props')
     if (!params.eva_pipeline_props) log.warn('Provide an EVA Pipeline properties file using --eva_pipeline_props')
     if (!params.project_dir) log.warn('Provide project directory using --project_dir')
     if (!params.logs_dir) log.warn('Provide logs directory using --logs_dir')
     exit 1, helpMessage()
 }
 
-unmerged_vcfs = Channel.fromPath(params.valid_vcfs)
+
+workflow {
+    unmerged_vcfs = Channel.fromPath(params.valid_vcfs)
             .splitCsv(header:true)
             .map{row -> tuple(file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name, row.vep_version, row.vep_cache_version, row.vep_species, row.aggregation)}
+    create_properties(unmerged_vcfs)
+    load_vcf(create_properties.out.variant_load_props)
 
+    if (params.taxonomy != 9606) {
+        vcf_files_list = Channel.fromPath(params.valid_vcfs)
+                .splitCsv(header:true)
+                .map{row -> tuple(file(row.vcf_file), row.db_name)}
+        create_properties_for_acc_import_job(vcf_files_list)
+        import_accession(load_vcf.out.variant_load_complete, create_properties_for_acc_import_job.out.accession_import_props)
+    }
+}
 
 /*
  * Create properties files for load.
  */
 process create_properties {
     input:
-    tuple vcf_file, fasta, analysis_accession, db_name, vep_version, vep_cache_version, vep_species, aggregation from unmerged_vcfs
+    tuple val(vcf_file), path(fasta), val(analysis_accession), val(db_name), val(vep_version), val(vep_cache_version), val(vep_species), val(aggregation)
 
     output:
-    path "load_${vcf_file.getFileName()}.properties" into variant_load_props
+    path "load_${vcf_file.getFileName()}.properties", emit: variant_load_props
 
     exec:
     props = new Properties()
@@ -112,10 +131,10 @@ process load_vcf {
     }
 
     input:
-    path variant_load_properties from variant_load_props
+    path variant_load_properties
 
     output:
-    val "variant_load_completed" into variant_load_output
+    val true, emit: variant_load_complete
 
     memory '5 GB'
 
@@ -125,20 +144,15 @@ process load_vcf {
 }
 
 
-vcf_files_list = Channel.fromPath(params.valid_vcfs)
-            .splitCsv(header:true)
-            .map{row -> tuple(file(row.vcf_file), row.db_name)}
-
-
 /*
  * Create properties files for Accession Import Job.
  */
 process create_properties_for_acc_import_job {
     input:
-    tuple vcf_file, db_name from vcf_files_list
+    tuple path(vcf_file), val(db_name)
 
     output:
-    path "${acc_import_property_file_name}" into accession_import_props
+    path "${acc_import_property_file_name}", emit: accession_import_props
 
     exec:
     props = new Properties()
@@ -171,7 +185,7 @@ process create_properties_for_acc_import_job {
 /*
  * Import Accession Into Variant warehouse
  */
-process import_accession{
+process import_accession {
     clusterOptions {
         log_filename = accession_import_properties.getFileName().toString()
         log_filename = log_filename.substring(11, log_filename.indexOf('.properties'))
@@ -181,12 +195,11 @@ process import_accession{
 
     input:
     val variant_load_output
-    path accession_import_properties from accession_import_props
+    path accession_import_properties
 
     memory '5 GB'
 
     """
     java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.eva_pipeline_props --parameters.path=$accession_import_properties
     """
-
 }

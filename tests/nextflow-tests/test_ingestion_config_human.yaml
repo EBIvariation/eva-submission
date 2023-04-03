@@ -1,4 +1,5 @@
 project_accession: PRJEB12345
+taxonomy: 9606
 instance_id: 1
 public_ftp_dir: ../../ftp
 logs_dir: ../../../project/logs
@@ -12,6 +13,9 @@ accession_job_props:
   parameters.taxonomyAccession: 9606
 eva_pipeline_props: test_eva_pipeline.properties
 load_job_props:
+  test.prop1: a
+  test.prop2: b
+acc_import_job_props:
   test.prop1: a
   test.prop2: b
 
