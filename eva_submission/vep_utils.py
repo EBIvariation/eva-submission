@@ -131,13 +131,12 @@ def get_vep_cache_version_from_ftp(assembly_accession, ensembl_assembly_name=Non
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
 def get_species_and_assembly(assembly_acc):
     """
-    For the provided assemlbly, search for the assembly name and the associated species name in Ensembl (via the
+    For the provided assembly, search for the assembly name and the associated species name in Ensembl (via the
     taxonomy of the assembly).
-    This function return the species name associated with the supported assembly when several assemblies are supported
-    in the current version.
-    When the assembly is not supported return the species name marked as "reference"
-    In some cases, ensembl has several names for that species (because it supports
-    multiple strains) so will return the name associated with this reference
+    This function returns the species name associated with the provided assembly accession if it is supported
+    in the current version of Ensembl.
+    If the assembly is not supported, returns the species name marked as "reference" among the strains that
+    Ensembl does support.
     Returns None if the taxonomy is not known.
     """
     # We first need to search for the species associated with the assembly
