@@ -8,7 +8,7 @@ from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission.submission_config import load_config
 from eva_submission.vep_utils import recursive_nlst, get_vep_and_vep_cache_version_from_ensembl, \
-    get_vep_and_vep_cache_version, download_and_extract_vep_cache, get_ftp_connection
+    get_vep_and_vep_cache_version, download_and_extract_vep_cache, get_ftp_connection, get_species_and_assembly
 
 
 class TestVepUtils(TestCase):
@@ -130,3 +130,24 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
             '/pub/release-105/variation/indexed_vep_cache/papio_anubis_refseq_vep_105_Panubis1.0.tar.gz'
         )
         assert os.path.exists(os.path.join(cfg['vep_cache_path'], species_name, '105_Panubis1.0'))
+
+    def test_get_species_and_assembly(self):
+        assemblies2results = {
+            'GCA_000001405.1': ('homo_sapiens', 'GRCh37', False),
+            'GCA_000001405.14': ('homo_sapiens', 'GRCh37.p13', False),
+            'GCA_000001405.20': ('homo_sapiens', 'GRCh38.p5', False),
+            'GCA_000001405.28': ('homo_sapiens', 'GRCh38.p13', True),
+            'GCA_000001635.2': ('mus_musculus', 'GRCm38', False),
+            'GCA_000002285.2': ('canis_lupus_familiaris', 'CanFam3.1', False),
+            'GCA_000002315.5': ('gallus_gallus', 'GRCg6a', True),
+            'GCA_000003025.6': ('sus_scrofa', 'Sscrofa11.1', True),
+            'GCA_000181335.4': ('felis_catus', 'Felis_catus_9.0', True),
+            'GCA_000473445.2': ('anopheles_farauti', 'Anop_fara_FAR1_V2', True),
+            'GCA_001704415.1': ('capra_hircus', 'ARS1', True),
+            'GCA_002263795.2': ('bos_taurus', 'ARS-UCD1.2', True),
+            'GCA_002742125.1': ('ovis_aries_rambouillet', 'Oar_rambouillet_v1.0', True),
+            'GCA_002863925.1': ('equus_caballus', 'EquCab3.0', True)
+        }
+        for assembly in assemblies2results:
+            res = get_species_and_assembly(assembly)
+            assert res == assemblies2results.get(assembly)

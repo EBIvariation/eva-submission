@@ -131,8 +131,13 @@ def get_vep_cache_version_from_ftp(assembly_accession, ensembl_assembly_name=Non
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
 def get_species_and_assembly(assembly_acc):
     """
-    Returns Ensembl species name, the assembly name of the provided assembly and if the accession is the currently
-     supported assembly, or None if any aren't found.
+    For the provided assembly, search for the assembly name and the associated species name in Ensembl (via the
+    taxonomy of the assembly).
+    This function returns the species name associated with the provided assembly accession if it is supported
+    in the current version of Ensembl.
+    If the assembly is not supported, returns the species name marked as "reference" among the strains that
+    Ensembl does support.
+    Returns None if the taxonomy is not known.
     """
     # We first need to search for the species associated with the assembly
     assembly_dicts = get_ncbi_assembly_dicts_from_term(assembly_acc)
@@ -145,7 +150,7 @@ def get_species_and_assembly(assembly_acc):
     # This is a search so could retrieve multiple results
     if len(taxid_and_assembly_name) != 1:
         logger.warn(f'Multiple assembly found for {assembly_acc}')
-        raise ValueError(f'Cannot resolve single assembly for assembly {assembly_acc} in NCBI. ')
+        raise ValueError(f'Cannot resolve single assembly for assembly {assembly_acc} in NCBI.')
     taxonomy_id, assembly_name = taxid_and_assembly_name.pop()
 
     # Now resolve the currently supported assembly for this species in Ensembl
@@ -161,8 +166,23 @@ def get_species_and_assembly(assembly_acc):
     elif not response.json():
         logger.warning(f'Ensembl return empty list when trying to get species and assembly.')
         return None, None, None
-    json_response = response.json()[0]
-    return json_response['name'], assembly_name, assembly_acc == json_response['assembly_accession']
+    # search through all the responses
+    current = False
+    species_name = None
+    reference = set()
+    json_responses = response.json()
+    for json_response in json_responses:
+        if assembly_acc == json_response['assembly_accession']:
+            current = True
+        if json_response.get('strain') and 'reference' in json_response['strain']:
+            species_name = json_response['name']
+        if json_response.get('reference'):
+            reference.add(json_response.get('reference'))
+    if not species_name and len(reference) == 1:
+        species_name = reference.pop()
+    elif not species_name:
+        species_name = json_responses[0]['name']
+    return species_name, assembly_name, current
 
 
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3), logger=logger)
