@@ -76,7 +76,7 @@ workflow {
  */
 process create_properties {
     input:
-    tuple val(vcf_file), path(fasta), val(analysis_accession), val(db_name), val(vep_version), val(vep_cache_version), val(vep_species), val(aggregation)
+    tuple val(vcf_file), val(fasta), val(analysis_accession), val(db_name), val(vep_version), val(vep_cache_version), val(vep_species), val(aggregation)
 
     output:
     path "load_${vcf_file.getFileName()}.properties", emit: variant_load_props
@@ -149,7 +149,7 @@ process load_vcf {
  */
 process create_properties_for_acc_import_job {
     input:
-    tuple path(vcf_file), val(db_name)
+    tuple val(vcf_file), val(db_name)
 
     output:
     path "${acc_import_property_file_name}", emit: accession_import_props

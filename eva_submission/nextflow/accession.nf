@@ -102,7 +102,7 @@ workflow {
  */
 process create_properties {
     input:
-    tuple path(vcf_file), val(assembly_accession), val(aggregation), path(fasta), path(report)
+    tuple val(vcf_file), val(assembly_accession), val(aggregation), val(fasta), val(report)
 
     output:
     path "${vcf_file.getFileName()}_accessioning.properties", emit: accession_props
