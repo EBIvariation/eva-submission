@@ -1,6 +1,10 @@
 Changelog for eva-submission
 ============================
 
+1.10.3 (2023-04-04)
+------------------
+### Ingestion
+ - Fix nextflow process for creation of properties file
 
 1.10.2 (2023-04-03)
 ------------------
