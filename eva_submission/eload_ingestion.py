@@ -13,6 +13,8 @@ from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile, g
 from ebi_eva_common_pyutils.ena_utils import get_assembly_name_and_taxonomy_id
 from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name, insert_new_assembly_and_taxonomy, \
     get_assembly_set_from_metadata
+from ebi_eva_common_pyutils.ncbi_utils import get_ncbi_assembly_dicts_from_term, \
+    retrieve_species_scientific_name_from_tax_id_ncbi
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
 from ebi_eva_common_pyutils.spring_properties import SpringPropertiesGenerator
 
@@ -108,15 +110,35 @@ class EloadIngestion(Eload):
             if ('vep' in self.eload_cfg.query(self.config_section)
                     and assembly_accession in self.eload_cfg.query(self.config_section, 'vep')):
                 continue
-            vep_version, vep_cache_version, vep_species = get_vep_and_vep_cache_version(
+            vep_version, vep_cache_version = get_vep_and_vep_cache_version(
                 self.mongo_uri,
                 self.eload_cfg.query(self.config_section, 'database', assembly_accession, 'db_name'),
                 assembly_accession,
                 vep_cache_assembly_name
             )
+            vep_species = self.get_species_name_from_ncbi(assembly_accession)
             self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'version', value=vep_version)
             self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'cache_version', value=vep_cache_version)
             self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'species', value=vep_species)
+
+    def get_species_name_from_ncbi(self, assembly_acc):
+        # We first need to search for the species associated with the assembly
+        assembly_dicts = get_ncbi_assembly_dicts_from_term(assembly_acc)
+        taxid_and_assembly_name = set([
+            (assembly_dict.get('taxid'), assembly_dict.get('assemblyname'))
+            for assembly_dict in assembly_dicts
+            if assembly_dict.get('assemblyaccession') == assembly_acc or
+               assembly_dict.get('synonym', {}).get('genbank') == assembly_acc
+        ])
+        # This is a search so could retrieve multiple results
+        if len(taxid_and_assembly_name) != 1:
+            raise ValueError(f'Multiple assembly found for {assembly_acc}. '
+                             f'Cannot resolve single assembly for assembly {assembly_acc} in NCBI.')
+
+        taxonomy_id, assembly_name = taxid_and_assembly_name.pop()
+
+        scientific_name = retrieve_species_scientific_name_from_tax_id_ncbi(taxonomy_id)
+        return scientific_name.replace(' ', '_').lower()
 
     def _get_vcf_files_from_brokering(self):
         vcf_files = []
