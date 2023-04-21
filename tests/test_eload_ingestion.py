@@ -15,7 +15,10 @@ def default_db_results_for_metadata_load():
         [(391,)]  # Check the assembly_set_id in update_assembly_set_in_analysis
     ]
 
-
+def default_db_results_for_target_assembly():
+    return [
+        [('GCA_999')]
+    ]
 def default_db_results_for_accession():
     browsable_files = [(1, 'ERA', 'filename_1', 'PRJ', 123), (2, 'ERA', 'filename_1', 'PRJ', 123)]
     return [
@@ -41,6 +44,7 @@ def default_db_results_for_clustering():
 def default_db_results_for_ingestion():
     return (
             default_db_results_for_metadata_load()
+            + default_db_results_for_target_assembly()
             + default_db_results_for_accession()
             + default_db_results_for_clustering()
             + default_db_results_for_variant_load()
@@ -151,23 +155,12 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
                 patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
-                patch('eva_submission.eload_ingestion.get_ncbi_assembly_dicts_from_term') as m_get_assembly_dict, \
-                patch('eva_submission.eload_ingestion.retrieve_species_scientific_name_from_tax_id_ncbi') as m_get_scf_name, \
+                patch('eva_submission.eload_ingestion.get_species_name_from_ncbi') as m_get_species, \
                 patch('eva_submission.eload_ingestion.get_assembly_name_and_taxonomy_id') as m_get_tax, \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100)
-            m_get_assembly_dict.return_value = [{
-                "taxid": "9606",
-                "assemblyname": "GRCh37.p13",
-                "assemblyaccession": "GCA_000001000.1",
-                "synonym": {
-                    "genbank": "GCA_000001405.14",
-                    "refseq": "GCF_000001405.25",
-                    "similarity": "identical"
-                }
-            }]
-            m_get_scf_name.return_value = 'Homo sapiens'
+            m_get_species.return_value = 'homo_sapiens'
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = default_db_results_for_ingestion()
             m_get_tax.return_value = ('name', '9090')
@@ -200,25 +193,14 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
                 patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
-                patch('eva_submission.eload_ingestion.get_ncbi_assembly_dicts_from_term') as m_get_assembly_dict, \
-                patch('eva_submission.eload_ingestion.retrieve_species_scientific_name_from_tax_id_ncbi') as m_get_scf_name, \
+                patch('eva_submission.eload_ingestion.get_species_name_from_ncbi') as m_get_species, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100)
-            m_get_assembly_dict.return_value = [{
-                "taxid": "9606",
-                "assemblyname": "GRCh37.p13",
-                "assemblyaccession": "GCA_000001000.1",
-                "synonym": {
-                    "genbank": "GCA_000001405.14",
-                    "refseq": "GCF_000001405.25",
-                    "similarity": "identical"
-                }
-            }]
-            m_get_scf_name.return_value = 'Homo sapiens'
+            m_get_species.return_value = 'homo_sapiens'
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_get_results.side_effect = default_db_results_for_accession()
+            m_get_results.side_effect = default_db_results_for_target_assembly() + default_db_results_for_accession()
             self.eload.ingest(
                 instance_id=1,
                 tasks=['accession']
@@ -234,23 +216,12 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
                 patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
-                patch('eva_submission.eload_ingestion.get_ncbi_assembly_dicts_from_term') as m_get_assembly_dict, \
-                patch('eva_submission.eload_ingestion.retrieve_species_scientific_name_from_tax_id_ncbi') as m_get_scf_name, \
+                patch('eva_submission.eload_ingestion.get_species_name_from_ncbi') as m_get_species, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100)
-            m_get_assembly_dict.return_value = [{
-                "taxid": "9606",
-                "assemblyname": "GRCh37.p13",
-                "assemblyaccession": "GCA_000001000.1",
-                "synonym": {
-                    "genbank": "GCA_000001405.14",
-                    "refseq": "GCF_000001405.25",
-                    "similarity": "identical"
-                }
-            }]
-            m_get_scf_name.return_value = 'Homo sapiens'
+            m_get_species.return_value = 'homo_sapiens'
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = default_db_results_for_variant_load()
             self.eload.ingest(tasks=['variant_load'])
@@ -339,25 +310,14 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
                 patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
-                patch('eva_submission.eload_ingestion.get_ncbi_assembly_dicts_from_term') as m_get_assembly_dict, \
-                patch('eva_submission.eload_ingestion.retrieve_species_scientific_name_from_tax_id_ncbi') as m_get_scf_name, \
+                patch('eva_submission.eload_ingestion.get_species_name_from_ncbi') as m_get_species, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = default_db_results_for_variant_load()
             m_get_vep_versions.return_value = (100, 100)
-            m_get_assembly_dict.return_value = [{
-                "taxid": "9606",
-                "assemblyname": "GRCh37.p13",
-                "assemblyaccession": "GCA_000001000.1",
-                "synonym": {
-                    "genbank": "GCA_000001405.14",
-                    "refseq": "GCF_000001405.25",
-                    "similarity": "identical"
-                }
-            }]
-            m_get_scf_name.return_value = 'Homo sapiens'
+            m_get_species.return_value = 'homo_sapiens'
             self.eload.ingest(tasks=['variant_load'])
             self.assert_vep_versions(100, 100, 'homo_sapiens')
 
@@ -372,25 +332,14 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
                 patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
-                patch('eva_submission.eload_ingestion.get_ncbi_assembly_dicts_from_term') as m_get_assembly_dict, \
-                patch('eva_submission.eload_ingestion.retrieve_species_scientific_name_from_tax_id_ncbi') as m_get_scf_name, \
+                patch('eva_submission.eload_ingestion.get_species_name_from_ncbi') as m_get_species, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = default_db_results_for_variant_load()
             m_get_vep_versions.return_value = (None, None)
-            m_get_assembly_dict.return_value = [{
-                "taxid": "9606",
-                "assemblyname": "GRCh37.p13",
-                "assemblyaccession": "GCA_000001000.1",
-                "synonym": {
-                    "genbank": "GCA_000001405.14",
-                    "refseq": "GCF_000001405.25",
-                    "similarity": "identical"
-                }
-            }]
-            m_get_scf_name.return_value = 'Homo sapiens'
+            m_get_species.return_value = 'homo_sapiens'
             self.eload.ingest(tasks=['variant_load'])
             self.assert_vep_versions('', '', '')
 
@@ -422,23 +371,12 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
                 patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
-                patch('eva_submission.eload_ingestion.get_ncbi_assembly_dicts_from_term') as m_get_assembly_dict, \
-                patch('eva_submission.eload_ingestion.retrieve_species_scientific_name_from_tax_id_ncbi') as m_get_scf_name, \
+                patch('eva_submission.eload_ingestion.get_species_name_from_ncbi') as m_get_species, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100)
-            m_get_assembly_dict.return_value = [{
-                "taxid": "9606",
-                "assemblyname": "GRCh37.p13",
-                "assemblyaccession": "GCA_000001000.1",
-                "synonym": {
-                    "genbank": "GCA_000001405.14",
-                    "refseq": "GCF_000001405.25",
-                    "similarity": "identical"
-                }
-            }]
-            m_get_scf_name.return_value = 'Homo sapiens'
+            m_get_species.return_value = 'homo_sapiens'
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = default_db_results_for_variant_load()
             self.eload.ingest(tasks=['annotation'])
@@ -506,25 +444,16 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
                 patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
-                patch('eva_submission.eload_ingestion.get_ncbi_assembly_dicts_from_term') as m_get_assembly_dict, \
-                patch('eva_submission.eload_ingestion.retrieve_species_scientific_name_from_tax_id_ncbi') as m_get_scf_name, \
+                patch('eva_submission.eload_ingestion.get_species_name_from_ncbi') as m_get_species, \
                 patch('eva_submission.eload_ingestion.get_assembly_name_and_taxonomy_id') as m_get_tax, \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100)
-            m_get_assembly_dict.return_value = [{
-                "taxid": "9606",
-                "assemblyname": "GRCh37.p13",
-                "assemblyaccession": "GCA_000001000.1",
-                "synonym": {
-                    "genbank": "GCA_000001405.14",
-                    "refseq": "GCF_000001405.25",
-                    "similarity": "identical"
-                }
-            }]
-            m_get_scf_name.return_value = 'Homo sapiens'
+            m_get_species.return_value = 'homo_sapiens'
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_get_results.side_effect = default_db_results_for_metadata_load() + default_db_results_for_ingestion()
+            m_get_results.side_effect = default_db_results_for_metadata_load() \
+                                        + default_db_results_for_target_assembly()\
+                                        + default_db_results_for_ingestion()
 
             m_run_command.side_effect = [
                 None,  # metadata load
@@ -552,23 +481,12 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
                 patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
-                patch('eva_submission.eload_ingestion.get_ncbi_assembly_dicts_from_term') as m_get_assembly_dict, \
-                patch('eva_submission.eload_ingestion.retrieve_species_scientific_name_from_tax_id_ncbi') as m_get_scf_name, \
+                patch('eva_submission.eload_ingestion.get_species_name_from_ncbi') as m_get_species, \
                 patch('eva_submission.eload_ingestion.get_assembly_name_and_taxonomy_id') as m_get_tax, \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100)
-            m_get_assembly_dict.return_value = [{
-                "taxid": "9606",
-                "assemblyname": "GRCh37.p13",
-                "assemblyaccession": "GCA_000001000.1",
-                "synonym": {
-                    "genbank": "GCA_000001405.14",
-                    "refseq": "GCF_000001405.25",
-                    "similarity": "identical"
-                }
-            }]
-            m_get_scf_name.return_value = 'Homo sapiens'
+            m_get_species.return_value = 'homo_sapiens'
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = default_db_results_for_ingestion() + default_db_results_for_ingestion()
             m_get_tax.return_value = ('name', '9796')
@@ -591,26 +509,15 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
                 patch('eva_submission.eload_ingestion.get_vep_and_vep_cache_version') as m_get_vep_versions, \
-                patch('eva_submission.eload_ingestion.get_ncbi_assembly_dicts_from_term') as m_get_assembly_dict, \
-                patch('eva_submission.eload_ingestion.retrieve_species_scientific_name_from_tax_id_ncbi') as m_get_scf_name, \
+                patch('eva_submission.eload_ingestion.get_species_name_from_ncbi') as m_get_species, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100)
-            m_get_assembly_dict.return_value = [{
-                "taxid": "9606",
-                "assemblyname": "GRCh37.p13",
-                "assemblyaccession": "GCA_000001000.1",
-                "synonym": {
-                    "genbank": "GCA_000001405.14",
-                    "refseq": "GCF_000001405.25",
-                    "similarity": "identical"
-                }
-            }]
-            m_get_scf_name.return_value = 'Homo sapiens'
+            m_get_species.return_value = 'homo_sapiens'
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_get_results.side_effect = (
-                    default_db_results_for_variant_load()
+            m_get_results.side_effect = (default_db_results_for_target_assembly()
+                    + default_db_results_for_variant_load() + default_db_results_for_target_assembly()
                     + default_db_results_for_accession() + default_db_results_for_variant_load()
             )
 
