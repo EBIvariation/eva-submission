@@ -323,25 +323,27 @@ class EloadIngestion(Eload):
         self.run_nextflow('accession', accession_config, resume)
 
     def run_variant_load_workflow(self, vcf_files_to_ingest, annotation_only, resume):
-        job_props = self.properties_generator.get_variant_load_properties(
+        variant_load_job_props = self.properties_generator.get_variant_load_properties(
             project_accession=self.project_accession,
             study_name=self.get_study_name(),
             output_dir=self.project_dir.joinpath(project_dirs['transformed']),
             annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
             stats_dir=self.project_dir.joinpath(project_dirs['stats']),
-
+            vep_cache_path=cfg['vep_cache_path'],
+            opencga_path=cfg['opencga_path']
         )
+        accession_import_job_props = self.properties_generator.get_accession_import_properties(
+            opencga_path=cfg['opencga_path']
+        )
+
         load_config = {
             'valid_vcfs': vcf_files_to_ingest,
             'vep_path': cfg['vep_path'],
-            #TODO:
-            'load_job_props': job_props,
-            'acc_import_job_props': {'db.collections.variants.name': 'variants_2_0'},
+            'load_job_props': variant_load_job_props,
+            'acc_import_job_props': accession_import_job_props,
             'project_accession': self.project_accession,
             'project_dir': str(self.project_dir),
             'logs_dir': os.path.join(self.project_dir, project_dirs['logs']),
-            #TODO:
-            'eva_pipeline_props': cfg['eva_pipeline_props'],
             'executable': cfg['executable'],
             'jar': cfg['jar'],
             'annotation_only': annotation_only,

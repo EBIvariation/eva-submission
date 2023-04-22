@@ -12,7 +12,6 @@ def helpMessage() {
             --project_accession         project accession
             --load_job_props            variant load job-specific properties, passed as a map
             --acc_import_job_props      import accession job-specific properties, passed as a map
-            --eva_pipeline_props        main properties file for eva pipeline
             --annotation_only           whether to only run annotation job
             --taxonomy                  taxonomy id
             --project_dir               project directory
@@ -25,7 +24,6 @@ params.vep_path = null
 params.project_accession = null
 params.load_job_props = null
 params.acc_import_job_props = null
-params.eva_pipeline_props = null
 params.annotation_only = false
 params.taxonomy = null
 params.project_dir = null
@@ -41,14 +39,13 @@ params.help = null
 if (params.help) exit 0, helpMessage()
 
 // Test inputs
-if (!params.valid_vcfs || !params.vep_path || !params.project_accession || !params.taxonomy || !params.load_job_props || !params.acc_import_job_props || !params.eva_pipeline_props || !params.project_dir || !params.logs_dir) {
+if (!params.valid_vcfs || !params.vep_path || !params.project_accession || !params.taxonomy || !params.load_job_props || !params.acc_import_job_props || !params.project_dir || !params.logs_dir) {
     if (!params.valid_vcfs) log.warn('Provide a csv file with the mappings (vcf file, assembly accession, fasta, assembly report, analysis_accession, db_name) --valid_vcfs')
     if (!params.vep_path) log.warn('Provide path to VEP installations using --vep_path')
     if (!params.project_accession) log.warn('Provide project accession using --project_accession')
     if (!params.taxonomy) log.warn('Provide taxonomy id using --taxonomy')
     if (!params.load_job_props) log.warn('Provide job-specific properties using --load_job_props')
     if (!params.acc_import_job_props) log.warn('Provide accession load properties using --acc_import_job_props')
-    if (!params.eva_pipeline_props) log.warn('Provide an EVA Pipeline properties file using --eva_pipeline_props')
     if (!params.project_dir) log.warn('Provide project directory using --project_dir')
     if (!params.logs_dir) log.warn('Provide logs directory using --logs_dir')
     exit 1, helpMessage()
@@ -139,7 +136,9 @@ process load_vcf {
     memory '5 GB'
 
     """
-    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.eva_pipeline_props --parameters.path=$variant_load_properties
+    filename=\$(basename variant_load_properties)
+    filename=\${filename%.*}
+    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.name=\$filename
     """
 }
 
@@ -200,6 +199,8 @@ process import_accession {
     memory '5 GB'
 
     """
-    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.eva_pipeline_props --parameters.path=$accession_import_properties
+    filename=\$(basename accession_import_properties)
+    filename=\${filename%.*}
+    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.name=\$filename
     """
 }

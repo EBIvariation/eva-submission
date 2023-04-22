@@ -5,6 +5,7 @@ projects_dir: 'tests/resources/projects'
 eva_pipeline_props: '/path/to/pipeline/properties'
 vep_path: 'tests/resources/vep'
 vep_cache_path: 'tests/resources/vep_cache'
+opencga_path: '/path/to/opencga'
 
 noah:
   genomes_dir: 'old/genomes'
