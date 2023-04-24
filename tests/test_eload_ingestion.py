@@ -167,7 +167,7 @@ class TestEloadIngestion(TestCase):
                     "similarity": "identical"
                 }
             }]
-            m_get_scf_name.return_value = 'Home sapiens'
+            m_get_scf_name.return_value = 'Homo sapiens'
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = default_db_results_for_ingestion()
             m_get_tax.return_value = ('name', '9090')
@@ -216,7 +216,7 @@ class TestEloadIngestion(TestCase):
                     "similarity": "identical"
                 }
             }]
-            m_get_scf_name.return_value = 'Home sapiens'
+            m_get_scf_name.return_value = 'Homo sapiens'
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = default_db_results_for_accession()
             self.eload.ingest(
@@ -250,7 +250,7 @@ class TestEloadIngestion(TestCase):
                     "similarity": "identical"
                 }
             }]
-            m_get_scf_name.return_value = 'Home sapiens'
+            m_get_scf_name.return_value = 'Homo sapiens'
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = default_db_results_for_variant_load()
             self.eload.ingest(tasks=['variant_load'])
@@ -438,7 +438,7 @@ class TestEloadIngestion(TestCase):
                     "similarity": "identical"
                 }
             }]
-            m_get_scf_name.return_value = 'Home sapiens'
+            m_get_scf_name.return_value = 'Homo sapiens'
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = default_db_results_for_variant_load()
             self.eload.ingest(tasks=['annotation'])
@@ -492,7 +492,7 @@ class TestEloadIngestion(TestCase):
                     "similarity": "identical"
                 }
             }]
-            m_get_scf_name.return_value = 'Home sapiens'
+            m_get_scf_name.return_value = 'Homo sapiens'
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = default_db_results_for_metadata_load() + default_db_results_for_ingestion()
 
@@ -538,7 +538,7 @@ class TestEloadIngestion(TestCase):
                     "similarity": "identical"
                 }
             }]
-            m_get_scf_name.return_value = 'Home sapiens'
+            m_get_scf_name.return_value = 'Homo sapiens'
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = default_db_results_for_ingestion() + default_db_results_for_ingestion()
             m_get_tax.return_value = ('name', '9796')
@@ -577,7 +577,7 @@ class TestEloadIngestion(TestCase):
                     "similarity": "identical"
                 }
             }]
-            m_get_scf_name.return_value = 'Home sapiens'
+            m_get_scf_name.return_value = 'Homo sapiens'
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = (
                     default_db_results_for_variant_load()
