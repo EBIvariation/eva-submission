@@ -483,7 +483,7 @@ class TestEloadIngestion(TestCase):
             m_new_supported_asm.return_value = None
             m_get_results.return_value = []
             self.eload.ingest(tasks=['optional_remap_and_cluster'])
-            assert self.eload.eload_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly') is 'gca_in_another_tax'
+            assert self.eload.eload_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly') == 'gca_in_another_tax'
         with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch.object(EloadIngestion, "_get_supported_assembly_from_evapro", new=MagicMock()) as m_get_supported_asm, \
@@ -496,7 +496,7 @@ class TestEloadIngestion(TestCase):
             m_get_supported_asm.return_value = None
             m_get_results.return_value = []
             self.eload.ingest(tasks=['optional_remap_and_cluster'])
-            assert self.eload.eload_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly') is 'gca_in_another_tax'
+            assert self.eload.eload_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly') == 'gca_in_another_tax'
 
     def test_resume_when_step_fails(self):
         with self._patch_metadata_handle(), \
