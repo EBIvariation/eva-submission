@@ -16,15 +16,15 @@ jobs:
       matrix:
         python-version: [3.8, 3.9]
         nextflow-version: [21.10.5, 22.10.7]
-	java-version: [11]
+        java-version: [11]
 
     steps:
     - uses: actions/checkout@v2
     - name: Set up Java ${{ matrix.java-version }}
       uses: actions/setup-java@v2
       with:
-	distribution: 'temurin'
-	java-version: '${{ matrix.java-version }}'
+        distribution: 'temurin'
+        java-version: '${{ matrix.java-version }}'
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
