@@ -13,7 +13,6 @@ from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile, g
 from ebi_eva_common_pyutils.ena_utils import get_assembly_name_and_taxonomy_id
 from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name, insert_new_assembly_and_taxonomy, \
     get_assembly_set_from_metadata, add_to_supported_assemblies
-    get_assembly_set_from_metadata
 from ebi_eva_common_pyutils.ncbi_utils import get_ncbi_assembly_dicts_from_term, \
     retrieve_species_scientific_name_from_tax_id_ncbi
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
