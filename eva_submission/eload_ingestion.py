@@ -12,11 +12,13 @@ from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile, g
     get_accession_pg_creds_for_profile, get_count_service_creds_for_profile
 from ebi_eva_common_pyutils.ena_utils import get_assembly_name_and_taxonomy_id
 from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name, insert_new_assembly_and_taxonomy, \
+    get_assembly_set_from_metadata, add_to_supported_assemblies
     get_assembly_set_from_metadata
 from ebi_eva_common_pyutils.ncbi_utils import get_ncbi_assembly_dicts_from_term, \
     retrieve_species_scientific_name_from_tax_id_ncbi
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
 from ebi_eva_common_pyutils.spring_properties import SpringPropertiesGenerator
+from ebi_eva_common_pyutils.assembly.assembly import get_supported_asm_from_ensembl
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
@@ -37,6 +39,7 @@ project_dirs = {
     'external': '70_external_submissions',
     'deprecated': '80_deprecated'
 }
+SUPPORTED_ASSEMBLY_TRACKER_TABLE = "evapro.supported_assembly_tracker"
 
 
 class EloadIngestion(Eload):
@@ -95,9 +98,11 @@ class EloadIngestion(Eload):
         if 'optional_remap_and_cluster' in tasks:
             self.eload_cfg.set(self.config_section, 'clustering', 'instance_id', value=clustering_instance_id)
             target_assembly = self._get_target_assembly()
-            # EVA-3207: Temporary limitation while we sort out the remapping across species
-            if target_assembly and self._target_assembly_from_same_taxonomy(target_assembly):
+            if target_assembly:
+                self.eload_cfg.set(self.config_section, 'remap_and_cluster', 'target_assembly', value=target_assembly)
                 self.run_remap_and_cluster_workflow(target_assembly, resume=resume)
+            else:
+                self.warning(f'Could not find any current supported assembly for the submission, skipping clustering')
 
         if do_variant_load or annotation_only:
             self.run_variant_load_workflow(vcf_files_to_ingest, annotation_only, resume=resume)
@@ -302,7 +307,8 @@ class EloadIngestion(Eload):
                 analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
                 db_name = self.eload_cfg.query(self.config_section, 'database', assembly_accession, 'db_name')
                 vep_version = self.eload_cfg.query(self.config_section, 'vep', assembly_accession, 'version')
-                vep_cache_version = self.eload_cfg.query(self.config_section, 'vep', assembly_accession, 'cache_version')
+                vep_cache_version = self.eload_cfg.query(self.config_section, 'vep', assembly_accession,
+                                                         'cache_version')
                 vep_species = self.eload_cfg.query(self.config_section, 'vep', assembly_accession, 'species')
                 if not vep_version or not vep_cache_version:
                     vep_version = ''
@@ -318,9 +324,11 @@ class EloadIngestion(Eload):
         return vcf_files_to_ingest
 
     def run_accession_workflow(self, vcf_files_to_ingest, resume):
-        mongo_host, mongo_user, mongo_pass = get_primary_mongo_creds_for_profile(self.maven_profile, self.private_settings_file)
+        mongo_host, mongo_user, mongo_pass = get_primary_mongo_creds_for_profile(self.maven_profile,
+                                                                                 self.private_settings_file)
         pg_url, pg_user, pg_pass = get_accession_pg_creds_for_profile(self.maven_profile, self.private_settings_file)
-        counts_url, counts_user, counts_pass = get_count_service_creds_for_profile(self.maven_profile, self.private_settings_file)
+        counts_url, counts_user, counts_pass = get_count_service_creds_for_profile(self.maven_profile,
+                                                                                   self.private_settings_file)
         job_props = accession_props_template(
             taxonomy_id=self.taxonomy,
             project_accession=self.project_accession,
@@ -351,11 +359,11 @@ class EloadIngestion(Eload):
 
     def run_variant_load_workflow(self, vcf_files_to_ingest, annotation_only, resume):
         job_props = variant_load_props_template(
-                project_accession=self.project_accession,
-                study_name=self.get_study_name(),
-                output_dir=self.project_dir.joinpath(project_dirs['transformed']),
-                annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
-                stats_dir=self.project_dir.joinpath(project_dirs['stats']),
+            project_accession=self.project_accession,
+            study_name=self.get_study_name(),
+            output_dir=self.project_dir.joinpath(project_dirs['transformed']),
+            annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
+            stats_dir=self.project_dir.joinpath(project_dirs['stats']),
         )
         load_config = {
             'valid_vcfs': vcf_files_to_ingest,
@@ -411,30 +419,47 @@ class EloadIngestion(Eload):
             remap_cluster_config[part] = cfg[part]
         self.run_nextflow('remap_and_cluster', remap_cluster_config, resume)
 
+    def _get_supported_assembly_from_evapro(self, tax_id: int = None):
+        tax_id = tax_id or self.taxonomy
+        with self.metadata_connection_handle as conn:
+            current_query = (
+                f"SELECT assembly_id FROM {SUPPORTED_ASSEMBLY_TRACKER_TABLE}"
+                f"WHERE taxonomy_id={tax_id} AND current=true;"
+            )
+            results = get_all_results_for_query(conn, current_query)
+            if len(results) > 0:
+                return results[0][0]
+        self.warning(f'Could not find any current supported assembly for {tax_id}, in EVAPRO!')
+        return None
+
+    def _insert_new_supported_asm_from_ensembl(self, tax_id: int = None):
+        tax_id = tax_id or self.taxonomy
+        target_assembly = get_supported_asm_from_ensembl(tax_id)
+        if target_assembly:
+            add_to_supported_assemblies(self.metadata_connection_handle, source_of_assembly='Ensembl',
+                                        target_assembly=target_assembly, taxonomy_id=tax_id)
+        return target_assembly
+
     def _get_target_assembly(self):
         if self.taxonomy == 9606:
             self.info('No remapping or clustering for human studies')
             return None
-        with self.metadata_connection_handle as conn:
-            current_query = (
-                f"SELECT assembly_id FROM evapro.supported_assembly_tracker "
-                f"WHERE taxonomy_id={self.taxonomy} AND current=true;"
-            )
-            results = get_all_results_for_query(conn, current_query)
-            if len(results) > 0:
-                self.eload_cfg.set(self.config_section, 'remap_and_cluster', 'target_assembly', value=results[0][0])
-                return results[0][0]
-        self.warning(f'Could not find any current supported assembly for {self.taxonomy}, skipping clustering')
-        return None
+        target_assembly = self._get_supported_assembly_from_evapro() or self._insert_new_supported_asm_from_ensembl()
+        if target_assembly is None:
+            self.warning(f"Could not find remapping target assembly from EVAPRO or Ensembl for the submitted taxonomy: "
+                         f"{self.taxonomy}... Attempting to find assemblies in an alternate taxonomy...")
+            alt_tax_ids = set([tax_id for tax_id in
+                               [get_assembly_name_and_taxonomy_id(asm)[1] for asm in self._get_assembly_accessions()]
+                              if tax_id != self.taxonomy])
+            if len(alt_tax_ids) != 1:
+                self.warning("Could not find a unique alternate taxonomy for the submitted assemblies!")
+                return None
+            alt_tax_id = alt_tax_ids.pop()
 
-    def _target_assembly_from_same_taxonomy(self, target_assembly):
-        # Find taxonomy of the target assembly
-        _, taxonomy_id_from_target = get_assembly_name_and_taxonomy_id(target_assembly)
-        if int(taxonomy_id_from_target) != int(self.taxonomy):
-            self.warning(f'Target assembly {target_assembly} is from a different taxonomy {taxonomy_id_from_target} '
-                         f'compared to the current project {self.taxonomy}. Therefore remapping will not be carried out!')
-            return False
-        return True
+            self.info(f"Found a unique alternate taxonomy {alt_tax_id} for the submitted assemblies!")
+            target_assembly = self._get_supported_assembly_from_evapro(alt_tax_id) or \
+                              self._insert_new_supported_asm_from_ensembl(alt_tax_id)
+        return target_assembly
 
     def create_extraction_properties(self, output_file_path, taxonomy):
         properties = self.properties_generator.get_remapping_extraction_properties(
@@ -547,7 +572,8 @@ class EloadIngestion(Eload):
             f"where pa.project_accession='{self.project_accession}';"
         )
         with self.metadata_connection_handle as conn:
-            for analysis_accession, assembly_set_id, file_id, assembly_set_id_from_browsable in get_all_results_for_query(conn, query):
+            for analysis_accession, assembly_set_id, file_id, assembly_set_id_from_browsable in get_all_results_for_query(
+                    conn, query):
                 if assembly_set_id != assembly_set_id_from_browsable:
                     self.error(f'assembly_set_id {assembly_set_id} from analysis table is different from '
                                f'assembly_set_id {assembly_set_id} from browsable_file')

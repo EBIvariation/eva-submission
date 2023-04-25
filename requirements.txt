@@ -1,6 +1,6 @@
 cached-property
 cerberus
-ebi-eva-common-pyutils>=0.5.2
+ebi-eva-common-pyutils>=0.5.3.dev4
 eva-vcf-merge>=0.0.6
 humanize
 lxml
