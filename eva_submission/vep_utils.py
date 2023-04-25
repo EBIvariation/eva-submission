@@ -9,7 +9,8 @@ from fnmatch import fnmatch
 
 import pymongo
 import requests
-from ebi_eva_common_pyutils.ncbi_utils import get_ncbi_assembly_dicts_from_term
+from ebi_eva_common_pyutils.ncbi_utils import get_ncbi_assembly_dicts_from_term, \
+    retrieve_species_scientific_name_from_tax_id_ncbi
 from retry import retry
 
 from ebi_eva_common_pyutils.config import cfg
@@ -42,13 +43,11 @@ def get_vep_and_vep_cache_version(mongo_uri, db_name, assembly_accession, vep_ca
     """
     vep_version, vep_cache_version = get_vep_and_vep_cache_version_from_db(mongo_uri, db_name)
     if not vep_cache_version and not vep_version:
-        vep_version, vep_cache_version, vep_species = get_vep_and_vep_cache_version_from_ensembl(
+        vep_version, vep_cache_version = get_vep_and_vep_cache_version_from_ensembl(
             assembly_accession, ensembl_assembly_name=vep_cache_assembly_name
         )
-    else:
-        vep_species, _, _ = get_species_and_assembly(assembly_accession)
     if check_vep_version_installed(vep_version):
-        return vep_version, vep_cache_version, vep_species
+        return vep_version, vep_cache_version
     raise ValueError(
         f'Found VEP cache version {vep_cache_version} for assembly {assembly_accession}, '
         f'but compatible VEP version {vep_version} is not installed.'
@@ -75,12 +74,12 @@ def get_vep_and_vep_cache_version_from_db(mongo_uri, db_name):
 
 
 def get_vep_and_vep_cache_version_from_ensembl(assembly_accession, ensembl_assembly_name=None):
-    vep_cache_version, ftp_source, vep_species = get_vep_cache_version_from_ftp(assembly_accession, ensembl_assembly_name)
+    vep_cache_version, ftp_source = get_vep_cache_version_from_ftp(assembly_accession, ensembl_assembly_name)
     if not vep_cache_version:
-        return None, None, None
+        return None, None
 
     vep_version = get_compatible_vep_version(vep_cache_version, ftp_source)
-    return vep_version, vep_cache_version, vep_species
+    return vep_version, vep_cache_version
 
 
 def get_compatible_vep_version(vep_cache_version, ftp_source):
@@ -98,12 +97,12 @@ def check_vep_version_installed(vep_version):
 def get_vep_cache_version_from_ftp(assembly_accession, ensembl_assembly_name=None):
     logger.info('Getting vep_cache_version from Ensembl.')
     logger.info(f'Getting species and supported assembly from Ensembl using assembly accession: {assembly_accession}')
-    species_name, assembly_name, current_release_only = get_species_and_assembly(assembly_accession)
+    species_name, assembly_name, current_release_only, taxonomy_id = get_species_and_assembly(assembly_accession)
     if ensembl_assembly_name:
         assembly_name = ensembl_assembly_name
     if assembly_name is None:
         logger.info(f'No species and assembly found on Ensembl for {assembly_accession}')
-        return None, None, None
+        return None, None
     logger.info(f'Details from Ensembl for species and assembly : {species_name, assembly_name}')
 
     # If we're looking for an older assembly, need to search all releases to find the right one;
@@ -112,20 +111,20 @@ def get_vep_cache_version_from_ftp(assembly_accession, ensembl_assembly_name=Non
     # First try main Ensembl release
     ftp = get_ftp_connection(ensembl_ftp_url)
     all_releases = get_releases(ftp, '/pub', current_release_only)
-    release = search_releases(ftp, all_releases, species_name, assembly_name)
+    release = search_releases(ftp, all_releases, species_name, assembly_name, taxonomy_id)
     if release:
-        return release, 'ensembl', species_name
+        return release, 'ensembl'
 
     # Then try all Ensembl genomes
     genome_ftp = get_ftp_connection(ensembl_genome_ftp_url)
     for subdir in ensembl_genome_dirs:
         genome_releases = get_releases(genome_ftp, subdir, current_release_only)
-        release = search_releases(genome_ftp, genome_releases, species_name, assembly_name)
+        release = search_releases(genome_ftp, genome_releases, species_name, assembly_name, taxonomy_id)
         if release:
-            return release, 'genomes', species_name
+            return release, 'genomes'
 
     logger.info(f'No VEP cache found anywhere on Ensembl FTP for {species_name} and {assembly_name}')
-    return None, None, None
+    return None, None
 
 
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
@@ -160,12 +159,12 @@ def get_species_and_assembly(assembly_acc):
     # we'll assume the species is just not currently supported.
     if not response.ok:
         logger.warning(f'Got {response.status_code} when trying to get species and assembly from Ensembl.')
-        return None, None, None
+        return None, None, None, None
     # Sometime ensembl responds with a 200 but still has no data
     # See https://rest.ensembl.org/info/genomes/taxonomy/1010633?content-type=application/json
     elif not response.json():
         logger.warning(f'Ensembl return empty list when trying to get species and assembly.')
-        return None, None, None
+        return None, None, None, None
     # search through all the responses
     current = False
     species_name = None
@@ -182,7 +181,7 @@ def get_species_and_assembly(assembly_acc):
         species_name = reference.pop()
     elif not species_name:
         species_name = json_responses[0]['name']
-    return species_name, assembly_name, current
+    return species_name, assembly_name, current, taxonomy_id
 
 
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3), logger=logger)
@@ -210,7 +209,7 @@ def get_releases(ftp, subdir, current_only):
     return all_releases
 
 
-def search_releases(ftp, all_releases, species, assembly):
+def search_releases(ftp, all_releases, species, assembly, taxonomy_id):
     for release in sorted(all_releases, reverse=True):
         logger.info(f'Looking for vep_cache_version in release : {all_releases[release]}')
         all_species_files = get_all_species_files(ftp, all_releases.get(release))
@@ -219,7 +218,7 @@ def search_releases(ftp, all_releases, species, assembly):
                 logger.info(f'Found vep_cache_version for {species} and {assembly}: file {f}, release {release}')
                 # TODO assume if we get here we need to download the cache... is this correct?
                 #  e.g. what if we've downloaded the cache for another study but VEP annotation step failed...
-                download_and_extract_vep_cache(ftp, species, f)
+                download_and_extract_vep_cache(ftp, f, taxonomy_id)
                 return release
     return None
 
@@ -253,7 +252,10 @@ def recursive_nlst(ftp, root, pattern):
 
 
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3), logger=logger)
-def download_and_extract_vep_cache(ftp, species_name, vep_cache_file):
+def download_and_extract_vep_cache(ftp, vep_cache_file, taxonomy_id):
+    scientific_name = retrieve_species_scientific_name_from_tax_id_ncbi(taxonomy_id)
+    species_name = scientific_name.replace(' ', '_').lower()
+
     tmp_dir = tempfile.TemporaryDirectory()
     destination = os.path.join(tmp_dir.name, f'{species_name}.tar.gz')
     with open(destination, 'wb+') as dest:
