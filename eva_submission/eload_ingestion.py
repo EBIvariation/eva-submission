@@ -192,7 +192,8 @@ class EloadIngestion(Eload):
                                  f'could not be retrieved or constructed')
         return db_name
 
-    def _get_assembly_accessions(self):
+    @cached_property
+    def assembly_accessions(self):
         assembly_accessions = set()
         analyses = self.eload_cfg.query('submission', 'analyses')
         for analysis_alias, analysis_data in analyses.items():
@@ -205,10 +206,9 @@ class EloadIngestion(Eload):
         Retrieve the database from EVAPRO based on the assembly accession and taxonomy or
         Construct it from the species scientific name and assembly name
         """
-        assembly_accessions = self._get_assembly_accessions()
         assembly_to_db_name = {}
         # Find the database names
-        for assembly_accession in assembly_accessions:
+        for assembly_accession in self.assembly_accessions:
             db_name_retrieved = self.get_db_name(assembly_accession)
             assembly_to_db_name[assembly_accession] = {'db_name': db_name_retrieved}
 
@@ -386,7 +386,6 @@ class EloadIngestion(Eload):
         # this is where all the output will get stored - logs, properties, work dirs...
         output_dir = os.path.join(self.project_dir, project_dirs['clustering'])
 
-        source_asms = self._get_assembly_accessions()
         extraction_properties_file = self.create_extraction_properties(
             output_file_path=os.path.join(output_dir, 'remapping_extraction.properties'),
             taxonomy=self.taxonomy
@@ -403,7 +402,7 @@ class EloadIngestion(Eload):
 
         remap_cluster_config = {
             'taxonomy_id': self.taxonomy,
-            'source_assemblies': source_asms,
+            'source_assemblies': self.assembly_accessions,
             'target_assembly_accession': target_assembly,
             'species_name': scientific_name,
             'output_dir': output_dir,
@@ -447,9 +446,9 @@ class EloadIngestion(Eload):
         if target_assembly is None:
             self.warning(f"Could not find remapping target assembly from EVAPRO or Ensembl for the submitted taxonomy: "
                          f"{self.taxonomy}... Attempting to find assemblies in an alternate taxonomy...")
-            alt_tax_ids = set([tax_id for tax_id in
-                               [get_assembly_name_and_taxonomy_id(asm)[1] for asm in self._get_assembly_accessions()]
-                              if tax_id != self.taxonomy])
+            alt_tax_ids = {tax_id for tax_id in
+                               [get_assembly_name_and_taxonomy_id(asm)[1] for asm in self.assembly_accessions]
+                           if tax_id != self.taxonomy}
             if len(alt_tax_ids) != 1:
                 self.warning("Could not find a unique alternate taxonomy for the submitted assemblies!")
                 return None
