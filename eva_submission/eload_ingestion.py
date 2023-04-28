@@ -11,7 +11,7 @@ from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile
 from ebi_eva_common_pyutils.ena_utils import get_assembly_name_and_taxonomy_id
 from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name, insert_new_assembly_and_taxonomy, \
-    get_assembly_set_from_metadata
+    get_assembly_set_from_metadata, add_to_supported_assemblies
 from ebi_eva_common_pyutils.ncbi_utils import get_species_name_from_ncbi
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
 from ebi_eva_common_pyutils.spring_properties import SpringPropertiesGenerator
@@ -301,33 +301,30 @@ class EloadIngestion(Eload):
         return vcf_files_to_ingest
 
     def run_accession_workflow(self, vcf_files_to_ingest, resume):
-        instance_id = self.eload_cfg.query(self.config_section, 'accession', 'instance_id'),
-        job_props = self.properties_generator.get_accessioning_properties(
-            instance=instance_id,
-            target_assembly=self._get_target_assembly(),
-            project_accession=self.project_accession,
-            taxonomy_accession=self.taxonomy
-        )
+        instance_id = self.eload_cfg.query(self.config_section, 'accession', 'instance_id')
+        output_dir = os.path.join(self.project_dir, project_dirs['accessions'])
+        accession_properties_file = self.create_accession_properties(instance=instance_id,
+                                                                     output_file_path=os.path.join(output_dir, 'accession.properties'))
         accession_config = {
             'valid_vcfs': vcf_files_to_ingest,
             'project_accession': self.project_accession,
             'instance_id': instance_id,
-            'accession_job_props': job_props,
+            'accession_job_props': accession_properties_file,
             'public_ftp_dir': cfg['public_ftp_dir'],
             'accessions_dir': os.path.join(self.project_dir, project_dirs['accessions']),
             'public_dir': os.path.join(self.project_dir, project_dirs['public']),
             'logs_dir': os.path.join(self.project_dir, project_dirs['logs']),
             'executable': cfg['executable'],
             'jar': cfg['jar'],
+            'taxonomy': self.taxonomy
         }
         self.run_nextflow('accession', accession_config, resume)
 
     def run_variant_load_workflow(self, vcf_files_to_ingest, annotation_only, resume):
-        output_dir = os.path.join(self.project_dir)
         variant_load_properties_file = self.create_variant_load_properties(
-            output_file_path=os.path.join(output_dir, 'variant_load.properties'))
+            output_file_path=os.path.join(self.project_dir, 'variant_load.properties'))
         accession_import_properties_file = self.create_accession_import_properties(
-            output_file_path=os.path.join(output_dir, 'accession_import.properties'))
+            output_file_path=os.path.join(self.project_dir, 'accession_import.properties'))
 
         load_config = {
             'valid_vcfs': vcf_files_to_ingest,
@@ -448,6 +445,17 @@ class EloadIngestion(Eload):
             target_assembly=target_assembly,
             projects=self.project_accession,
             rs_report_path=f'{target_assembly}_rs_report.txt'
+        )
+        with open(output_file_path, 'w') as open_file:
+            open_file.write(properties)
+        return output_file_path
+
+    def create_accession_properties(self, instance_id, output_file_path):
+        properties = self.properties_generator.get_accessioning_properties(
+            instance=instance_id,
+            target_assembly=self._get_target_assembly(),
+            project_accession=self.project_accession,
+            taxonomy_accession=self.taxonomy
         )
         with open(output_file_path, 'w') as open_file:
             open_file.write(properties)

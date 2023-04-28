@@ -10,10 +10,7 @@ source_assemblies:
   - GCA_0000003
 target_assembly_accession: GCA_0000003
 
-accession_job_props:
-  test.prop1: x
-  test.prop2: y
-  parameters.taxonomyAccession: 1234
+accession_job_props: accession.properties
 load_job_props: test_variant_load.properties
 acc_import_job_props: test_accession_import.properties
 

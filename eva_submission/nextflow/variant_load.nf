@@ -102,7 +102,7 @@ process load_vcf {
 
     pipeline_parameters += " --spring.data.mongodb.database=" + db_name.toString()
 
-    if (vep_version == "" || vep_cache_version == "") {
+    if (vep_version.trim() == "" || vep_cache_version.trim() == "") {
         pipeline_parameters += " --annotation.skip=true"
     } else {
         pipeline_parameters += " --annotation.skip=false"
