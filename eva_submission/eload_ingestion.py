@@ -326,9 +326,9 @@ class EloadIngestion(Eload):
     def run_variant_load_workflow(self, vcf_files_to_ingest, annotation_only, resume):
         output_dir = os.path.join(self.project_dir)
         variant_load_properties_file = self.create_variant_load_properties(
-            variant_load_output_file_path=os.path.join(output_dir, 'variant_load.properties'))
+            output_file_path=os.path.join(output_dir, 'variant_load.properties'))
         accession_import_properties_file = self.create_accession_import_properties(
-            acc_import_output_file_path=os.path.join(output_dir, 'accession_import.properties'))
+            output_file_path=os.path.join(output_dir, 'accession_import.properties'))
 
         load_config = {
             'valid_vcfs': vcf_files_to_ingest,

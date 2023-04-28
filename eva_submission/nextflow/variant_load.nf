@@ -10,8 +10,8 @@ def helpMessage() {
             --valid_vcfs                csv file with the mappings for vcf file, assembly accession, fasta, assembly report,
                                         analysis_accession, db_name, vep version, vep cache version, aggregation
             --project_accession         project accession
-            --load_job_props            variant load job-specific properties, passed as a map
-            --acc_import_job_props      import accession job-specific properties, passed as a map
+            --load_job_props            properties file for variant load job
+            --acc_import_job_props      properties file for accession import job
             --annotation_only           whether to only run annotation job
             --taxonomy                  taxonomy id
             --project_dir               project directory
@@ -44,8 +44,8 @@ if (!params.valid_vcfs || !params.vep_path || !params.project_accession || !para
     if (!params.vep_path) log.warn('Provide path to VEP installations using --vep_path')
     if (!params.project_accession) log.warn('Provide project accession using --project_accession')
     if (!params.taxonomy) log.warn('Provide taxonomy id using --taxonomy')
-    if (!params.load_job_props) log.warn('Provide job-specific properties using --load_job_props')
-    if (!params.acc_import_job_props) log.warn('Provide accession load properties using --acc_import_job_props')
+    if (!params.load_job_props) log.warn('Provide path to variant load job properties file --load_job_props')
+    if (!params.acc_import_job_props) log.warn('Provide path to accession import job properties file using --acc_import_job_props')
     if (!params.project_dir) log.warn('Provide project directory using --project_dir')
     if (!params.logs_dir) log.warn('Provide logs directory using --logs_dir')
     exit 1, helpMessage()
@@ -56,129 +56,66 @@ workflow {
     unmerged_vcfs = Channel.fromPath(params.valid_vcfs)
             .splitCsv(header:true)
             .map{row -> tuple(file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name, row.vep_version, row.vep_cache_version, row.vep_species, row.aggregation)}
-    create_properties(unmerged_vcfs)
-    load_vcf(create_properties.out.variant_load_props)
+    load_vcf(unmerged_vcfs)
 
     if (params.taxonomy != 9606) {
         vcf_files_list = Channel.fromPath(params.valid_vcfs)
                 .splitCsv(header:true)
                 .map{row -> tuple(file(row.vcf_file), row.db_name)}
-        create_properties_for_acc_import_job(vcf_files_list)
-        import_accession(load_vcf.out.variant_load_complete, create_properties_for_acc_import_job.out.accession_import_props)
+        import_accession(vcf_files_list, load_vcf.out.variant_load_complete)
     }
 }
-
-/*
- * Create properties files for load.
- */
-process create_properties {
-    input:
-    tuple val(vcf_file), val(fasta), val(analysis_accession), val(db_name), val(vep_version), val(vep_cache_version), val(vep_species), val(aggregation)
-
-    output:
-    path "load_${vcf_file.getFileName()}.properties", emit: variant_load_props
-
-    exec:
-    props = new Properties()
-    params.load_job_props.each { k, v ->
-        props.setProperty(k, v.toString())
-    }
-    if (params.annotation_only) {
-        props.setProperty("spring.batch.job.names", "annotate-variants-job")
-    } else {
-        props.setProperty("spring.batch.job.names", aggregation.toString() == "none" ? "genotyped-vcf-job" : "aggregated-vcf-job")
-    }
-    props.setProperty("input.vcf.aggregation", aggregation.toString().toUpperCase())
-    props.setProperty("input.vcf", vcf_file.toRealPath().toString())
-    props.setProperty("input.vcf.id", analysis_accession.toString())
-    props.setProperty("input.fasta", fasta.toString())
-    props.setProperty("spring.data.mongodb.database", db_name.toString())
-    if (vep_version == "" || vep_cache_version == "") {
-        props.setProperty("annotation.skip", "true")
-    } else {
-        props.setProperty("annotation.skip", "false")
-        props.setProperty("app.vep.version", vep_version.toString())
-        props.setProperty("app.vep.path", "${params.vep_path}/ensembl-vep-release-${vep_version}/vep")
-        props.setProperty("app.vep.cache.version", vep_cache_version.toString())
-        props.setProperty("app.vep.cache.species", vep_species.toString())
-    }
-    // need to explicitly store in workDir so next process can pick it up
-    // see https://github.com/nextflow-io/nextflow/issues/942#issuecomment-441536175
-    props_file = new File("${task.workDir}/load_${vcf_file.getFileName()}.properties")
-    props_file.createNewFile()
-    props_file.newWriter().withWriter { w ->
-        props.each { k, v ->
-            w.write("$k=$v\n")
-        }
-    }
-    // make a copy for debugging purposes
-    new File("${params.project_dir}/load_${vcf_file.getFileName()}.properties") << props_file.asWritable()
-}
-
 
 /*
  * Load into variant db.
  */
 process load_vcf {
     clusterOptions {
-        log_filename = variant_load_properties.getFileName().toString()
-        log_filename = log_filename.substring(5, log_filename.indexOf('.properties'))
+        log_filename = vcf_file.getFileName().toString()
         return "-o $params.logs_dir/pipeline.${log_filename}.log \
                 -e $params.logs_dir/pipeline.${log_filename}.err"
     }
 
     input:
-    path variant_load_properties
+    tuple val(vcf_file), val(fasta), val(analysis_accession), val(db_name), val(vep_version), val(vep_cache_version), val(vep_species), val(aggregation)
 
     output:
     val true, emit: variant_load_complete
 
     memory '5 GB'
 
-    """
-    filename=\$(basename variant_load_properties)
-    filename=\${filename%.*}
-    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.name=\$filename
-    """
-}
+    script:
+    def pipeline_parameters = ""
 
-
-/*
- * Create properties files for Accession Import Job.
- */
-process create_properties_for_acc_import_job {
-    input:
-    tuple val(vcf_file), val(db_name)
-
-    output:
-    path "${acc_import_property_file_name}", emit: accession_import_props
-
-    exec:
-    props = new Properties()
-    params.acc_import_job_props.each { k, v ->
-        props.setProperty(k, v.toString())
+    if (params.annotation_only) {
+        pipeline_parameters += " --spring.batch.job.names=annotate-variants-job"
+    } else if(aggregation.toString() == "none"){
+        pipeline_parameters += " --spring.batch.job.names=genotyped-vcf-job"
+    } else{
+        pipeline_parameters += " --spring.batch.job.names=aggregated-vcf-job"
     }
 
-    accessioned_report_name = vcf_file.getFileName().toString().replace('.vcf','.accessioned.vcf')
+    pipeline_parameters += " --input.vcf.aggregation=" + aggregation.toString().toUpperCase()
+    pipeline_parameters += " --input.vcf=" + vcf_file.toRealPath().toString()
+    pipeline_parameters += " --input.vcf.id=" + analysis_accession.toString()
+    pipeline_parameters += " --input.fasta=" + fasta.toString()
 
-    props.setProperty("input.accession.report", "${params.project_dir}/60_eva_public/${accessioned_report_name}")
-    props.setProperty("spring.batch.job.names", "accession-import-job")
-    props.setProperty("spring.data.mongodb.database", db_name.toString())
+    pipeline_parameters += " --spring.data.mongodb.database=" + db_name.toString()
 
-    // need to explicitly store in workDir so next process can pick it up
-    // see https://github.com/nextflow-io/nextflow/issues/942#issuecomment-441536175
-    acc_import_property_file_name = "acc_import_${accessioned_report_name}.properties"
-    props_file = new File("${task.workDir}/${acc_import_property_file_name}")
-    props_file.createNewFile()
-    props_file.newWriter().withWriter { w ->
-        props.each { k, v ->
-            w.write("$k=$v\n")
-        }
+    if (vep_version == "" || vep_cache_version == "") {
+        pipeline_parameters += " --annotation.skip=true"
+    } else {
+        pipeline_parameters += " --annotation.skip=false"
+        pipeline_parameters += " --app.vep.version=" + vep_version.toString()
+        pipeline_parameters += " --app.vep.path=" + "${params.vep_path}/ensembl-vep-release-${vep_version}/vep"
+        pipeline_parameters += " --app.vep.cache.version=" + vep_cache_version.toString()
+        pipeline_parameters += " --app.vep.cache.species=" + vep_species.toString()
     }
-    // make a copy for debugging purposes
-    new File("${params.project_dir}/${acc_import_property_file_name}") << props_file.asWritable()
-}
 
+    """
+    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props $pipeline_parameters
+    """
+}
 
 
 /*
@@ -186,21 +123,27 @@ process create_properties_for_acc_import_job {
  */
 process import_accession {
     clusterOptions {
-        log_filename = accession_import_properties.getFileName().toString()
-        log_filename = log_filename.substring(11, log_filename.indexOf('.properties'))
+        log_filename = vcf_file.getFileName().toString()
         return "-o $params.logs_dir/pipeline.${log_filename}.log \
                 -e $params.logs_dir/pipeline.${log_filename}.err"
     }
 
     input:
+    tuple val(vcf_file), val(db_name)
     val variant_load_output
-    path accession_import_properties
 
     memory '5 GB'
 
+    script:
+    def pipeline_parameters = ""
+
+    accessioned_report_name = vcf_file.getFileName().toString().replace('.vcf','.accessioned.vcf')
+    pipeline_parameters += " --input.accession.report=" + "${params.project_dir}/60_eva_public/${accessioned_report_name}"
+    pipeline_parameters += " --spring.batch.job.names=accession-import-job"
+    pipeline_parameters += " --spring.data.mongodb.database=" + db_name.toString()
+
+
     """
-    filename=\$(basename accession_import_properties)
-    filename=\${filename%.*}
-    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.name=\$filename
+    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.acc_import_job_props $pipeline_parameters
     """
 }
