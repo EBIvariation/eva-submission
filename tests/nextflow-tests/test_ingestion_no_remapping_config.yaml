@@ -14,13 +14,8 @@ accession_job_props:
   test.prop1: x
   test.prop2: y
   parameters.taxonomyAccession: 1234
-eva_pipeline_props: test_eva_pipeline.properties
-load_job_props:
-  test.prop1: a
-  test.prop2: b
-acc_import_job_props:
-  test.prop1: a
-  test.prop2: b
+load_job_props: test_variant_load.properties
+acc_import_job_props: test_accession_import.properties
 
 executable:
   bcftools: ../../../bin/fake_bcftools.sh
