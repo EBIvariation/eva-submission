@@ -7,10 +7,7 @@ public_dir: ../../../project/public
 valid_vcfs: vcf_files_to_ingest.csv
 vep_path: /path/to/vep
 
-accession_job_props:
-  test.prop1: x
-  test.prop2: y
-  parameters.taxonomyAccession: 9606
+accession_job_props: accession.properties
 load_job_props: test_variant_load.properties
 acc_import_job_props: test_accession_import.properties
 
