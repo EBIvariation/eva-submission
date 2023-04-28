@@ -324,24 +324,17 @@ class EloadIngestion(Eload):
         self.run_nextflow('accession', accession_config, resume)
 
     def run_variant_load_workflow(self, vcf_files_to_ingest, annotation_only, resume):
-        variant_load_job_props = self.properties_generator.get_variant_load_properties(
-            project_accession=self.project_accession,
-            study_name=self.get_study_name(),
-            output_dir=self.project_dir.joinpath(project_dirs['transformed']),
-            annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
-            stats_dir=self.project_dir.joinpath(project_dirs['stats']),
-            vep_cache_path=cfg['vep_cache_path'],
-            opencga_path=cfg['opencga_path']
-        )
-        accession_import_job_props = self.properties_generator.get_accession_import_properties(
-            opencga_path=cfg['opencga_path']
-        )
+        output_dir = os.path.join(self.project_dir)
+        variant_load_properties_file = self.create_variant_load_properties(
+            variant_load_output_file_path=os.path.join(output_dir, 'variant_load.properties'))
+        accession_import_properties_file = self.create_accession_import_properties(
+            acc_import_output_file_path=os.path.join(output_dir, 'accession_import.properties'))
 
         load_config = {
             'valid_vcfs': vcf_files_to_ingest,
             'vep_path': cfg['vep_path'],
-            'load_job_props': variant_load_job_props,
-            'acc_import_job_props': accession_import_job_props,
+            'load_job_props': variant_load_properties_file,
+            'acc_import_job_props': accession_import_properties_file,
             'project_accession': self.project_accession,
             'project_dir': str(self.project_dir),
             'logs_dir': os.path.join(self.project_dir, project_dirs['logs']),
@@ -462,6 +455,28 @@ class EloadIngestion(Eload):
             target_assembly=target_assembly,
             projects=self.project_accession,
             rs_report_path=f'{target_assembly}_rs_report.txt'
+        )
+        with open(output_file_path, 'w') as open_file:
+            open_file.write(properties)
+        return output_file_path
+
+    def create_variant_load_properties(self, output_file_path):
+        properties = self.properties_generator.get_variant_load_properties(
+            project_accession=self.project_accession,
+            study_name=self.get_study_name(),
+            output_dir=self.project_dir.joinpath(project_dirs['transformed']),
+            annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
+            stats_dir=self.project_dir.joinpath(project_dirs['stats']),
+            vep_cache_path=cfg['vep_cache_path'],
+            opencga_path=cfg['opencga_path']
+        )
+        with open(output_file_path, 'w') as open_file:
+            open_file.write(properties)
+        return output_file_path
+
+    def create_accession_import_properties(self, output_file_path):
+        properties = self.properties_generator.get_accession_import_properties(
+            opencga_path=cfg['opencga_path']
         )
         with open(output_file_path, 'w') as open_file:
             open_file.write(properties)
