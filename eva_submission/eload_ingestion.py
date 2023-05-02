@@ -303,7 +303,7 @@ class EloadIngestion(Eload):
     def run_accession_workflow(self, vcf_files_to_ingest, resume):
         instance_id = self.eload_cfg.query(self.config_section, 'accession', 'instance_id')
         output_dir = os.path.join(self.project_dir, project_dirs['accessions'])
-        accession_properties_file = self.create_accession_properties(instance=instance_id,
+        accession_properties_file = self.create_accession_properties(instance_id=instance_id,
                                                                      output_file_path=os.path.join(output_dir, 'accession.properties'))
         accession_config = {
             'valid_vcfs': vcf_files_to_ingest,
