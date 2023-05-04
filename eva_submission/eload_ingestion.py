@@ -1,5 +1,6 @@
 import csv
 import os
+import requests
 import shutil
 import subprocess
 from pathlib import Path
@@ -422,7 +423,7 @@ class EloadIngestion(Eload):
         with self.metadata_connection_handle as conn:
             current_query = (
                 f"SELECT assembly_id FROM {SUPPORTED_ASSEMBLY_TRACKER_TABLE}"
-                f"WHERE taxonomy_id={tax_id} AND current=true;"
+                f" WHERE taxonomy_id={tax_id} AND current=true;"
             )
             results = get_all_results_for_query(conn, current_query)
             if len(results) > 0:
@@ -432,7 +433,13 @@ class EloadIngestion(Eload):
 
     def _insert_new_supported_asm_from_ensembl(self, tax_id: int = None):
         tax_id = tax_id or self.taxonomy
-        target_assembly = get_supported_asm_from_ensembl(tax_id)
+        target_assembly = None
+        try:
+            target_assembly = get_supported_asm_from_ensembl(tax_id)
+        except requests.exceptions.HTTPError as ex:
+            # Ensembl throws HTTP 400 Error if it cannot resolve a tax ID
+            if ex.errno == 400:
+                pass
         if target_assembly:
             add_to_supported_assemblies(self.metadata_connection_handle, source_of_assembly='Ensembl',
                                         target_assembly=target_assembly, taxonomy_id=tax_id)
