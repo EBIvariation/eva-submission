@@ -7,6 +7,7 @@ eutils_api_key: 1234556lkxflk
 eva_pipeline_props: '/path/to/pipeline/properties'
 vep_path: '/path/to/vep'
 vep_cache_path: '/path/to/vep/cache'
+opencga_path: '/path/to/opencga'
 
 maven:
   environment: 'internal'

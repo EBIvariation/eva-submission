@@ -9,13 +9,11 @@ import yaml
 from cached_property import cached_property
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
-from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile, get_primary_mongo_creds_for_profile, \
-    get_accession_pg_creds_for_profile, get_count_service_creds_for_profile
+from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile
 from ebi_eva_common_pyutils.ena_utils import get_assembly_name_and_taxonomy_id
 from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name, insert_new_assembly_and_taxonomy, \
     get_assembly_set_from_metadata, add_to_supported_assemblies
-from ebi_eva_common_pyutils.ncbi_utils import get_ncbi_assembly_dicts_from_term, \
-    retrieve_species_scientific_name_from_tax_id_ncbi
+from ebi_eva_common_pyutils.ncbi_utils import get_species_name_from_ncbi
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
 from ebi_eva_common_pyutils.spring_properties import SpringPropertiesGenerator
 from ebi_eva_common_pyutils.assembly.assembly import get_supported_asm_from_ensembl
@@ -25,7 +23,6 @@ from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import provision_new_database_for_variant_warehouse
 from eva_submission.submission_config import EloadConfig
 from eva_submission.vep_utils import get_vep_and_vep_cache_version
-from eva_submission.ingestion_templates import accession_props_template, variant_load_props_template
 
 project_dirs = {
     'logs': '00_logs',
@@ -121,29 +118,10 @@ class EloadIngestion(Eload):
                 assembly_accession,
                 vep_cache_assembly_name
             )
-            vep_species = self.get_species_name_from_ncbi(assembly_accession)
+            vep_species = get_species_name_from_ncbi(assembly_accession)
             self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'version', value=vep_version)
             self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'cache_version', value=vep_cache_version)
             self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'species', value=vep_species)
-
-    def get_species_name_from_ncbi(self, assembly_acc):
-        # We first need to search for the species associated with the assembly
-        assembly_dicts = get_ncbi_assembly_dicts_from_term(assembly_acc)
-        taxid_and_assembly_name = set([
-            (assembly_dict.get('taxid'), assembly_dict.get('assemblyname'))
-            for assembly_dict in assembly_dicts
-            if assembly_dict.get('assemblyaccession') == assembly_acc or
-               assembly_dict.get('synonym', {}).get('genbank') == assembly_acc
-        ])
-        # This is a search so could retrieve multiple results
-        if len(taxid_and_assembly_name) != 1:
-            raise ValueError(f'Multiple assembly found for {assembly_acc}. '
-                             f'Cannot resolve single assembly for assembly {assembly_acc} in NCBI.')
-
-        taxonomy_id, assembly_name = taxid_and_assembly_name.pop()
-
-        scientific_name = retrieve_species_scientific_name_from_tax_id_ncbi(taxonomy_id)
-        return scientific_name.replace(' ', '_').lower()
 
     def _get_vcf_files_from_brokering(self):
         vcf_files = []
@@ -324,56 +302,39 @@ class EloadIngestion(Eload):
         return vcf_files_to_ingest
 
     def run_accession_workflow(self, vcf_files_to_ingest, resume):
-        mongo_host, mongo_user, mongo_pass = get_primary_mongo_creds_for_profile(self.maven_profile,
-                                                                                 self.private_settings_file)
-        pg_url, pg_user, pg_pass = get_accession_pg_creds_for_profile(self.maven_profile, self.private_settings_file)
-        counts_url, counts_user, counts_pass = get_count_service_creds_for_profile(self.maven_profile,
-                                                                                   self.private_settings_file)
-        job_props = accession_props_template(
-            taxonomy_id=self.taxonomy,
-            project_accession=self.project_accession,
-            instance_id=self.eload_cfg.query(self.config_section, 'accession', 'instance_id'),
-            mongo_host=mongo_host,
-            mongo_user=mongo_user,
-            mongo_pass=mongo_pass,
-            postgres_url=pg_url,
-            postgres_user=pg_user,
-            postgres_pass=pg_pass,
-            counts_url=counts_url,
-            counts_user=counts_user,
-            counts_pass=counts_pass
-        )
+        instance_id = self.eload_cfg.query(self.config_section, 'accession', 'instance_id')
+        output_dir = os.path.join(self.project_dir, project_dirs['accessions'])
+        accession_properties_file = self.create_accession_properties(instance_id=instance_id,
+                                                                     output_file_path=os.path.join(output_dir, 'accession.properties'))
         accession_config = {
             'valid_vcfs': vcf_files_to_ingest,
             'project_accession': self.project_accession,
-            'instance_id': self.eload_cfg.query(self.config_section, 'accession', 'instance_id'),
-            'accession_job_props': job_props,
+            'instance_id': instance_id,
+            'accession_job_props': accession_properties_file,
             'public_ftp_dir': cfg['public_ftp_dir'],
             'accessions_dir': os.path.join(self.project_dir, project_dirs['accessions']),
             'public_dir': os.path.join(self.project_dir, project_dirs['public']),
             'logs_dir': os.path.join(self.project_dir, project_dirs['logs']),
             'executable': cfg['executable'],
             'jar': cfg['jar'],
+            'taxonomy': self.taxonomy
         }
         self.run_nextflow('accession', accession_config, resume)
 
     def run_variant_load_workflow(self, vcf_files_to_ingest, annotation_only, resume):
-        job_props = variant_load_props_template(
-            project_accession=self.project_accession,
-            study_name=self.get_study_name(),
-            output_dir=self.project_dir.joinpath(project_dirs['transformed']),
-            annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
-            stats_dir=self.project_dir.joinpath(project_dirs['stats']),
-        )
+        variant_load_properties_file = self.create_variant_load_properties(
+            output_file_path=os.path.join(self.project_dir, 'variant_load.properties'))
+        accession_import_properties_file = self.create_accession_import_properties(
+            output_file_path=os.path.join(self.project_dir, 'accession_import.properties'))
+
         load_config = {
             'valid_vcfs': vcf_files_to_ingest,
             'vep_path': cfg['vep_path'],
-            'load_job_props': job_props,
-            'acc_import_job_props': {'db.collections.variants.name': 'variants_2_0'},
+            'load_job_props': variant_load_properties_file,
+            'acc_import_job_props': accession_import_properties_file,
             'project_accession': self.project_accession,
             'project_dir': str(self.project_dir),
             'logs_dir': os.path.join(self.project_dir, project_dirs['logs']),
-            'eva_pipeline_props': cfg['eva_pipeline_props'],
             'executable': cfg['executable'],
             'jar': cfg['jar'],
             'annotation_only': annotation_only,
@@ -491,6 +452,39 @@ class EloadIngestion(Eload):
             target_assembly=target_assembly,
             projects=self.project_accession,
             rs_report_path=f'{target_assembly}_rs_report.txt'
+        )
+        with open(output_file_path, 'w') as open_file:
+            open_file.write(properties)
+        return output_file_path
+
+    def create_accession_properties(self, instance_id, output_file_path):
+        properties = self.properties_generator.get_accessioning_properties(
+            instance=instance_id,
+            target_assembly=self._get_target_assembly(),
+            project_accession=self.project_accession,
+            taxonomy_accession=self.taxonomy
+        )
+        with open(output_file_path, 'w') as open_file:
+            open_file.write(properties)
+        return output_file_path
+
+    def create_variant_load_properties(self, output_file_path):
+        properties = self.properties_generator.get_variant_load_properties(
+            project_accession=self.project_accession,
+            study_name=self.get_study_name(),
+            output_dir=self.project_dir.joinpath(project_dirs['transformed']),
+            annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
+            stats_dir=self.project_dir.joinpath(project_dirs['stats']),
+            vep_cache_path=cfg['vep_cache_path'],
+            opencga_path=cfg['opencga_path']
+        )
+        with open(output_file_path, 'w') as open_file:
+            open_file.write(properties)
+        return output_file_path
+
+    def create_accession_import_properties(self, output_file_path):
+        properties = self.properties_generator.get_accession_import_properties(
+            opencga_path=cfg['opencga_path']
         )
         with open(output_file_path, 'w') as open_file:
             open_file.write(properties)

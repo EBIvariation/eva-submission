@@ -9,8 +9,9 @@ public class FakeAccessionPipeline {
 	String inFile = null;
 	for (String arg: args) {
 	    outString += " " + arg;
-	    if (arg.startsWith("--spring.config.name="))
-		inFile = arg.substring("--spring.config.name=".length());
+	    if (arg.startsWith("--spring.config.location=")){
+	        inFile = arg.substring("--spring.config.location=file:".length());
+	    }
 	}
 	System.out.println(outString);
 

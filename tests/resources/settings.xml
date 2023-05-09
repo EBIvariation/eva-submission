@@ -16,6 +16,13 @@
                 <eva.accession.user>user</eva.accession.user>
                 <eva.accession.password>pass</eva.accession.password>
                 <eva.accession.mongo.database>accession</eva.accession.mongo.database>
+                <eva.variant.jdbc.url>host</eva.variant.jdbc.url>
+                <eva.variant.user>user</eva.variant.user>
+                <eva.variant.password>pass</eva.variant.password>
+                <eva.mongo.collections.files>files</eva.mongo.collections.files>
+                <eva.mongo.collections.variants>variants</eva.mongo.collections.variants>
+                <eva.mongo.collections.annotation-metadata>annotation-metadata</eva.mongo.collections.annotation-metadata>
+                <eva.mongo.collections.annotations>annotation</eva.mongo.collections.annotations>
                 <contig-alias.url>host</contig-alias.url>
                 <contig-alias.admin-user>user</contig-alias.admin-user>
                 <contig-alias.admin-password>pass</contig-alias.admin-password>

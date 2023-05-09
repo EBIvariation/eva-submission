@@ -16,7 +16,8 @@ from retry import retry
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.ingestion_templates import annotation_metadata_collection_name
+annotation_metadata_collection_name = 'annotationMetadata_2_0'
+annotation_collection_name = 'annotations_2_0'
 
 logger = log_cfg.get_logger(__name__)
 
