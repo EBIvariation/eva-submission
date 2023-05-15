@@ -37,18 +37,18 @@ class TestSubmissionQC(TestCase):
 
         with self._patch_metadata_handle(), \
                 patch('eva_submission.submission_qc_checks.get_all_results_for_query') as m_get_browsable_files:
-            m_get_browsable_files.side_effect = [[['test3.vcf.gz'], ['test4.vcf.gz']], [[['Homo Sapiens']]]]
+            m_get_browsable_files.side_effect = [[['test3.vcf.gz'], ['test1.vcf.gz']], [[['Homo Sapiens']]]]
             self.assertEqual(self.expected_report_of_eload_101(), self.eload.run_qc_checks_for_submission())
-    #
-    # def test_submission_qc_checks_failed_2(self):
-    #     self.eload = EloadQC(102)
-    #     # Used to restore test config after each test
-    #     self.original_cfg = deepcopy(self.eload.eload_cfg.content)
-    #
-    #     with self._patch_metadata_handle(), \
-    #             patch('eva_submission.submission_qc_checks.get_all_results_for_query') as m_get_browsable_files:
-    #         m_get_browsable_files.side_effect = [[['test1.vcf.gz'], ['test2.vcf.gz']], [[['Homo Sapiens']]]]
-    #         self.assertEqual(self.expected_report_of_eload_102(), self.eload.run_qc_checks_for_submission())
+
+    def test_submission_qc_checks_failed_2(self):
+        self.eload = EloadQC(102)
+        # Used to restore test config after each test
+        self.original_cfg = deepcopy(self.eload.eload_cfg.content)
+
+        with self._patch_metadata_handle(), \
+                patch('eva_submission.submission_qc_checks.get_all_results_for_query') as m_get_browsable_files:
+            m_get_browsable_files.side_effect = [[['test1.vcf.gz'], ['test2.vcf.gz']], [[['Homo Sapiens']]]]
+            self.assertEqual(self.expected_report_of_eload_102(), self.eload.run_qc_checks_for_submission())
 
     def test_submission_qc_checks_passed(self):
         self.eload = EloadQC(103)
@@ -59,11 +59,6 @@ class TestSubmissionQC(TestCase):
                 patch('eva_submission.submission_qc_checks.get_all_results_for_query') as m_get_browsable_files:
             m_get_browsable_files.side_effect = [[['test1.vcf.gz'], ['test2.vcf.gz']], [[['Homo Sapiens']]]]
             self.assertEqual(self.expected_report_of_eload_103(), self.eload.run_qc_checks_for_submission())
-    #
-    # def expected_report_of_eload_102(self):
-    #     return """
-    #
-    #     """
 
 
     def expected_report_of_eload_101(self):
@@ -87,7 +82,7 @@ class TestSubmissionQC(TestCase):
         
             pass : FAIL
             expected files: ['test1.vcf.gz', 'test2.vcf.gz']
-            missing files: {'test1.vcf.gz', 'test2.vcf.gz'}
+            missing files: {'test2.vcf.gz'}
         ---------------------------------
         
         Accessioning job check:
@@ -141,6 +136,80 @@ class TestSubmissionQC(TestCase):
         ----------------------------------
         """
 
+    def expected_report_of_eload_102(self):
+        return """
+        QC Result Summary:
+        ------------------
+        Browsable files check: PASS
+        Accessioning job check: FAIL
+        Variants Skipped accessioning check: PASS with Warning (Manual Check Required)
+        Variant load check: FAIL
+        Remapping and Clustering Check: 
+            Clustering check: FAIL 
+            Remapping Ingestion check: FAIL
+            Back-propogation check: FAIL
+        FTP check: FAIL
+        Study check: FAIL
+        Study metadata check: FAIL
+        ----------------------------------
+
+        Browsable files check:
+        
+            pass : PASS
+            expected files: ['test1.vcf.gz', 'test2.vcf.gz']
+            missing files: None
+        ---------------------------------
+        
+        Accessioning job check:
+        
+                pass: FAIL
+                failed_files:
+                    test1.vcf.gz - failed_job - CREATE_SUBSNP_ACCESSION_STEP
+                    test2.vcf.gz - Accessioning Error : No accessioning file found for test2.vcf.gz
+        ----------------------------------
+        
+        Variants skipped check:
+        
+                pass: PASS with Warning (Manual Check Required)
+                failed_files:
+                    test2.vcf.gz - Accessioning Error : No accessioning file found for test2.vcf.gz
+        ----------------------------------
+        
+        Variant load check:
+        
+                pass: FAIL
+                failed_files:
+                    test1.vcf.gz - failed_job - load-variants-step
+                    test2.vcf.gz - Variant Load Error : No pipeline file found for test2.vcf.gz
+        ----------------------------------
+
+        Remapping and Clustering check:
+        
+                pass (clustering check): FAIL
+                pass (remapping check): FAIL    
+                pass (backpropagation check): FAIL
+                Remapping and clustering have not run for this study (or eload configuration file is missing taxonomy)
+                Note: This results might not be accurate for older studies. It is advisable to checks those manually
+                
+        ----------------------------------
+        
+        FTP check:
+        
+                Error: Error fetching files from ftp for study PRJEB22222
+        ----------------------------------
+        
+        Study check:
+        
+                pass: FAIL
+        ----------------------------------
+
+        Study metadata check:
+        
+                pass: FAIL
+                missing assemblies: ["[\'Homo Sapiens\'](GCA_000001000.1)"]
+        ----------------------------------
+        """
+
     def expected_report_of_eload_103(self):
         return """
         QC Result Summary:
@@ -159,57 +228,57 @@ class TestSubmissionQC(TestCase):
         ----------------------------------
 
         Browsable files check:
-
+        
             pass : PASS
             expected files: ['test1.vcf.gz']
             missing files: None
         ---------------------------------
-
+        
         Accessioning job check:
-
+        
                 pass: PASS
         ----------------------------------
-
+        
         Variants skipped check:
-
+        
                 pass: PASS
         ----------------------------------
-
+        
         Variant load check:
-
+        
                 pass: PASS
         ----------------------------------
 
         Remapping and Clustering check:
-
+        
                 pass (clustering check): PASS
-
+                    
                     Clustering Job: PASS        
-
+                        
                     Clustering QC Job: PASS
-
-
+                        
+        
                 pass (remapping check): PASS
-
+                    
                     pass: PASS
                 pass (backpropagation check): PASS
-
+                    
                     pass: PASS
-
+                
         ----------------------------------
-
+        
         FTP check:
-
+        
                 Error: Error fetching files from ftp for study PRJEB33333
         ----------------------------------
-
+        
         Study check:
-
+        
                 pass: FAIL
         ----------------------------------
 
         Study metadata check:
-
+        
                 pass: FAIL
                 missing assemblies: ["['Homo Sapiens'](GCA_000003205.6)"]
         ----------------------------------
