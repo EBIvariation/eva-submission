@@ -153,7 +153,7 @@ class EloadQC(Eload):
         elif job_type == 'clustering_qc':
             return ['Job: [SimpleJob: [name=NEW_CLUSTERED_VARIANTS_QC_JOB]] launched'], \
                 ['Job: [SimpleJob: [name=NEW_CLUSTERED_VARIANTS_QC_JOB]] completed']
-        elif job_type == 'vcf_extrator':
+        elif job_type == 'vcf_extractor':
             return ['Job: [SimpleJob: [name=EXPORT_SUBMITTED_VARIANTS_JOB]] launched'], \
                 ['Job: [SimpleJob: [name=EXPORT_SUBMITTED_VARIANTS_JOB]] completed']
         elif job_type == 'remapping_ingestion':
@@ -297,7 +297,7 @@ class EloadQC(Eload):
             else:
                 clustering_check_result = "PASS"
         else:
-            clustering_error += f"Clustering Error : No clustering file found for {clustering_log_file[0]}"
+            clustering_error += f"Clustering Error : No clustering file found for {target_assembly}_clustering.log"
             clustering_check_result = "FAIL"
 
         clustering_qc_error = ""
@@ -308,7 +308,7 @@ class EloadQC(Eload):
             else:
                 clustering_qc_check_result = "PASS"
         else:
-            clustering_qc_error += f"Clustering QC Error : No clustering qc file found for {clustering_qc_log_file[0]}"
+            clustering_qc_error += f"Clustering QC Error : No clustering qc file found for {target_assembly}_clustering_qc.log"
             clustering_qc_check_result = "FAIL"
 
         if clustering_check_result == 'FAIL' or clustering_qc_check_result == 'FAIL':
@@ -335,13 +335,13 @@ class EloadQC(Eload):
 
                 vcf_extractor_error = ""
                 if vcf_extractor_log_file:
-                    if not self.check_if_job_completed_successfully(vcf_extractor_log_file[0], 'vcf_extrator'):
+                    if not self.check_if_job_completed_successfully(vcf_extractor_log_file[0], 'vcf_extractor'):
                         vcf_extractor_error += f"failed_job - {self.get_failed_job_name(vcf_extractor_log_file[0])}"
                         vcf_extractor_result = "FAIL"
                     else:
                         vcf_extractor_result = "PASS"
                 else:
-                    vcf_extractor_error += f"VCF Extractor Error: No vcf extrator file found for {vcf_extractor_log_file[0]}"
+                    vcf_extractor_error += f"VCF Extractor Error: No vcf extractor file found for {assembly_accession}_vcf_extractor.log"
                     vcf_extractor_result = "FAIL"
 
                 remapping_ingestion_error = ""
@@ -352,7 +352,7 @@ class EloadQC(Eload):
                     else:
                         remapping_ingestion_result = "PASS"
                 else:
-                    remapping_ingestion_error += f"Remapping Ingestion Error: No remapping ingestion file found for {remapped_ingestion_log_file[0]}"
+                    remapping_ingestion_error += f"Remapping Ingestion Error: No remapping ingestion file found for {assembly_accession}_eva_remapped.vcf_ingestion.log"
                     remapping_ingestion_result = "FAIL"
 
             if vcf_extractor_result == 'FAIL' or remapping_ingestion_result == 'FAIL':
@@ -388,7 +388,7 @@ class EloadQC(Eload):
                     else:
                         backpropagation_result = "PASS"
                 else:
-                    backpropagation_error += f"VCF Extractor Error: No vcf extrator file found for {vcf_extractor_log_file[0]}"
+                    backpropagation_error += f"Backpropagation Error: No backpropagation file found for {target_assembly}_backpropagate_to_{assembly_accession}.log"
                     backpropagation_result = "FAIL"
 
             if backpropagation_result == 'FAIL':
@@ -472,7 +472,7 @@ class EloadQC(Eload):
         Variant load check: {self._variant_load_job_check_result}
         Remapping and Clustering Check: 
             Clustering check: {self._clustering_check_result} 
-            Remapping Ingestion check: {self._remapping_check_result}
+            Remapping check: {self._remapping_check_result}
             Back-propogation check: {self._backpropagation_check_result}
         FTP check: {self._ftp_check_result}
         Study check: {self._study_check_result}
