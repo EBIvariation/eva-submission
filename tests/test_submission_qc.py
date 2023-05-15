@@ -88,6 +88,23 @@ class TestSubmissionQC(TestCase):
                                        'test1.accessioned.vcf.gz.csi', 'test1.accessioned.vcf.csi']
             self.assertEqual(self.expected_report_of_eload_103(), self.eload.run_qc_checks_for_submission())
 
+    def test_submission_qc_checks_missing_files(self):
+        self.eload = EloadQC(104)
+        self.original_cfg = deepcopy(self.eload.eload_cfg.content)
+
+        with self._patch_metadata_handle(), \
+                patch('eva_submission.submission_qc_checks.FTP.login') as m_ftp_login, \
+                patch('eva_submission.submission_qc_checks.FTP.cwd') as m_ftp_cwd, \
+                patch('eva_submission.submission_qc_checks.FTP.nlst') as m_ftp_nlst, \
+                patch('eva_submission.submission_qc_checks.requests.get') as m_get, \
+                patch('eva_submission.submission_qc_checks.get_all_results_for_query') as m_get_browsable_files:
+            m_get_browsable_files.side_effect = [[['test1.vcf.gz'], ['test2.vcf.gz']], [[['Homo Sapiens']]]]
+            m_get.side_effect = [self._mock_response(json_data={"response": [{"numResults": 1, "numTotalResults": 1, "result": [{"id": "PRJEB44444"}]}]}),
+                                 self._mock_response(json_data={"response": [{"numResults": 1, "numTotalResults": 1, "result": [{"studyId": "PRJEB44444"}]}]})]
+            m_ftp_nlst.return_value = ['test1.vcf.gz', 'test1.vcf.gz.csi', 'test1.vcf.csi', 'test1.accessioned.vcf.gz',
+                                       'test1.accessioned.vcf.gz.csi', 'test1.accessioned.vcf.csi']
+            self.assertEqual(self.expected_report_of_eload_104(), self.eload.run_qc_checks_for_submission())
+
 
     def expected_report_of_eload_101(self):
         return """
@@ -281,7 +298,6 @@ class TestSubmissionQC(TestCase):
         Remapping and Clustering check:
         
                 pass (clustering check): PASS
-                    
                     Clustering Job: PASS        
                         
                     Clustering QC Job: PASS
@@ -289,10 +305,91 @@ class TestSubmissionQC(TestCase):
         
                 pass (remapping check): PASS
                     
-                    pass: PASS
                 pass (backpropagation check): PASS
                     
-                    pass: PASS
+                
+        ----------------------------------
+        
+        FTP check:
+        
+                pass: PASS 
+                missing files: None
+        ----------------------------------
+        
+        Study check:
+        
+                pass: PASS
+        ----------------------------------
+
+        Study metadata check:
+        
+                pass: PASS
+                missing assemblies: None
+        ----------------------------------
+        """
+
+    def expected_report_of_eload_104(self):
+        return """
+        QC Result Summary:
+        ------------------
+        Browsable files check: PASS
+        Accessioning job check: FAIL
+        Variants Skipped accessioning check: PASS with Warning (Manual Check Required)
+        Variant load check: FAIL
+        Remapping and Clustering Check: 
+            Clustering check: FAIL 
+            Remapping check: FAIL
+            Back-propogation check: FAIL
+        FTP check: PASS
+        Study check: PASS
+        Study metadata check: PASS
+        ----------------------------------
+
+        Browsable files check:
+        
+            pass : PASS
+            expected files: ['test1.vcf.gz']
+            missing files: None
+        ---------------------------------
+        
+        Accessioning job check:
+        
+                pass: FAIL
+                failed_files:
+                    test1.vcf.gz - Accessioning Error : No accessioning file found for test1.vcf.gz
+        ----------------------------------
+        
+        Variants skipped check:
+        
+                pass: PASS with Warning (Manual Check Required)
+                failed_files:
+                    test1.vcf.gz - Accessioning Error : No accessioning file found for test1.vcf.gz
+        ----------------------------------
+        
+        Variant load check:
+        
+                pass: FAIL
+                failed_files:
+                    test1.vcf.gz - Variant Load Error : No pipeline file found for test1.vcf.gz
+        ----------------------------------
+
+        Remapping and Clustering check:
+        
+                pass (clustering check): FAIL
+                    Clustering Job: FAIL        
+                        Clustering Error : No clustering file found for GCA_000247795.2_clustering.log
+                    Clustering QC Job: FAIL
+                        Clustering QC Error : No clustering qc file found for GCA_000247795.2_clustering_qc.log
+        
+                pass (remapping check): FAIL
+                    failed_remapping for assemblies:
+                        GCA_000003205.6: 
+                            - VCF Extractor Error: No vcf extractor file found for GCA_000003205.6_vcf_extractor.log
+                            - Remapping Ingestion Error: No remapping ingestion file found for GCA_000003205.6_eva_remapped.vcf_ingestion.log
+                        
+                pass (backpropagation check): FAIL
+                    failed_backpropagation for assemblies:
+                        GCA_000003205.6 - Backpropagation Error: No backpropagation file found for GCA_000247795.2_backpropagate_to_GCA_000003205.6.log
                 
         ----------------------------------
         

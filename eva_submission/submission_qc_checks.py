@@ -1,5 +1,6 @@
 import glob
 import os
+from collections import defaultdict
 from ftplib import FTP
 from pathlib import Path
 
@@ -316,15 +317,14 @@ class EloadQC(Eload):
         else:
             self._clustering_check_result = 'PASS'
 
-        return f"""
-                    Clustering Job: {clustering_check_result}        
+        return f"""Clustering Job: {clustering_check_result}        
                         {clustering_error if clustering_check_result == 'FAIL' else ""}
                     Clustering QC Job: {clustering_qc_check_result}
                         {clustering_qc_error if clustering_qc_check_result == 'FAIL' else ""}
         """
 
     def remapping_check_report(self, target_assembly):
-        failed_asm = {}
+        failed_asm = defaultdict(dict)
         for analysis_data in self.analyses.values():
             assembly_accession = analysis_data['assembly_accession']
             if assembly_accession != target_assembly:
@@ -355,20 +355,21 @@ class EloadQC(Eload):
                     remapping_ingestion_error += f"Remapping Ingestion Error: No remapping ingestion file found for {assembly_accession}_eva_remapped.vcf_ingestion.log"
                     remapping_ingestion_result = "FAIL"
 
-            if vcf_extractor_result == 'FAIL' or remapping_ingestion_result == 'FAIL':
-                failure_txt = f"vcf_extractor failure - {vcf_extractor_error}" if vcf_extractor_result == 'FAIL' else ""
-                failure_txt += f"remapping_ingestion failure - {remapping_ingestion_error}" if remapping_ingestion_result == 'FAIL' else ""
-                failed_asm[assembly_accession] = failure_txt
+                if vcf_extractor_result == 'FAIL':
+                    failed_asm[assembly_accession]['vcf_extractor']= vcf_extractor_error
+                if remapping_ingestion_result == 'FAIL':
+                    failed_asm[assembly_accession]['remapping_ingestion']= remapping_ingestion_error
 
         self._remapping_check_result = 'FAIL' if failed_asm else 'PASS'
-        report = f"""
-                    pass: {self._remapping_check_result}"""
+        report = ""
         if failed_asm:
-            report += f"""
-                    failed_remapping for assemblies:"""
+            report += f"""failed_remapping for assemblies:"""
             for asm, error_txt in failed_asm.items():
                 report += f"""
-                        {asm} - {error_txt}"""
+                        {asm}: 
+                            - {error_txt['vcf_extractor']}
+                            - {error_txt['remapping_ingestion']}
+                        """
 
         return report
 
@@ -395,11 +396,9 @@ class EloadQC(Eload):
                 failed_asm[assembly_accession] = backpropagation_error
 
         self._backpropagation_check_result = 'FAIL' if failed_asm else 'PASS'
-        report = f"""
-                    pass: {self._backpropagation_check_result}"""
+        report = ""
         if failed_asm:
-            report += f"""
-                    failed_backpropagation for assemblies:"""
+            report = f"""failed_backpropagation for assemblies:"""
             for asm, error_txt in failed_asm.items():
                 report += f"""
                         {asm} - {error_txt}"""
