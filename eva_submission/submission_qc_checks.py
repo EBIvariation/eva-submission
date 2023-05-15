@@ -317,10 +317,10 @@ class EloadQC(Eload):
             self._clustering_check_result = 'PASS'
 
         return f"""
-            Clustering Job: {clustering_check_result}        
-            {clustering_error if clustering_check_result == 'FAIL' else ""}
-            Clustering QC Job: {clustering_qc_check_result}
-            {clustering_qc_error if clustering_qc_check_result == 'FAIL' else ""}
+                    Clustering Job: {clustering_check_result}        
+                        {clustering_error if clustering_check_result == 'FAIL' else ""}
+                    Clustering QC Job: {clustering_qc_check_result}
+                        {clustering_qc_error if clustering_qc_check_result == 'FAIL' else ""}
         """
 
     def remapping_check_report(self, target_assembly):
@@ -334,25 +334,25 @@ class EloadQC(Eload):
                     f"{self.path_to_data_dir}/53_clustering/logs/{assembly_accession}_eva_remapped.vcf_ingestion.log")
 
                 vcf_extractor_error = ""
-                if not vcf_extractor_log_file:
+                if vcf_extractor_log_file:
                     if not self.check_if_job_completed_successfully(vcf_extractor_log_file[0], 'vcf_extrator'):
                         vcf_extractor_error += f"failed_job - {self.get_failed_job_name(vcf_extractor_log_file[0])}"
                         vcf_extractor_result = "FAIL"
                     else:
                         vcf_extractor_result = "PASS"
                 else:
-                    vcf_extractor_error += f"VCF Extractor Error: No vcf extrator file found for {vcf_extractor_log_file}"
+                    vcf_extractor_error += f"VCF Extractor Error: No vcf extrator file found for {vcf_extractor_log_file[0]}"
                     vcf_extractor_result = "FAIL"
 
                 remapping_ingestion_error = ""
-                if not remapped_ingestion_log_file:
-                    if not self.check_if_job_completed_successfully(remapped_ingestion_log_file, 'remapping_ingesion'):
-                        remapping_ingestion_error += f"failed_job - {self.get_failed_job_name(vcf_extractor_log_file[0])}"
+                if remapped_ingestion_log_file:
+                    if not self.check_if_job_completed_successfully(remapped_ingestion_log_file[0], 'remapping_ingestion'):
+                        remapping_ingestion_error += f"failed_job - {self.get_failed_job_name(remapped_ingestion_log_file[0])}"
                         remapping_ingestion_result = "FAIL"
                     else:
                         remapping_ingestion_result = "PASS"
                 else:
-                    remapping_ingestion_error += f"Remapping Ingestion Error: No remapping ingestion file found for {vcf_extractor_log_file}"
+                    remapping_ingestion_error += f"Remapping Ingestion Error: No remapping ingestion file found for {remapped_ingestion_log_file[0]}"
                     remapping_ingestion_result = "FAIL"
 
             if vcf_extractor_result == 'FAIL' or remapping_ingestion_result == 'FAIL':
@@ -362,16 +362,49 @@ class EloadQC(Eload):
 
         self._remapping_check_result = 'FAIL' if failed_asm else 'PASS'
         report = f"""
-                        pass: {self._remapping_check_result}"""
+                    pass: {self._remapping_check_result}"""
         if failed_asm:
             report += f"""
-                        failed_remapping for assemblies:"""
+                    failed_remapping for assemblies:"""
             for asm, error_txt in failed_asm.items():
                 report += f"""
-                            {asm} - {error_txt}"""
+                        {asm} - {error_txt}"""
+
+        return report
 
     def backpropagation_check_report(self, target_assembly):
-        pass
+        failed_asm = {}
+        for analysis_data in self.analyses.values():
+            assembly_accession = analysis_data['assembly_accession']
+            if assembly_accession != target_assembly:
+                back_propagation_log_file = glob.glob(
+                    f"{self.path_to_data_dir}/53_clustering/logs/{target_assembly}_backpropagate_to_{assembly_accession}.log")
+
+                backpropagation_error = ""
+                if back_propagation_log_file:
+                    if not self.check_if_job_completed_successfully(back_propagation_log_file[0], 'backpropagation'):
+                        backpropagation_error += f"failed_job - {self.get_failed_job_name(back_propagation_log_file[0])}"
+                        backpropagation_result = "FAIL"
+                    else:
+                        backpropagation_result = "PASS"
+                else:
+                    backpropagation_error += f"VCF Extractor Error: No vcf extrator file found for {vcf_extractor_log_file[0]}"
+                    backpropagation_result = "FAIL"
+
+            if backpropagation_result == 'FAIL':
+                failed_asm[assembly_accession] = backpropagation_error
+
+        self._backpropagation_check_result = 'FAIL' if failed_asm else 'PASS'
+        report = f"""
+                    pass: {self._backpropagation_check_result}"""
+        if failed_asm:
+            report += f"""
+                    failed_backpropagation for assemblies:"""
+            for asm, error_txt in failed_asm.items():
+                report += f"""
+                        {asm} - {error_txt}"""
+
+        return report
 
     def check_if_remapping_and_clustering_finished_successfully(self):
         target_assembly = self.eload_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly')
@@ -383,7 +416,8 @@ class EloadQC(Eload):
                 pass (clustering check): {self._clustering_check_result}
                 pass (remapping check): {self._remapping_check_result}    
                 pass (backpropagation check): {self._backpropagation_check_result}
-                Remapping and clustering have not run for this study (For older studies these can't be verified)
+                Remapping and clustering have not run for this study (or eload configuration file is missing taxonomy)
+                Note: This results might not be accurate for older studies. It is advisable to checks those manually
                 """
         else:
             clustering_check_report = self.clustering_check_report(target_assembly)
@@ -405,8 +439,7 @@ class EloadQC(Eload):
             for v_files in analysis_data['vcf_files'].values():
                 vcf_files.append(os.path.basename(v_files['output_vcf_file']))
 
-        # browsable_files_report = self.check_if_browsable_files_entered_correctly_in_db(vcf_files)
-        remapping_and_clustering_report = self.check_if_remapping_and_clustering_finished_successfully()
+        browsable_files_report = self.check_if_browsable_files_entered_correctly_in_db(vcf_files)
 
         # No accessioning check is required for human
         if self.taxonomy != 9606:
@@ -422,7 +455,7 @@ class EloadQC(Eload):
 
         variant_load_report = self.check_if_variant_load_completed_successfully(vcf_files)
 
-        # remapping_and_clustering_report = self.check_if_remapping_and_clustering_finished_successfully()
+        remapping_and_clustering_report = self.check_if_remapping_and_clustering_finished_successfully()
 
         ftp_report = self.check_all_browsable_files_are_available_in_ftp(vcf_files)
 
@@ -447,6 +480,7 @@ class EloadQC(Eload):
         ----------------------------------
 
         Browsable files check:
+        {browsable_files_report}
         ---------------------------------
         
         Accessioning job check:
@@ -477,4 +511,7 @@ class EloadQC(Eload):
         {study_metadata_report}
         ----------------------------------
         """
+
         print(report)
+
+        return report
