@@ -1,5 +1,4 @@
 import os
-from copy import deepcopy
 from unittest import TestCase, mock
 from unittest.mock import patch
 
@@ -35,7 +34,6 @@ class TestSubmissionQC(TestCase):
 
     def test_submission_qc_checks_failed_1(self):
         self.eload = EloadQC(101)
-        self.original_cfg = deepcopy(self.eload.eload_cfg.content)
 
         with self._patch_metadata_handle(), \
                 patch('eva_submission.submission_qc_checks.FTP.login') as m_ftp_login, \
@@ -55,7 +53,6 @@ class TestSubmissionQC(TestCase):
 
     def test_submission_qc_checks_failed_2(self):
         self.eload = EloadQC(102)
-        self.original_cfg = deepcopy(self.eload.eload_cfg.content)
 
         with self._patch_metadata_handle(), \
                 patch('eva_submission.submission_qc_checks.FTP.login') as m_ftp_login, \
@@ -73,7 +70,6 @@ class TestSubmissionQC(TestCase):
 
     def test_submission_qc_checks_passed(self):
         self.eload = EloadQC(103)
-        self.original_cfg = deepcopy(self.eload.eload_cfg.content)
 
         with self._patch_metadata_handle(), \
                 patch('eva_submission.submission_qc_checks.FTP.login') as m_ftp_login, \
@@ -90,7 +86,6 @@ class TestSubmissionQC(TestCase):
 
     def test_submission_qc_checks_missing_files(self):
         self.eload = EloadQC(104)
-        self.original_cfg = deepcopy(self.eload.eload_cfg.content)
 
         with self._patch_metadata_handle(), \
                 patch('eva_submission.submission_qc_checks.FTP.login') as m_ftp_login, \
@@ -113,8 +108,10 @@ class TestSubmissionQC(TestCase):
         Browsable files check: FAIL
         Accessioning job check: FAIL
         Variants Skipped accessioning check: PASS with Warning (Manual Check Required)
-        Variant load check: FAIL
-        Remapping and Clustering Check: 
+        Variant load and Accession Import check:
+            Variant load check: FAIL
+            Accession Import check: FAIL
+        Remapping and Clustering Check:
             Clustering check: FAIL 
             Remapping check: FAIL
             Back-propogation check: FAIL
@@ -148,10 +145,15 @@ class TestSubmissionQC(TestCase):
         
         Variant load check:
         
-                pass: FAIL
-                failed_files:
-                    test1.vcf.gz - Variant Load Error : No pipeline file found for test1.vcf.gz
-                    test2.vcf.gz - Variant Load Error : No pipeline file found for test2.vcf.gz
+                variant load result: FAIL
+                accession import result: FAIL
+                    Failed Files:
+                        test1.vcf.gz: 
+                            variant load error : No variant load log file found for test1.vcf.gz
+                            accession import error : No acc import file found for test1.vcf.gz
+                        test2.vcf.gz: 
+                            variant load error : No variant load log file found for test2.vcf.gz
+                            accession import error : No acc import file found for test2.vcf.gz
         ----------------------------------
 
         Remapping and Clustering check:
@@ -188,8 +190,10 @@ class TestSubmissionQC(TestCase):
         Browsable files check: PASS
         Accessioning job check: FAIL
         Variants Skipped accessioning check: PASS with Warning (Manual Check Required)
-        Variant load check: FAIL
-        Remapping and Clustering Check: 
+        Variant load and Accession Import check:
+            Variant load check: FAIL
+            Accession Import check: FAIL
+        Remapping and Clustering Check:
             Clustering check: FAIL 
             Remapping check: FAIL
             Back-propogation check: FAIL
@@ -209,7 +213,7 @@ class TestSubmissionQC(TestCase):
         
                 pass: FAIL
                 failed_files:
-                    test1.vcf.gz - failed_job - CREATE_SUBSNP_ACCESSION_STEP
+                    test1.vcf.gz - failed job/step : CREATE_SUBSNP_ACCESSION_STEP
                     test2.vcf.gz - Accessioning Error : No accessioning file found for test2.vcf.gz
         ----------------------------------
         
@@ -222,10 +226,15 @@ class TestSubmissionQC(TestCase):
         
         Variant load check:
         
-                pass: FAIL
-                failed_files:
-                    test1.vcf.gz - failed_job - load-variants-step
-                    test2.vcf.gz - Variant Load Error : No pipeline file found for test2.vcf.gz
+                variant load result: FAIL
+                accession import result: FAIL
+                    Failed Files:
+                        test1.vcf.gz: 
+                            variant load failed job/step : load-variants-step
+                            accession import failed job/step : accession-import-step
+                        test2.vcf.gz: 
+                            variant load error : No variant load log file found for test2.vcf.gz
+                            accession import error : No acc import file found for test2.vcf.gz
         ----------------------------------
 
         Remapping and Clustering check:
@@ -263,8 +272,10 @@ class TestSubmissionQC(TestCase):
         Browsable files check: PASS
         Accessioning job check: PASS
         Variants Skipped accessioning check: PASS
-        Variant load check: PASS
-        Remapping and Clustering Check: 
+        Variant load and Accession Import check:
+            Variant load check: PASS
+            Accession Import check: PASS
+        Remapping and Clustering Check:
             Clustering check: PASS 
             Remapping check: PASS
             Back-propogation check: PASS
@@ -292,7 +303,8 @@ class TestSubmissionQC(TestCase):
         
         Variant load check:
         
-                pass: PASS
+                variant load result: PASS
+                accession import result: PASS
         ----------------------------------
 
         Remapping and Clustering check:
@@ -335,8 +347,10 @@ class TestSubmissionQC(TestCase):
         Browsable files check: PASS
         Accessioning job check: FAIL
         Variants Skipped accessioning check: PASS with Warning (Manual Check Required)
-        Variant load check: FAIL
-        Remapping and Clustering Check: 
+        Variant load and Accession Import check:
+            Variant load check: FAIL
+            Accession Import check: FAIL
+        Remapping and Clustering Check:
             Clustering check: FAIL 
             Remapping check: FAIL
             Back-propogation check: FAIL
@@ -368,9 +382,12 @@ class TestSubmissionQC(TestCase):
         
         Variant load check:
         
-                pass: FAIL
-                failed_files:
-                    test1.vcf.gz - Variant Load Error : No pipeline file found for test1.vcf.gz
+                variant load result: FAIL
+                accession import result: FAIL
+                    Failed Files:
+                        test1.vcf.gz: 
+                            variant load error : No variant load log file found for test1.vcf.gz
+                            accession import error : No acc import file found for test1.vcf.gz
         ----------------------------------
 
         Remapping and Clustering check:
