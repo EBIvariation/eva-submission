@@ -1,6 +1,17 @@
 Changelog for eva-submission
 ============================
 
+1.10.5 (2023-05-18)
+------------------
+### Ingestion
+ - fix accession import log file name (see EVA-3243)
+
+1.10.4 (2023-05-09)
+------------------
+### Ingestion
+ - Use Spring properties generator to generate application properties for the various Java pipelines (see EVA-3147)
+ - Determine remapping target assembly for a submission (see EVA-3208)
+
 1.10.3 (2023-04-04)
 ------------------
 ### Ingestion
