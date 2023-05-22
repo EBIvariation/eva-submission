@@ -373,16 +373,17 @@ class EloadQC(Eload):
         """
 
     def remapping_check_report(self, target_assembly):
-        failed_asm = defaultdict(dict)
+        asm_res = defaultdict(dict)
         for analysis_data in self.analyses.values():
             assembly_accession = analysis_data['assembly_accession']
+            vcf_extractor_result = remapping_ingestion_result = 'SKIP'
+            vcf_extractor_error = remapping_ingestion_error = ""
             if assembly_accession != target_assembly:
                 vcf_extractor_log_file = glob.glob(
                     f"{self.path_to_data_dir}/53_clustering/logs/{assembly_accession}_vcf_extractor.log")
                 remapped_ingestion_log_file = glob.glob(
                     f"{self.path_to_data_dir}/53_clustering/logs/{assembly_accession}_eva_remapped.vcf_ingestion.log")
 
-                vcf_extractor_error = ""
                 if vcf_extractor_log_file:
                     if not self.check_if_job_completed_successfully(vcf_extractor_log_file[0], 'vcf_extractor'):
                         vcf_extractor_error += f"failed job/step : {self.get_failed_job_or_step_name(vcf_extractor_log_file[0])}"
@@ -393,7 +394,6 @@ class EloadQC(Eload):
                     vcf_extractor_error += f"VCF Extractor Error: No vcf extractor file found for {assembly_accession}_vcf_extractor.log"
                     vcf_extractor_result = "FAIL"
 
-                remapping_ingestion_error = ""
                 if remapped_ingestion_log_file:
                     if not self.check_if_job_completed_successfully(remapped_ingestion_log_file[0], 'remapping_ingestion'):
                         remapping_ingestion_error += f"failed job/step : {self.get_failed_job_or_step_name(remapped_ingestion_log_file[0])}"
@@ -404,33 +404,40 @@ class EloadQC(Eload):
                     remapping_ingestion_error += f"Remapping Ingestion Error: No remapping ingestion file found for {assembly_accession}_eva_remapped.vcf_ingestion.log"
                     remapping_ingestion_result = "FAIL"
 
-                if vcf_extractor_result == 'FAIL':
-                    failed_asm[assembly_accession]['vcf_extractor']= vcf_extractor_error
-                if remapping_ingestion_result == 'FAIL':
-                    failed_asm[assembly_accession]['remapping_ingestion']= remapping_ingestion_error
+            asm_res[assembly_accession]['vcf_extractor_result'] = vcf_extractor_result
+            asm_res[assembly_accession]['vcf_extractor_error'] = vcf_extractor_error
+            asm_res[assembly_accession]['remapping_ingestion_result'] = remapping_ingestion_result
+            asm_res[assembly_accession]['remapping_ingestion_error'] = remapping_ingestion_error
 
-        self._remapping_check_result = 'FAIL' if failed_asm else 'PASS'
-        report = ""
-        if failed_asm:
-            report += f"""failed_remapping for assemblies:"""
-            for asm, error_txt in failed_asm.items():
-                report += f"""
-                        {asm}: 
-                            - {error_txt['vcf_extractor']}
-                            - {error_txt['remapping_ingestion']}
-                        """
+        self._remapping_check_result = 'PASS'
+
+        report = f"""remapping result of assemblies:"""
+        for asm, res in asm_res.items():
+            vcf_ext_res = res['vcf_extractor_result']
+            vcf_ext_err = 'No Error' if res['vcf_extractor_error'] == "" else res['vcf_extractor_error']
+            remap_ingest_res = res['remapping_ingestion_result']
+            remap_ingest_err = 'No Error' if res['remapping_ingestion_error'] == "" else res['remapping_ingestion_error']
+            if vcf_ext_res == 'FAIL' or remap_ingest_res == 'FAIL':
+                self._remapping_check_result = 'FAIL'
+
+            report += f"""
+                        {asm}:
+                            - vcf_extractor_result : {vcf_ext_res} - {vcf_ext_err}
+                            - remapping_ingestion_result: {remap_ingest_res} - {remap_ingest_err}
+                    """
 
         return report
 
     def backpropagation_check_report(self, target_assembly):
-        failed_asm = {}
+        asm_res = defaultdict(dict)
         for analysis_data in self.analyses.values():
             assembly_accession = analysis_data['assembly_accession']
+            backpropagation_result = "SKIP"
+            backpropagation_error = ""
             if assembly_accession != target_assembly:
                 back_propagation_log_file = glob.glob(
                     f"{self.path_to_data_dir}/53_clustering/logs/{target_assembly}_backpropagate_to_{assembly_accession}.log")
 
-                backpropagation_error = ""
                 if back_propagation_log_file:
                     if not self.check_if_job_completed_successfully(back_propagation_log_file[0], 'backpropagation'):
                         backpropagation_error += f"failed job/step : {self.get_failed_job_or_step_name(back_propagation_log_file[0])}"
@@ -441,16 +448,19 @@ class EloadQC(Eload):
                     backpropagation_error += f"Backpropagation Error: No backpropagation file found for {target_assembly}_backpropagate_to_{assembly_accession}.log"
                     backpropagation_result = "FAIL"
 
-            if backpropagation_result == 'FAIL':
-                failed_asm[assembly_accession] = backpropagation_error
+            asm_res[assembly_accession]['result'] = backpropagation_result
+            asm_res[assembly_accession]['error'] = backpropagation_error
 
-        self._backpropagation_check_result = 'FAIL' if failed_asm else 'PASS'
-        report = ""
-        if failed_asm:
-            report = f"""failed_backpropagation for assemblies:"""
-            for asm, error_txt in failed_asm.items():
-                report += f"""
-                        {asm} - {error_txt}"""
+        self._backpropagation_check_result = 'PASS'
+
+        report = f"""backpropagation result of assemblies:"""
+        for asm, result in asm_res.items():
+            res = result['result']
+            err = 'No Error' if result['error'] == '' else result['error']
+            if res == 'FAIL':
+                self._backpropagation_check_result = 'FAIL'
+            report += f"""
+                        {asm}: {res} - {err}"""
 
         return report
 
@@ -461,9 +471,9 @@ class EloadQC(Eload):
             self._clustering_check_result = "FAIL"
             self._backpropagation_check_result = "FAIL"
             return f"""
-                pass (clustering check): {self._clustering_check_result}
-                pass (remapping check): {self._remapping_check_result}    
-                pass (backpropagation check): {self._backpropagation_check_result}
+                clustering check: {self._clustering_check_result}
+                remapping check: {self._remapping_check_result}    
+                backpropagation check: {self._backpropagation_check_result}
                 Remapping and clustering have not run for this study (or eload configuration file is missing taxonomy)
                 Note: This results might not be accurate for older studies. It is advisable to checks those manually
                 """
@@ -472,11 +482,11 @@ class EloadQC(Eload):
             remapping_check_report = self.remapping_check_report(target_assembly)
             backpropagation_check_report = self.backpropagation_check_report(target_assembly)
             return f"""
-                pass (clustering check): {self._clustering_check_result}
+                clustering check: {self._clustering_check_result}
                     {clustering_check_report}
-                pass (remapping check): {self._remapping_check_result}
+                remapping check: {self._remapping_check_result}
                     {remapping_check_report}
-                pass (backpropagation check): {self._backpropagation_check_result}
+                backpropagation check: {self._backpropagation_check_result}
                     {backpropagation_check_report}
                 """
 

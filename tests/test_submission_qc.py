@@ -158,9 +158,9 @@ class TestSubmissionQC(TestCase):
 
         Remapping and Clustering check:
         
-                pass (clustering check): FAIL
-                pass (remapping check): FAIL    
-                pass (backpropagation check): FAIL
+                clustering check: FAIL
+                remapping check: FAIL    
+                backpropagation check: FAIL
                 Remapping and clustering have not run for this study (or eload configuration file is missing taxonomy)
                 Note: This results might not be accurate for older studies. It is advisable to checks those manually
                 
@@ -239,9 +239,9 @@ class TestSubmissionQC(TestCase):
 
         Remapping and Clustering check:
         
-                pass (clustering check): FAIL
-                pass (remapping check): FAIL    
-                pass (backpropagation check): FAIL
+                clustering check: FAIL
+                remapping check: FAIL    
+                backpropagation check: FAIL
                 Remapping and clustering have not run for this study (or eload configuration file is missing taxonomy)
                 Note: This results might not be accurate for older studies. It is advisable to checks those manually
                 
@@ -309,16 +309,21 @@ class TestSubmissionQC(TestCase):
 
         Remapping and Clustering check:
         
-                pass (clustering check): PASS
+                clustering check: PASS
                     Clustering Job: PASS        
                         
                     Clustering QC Job: PASS
                         
         
-                pass (remapping check): PASS
+                remapping check: PASS
+                    remapping result of assemblies:
+                        GCA_000003205.6:
+                            - vcf_extractor_result : PASS - No Error
+                            - remapping_ingestion_result: PASS - No Error
                     
-                pass (backpropagation check): PASS
-                    
+                backpropagation check: PASS
+                    backpropagation result of assemblies:
+                        GCA_000003205.6: PASS - No Error
                 
         ----------------------------------
         
@@ -392,21 +397,21 @@ class TestSubmissionQC(TestCase):
 
         Remapping and Clustering check:
         
-                pass (clustering check): FAIL
+                clustering check: FAIL
                     Clustering Job: FAIL        
                         Clustering Error : No clustering file found for GCA_000247795.2_clustering.log
                     Clustering QC Job: FAIL
                         Clustering QC Error : No clustering qc file found for GCA_000247795.2_clustering_qc.log
         
-                pass (remapping check): FAIL
-                    failed_remapping for assemblies:
-                        GCA_000003205.6: 
-                            - VCF Extractor Error: No vcf extractor file found for GCA_000003205.6_vcf_extractor.log
-                            - Remapping Ingestion Error: No remapping ingestion file found for GCA_000003205.6_eva_remapped.vcf_ingestion.log
-                        
-                pass (backpropagation check): FAIL
-                    failed_backpropagation for assemblies:
-                        GCA_000003205.6 - Backpropagation Error: No backpropagation file found for GCA_000247795.2_backpropagate_to_GCA_000003205.6.log
+                remapping check: FAIL
+                    remapping result of assemblies:
+                        GCA_000003205.6:
+                            - vcf_extractor_result : FAIL - VCF Extractor Error: No vcf extractor file found for GCA_000003205.6_vcf_extractor.log
+                            - remapping_ingestion_result: FAIL - Remapping Ingestion Error: No remapping ingestion file found for GCA_000003205.6_eva_remapped.vcf_ingestion.log
+                    
+                backpropagation check: FAIL
+                    backpropagation result of assemblies:
+                        GCA_000003205.6: FAIL - Backpropagation Error: No backpropagation file found for GCA_000247795.2_backpropagate_to_GCA_000003205.6.log
                 
         ----------------------------------
         
