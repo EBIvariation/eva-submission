@@ -1,0 +1,6 @@
+2023-04-21 01:43:38.825  INFO 2264499 --- [           main] u.a.e.e.a.clustering.Application         : Started Application in 77.491 seconds (JVM running for 78.982)
+2023-04-21 01:43:39.346  INFO 2264499 --- [           main] .a.e.e.a.c.r.ClusteringCommandLineRunner : Running job 'NEW_CLUSTERED_VARIANTS_QC_JOB' with parameters:
+2023-04-21 01:43:39.388  INFO 2264499 --- [           main] o.s.b.c.l.support.SimpleJobLauncher      : Job: [SimpleJob: [name=NEW_CLUSTERED_VARIANTS_QC_JOB]] launched with the following parameters: []
+2023-04-21 01:43:39.426  INFO 2264499 --- [           main] o.s.batch.core.job.SimpleStepHandler     : Executing step: [REPORT_MISSING_CVE_STEP]
+2023-04-21 01:41:33.975  INFO 3832702 --- [           main] u.a.e.eva.metrics.metric.MetricCompute   : Metric Count successfully saved In DB023-04-26 10:45:35.204 ERROR 2166396 --- [cTaskExecutor-1] o.s.batch.core.step.AbstractStep         : Encountered an error executing step REPORT_MISSING_CVE_STEP in job NEW_CLUSTERED_VARIANTS_QC_JOB
+2023-04-21 01:43:41.337  INFO 2264499 --- [           main] o.s.b.c.l.support.SimpleJobLauncher      : Job: [SimpleJob: [name=NEW_CLUSTERED_VARIANTS_QC_JOB]] completed with the following parameters: [] and the following status: [FAILED]

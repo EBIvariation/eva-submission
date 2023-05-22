@@ -1,5 +1,6 @@
 import glob
 import os
+from collections import defaultdict
 from ftplib import FTP
 from pathlib import Path
 
@@ -26,6 +27,42 @@ class EloadQC(Eload):
         self.path_to_data_dir = Path(cfg['projects_dir'], self.project_accession)
         self.taxonomy = self.eload_cfg.query('submission', 'taxonomy_id')
         self.analyses = self.eload_cfg.query('brokering', 'analyses')
+        self.job_launched_and_completed_text_map = {
+            'accession': (
+                {'Job: [SimpleJob: [name=CREATE_SUBSNP_ACCESSION_JOB]] launched'},
+                {'Job: [SimpleJob: [name=CREATE_SUBSNP_ACCESSION_JOB]] completed'}
+            ),
+            'variant_load': (
+                {'Job: [FlowJob: [name=genotyped-vcf-job]] launched',
+                 'Job: [FlowJob: [name=aggregated-vcf-job]] launched'},
+                {'Job: [FlowJob: [name=genotyped-vcf-job]] completed',
+                 'Job: [FlowJob: [name=aggregated-vcf-job]] completed'}
+            ),
+            'acc_import': (
+                {'Job: [SimpleJob: [name=accession-import-job]] launched'},
+                {'Job: [SimpleJob: [name=accession-import-job]] completed'}
+            ),
+            'clustering': (
+                {'Job: [SimpleJob: [name=STUDY_CLUSTERING_JOB]] launched'},
+                {'Job: [SimpleJob: [name=STUDY_CLUSTERING_JOB]] completed'}
+            ),
+            'clustering_qc': (
+                {'Job: [SimpleJob: [name=NEW_CLUSTERED_VARIANTS_QC_JOB]] launched'},
+                {'Job: [SimpleJob: [name=NEW_CLUSTERED_VARIANTS_QC_JOB]] completed'}
+            ),
+            'vcf_extractor': (
+                {'Job: [SimpleJob: [name=EXPORT_SUBMITTED_VARIANTS_JOB]] launched'},
+                {'Job: [SimpleJob: [name=EXPORT_SUBMITTED_VARIANTS_JOB]] completed'}
+            ),
+            'remapping_ingestion': (
+                {'Job: [SimpleJob: [name=INGEST_REMAPPED_VARIANTS_FROM_VCF_JOB]] launched'},
+                {'Job: [SimpleJob: [name=INGEST_REMAPPED_VARIANTS_FROM_VCF_JOB]] completed'}
+            ),
+            'backpropagation': (
+                {'Job: [SimpleJob: [name=BACK_PROPAGATE_NEW_RS_JOB]] launched'},
+                {'Job: [SimpleJob: [name=BACK_PROPAGATE_NEW_RS_JOB]] completed'}
+            )
+        }
 
     def check_if_study_appears(self):
         url = f"https://wwwdev.ebi.ac.uk/eva/webservices/rest/v1/studies/{self.project_accession}/summary"
@@ -138,24 +175,22 @@ class EloadQC(Eload):
         ftp.cwd(f'pub/databases/eva/{project_accession}')
         return ftp.nlst()
 
-    def check_if_job_completed_successfully(self, file_path):
+    def check_if_job_completed_successfully(self, file_path, job_type):
         with open(file_path, 'r') as f:
             job_status = 'FAILED'
+            job_launched_str, job_completed_str = self.job_launched_and_completed_text_map[job_type]
             for line in f:
-                if "Job: [SimpleJob: [name=CREATE_SUBSNP_ACCESSION_JOB]] launched" in line or \
-                        "Running job 'genotyped-vcf-job' with parameters" in line or \
-                        "Running job 'aggregated-vcf-job' with parameters" in line:
+                if any(str in line for str in job_launched_str):
                     job_status = ""
-                if 'Job: [FlowJob: [name=genotyped-vcf-job]] completed' in line or \
-                        'Job: [FlowJob: [name=aggregated-vcf-job]] completed' in line or \
-                        'Job: [SimpleJob: [name=CREATE_SUBSNP_ACCESSION_JOB]] completed' in line:
+                if any(str in line for str in job_completed_str):
                     job_status = line.split(" ")[-1].replace("[", "").replace("]", "").strip()
             if job_status == 'COMPLETED':
                 return True
             elif job_status == 'FAILED':
                 return False
             else:
-                logger.error(f'Could not determine status of variant load job in file {file_path}')
+                logger.error(f'Could not determine status of {job_type} job in file {file_path}')
+                return False
 
     def check_if_variants_were_skipped(self, file_path):
         with open(file_path, 'r') as f:
@@ -168,17 +203,14 @@ class EloadQC(Eload):
 
             return variants_skipped
 
-    def check_for_errors_in_case_of_job_failure(self, file_name):
+    def get_failed_job_or_step_name(self, file_name):
         with open(file_name, 'r') as f:
-            job_name = None
+            job_name = 'job name could not be retrieved'
             for line in f:
-                if "Job: [SimpleJob: [name=CREATE_SUBSNP_ACCESSION_JOB]] launched" in line or \
-                        "Running job 'genotyped-vcf-job' with parameters" in line or \
-                        "Running job 'aggregated-vcf-job' with parameters" in line:
-                    job_name = None
                 if 'Encountered an error executing step' in line:
                     job_name = line[line.index("Encountered an error executing step"): line.rindex("in job")] \
                         .strip().split(" ")[-1]
+
             return job_name
 
     def check_if_accessioning_completed_successfully(self, vcf_files):
@@ -186,13 +218,12 @@ class EloadQC(Eload):
         for file in vcf_files:
             accessioning_log_files = glob.glob(f"{self.path_to_data_dir}/00_logs/accessioning.*{file}*.log")
             if accessioning_log_files:
-                # check if accessioning job completed successfullyy
-                if not self.check_if_job_completed_successfully(accessioning_log_files[0]):
-                    failed_job = self.check_for_errors_in_case_of_job_failure(accessioning_log_files[0])
+                # check if accessioning job completed successfully
+                if not self.check_if_job_completed_successfully(accessioning_log_files[0], 'accession'):
                     failed_files[
-                        file] = f"failed_job - {failed_job}" if failed_job else f"failed_job name could not be retrieved"
+                        file] = f"failed job/step : {self.get_failed_job_or_step_name(accessioning_log_files[0])}"
             else:
-                failed_files[file] = f"error : No accessioning file found for {file}"
+                failed_files[file] = f"Accessioning Error : No accessioning file found for {file}"
 
         self._accessioning_job_check_result = "PASS" if not failed_files else "FAIL"
         report = f"""
@@ -207,28 +238,63 @@ class EloadQC(Eload):
         return report
 
     def check_if_variant_load_completed_successfully(self, vcf_files):
-        failed_files = {}
+        failed_files = defaultdict(dict)
         for file in vcf_files:
-            pipeline_log_files = glob.glob(f"{self.path_to_data_dir}/00_logs/pipeline.*{file}*.log")
-            if pipeline_log_files:
-                # check if variant load job completed successfully
-                if not self.check_if_job_completed_successfully(pipeline_log_files[0]):
-                    failed_job = self.check_for_errors_in_case_of_job_failure(pipeline_log_files[0])
-                    failed_files[
-                        file] = f"failed_job - {failed_job}" if failed_job else f"failed_job name could not be retrieved"
-            else:
-                failed_files[file] = f"error : No pipeline file found for {file}"
+            variant_load_log_files = glob.glob(f"{self.path_to_data_dir}/00_logs/pipeline.*{file}*.log")
+            acc_import_log_files = glob.glob(f"{self.path_to_data_dir}/00_logs/acc_import.*{file}*.log")
 
-        self._variant_load_job_check_result = "PASS" if not failed_files else "FAIL"
+            variant_load_error = ""
+            if variant_load_log_files:
+                # check if variant load job completed successfully
+                if not self.check_if_job_completed_successfully(variant_load_log_files[0], 'variant_load'):
+                    variant_load_error += f"variant load failed job/step : {self.get_failed_job_or_step_name(variant_load_log_files[0])}"
+                    variant_load_result = "FAIL"
+                else:
+                    variant_load_result = "PASS"
+            else:
+                variant_load_error += f"variant load error : No variant load log file found for {file}"
+                variant_load_result = "FAIL"
+
+            acc_import_error = ""
+            if acc_import_log_files:
+                # check if variant load job completed successfully
+                if not self.check_if_job_completed_successfully(acc_import_log_files[0], 'acc_import'):
+                    acc_import_error += f"accession import failed job/step : {self.get_failed_job_or_step_name(acc_import_log_files[0])}"
+                    acc_import_result = "FAIL"
+                else:
+                    acc_import_result = "PASS"
+            else:
+                acc_import_error += f"accession import error : No acc import file found for {file}"
+                acc_import_result = "FAIL"
+
+            if variant_load_result == 'FAIL':
+                failed_files[file]['variant_load'] = variant_load_error
+            if acc_import_result == 'FAIL':
+                failed_files[file]['acc_import'] = acc_import_error
+
+        if failed_files:
+            for file, errors in failed_files.items():
+                if 'variant_load' in errors:
+                    self._variant_load_job_check_result = "FAIL"
+                if 'acc_import' in errors:
+                    self._acc_import_job_check_result = "FAIL"
+        else:
+            self._variant_load_job_check_result = "PASS"
+            self._acc_import_job_check_result = "PASS"
+
         report = f"""
-                pass: {self._variant_load_job_check_result}"""
+                variant load result: {self._variant_load_job_check_result}
+                accession import result: {self._acc_import_job_check_result}"""
         if failed_files:
             report += f"""
-                failed_files:"""
-            for file, value in failed_files.items():
+                    Failed Files:"""
+            for file, error_txt in failed_files.items():
+                variant_load_error = error_txt['variant_load'] if 'variant_load' in error_txt else ""
+                acc_import_error = error_txt['acc_import'] if 'acc_import' in error_txt else ""
                 report += f"""
-                    {file} - {value}"""
-
+                        {file}: 
+                            {variant_load_error}
+                            {acc_import_error}"""
         return report
 
     def check_if_variants_were_skipped_while_accessioning(self, vcf_files):
@@ -244,7 +310,7 @@ class EloadQC(Eload):
                     else:
                         failed_files[file] = f"{variants_skipped} variants skipped"
             else:
-                failed_files[file] = f"error : No accessioning file found for {file}"
+                failed_files[file] = f"Accessioning Error : No accessioning file found for {file}"
 
         self._variants_skipped_accessioning_check_result = "PASS" if not failed_files else "PASS with Warning (Manual Check Required)"
         report = f"""
@@ -267,6 +333,162 @@ class EloadQC(Eload):
             pass : {self._browsable_files_check_result}
             expected files: {vcf_files}
             missing files: {missing_files if missing_files else 'None'}"""
+
+    def clustering_check_report(self, target_assembly):
+        clustering_log_file = glob.glob(f"{self.path_to_data_dir}/53_clustering/logs/{target_assembly}_clustering.log")
+        clustering_qc_log_file = glob.glob(
+            f"{self.path_to_data_dir}/53_clustering/logs/{target_assembly}_clustering_qc.log")
+
+        clustering_error = ""
+        if clustering_log_file:
+            if not self.check_if_job_completed_successfully(clustering_log_file[0], 'clustering'):
+                clustering_error += f"failed job/step : {self.get_failed_job_or_step_name(clustering_log_file[0])}"
+                clustering_check_result = "FAIL"
+            else:
+                clustering_check_result = "PASS"
+        else:
+            clustering_error += f"Clustering Error : No clustering file found for {target_assembly}_clustering.log"
+            clustering_check_result = "FAIL"
+
+        clustering_qc_error = ""
+        if clustering_qc_log_file:
+            if not self.check_if_job_completed_successfully(clustering_qc_log_file[0], 'clustering_qc'):
+                clustering_qc_error += f"failed job/step : {self.get_failed_job_or_step_name(clustering_qc_log_file[0])}"
+                clustering_qc_check_result = "FAIL"
+            else:
+                clustering_qc_check_result = "PASS"
+        else:
+            clustering_qc_error += f"Clustering QC Error : No clustering qc file found for {target_assembly}_clustering_qc.log"
+            clustering_qc_check_result = "FAIL"
+
+        if clustering_check_result == 'FAIL' or clustering_qc_check_result == 'FAIL':
+            self._clustering_check_result = 'FAIL'
+        else:
+            self._clustering_check_result = 'PASS'
+
+        return f"""Clustering Job: {clustering_check_result}        
+                        {clustering_error if clustering_check_result == 'FAIL' else ""}
+                    Clustering QC Job: {clustering_qc_check_result}
+                        {clustering_qc_error if clustering_qc_check_result == 'FAIL' else ""}
+        """
+
+    def remapping_check_report(self, target_assembly):
+        asm_res = defaultdict(dict)
+        for analysis_data in self.analyses.values():
+            assembly_accession = analysis_data['assembly_accession']
+            vcf_extractor_result = remapping_ingestion_result = 'SKIP'
+            vcf_extractor_error = remapping_ingestion_error = ""
+            if assembly_accession != target_assembly:
+                vcf_extractor_log_file = glob.glob(
+                    f"{self.path_to_data_dir}/53_clustering/logs/{assembly_accession}_vcf_extractor.log")
+                remapped_ingestion_log_file = glob.glob(
+                    f"{self.path_to_data_dir}/53_clustering/logs/{assembly_accession}_eva_remapped.vcf_ingestion.log")
+
+                if vcf_extractor_log_file:
+                    if not self.check_if_job_completed_successfully(vcf_extractor_log_file[0], 'vcf_extractor'):
+                        vcf_extractor_error += f"failed job/step : {self.get_failed_job_or_step_name(vcf_extractor_log_file[0])}"
+                        vcf_extractor_result = "FAIL"
+                    else:
+                        vcf_extractor_result = "PASS"
+                else:
+                    vcf_extractor_error += f"VCF Extractor Error: No vcf extractor file found for {assembly_accession}_vcf_extractor.log"
+                    vcf_extractor_result = "FAIL"
+
+                if remapped_ingestion_log_file:
+                    if not self.check_if_job_completed_successfully(remapped_ingestion_log_file[0], 'remapping_ingestion'):
+                        remapping_ingestion_error += f"failed job/step : {self.get_failed_job_or_step_name(remapped_ingestion_log_file[0])}"
+                        remapping_ingestion_result = "FAIL"
+                    else:
+                        remapping_ingestion_result = "PASS"
+                else:
+                    remapping_ingestion_error += f"Remapping Ingestion Error: No remapping ingestion file found for {assembly_accession}_eva_remapped.vcf_ingestion.log"
+                    remapping_ingestion_result = "FAIL"
+
+            asm_res[assembly_accession]['vcf_extractor_result'] = vcf_extractor_result
+            asm_res[assembly_accession]['vcf_extractor_error'] = vcf_extractor_error
+            asm_res[assembly_accession]['remapping_ingestion_result'] = remapping_ingestion_result
+            asm_res[assembly_accession]['remapping_ingestion_error'] = remapping_ingestion_error
+
+        self._remapping_check_result = 'PASS'
+
+        report = f"""remapping result of assemblies:"""
+        for asm, res in asm_res.items():
+            vcf_ext_res = res['vcf_extractor_result']
+            vcf_ext_err = 'No Error' if res['vcf_extractor_error'] == "" else res['vcf_extractor_error']
+            remap_ingest_res = res['remapping_ingestion_result']
+            remap_ingest_err = 'No Error' if res['remapping_ingestion_error'] == "" else res['remapping_ingestion_error']
+            if vcf_ext_res == 'FAIL' or remap_ingest_res == 'FAIL':
+                self._remapping_check_result = 'FAIL'
+
+            report += f"""
+                        {asm}:
+                            - vcf_extractor_result : {vcf_ext_res} - {vcf_ext_err}
+                            - remapping_ingestion_result: {remap_ingest_res} - {remap_ingest_err}
+                    """
+
+        return report
+
+    def backpropagation_check_report(self, target_assembly):
+        asm_res = defaultdict(dict)
+        for analysis_data in self.analyses.values():
+            assembly_accession = analysis_data['assembly_accession']
+            backpropagation_result = "SKIP"
+            backpropagation_error = ""
+            if assembly_accession != target_assembly:
+                back_propagation_log_file = glob.glob(
+                    f"{self.path_to_data_dir}/53_clustering/logs/{target_assembly}_backpropagate_to_{assembly_accession}.log")
+
+                if back_propagation_log_file:
+                    if not self.check_if_job_completed_successfully(back_propagation_log_file[0], 'backpropagation'):
+                        backpropagation_error += f"failed job/step : {self.get_failed_job_or_step_name(back_propagation_log_file[0])}"
+                        backpropagation_result = "FAIL"
+                    else:
+                        backpropagation_result = "PASS"
+                else:
+                    backpropagation_error += f"Backpropagation Error: No backpropagation file found for {target_assembly}_backpropagate_to_{assembly_accession}.log"
+                    backpropagation_result = "FAIL"
+
+            asm_res[assembly_accession]['result'] = backpropagation_result
+            asm_res[assembly_accession]['error'] = backpropagation_error
+
+        self._backpropagation_check_result = 'PASS'
+
+        report = f"""backpropagation result of assemblies:"""
+        for asm, result in asm_res.items():
+            res = result['result']
+            err = 'No Error' if result['error'] == '' else result['error']
+            if res == 'FAIL':
+                self._backpropagation_check_result = 'FAIL'
+            report += f"""
+                        {asm}: {res} - {err}"""
+
+        return report
+
+    def check_if_remapping_and_clustering_finished_successfully(self):
+        target_assembly = self.eload_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly')
+        if not target_assembly:
+            self._remapping_check_result = "FAIL"
+            self._clustering_check_result = "FAIL"
+            self._backpropagation_check_result = "FAIL"
+            return f"""
+                clustering check: {self._clustering_check_result}
+                remapping check: {self._remapping_check_result}    
+                backpropagation check: {self._backpropagation_check_result}
+                Remapping and clustering have not run for this study (or eload configuration file is missing taxonomy)
+                Note: This results might not be accurate for older studies. It is advisable to checks those manually
+                """
+        else:
+            clustering_check_report = self.clustering_check_report(target_assembly)
+            remapping_check_report = self.remapping_check_report(target_assembly)
+            backpropagation_check_report = self.backpropagation_check_report(target_assembly)
+            return f"""
+                clustering check: {self._clustering_check_result}
+                    {clustering_check_report}
+                remapping check: {self._remapping_check_result}
+                    {remapping_check_report}
+                backpropagation check: {self._backpropagation_check_result}
+                    {backpropagation_check_report}
+                """
 
     def run_qc_checks_for_submission(self):
         """Collect information from different qc methods and write the report."""
@@ -291,6 +513,8 @@ class EloadQC(Eload):
 
         variant_load_report = self.check_if_variant_load_completed_successfully(vcf_files)
 
+        remapping_and_clustering_report = self.check_if_remapping_and_clustering_finished_successfully()
+
         ftp_report = self.check_all_browsable_files_are_available_in_ftp(vcf_files)
 
         study_report = self.check_if_study_appears()
@@ -303,7 +527,13 @@ class EloadQC(Eload):
         Browsable files check: {self._browsable_files_check_result}
         Accessioning job check: {self._accessioning_job_check_result}
         Variants Skipped accessioning check: {self._variants_skipped_accessioning_check_result}
-        Variant load check: {self._variant_load_job_check_result}
+        Variant load and Accession Import check:
+            Variant load check: {self._variant_load_job_check_result}
+            Accession Import check: {self._acc_import_job_check_result}
+        Remapping and Clustering Check:
+            Clustering check: {self._clustering_check_result} 
+            Remapping check: {self._remapping_check_result}
+            Back-propogation check: {self._backpropagation_check_result}
         FTP check: {self._ftp_check_result}
         Study check: {self._study_check_result}
         Study metadata check: {self._study_metadata_check_result}
@@ -324,6 +554,10 @@ class EloadQC(Eload):
         Variant load check:
         {variant_load_report}
         ----------------------------------
+
+        Remapping and Clustering check:
+        {remapping_and_clustering_report}
+        ----------------------------------
         
         FTP check:
         {ftp_report}
@@ -337,4 +571,7 @@ class EloadQC(Eload):
         {study_metadata_report}
         ----------------------------------
         """
+
         print(report)
+
+        return report
