@@ -113,7 +113,7 @@ process load_vcf {
     }
 
     """
-    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props $pipeline_parameters
+    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
     """
 }
 
@@ -144,6 +144,6 @@ process import_accession {
 
 
     """
-    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.acc_import_job_props $pipeline_parameters
+    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.acc_import_job_props --parameters.path=$params.acc_import_job_props $pipeline_parameters
     """
 }
