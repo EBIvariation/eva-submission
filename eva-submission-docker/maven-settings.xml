@@ -1,0 +1,56 @@
+<settings>
+
+    <profiles>
+        <profile>
+            <id>docker</id>
+            <properties>
+                <eva.version>2.0</eva.version>
+
+                <eva.mongo.host>mongo_db:27017</eva.mongo.host>
+                <eva.mongo.user>mongo_db_user</eva.mongo.user>
+                <eva.mongo.passwd>mongo_db_pass</eva.mongo.passwd>
+                <eva.mongo.auth.db>admin</eva.mongo.auth.db>
+                <eva.mongo.read-preference>secondaryPreferred</eva.mongo.read-preference>
+                <eva.mongo.collections.variants>variants_2_0</eva.mongo.collections.variants>
+                <eva.mongo.collections.files>files_2_0</eva.mongo.collections.files>
+                <eva.mongo.collections.annotation-metadata>annotationMetadata_2_0</eva.mongo.collections.annotation-metadata>
+                <eva.mongo.collections.features>features_2_0</eva.mongo.collections.features>
+                <eva.mongo.collections.annotations>annotations_2_0</eva.mongo.collections.annotations>
+
+                <eva.evapro.jdbc.url>jdbc:postgresql://postgres_db:5432/metadata</eva.evapro.jdbc.url>
+                <eva.evapro.user>metadata_user</eva.evapro.user>
+                <eva.evapro.password>metadata_pass</eva.evapro.password>
+                <eva.evapro.eva-stats.schema>eva_stats</eva.evapro.eva-stats.schema>
+
+                <eva.accession.mongo.database>eva_accession_sharded</eva.accession.mongo.database>
+                <eva.accession.mongo.human.database>eva_accession_human_sharded</eva.accession.mongo.human.database>
+                <eva.accession.jdbc.url>jdbc:postgresql://postgres_db:5432/accession_jt</eva.accession.jdbc.url>
+                <eva.accession.user>accession_jt_user</eva.accession.user>
+                <eva.accession.password>accession_jt_pass</eva.accession.password>
+
+                <eva.variant.jdbc.url>jdbc:postgresql://postgres_db:5432/variant_jt</eva.variant.jdbc.url>
+                <eva.variant.user>variant_jt_user</eva.variant.user>
+                <eva.variant.password>variant_jt_pass</eva.variant.password>
+
+                <contig-alias.db-url>jdbc:postgresql://postgres_db:5432/contig_alias</contig-alias.db-url>
+                <contig-alias.db-username>contig_alias_user</contig-alias.db-username>
+                <contig-alias.db-password>contig_alias_pass</contig-alias.db-password>
+                <contig-alias.ddl-behaviour>update</contig-alias.ddl-behaviour>
+                <contig-alias.scaffolds-enabled>true</contig-alias.scaffolds-enabled>
+
+                <eva.count-stats.url>http://eva-ws:8080/count_stats</eva.count-stats.url>
+                <eva.count-stats.username>count_stats_user</eva.count-stats.username>
+                <eva.count-stats.password>count_stats_pass</eva.count-stats.password>
+
+                <contig-alias.url>http://eva-ws:8080/contig-alias</contig-alias.url>
+                <contig-alias.admin-user>contig_alias_admin_user</contig-alias.admin-user>
+                <contig-alias.admin-password>contig_alias_admin_pass</contig-alias.admin-password>
+
+                <ftp.proxy.host>hx-wwwcache.ebi.ac.uk</ftp.proxy.host>
+                <ftp.proxy.port>3128</ftp.proxy.port>
+            </properties>
+        </profile>
+
+    </profiles>
+
+</settings>
