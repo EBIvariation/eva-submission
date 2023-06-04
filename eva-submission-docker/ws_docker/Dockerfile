@@ -4,6 +4,7 @@ RUN apt update  \
     && apt install -y git maven
 
 COPY maven-settings.xml /root
+COPY ws_docker/docker_mocked_services.war /usr/local/tomcat/webapps/docker_mocked_services.war
 
 WORKDIR /usr/local/software
 

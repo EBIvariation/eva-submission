@@ -45,3 +45,8 @@ jar:
 
 eutils_api_key:
 
+ena:
+  submit_url: http://eva-ws:8080/docker_mocked_services/mocked_ena/submit/drop-box/submit/
+  username: docker_mock_services_user
+  password: docker_mock_services_pass
+
