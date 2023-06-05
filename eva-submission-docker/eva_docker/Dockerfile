@@ -19,7 +19,7 @@ ADD eva_docker/conf /usr/local/software/opencga/conf
 
 # install utility libs
 RUN apt update  \
-    && apt install -y curl wget maven git vim samtools bcftools tabix bedtools minimap2  \
+    && apt install -y curl wget maven git vim samtools bcftools tabix bedtools minimap2 rsync  \
     && apt install -y python3-pip python3.10-venv
 
 # install java
