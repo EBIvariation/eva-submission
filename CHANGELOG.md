@@ -1,5 +1,9 @@
 Changelog for eva-submission
 ============================
+1.10.6 (2023-06-05)
+------------------
+### Java pipeline processes
+ - accept multiple mongos hosts in connection strings (see EVA-3253)
 
 1.10.5 (2023-05-18)
 ------------------
