@@ -34,14 +34,14 @@ executable:
 
 mongodb:
   mongo_admin_uri: mongodb://mongo_db:27017/admin
-  mongo_admin_secrets_file: /root/.mongo_admin_prod_pass
+  mongo_admin_secrets_file:
 
 jar:
-  accession_pipeline: /usr/local/software/eva-accession/eva-accession-pipeline.jar
-  eva_pipeline: /usr/local/software/eva-pipeline/eva-pipeline.jar
-  clustering: /usr/local/software/eva-accession/eva-accession-clustering.jar
-  vcf_extractor: /usr/local/software/eva-accession/eva-remapping-get-source.jar
-  vcf_ingestion: /usr/local/software/eva-accession/eva-remapping-ingest.jar
+  accession_pipeline: /usr/local/software/eva-accession-pipeline.jar
+  eva_pipeline: /usr/local/software/eva-pipeline.jar
+  clustering: /usr/local/software/eva-accession-clustering.jar
+  vcf_extractor: /usr/local/software/eva-remapping-get-source.jar
+  vcf_ingestion: /usr/local/software/eva-remapping-ingest.jar
 
 eutils_api_key:
 

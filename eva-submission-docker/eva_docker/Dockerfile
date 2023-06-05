@@ -6,7 +6,6 @@ ENV vcf_validator_version 0.9.4
 
 COPY maven-settings.xml /root
 COPY eva_docker/submission_config.yml /root/.submission_config.yml
-COPY eva_docker/mongo_admin_prod_pass /root/.mongo_admin_prod_pass
 
 RUN mkdir -p /usr/local/test_eva_submission/data
 RUN mkdir -p /usr/local/test_eva_submission/submissions

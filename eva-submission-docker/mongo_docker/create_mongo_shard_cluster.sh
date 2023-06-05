@@ -1,3 +1,5 @@
+#!/bin/bash
+
 set -euxo pipefail
 # Remove any built-in MongoDB installation since it might have a different version
 # and come with its own set of problems
@@ -34,13 +36,13 @@ function wait_for_mongo() {
 mongod --version
 rm -rf /data/mongodb
 mkdir -p /data/mongodb/shard01 /data/mongodb/config
-mongod --shardsvr --port 27018 --replSet rs0 --dbpath /data/mongodb/shard01 &
+mongod --shardsvr --port 27018 --replSet rs0 --dbpath /data/mongodb/shard01 --bind_ip_all &
 wait_for_mongo "localhost:27018"
 mongo --port 27018 --eval 'rs.initiate({_id:"rs0", members: [{_id: 1, host: "localhost:27018"}]})'
 
 mongod --configsvr --port 27019 --replSet rs1 --dbpath /data/mongodb/config &
 wait_for_mongo "localhost:27019"
 mongo --port 27019 --eval 'rs.initiate()'
-mongos --configdb rs1/localhost:27019 --port 27017 &
+mongos --configdb rs1/localhost:27019 --port 27017 --bind_ip_all &
 wait_for_mongo "localhost:27017"
 mongo --eval 'sh.addShard("rs0/localhost:27018")'

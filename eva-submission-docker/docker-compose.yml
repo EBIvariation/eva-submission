@@ -41,35 +41,19 @@ services:
       - 5432:5432
     networks:
       - eva_network
-#
-#  mongo_db:
-#    image: mongo_db
-#    build: mongo_docker/.
-#    container_name: mongo_db
-#    restart: always
-#    environment:
-#      - MONGO_INITDB_ROOT_USERNAME=mongo_db_user
-#      - MONGO_INITDB_ROOT_PASSWORD=mongo_db_pass
-#    ports:
-#      - 27017:27017
-#      - 27018:27018
-#      - 27019:27019
-#    networks:
-#      - eva_network
-
 
   mongo_db:
-    image: mongo:4.0.28
+    image: mongo_db
+    build: mongo_docker/.
     container_name: mongo_db
+    command: tail -f /dev/null
     restart: always
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=mongo_db_user
-      - MONGO_INITDB_ROOT_PASSWORD=mongo_db_pass
     ports:
       - 27017:27017
+      - 27018:27018
+      - 27019:27019
     networks:
-    - eva_network
-
+      - eva_network
 
 networks:
   eva_network:
