@@ -72,7 +72,8 @@ class EvaXlsxValidator(AppLogger):
             self.group_of_fields_required(
                 'Sample', row,
                 ['Analysis Alias', 'Sample Accession', 'Sample ID'],
-                ['Analysis Alias', 'Sample Name', 'Title', 'Tax Id', 'Scientific Name']
+                ['Analysis Alias', 'Sample Name', 'Title', 'Tax Id', 'Scientific Name', 'collection_date',
+                 'geographic location (country and/or sea)']
             )
 
     def semantic_validation(self):
