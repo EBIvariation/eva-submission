@@ -34,56 +34,6 @@ CREATE TABLE eva.assembly (
 ALTER TABLE eva.assembly OWNER TO contig_alias_user;
 GRANT ALL ON TABLE eva.assembly TO contig_alias_user;
 
-CREATE TABLE eva.chromosome_b4_eva2964_schema_change (
-	id int8 NOT NULL,
-	genbank varchar(255) NULL,
-	md5checksum varchar(255) NULL,
-	"name" varchar(255) NULL,
-	refseq varchar(255) NULL,
-	trunc512checksum varchar(255) NULL,
-	ucsc_name varchar(255) NULL,
-	assembly_id int8 NULL,
-	ena_sequence_name varchar(255) NULL,
-	genbank_sequence_name varchar(255) NULL,
-	CONSTRAINT chromosome_pkey1 PRIMARY KEY (id)
-);
-
-ALTER TABLE eva.chromosome_b4_eva2964_schema_change OWNER TO contig_alias_user;
-GRANT ALL ON TABLE eva.chromosome_b4_eva2964_schema_change TO contig_alias_user;
-
-CREATE TABLE eva.scaffold (
-	id int8 NOT NULL,
-	ena_sequence_name varchar(255) NULL,
-	genbank varchar(255) NULL,
-	genbank_sequence_name varchar(255) NULL,
-	md5checksum varchar(255) NULL,
-	refseq varchar(255) NULL,
-	trunc512checksum varchar(255) NULL,
-	ucsc_name varchar(255) NULL,
-	assembly_id int8 NULL,
-	CONSTRAINT scaffold_pkey PRIMARY KEY (id)
-);
-
-ALTER TABLE eva.scaffold OWNER TO contig_alias_user;
-GRANT ALL ON TABLE eva.scaffold TO contig_alias_user;
-
-CREATE TABLE eva.scaffold_b4_eva2964_schema_change (
-	id int8 NOT NULL,
-	genbank varchar(255) NULL,
-	md5checksum varchar(255) NULL,
-	"name" varchar(255) NULL,
-	refseq varchar(255) NULL,
-	trunc512checksum varchar(255) NULL,
-	ucsc_name varchar(255) NULL,
-	assembly_id int8 NULL,
-	ena_sequence_name varchar(255) NULL,
-	genbank_sequence_name varchar(255) NULL,
-	CONSTRAINT scaffold_pkey1 PRIMARY KEY (id)
-);
-
-ALTER TABLE eva.scaffold_b4_eva2964_schema_change OWNER TO contig_alias_user;
-GRANT ALL ON TABLE eva.scaffold_b4_eva2964_schema_change TO contig_alias_user;
-
 CREATE TABLE eva.chromosome (
 	insdc_accession varchar(255) NOT NULL,
 	contig_type varchar(255) NULL,
@@ -98,7 +48,7 @@ CREATE TABLE eva.chromosome (
 	genbank varchar(255) NULL,
 	assembly_id int8 NULL,
 	CONSTRAINT chromosome_pkey PRIMARY KEY (assembly_insdc_accession, insdc_accession),
-	CONSTRAINT fkpki3suu0j7ki1ha35s4chkgrq FOREIGN KEY (assembly_insdc_accession) REFERENCES eva.assembly(insdc_accession)
+	CONSTRAINT chromosome_fkey FOREIGN KEY (assembly_insdc_accession) REFERENCES eva.assembly(insdc_accession)
 );
 
 ALTER TABLE eva.chromosome OWNER TO contig_alias_user;

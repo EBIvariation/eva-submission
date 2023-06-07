@@ -48,7 +48,6 @@ RUN apt install -y mongodb-org-shell
 
 WORKDIR /usr/local/software
 
-COPY eva_docker/mocked_eva_submission_to_xml_V1.1.0.pl /usr/local/software
 COPY eva_docker/mocked_load_from_ena_postgres_or_file.pl /usr/local/software
 
 # install vcf_validator
