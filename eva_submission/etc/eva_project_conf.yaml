@@ -95,7 +95,7 @@ Sample:
     - culture_collection
     - specimen_voucher
     - collected_by
-    - collection date
+    - collection_date
     - geographic location (country and/or sea)
     - geographic location (region and locality)
     - host
