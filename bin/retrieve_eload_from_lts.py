@@ -9,52 +9,18 @@ from ebi_eva_common_pyutils import command_utils
 logging.basicConfig(format='%(message)s', level=logging.DEBUG)
 
 
-def get_compressed_files_in_dirs(dir_path, include_sub_dirs=False):
+def get_compressed_files_in_dirs(dir_path):
+    # To uncompress - retrieve every compressed file from the directory (including subdirectories)
+    # but exclude compressed vcf files (the ones ending with .vcf.gz)
     if os.path.exists(dir_path):
-        if include_sub_dirs:
-            files_to_uncompress = []
-            for dirpath, _, filenames in os.walk(dir_path):
-                for f in filenames:
-                    if f[-3:] == '.gz':
-                        files_to_uncompress.append(os.path.join(dirpath, f))
-            return files_to_uncompress
-        else:
-            return [os.path.join(dir_path, f) for f in os.listdir(dir_path) if
-                    os.path.isfile(os.path.join(dir_path, f)) and f[-3:] == '.gz']
+        file_list = []
+        for root, directories, files in os.walk(dir_path):
+            for file in files:
+                if file[-3:] == '.gz' and file[-7:] != '.vcf.gz':
+                    file_list.append(os.path.join(root, file))
+        return file_list
     else:
         return []
-
-
-def get_eloads_files_to_uncompress(retrieved_dir):
-    # 10_submitted
-    # 14_merge
-    # 18_brokering
-    # 20_scratch
-    # 13_validation
-    umcompress_files_from_dirs = [retrieved_dir]
-    umcompress_files_from_dirs.append(get_compressed_files_in_dirs(os.path.join(retrieved_dir, '10_submitted', 'metadata_file'),
-                                     include_sub_dirs=True))
-    return get_compressed_files_in_dirs(umcompress_files_from_dirs)
-
-
-def get_projects_files_to_uncompress(retrieved_dir):
-    # 40_transformed
-    # 53_clustering
-    # 70_external_submissions
-    # 80_deprecated
-    # 30_eva_valid
-    # 52_accessions
-    # 60_eva_public
-    # 50_stats
-    # 00_logs
-    # 51_annotation
-
-    file_to_uncompress = []
-    file_to_uncompress.extend(get_compressed_files_in_dirs(retrieved_dir))
-    file_to_uncompress.extend(
-        get_compressed_files_in_dirs(os.path.join(retrieved_dir, '00_logs'), include_sub_dirs=True))
-
-    return file_to_uncompress
 
 
 def uncompress_files(files_to_uncompress):
@@ -88,7 +54,7 @@ def update_path_in_eload_config(retrieved_dir, archive_name):
                 print(new_line, end='')
 
 
-def retrieve_archive(archive_path, files_dirs_to_retrieve, retrieval_output_path):
+def retrieve_archive(archive_path, retrieval_output_path, files_dirs_to_retrieve=''):
     command = f"tar -xf {archive_path} -C {retrieval_output_path} {files_dirs_to_retrieve}"
     command_utils.run_command_with_output('Retrieve files/dir from tar', command)
 
@@ -103,70 +69,70 @@ def get_files_or_dirs_to_retrieve_from_archive(archive):
     return ' '.join(files_dirs_to_retrieve)
 
 
-def retrieve_eloads(archive_info):
-    eloads_dir_path = archive_info['eloads_dir_path']
-    retrieval_output_path = archive_info['retrieval_output_path']
-    projects_dir_path = archive_info['projects_dir_path']
+def retrieve_eloads(eloads_archive_info, eloads_archive_dir, projects_archive_dir):
+    eloads_output_path = eloads_archive_info['eloads_output_path']
+    projects_output_path = eloads_archive_info['projects_output_path']
 
-    if not os.path.exists(retrieval_output_path):
-        os.makedirs(retrieval_output_path)
+    if not os.path.exists(eloads_output_path):
+        os.makedirs(eloads_output_path)
 
     logging.info(f"Retrieving Eloads")
-    for eload_archive_info in archive_info['eloads']:
+    for eload_archive_info in eloads_archive_info['eload_archives']:
         ## Retrieve eload
         eload_name = eload_archive_info['name']
-        eload_archive_path = os.path.join(eloads_dir_path, eload_name)
+        eload_archive_path = os.path.join(eloads_archive_dir, eload_name)
         files_dirs_to_retrieve = get_files_or_dirs_to_retrieve_from_archive(eload_archive_info)
-        retrieve_archive(eload_archive_path, files_dirs_to_retrieve, retrieval_output_path)
+        retrieve_archive(eload_archive_path, eloads_output_path, files_dirs_to_retrieve)
 
         # Uncompress files
-        files_list_to_uncompress = get_eloads_files_to_uncompress(
-            os.path.join(retrieval_output_path, eload_name.rstrip('.tar')))
-        uncompress_files(files_list_to_uncompress)
+        files_to_uncompress = get_compressed_files_in_dirs(
+            os.path.join(eloads_output_path, eload_name.rstrip('.tar')))
+        uncompress_files(files_to_uncompress)
 
         # Retrieve associated project if specified
         if eload_archive_info['retrieve_associated_project']:
-            project_acc = get_project_from_eload_config(retrieval_output_path, eload_name)
+            project_acc = get_project_from_eload_config(eloads_output_path, eload_name)
             if project_acc:
-                # Project retrieval
-                pass
+                retrieve_archive(os.path.join(projects_archive_dir, f'{project_acc}.tar'), projects_output_path)
+                project_files_to_uncompress = get_compressed_files_in_dirs(os.path.join(projects_output_path, project_acc))
+                uncompress_files(project_files_to_uncompress)
 
         # Update noah paths to codon in eload config
         if eload_archive_info['update_noah_paths']:
-            update_path_in_eload_config(retrieval_output_path, eload_name)
+            update_path_in_eload_config(eloads_output_path, eload_name)
 
 
-def retrieve_projects(archive_info):
-    projects_dir_path = archive_info['projects_dir_path']
-    retrieval_output_path = archive_info['retrieval_output_path']
+def retrieve_projects(project_archive_info, projects_archive_dir):
+    projects_output_path = project_archive_info['projects_output_path']
 
-    if not os.path.exists(retrieval_output_path):
-        os.makedirs(retrieval_output_path)
+    if not os.path.exists(projects_output_path):
+        os.makedirs(projects_output_path)
 
     logging.info(f"Retrieving Projects")
-    for project_archive_info in archive_info['projects']:
+    for project_archive_info in project_archive_info['project_archives']:
         # Retrieve Project
         project_name = project_archive_info['name']
-        project_archive_path = os.path.join(projects_dir_path, project_name)
+        project_archive_path = os.path.join(projects_archive_dir, project_name)
         files_dirs_to_retrieve = get_files_or_dirs_to_retrieve_from_archive(project_archive_path)
-        retrieve_archive(project_archive_path, files_dirs_to_retrieve, retrieval_output_path)
+        retrieve_archive(project_archive_path, projects_output_path, files_dirs_to_retrieve)
 
         # Uncompress files
-        files_list = get_projects_files_to_uncompress(os.path.join(retrieval_output_path, project_name.rstrip('.tar')))
-        uncompress_files(files_list)
+        files_to_uncompress = get_compressed_files_in_dirs(
+            os.path.join(projects_output_path, project_name.rstrip('.tar')))
+        uncompress_files(files_to_uncompress)
 
 
 def retrieve_eloads_and_projects(config_file):
     if os.path.isfile(config_file):
         with open(config_file, 'r') as f:
-            yaml_content = yaml.safe_load(f)
+            config = yaml.safe_load(f)
 
-            for archive_retrieval_info in yaml_content['retrieve']:
-                archive_type = archive_retrieval_info['archive_type']
+            for archive_type in config['retrieve']:
                 if archive_type == 'eloads':
-                    retrieve_eloads(archive_retrieval_info)
+                    retrieve_eloads(config['retrieve']['eloads'], config['retrieve']['eloads_archive_dir'],
+                                    config['retrieve']['projects_archive_dir'])
                 elif archive_type == 'projects':
-                    retrieve_projects(archive_retrieval_info)
+                    retrieve_projects(config['retrieve']['projects'], config['retrieve']['projects_archive_dir'])
 
 
 def main():

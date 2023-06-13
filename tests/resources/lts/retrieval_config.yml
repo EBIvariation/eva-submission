@@ -1,9 +1,10 @@
 retrieve:
-  - archive_type: eloads
-    eloads_dir_path: /home/nkumar2/PycharmProjects/eva-submission/tests/resources/lts/submissions
-    projects_dir_path: /home/nkumar2/PycharmProjects/eva-submission/tests/resources/lts/projects
-    retrieval_output_path: /home/nkumar2/PycharmProjects/eva-submission/tests/resources/lts/output
-    eloads:
+  eloads_archive_dir: /home/nkumar2/PycharmProjects/eva-submission/tests/resources/lts/submissions
+  projects_archive_dir: /home/nkumar2/PycharmProjects/eva-submission/tests/resources/lts/projects
+  eloads:
+    eloads_output_path: /home/nkumar2/PycharmProjects/eva-submission/tests/resources/lts/output
+    projects_output_path: /home/nkumar2/PycharmProjects/eva-submission/tests/resources/lts/output
+    eload_archives:
       - name: ELOAD_919.tar
         retrieve_dirs:
           - ELOAD_919/10_submitted
@@ -11,16 +12,15 @@ retrieve:
         retrieve_files:
           - ELOAD_919/.ELOAD_919_config.yml.gz
           - ELOAD_919/vcf_files_mapping.csv.gz
-        retrieve_associated_project: true
-        update_noah_paths: true
+        retrieve_associated_project:
+        update_noah_paths:
       - name: ELOAD_920.tar
-        retrieve_associated_project: true
-        update_noah_paths: true
+        retrieve_associated_project:
+        update_noah_paths:
 
-  - archive_type: projects
-    projects_dir_path: /home/nkumar2/PycharmProjects/eva-submission/tests/resources/lts/projects
-    retrieval_output_path: /home/nkumar2/PycharmProjects/eva-submission/tests/resources/lts/output
-    projects:
+  projects:
+    projects_output_path: /home/nkumar2/PycharmProjects/eva-submission/tests/resources/lts/output
+    project_archives:
       - name: PRJEB9374.tar
         retrieve_dirs:
         retrieve_files:
