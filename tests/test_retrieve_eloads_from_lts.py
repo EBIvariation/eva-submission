@@ -11,7 +11,7 @@ class TestRetrieveEloadFromLTS(TestCase):
     top_dir = os.path.dirname(os.path.dirname(__file__))
     resources_folder = os.path.join(os.path.dirname(__file__), 'resources')
     test_lts_folder = os.path.join(resources_folder, 'lts')
-    config_file = os.path.join(test_lts_folder, 'retrieval_config_new.yml')
+    config_file = os.path.join(test_lts_folder, 'retrieval_config.yml')
     eloads_folder = os.path.join(test_lts_folder, 'submissions')
     projects_folder = os.path.join(test_lts_folder, 'projects')
     retrieval_output_folder = os.path.join(test_lts_folder, 'output')
@@ -22,6 +22,7 @@ class TestRetrieveEloadFromLTS(TestCase):
         self.setup_config_file()
 
     def tearDown(self) -> None:
+        os.remove(self.config_file)
         shutil.rmtree(self.retrieval_output_folder)
 
     def setup_config_file(self):
@@ -75,9 +76,10 @@ class TestRetrieveEloadFromLTS(TestCase):
                 else:
                     assert file[-3:] != '.gz'
 
-    def assert_paths_are_updated(self, eload_dir, eload):
+    def check_paths_are_updated(self, eload_dir, eload):
         eload_config = os.path.join(eload_dir, eload, f'.{eload}_config.yml')
         self.assertTrue(os.path.exists(eload_config))
+
         with open(eload_config, 'r') as f:
             for line in f:
                 if '/nfs/production3' in line:
@@ -91,7 +93,8 @@ class TestRetrieveEloadFromLTS(TestCase):
         for retrieved_dir in retrieved_output_dirs:
             dir_path = os.path.join(self.retrieval_output_folder, retrieved_dir)
             self.assertTrue(os.path.exists(dir_path))
+
             self.assert_files_are_uncompressed(dir_path)
 
             if retrieved_dir[:5] == 'ELOAD':
-                self.assertTrue(self.assert_paths_are_updated(self.retrieval_output_folder, retrieved_dir))
+                self.assertTrue(self.check_paths_are_updated(self.retrieval_output_folder, retrieved_dir))
