@@ -55,8 +55,9 @@ def update_path_in_eload_config(retrieved_dir, archive_name):
 
 
 def retrieve_archive(archive_path, retrieval_output_path, files_dirs_to_retrieve=''):
-    command = f"tar -xf {archive_path} -C {retrieval_output_path} {files_dirs_to_retrieve}"
-    command_utils.run_command_with_output('Retrieve files/dir from tar', command)
+    if os.path.exists(archive_path):
+        command = f"tar -xf {archive_path} -C {retrieval_output_path} {files_dirs_to_retrieve}"
+        command_utils.run_command_with_output('Retrieve files/dir from tar', command)
 
 
 def get_files_or_dirs_to_retrieve_from_archive(archive):
