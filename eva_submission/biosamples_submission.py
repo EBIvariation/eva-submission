@@ -410,7 +410,7 @@ class SampleMetadataSubmitter(SampleSubmitter):
                         self.map_sample_key(attribute.lower()),
                         [{'text': self.serialize(value)}]
                     )
-            # Apply defaults if they key don't already exists
+            # Apply defaults if the key doesn't already exist
             for key in self.characteristic_defaults:
                 if key not in sample_row:
                     self.apply_mapping(
