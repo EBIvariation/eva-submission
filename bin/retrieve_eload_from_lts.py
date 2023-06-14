@@ -50,7 +50,7 @@ def update_path_in_eload_config(retrieved_dir, archive_name):
     if os.path.isfile(config_file_path):
         with fileinput.input(config_file_path, inplace=True) as file:
             for line in file:
-                new_line = line.replace('/nfs/production3', '/nfs/production/keane')
+                new_line = line.replace('/nfs/production3/', '/nfs/production/keane/')
                 print(new_line, end='')
 
 
