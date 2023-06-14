@@ -294,7 +294,8 @@ class TestSampleMetadataSubmitter(BSDTestCase):
                 'Organism': [{'text': 'Homo sapiens'}],
                 'description': [{'text': 'Sample %s' % (i+1)}],
                 'scientific name': [{'text': 'Homo sapiens'}],
-                'collection_date': [{'text': '2020-01-15'}]
+                'collection_date': [{'text': '2020-01-15'}],
+                'geographic location (country and/or sea)': [{'text': 'not provided'}]
             }}
             for i in range(100)
         ]

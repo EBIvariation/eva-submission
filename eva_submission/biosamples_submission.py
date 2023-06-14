@@ -348,6 +348,11 @@ class SampleMetadataSubmitter(SampleSubmitter):
                                 'ecotype', 'isolate', 'strain', 'sub_species', 'variety', 'sub_strain', 'cell_line',
                                 'serotype', 'serovar']
 
+    characteristic_defaults = {
+        'collection_date': 'not provided',
+        'geographic location (country and/or sea)': 'not provided'
+    }
+
     submitter_mapping = {
         'Email Address': 'E-mail',
         'First Name': 'FirstName',
@@ -405,7 +410,14 @@ class SampleMetadataSubmitter(SampleSubmitter):
                         self.map_sample_key(attribute.lower()),
                         [{'text': self.serialize(value)}]
                     )
-
+            # Apply defaults if the key doesn't already exist
+            for key in self.characteristic_defaults:
+                if key not in sample_row:
+                    self.apply_mapping(
+                        bsd_sample_entry['characteristics'],
+                        self.map_sample_key(key.lower()),
+                        [{'text': self.serialize(self.characteristic_defaults[key])}]
+                    )
             project_row = self.reader.project
             for key in self.reader.project:
                 if key in self.project_mapping:
