@@ -25,7 +25,6 @@ class TestEvaXlsValidator(TestCase):
     def tearDown(self) -> None:
         os.remove(self.metadata_file_wrong_sc_name_copy)
 
-
     def test_cerberus_validation(self):
         self.validator.cerberus_validation()
         self.assertEqual(self.validator.error_list, [])
