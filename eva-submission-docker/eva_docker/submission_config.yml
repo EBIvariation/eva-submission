@@ -32,6 +32,9 @@ executable:
   submission_to_xml: /usr/local/software/mocked_eva_submission_to_xml_V1.1.0.pl
   load_from_ena: /usr/local/software/mocked_load_from_ena_postgres_or_file.pl
 
+nextflow:
+  remapping: /usr/local/software/variant-remapping/main.nf
+
 mongodb:
   mongo_admin_uri: mongodb://mongo_db:27017/admin
   mongo_admin_secrets_file:

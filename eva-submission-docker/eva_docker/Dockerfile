@@ -7,6 +7,7 @@ ENV MONGO_VERSION 4.4
 ENV EVA_ACCESSION_VERSION v0.6.21
 ENV EVA_PIPELINE_VERSION v2.9.1
 ENV EVA_SUBMISSION_VERSION v1.10.6
+ENV VARIANT_REMAPPING v1.0.4
 
 COPY maven-settings.xml /root
 COPY eva_docker/submission_config.yml /root/.submission_config.yml
@@ -77,4 +78,33 @@ RUN python3 -m venv eva-submission/venv
 RUN eva-submission/venv/bin/pip3 install --upgrade pip
 RUN eva-submission/venv/bin/pip3 install /usr/local/software/eva-submission
 
+# setup variant-remapping
+RUN git clone -b ${VARIANT_REMAPPING} https://github.com/EBIvariation/variant-remapping.git
+RUN python3 -m venv variant-remapping/venv
+RUN variant-remapping/venv/bin/pip3 install --upgrade pip
+RUN variant-remapping/venv/bin/pip3 install -r variant-remapping/requirements.txt
+
 ENV PATH="${PATH}:/usr/local/software/eva-submission/venv/bin"
+
+# install VEP
+WORKDIR /usr/local/software/vep
+
+# install general dependencies for vep
+RUN apt install -y tar libdbi-perl libdbd-mysql-perl libbz2-dev liblzma-dev
+
+# install htslib
+RUN wget https://github.com/samtools/htslib/releases/download/1.9/htslib-1.9.tar.bz2 -P /usr/bin
+RUN tar -vxjf /usr/bin/htslib-1.9.tar.bz2
+RUN make -C /usr/bin/htslib-1.9/
+ENV PATH="${PATH}:/usr/bin/htslib-1.9"
+
+# install perl dependencies for vep
+RUN cpan Alien::Libxml2
+RUN cpan XML::LibXML
+RUN cpan XML::LibXML::Reader
+RUN cpan Bio::SeqFeature::Lite
+RUN cpan Bio::DB::HTS --htslib /usr/bin/htslib-1.9
+
+# install vep
+RUN git clone https://github.com/Ensembl/ensembl-vep.git
+RUN perl ensembl-vep/INSTALL.p
