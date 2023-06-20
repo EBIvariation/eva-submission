@@ -15,9 +15,11 @@ def main():
                           help='Retrieve the project associated with eload')
     argparse.add_argument('--update_path', action='store_true', default=False,
                           help='Update all noah paths to codon in ELOAD config file')
-    argparse.add_argument('--eload_dirs_files', required=False, type=str, nargs='+', help='The Project to retrieve')
+    argparse.add_argument('--eload_dirs_files', required=False, type=str, nargs='+',
+                          help='Relative path to file or directories to retrieve in the eload archive')
     argparse.add_argument('--project', required=False, type=str, help='The Project to retrieve')
-    argparse.add_argument('--project_dirs_files', required=False, type=str, nargs='+', help='The Project to retrieve')
+    argparse.add_argument('--project_dirs_files', required=False, type=str, nargs='+',
+                          help='Relative path to file or directories to retrieve in the project archive')
     argparse.add_argument('--eload_lts_dir', required=False, type=str,
                           help='The dir in lts where eloads are archived')
     argparse.add_argument('--project_lts_dir', required=False, type=str,
@@ -32,19 +34,12 @@ def main():
     log_cfg.add_stdout_handler()
 
     if not args.eload and not args.project:
-        raise ValueError(f'Need to provide either an Eload or a project to retrieve')
-    if args.eload and not args.eload_lts_dir:
-        raise ValueError(f'To retrieve Eload from lts, please provide path to the Eload archive dir in lts')
-    if args.eload and args.retrieve_associated_project and not args.project_lts_dir:
-        raise ValueError(
-            f'If you want to retrieve the porject associated with eload, you need to provide project lts dir path')
-    if args.project and not args.project_lts_dir:
-        raise ValueError(f'To retrieve project from lts, please provide path to the project archive dir in lts')
+        raise ValueError(f'Need to provide either an Eload or a Project to retrieve')
 
     # Load the config_file from default location
     load_config()
 
-    with ELOADRetrieval(args.eload) as eload_retrieval:
+    with ELOADRetrieval() as eload_retrieval:
         eload_retrieval.retrieve_eloads_and_projects(args.eload, args.retrieve_associated_project, args.update_path,
                                                      args.eload_dirs_files, args.project, args.project_dirs_files,
                                                      args.eload_lts_dir, args.project_lts_dir, args.eload_retrieval_dir,

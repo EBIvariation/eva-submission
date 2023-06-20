@@ -9,8 +9,8 @@ from eva_submission.submission_config import load_config
 class TestRetrieveEloadFromLTS(TestCase):
     top_dir = os.path.dirname(os.path.dirname(__file__))
     resources_dir = os.path.join(os.path.dirname(__file__), 'resources')
-    lts_eloads_dir = os.path.join(resources_dir, 'lts', 'submissions')
-    lts_projects_dir = os.path.join(resources_dir, 'lts', 'projects')
+    eloads_lts_dir = os.path.join(resources_dir, 'lts', 'submissions')
+    projects_lts_dir = os.path.join(resources_dir, 'lts', 'projects')
     retrieval_output_dir = os.path.join(resources_dir, 'lts', 'output')
     codon_eloads_dir = os.path.join(resources_dir, 'lts', 'output', 'codon', 'eloads')
     codon_projects_dir = os.path.join(resources_dir, 'lts', 'output', 'codon', 'projects')
@@ -21,12 +21,15 @@ class TestRetrieveEloadFromLTS(TestCase):
             os.remove(self.config_file)
         with open(self.config_file, 'w') as file:
             file.write(f"eloads_dir: '{self.codon_eloads_dir}'\n")
-            file.write(f"projects_dir: '{self.codon_projects_dir}'")
+            file.write(f"projects_dir: '{self.codon_projects_dir}'\n")
+            file.write(f"eloads_lts_dir: '{self.eloads_lts_dir}'\n")
+            file.write(f"projects_lts_dir: '{self.projects_lts_dir}'")
 
         load_config(self.config_file)
 
     def tearDown(self) -> None:
-        os.remove(self.config_file)
+        if os.path.exists(self.config_file):
+            os.remove(self.config_file)
         shutil.rmtree(self.retrieval_output_dir)
 
     def assert_files_are_uncompressed(self, dir_path):
@@ -48,11 +51,9 @@ class TestRetrieveEloadFromLTS(TestCase):
             return True
 
     def test_eloads_and_project_full_retrieval(self):
-        self.eload = ELOADRetrieval(920)
-
-        self.eload.retrieve_eloads_and_projects(920, True, True, '', 'PRJEB9374', '', self.lts_eloads_dir,
-                                                self.lts_projects_dir, self.retrieval_output_dir,
-                                                self.retrieval_output_dir)
+        eload_retrieval = ELOADRetrieval()
+        eload_retrieval.retrieve_eloads_and_projects(920, True, True, '', 'PRJEB9374', '', None, None,
+                                                self.retrieval_output_dir, self.retrieval_output_dir)
 
         eload_dir_path = os.path.join(self.retrieval_output_dir, 'ELOAD_920')
         self.assertTrue(os.path.exists(eload_dir_path))
@@ -68,11 +69,10 @@ class TestRetrieveEloadFromLTS(TestCase):
         self.assert_files_are_uncompressed(project_dir_path)
 
     def test_eloads_partial_retrieval(self):
-        self.eload = ELOADRetrieval(919)
-
-        self.eload.retrieve_eloads_and_projects(919, False, True, ['ELOAD_919/10_submitted', 'ELOAD_919/18_brokering',
+        eload_retrieval = ELOADRetrieval()
+        eload_retrieval.retrieve_eloads_and_projects(919, False, True, ['ELOAD_919/10_submitted', 'ELOAD_919/18_brokering',
                                                                    'ELOAD_919/ELOAD_919_submission.log.gz'], None, None,
-                                                self.lts_eloads_dir, None, self.retrieval_output_dir, None)
+                                                self.eloads_lts_dir, None, self.retrieval_output_dir, None)
         eload_dir_path = os.path.join(self.retrieval_output_dir, 'ELOAD_919')
         self.assertTrue(os.path.exists(eload_dir_path))
 

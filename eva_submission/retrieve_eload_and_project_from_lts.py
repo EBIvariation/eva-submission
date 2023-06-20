@@ -7,15 +7,10 @@ from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.eload_submission import Eload
-from eva_submission.submission_config import EloadConfig
-
 logger = log_cfg.get_logger(__name__)
 
 
-class ELOADRetrieval(Eload):
-    def __init__(self, eload_number, config_object: EloadConfig = None):
-        super().__init__(eload_number, config_object)
+class ELOADRetrieval():
 
     def create_dir_if_not_exist(self, dir_path):
         if not os.path.exists(dir_path):
@@ -66,6 +61,8 @@ class ELOADRetrieval(Eload):
         if os.path.exists(archive_path):
             command = f"tar -xf {archive_path} -C {retrieval_output_path} {files_dirs_to_retrieve}"
             command_utils.run_command_with_output('Retrieve files/dir from tar', command)
+        else:
+            logger.error(f'Archive path {archive_path} does not exist')
 
     def get_files_or_dirs_to_retrieve_from_archive(self, archive):
         files_dirs_to_retrieve = []
@@ -122,6 +119,10 @@ class ELOADRetrieval(Eload):
     def retrieve_eloads_and_projects(self, eload, retrieve_associated_project, update_path, eload_dirs_files, project,
                                      project_dirs_files, eload_lts_dir, project_lts_dir, eload_retrieval_dir,
                                      project_retrieval_dir):
+        if not eload_lts_dir:
+            eload_lts_dir = cfg['eloads_lts_dir']
+        if not project_lts_dir:
+            project_lts_dir = cfg['projects_lts_dir']
         if not eload_retrieval_dir:
             eload_retrieval_dir = cfg['eloads_dir']
         if not project_retrieval_dir:
