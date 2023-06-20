@@ -1,5 +1,17 @@
 Changelog for eva-submission
 ============================
+
+1.10.7 (2023-06-20)
+------------------
+### Test
+ - Add docker image to represent eva-submission run environment for testing
+
+### Validation
+ - Enforce the presence of sample collection data and geographic location
+
+### Brokering 
+ - Add default geolocation and collection dates if missing
+
 1.10.6 (2023-06-05)
 ------------------
 ### Java pipeline processes
