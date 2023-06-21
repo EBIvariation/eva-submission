@@ -50,37 +50,79 @@ class TestRetrieveEloadFromLTS(TestCase):
                     return False
             return True
 
-    def test_eloads_and_project_full_retrieval(self):
+
+    def test_eload_retrieval_full_with_associated_project_full(self):
         eload_retrieval = ELOADRetrieval()
-        eload_retrieval.retrieve_eloads_and_projects(920, True, True, '', 'PRJEB9374', '', None, None,
-                                                self.retrieval_output_dir, self.retrieval_output_dir)
+        eload_retrieval.retrieve_eloads_and_projects(920, True, True, '', None, '', None, None,
+                                                     self.retrieval_output_dir, self.retrieval_output_dir)
 
         eload_dir_path = os.path.join(self.retrieval_output_dir, 'ELOAD_920')
         self.assertTrue(os.path.exists(eload_dir_path))
+        expected_eload_download_files_dirs = set(['.ELOAD_920_config.yml', '10_submitted', '13_validation', '18_brokering',
+                                'ELOAD_920_submission.log', 'broker.err', 'broker.txt', 'brokering_config_file.yaml',
+                                'out.err', 'out.txt', 'validation_confg_file.yaml', 'vcf_files_mapping.csv',
+                                            'vcf_files_to_ingest.csv'])
+        self.assertEqual(expected_eload_download_files_dirs, set(os.listdir(eload_dir_path)))
         self.assert_files_are_uncompressed(eload_dir_path)
         self.assertTrue(self.check_paths_are_updated(eload_dir_path, 920))
 
         project_dir_path = os.path.join(self.retrieval_output_dir, 'PRJEB51612')
         self.assertTrue(os.path.exists(project_dir_path))
+        expected_project_download_files_dirs = set(['10_submitted', '20_scratch', '21_validation', '30_eva_valid',
+                                                    '40_transformed', '50_stats', '51_annotation','52_accessions',
+                                                    '60_eva_public', '70_external_submissions', '80_deprecated',
+                                                    'analysis', 'data'])
+        self.assertEqual(expected_project_download_files_dirs, set(os.listdir(project_dir_path)))
+
         self.assert_files_are_uncompressed(project_dir_path)
 
-        project_dir_path = os.path.join(self.retrieval_output_dir, 'PRJEB9374')
-        self.assertTrue(os.path.exists(project_dir_path))
-        self.assert_files_are_uncompressed(project_dir_path)
-
-    def test_eloads_partial_retrieval(self):
+    def test_eload_retrieval_partial_with_associated_project_partial(self):
         eload_retrieval = ELOADRetrieval()
-        eload_retrieval.retrieve_eloads_and_projects(919, False, True, ['ELOAD_919/10_submitted', 'ELOAD_919/18_brokering',
-                                                                   'ELOAD_919/ELOAD_919_submission.log.gz'], None, None,
-                                                self.eloads_lts_dir, None, self.retrieval_output_dir, None)
-        eload_dir_path = os.path.join(self.retrieval_output_dir, 'ELOAD_919')
+        eload_retrieval.retrieve_eloads_and_projects(920, True, True, ['ELOAD_920/10_submitted', 'ELOAD_920/18_brokering',
+                                                                   'ELOAD_920/.ELOAD_920_config.yml.gz'], None,
+                                                     ['PRJEB51612/30_eva_valid', 'PRJEB51612/40_transformed'], None,
+                                                     None, self.retrieval_output_dir, self.retrieval_output_dir)
+
+        eload_dir_path = os.path.join(self.retrieval_output_dir, 'ELOAD_920')
         self.assertTrue(os.path.exists(eload_dir_path))
-
-        # assert only the given dirs and files are retrieved
-        self.assertTrue(os.path.exists(os.path.join(eload_dir_path, '10_submitted')))
-        self.assertTrue(os.path.exists(os.path.join(eload_dir_path, '18_brokering')))
-        self.assertTrue(os.path.exists(os.path.join(eload_dir_path, 'ELOAD_919_submission.log')))
-        # assert 13_validation is not retrieved
-        self.assertFalse(os.path.exists(os.path.join(eload_dir_path, '13_validation')))
-
+        expected_eload_download_files_dirs = set(['10_submitted', '.ELOAD_920_config.yml', '18_brokering'])
+        self.assertEqual(expected_eload_download_files_dirs, set(os.listdir(eload_dir_path)))
         self.assert_files_are_uncompressed(eload_dir_path)
+        self.assertTrue(self.check_paths_are_updated(eload_dir_path, 920))
+
+        project_dir_path = os.path.join(self.retrieval_output_dir, 'PRJEB51612')
+        self.assertTrue(os.path.exists(project_dir_path))
+        expected_project_download_files_dirs = set(['40_transformed', '30_eva_valid'])
+        self.assertEqual(expected_project_download_files_dirs, set(os.listdir(project_dir_path)))
+        self.assert_files_are_uncompressed(project_dir_path)
+
+    def test_eloads_retrieval_no_associated_project(self):
+        eload_retrieval = ELOADRetrieval()
+        eload_retrieval.retrieve_eloads_and_projects(920, False, True, '', '', '', None, None,
+                                                self.retrieval_output_dir, '')
+
+        eload_dir_path = os.path.join(self.retrieval_output_dir, 'ELOAD_920')
+        self.assertTrue(os.path.exists(eload_dir_path))
+        self.assertTrue(os.path.exists(eload_dir_path))
+        expected_eload_download_files_dirs = set(['.ELOAD_920_config.yml', '10_submitted', '13_validation', '18_brokering',
+             'ELOAD_920_submission.log', 'broker.err', 'broker.txt', 'brokering_config_file.yaml',
+             'out.err', 'out.txt', 'validation_confg_file.yaml', 'vcf_files_mapping.csv',
+             'vcf_files_to_ingest.csv'])
+        self.assertEqual(expected_eload_download_files_dirs, set(os.listdir(eload_dir_path)))
+
+        project_dir_path = os.path.join(self.retrieval_output_dir, 'PRJEB51612')
+        self.assertFalse(os.path.exists(project_dir_path))
+
+    def test_project_retrieval_only(self):
+        eload_retrieval = ELOADRetrieval()
+        eload_retrieval.retrieve_eloads_and_projects(None, False, True, None, 'PRJEB51612', None, None, None,
+                                                     None, self.retrieval_output_dir)
+
+        project_dir_path = os.path.join(self.retrieval_output_dir, 'PRJEB51612')
+        self.assertTrue(os.path.exists(project_dir_path))
+        expected_project_download_files_dirs = set(['10_submitted', '20_scratch', '21_validation', '30_eva_valid',
+                                                    '40_transformed', '50_stats', '51_annotation', '52_accessions',
+                                                    '60_eva_public', '70_external_submissions', '80_deprecated',
+                                                    'analysis', 'data'])
+        self.assertEqual(expected_project_download_files_dirs, set(os.listdir(project_dir_path)))
+        self.assert_files_are_uncompressed(project_dir_path)

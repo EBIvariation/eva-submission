@@ -74,33 +74,27 @@ class ELOADRetrieval():
         return ' '.join(files_dirs_to_retrieve)
 
     def retrieve_eload(self, eload, retrieve_associated_project, update_path, eload_dirs_files, eload_lts_dir,
-                       project_lts_dir, eload_output_dir, project_output_dir):
+                       eload_output_dir):
         self.create_dir_if_not_exist(eload_output_dir)
         logging.info(f"Retrieving Eloads")
 
         # Retrieve eload
         eload_tar = f'{eload}.tar'
         eload_archive_path = os.path.join(eload_lts_dir, eload_tar)
-        retrieva_dirs_files = " ".join(eload_dirs_files) if eload_dirs_files and len(eload_dirs_files) > 0 else ''
-        self.retrieve_archive(eload_archive_path, eload_output_dir, retrieva_dirs_files)
+        retrieve_dirs_files = " ".join(eload_dirs_files) if eload_dirs_files and len(eload_dirs_files) > 0 else ''
+        self.retrieve_archive(eload_archive_path, eload_output_dir, retrieve_dirs_files)
 
         # Uncompress files
         files_to_uncompress = self.get_compressed_files_in_dirs(os.path.join(eload_output_dir, eload))
         self.uncompress_files(files_to_uncompress)
 
-        # Retrieve associated project if specified
-        if retrieve_associated_project:
-            project_acc = self.get_project_from_eload_config(eload_output_dir, eload)
-            if project_acc:
-                self.create_dir_if_not_exist(project_output_dir)
-                self.retrieve_archive(os.path.join(project_lts_dir, f'{project_acc}.tar'), project_output_dir)
-                project_files_to_uncompress = self.get_compressed_files_in_dirs(
-                    os.path.join(project_output_dir, project_acc))
-                self.uncompress_files(project_files_to_uncompress)
-
         # Update noah paths to codon in eload config
         if update_path:
             self.update_path_in_eload_config(eload_output_dir, eload)
+
+        # Retrieve associated project if specified
+        if retrieve_associated_project:
+            return self.get_project_from_eload_config(eload_output_dir, eload)
 
     def retrieve_project(self, project, project_dirs_files, project_lts_dir, project_output_dir):
         logging.info(f"Retrieving Project")
@@ -109,8 +103,8 @@ class ELOADRetrieval():
         project_tar = f'{project}.tar'
         project_archive_path = os.path.join(project_lts_dir, project_tar)
 
-        retrieva_dirs_files = " ".join(project_dirs_files) if project_dirs_files and len(project_dirs_files) > 0 else ''
-        self.retrieve_archive(project_archive_path, project_output_dir, retrieva_dirs_files)
+        retrieve_dirs_files = " ".join(project_dirs_files) if project_dirs_files and len(project_dirs_files) > 0 else ''
+        self.retrieve_archive(project_archive_path, project_output_dir, retrieve_dirs_files)
 
         # Uncompress files
         files_to_uncompress = self.get_compressed_files_in_dirs(os.path.join(project_output_dir, project))
@@ -119,17 +113,14 @@ class ELOADRetrieval():
     def retrieve_eloads_and_projects(self, eload, retrieve_associated_project, update_path, eload_dirs_files, project,
                                      project_dirs_files, eload_lts_dir, project_lts_dir, eload_retrieval_dir,
                                      project_retrieval_dir):
-        if not eload_lts_dir:
-            eload_lts_dir = cfg['eloads_lts_dir']
-        if not project_lts_dir:
-            project_lts_dir = cfg['projects_lts_dir']
-        if not eload_retrieval_dir:
-            eload_retrieval_dir = cfg['eloads_dir']
-        if not project_retrieval_dir:
-            project_retrieval_dir = cfg['projects_dir']
+
+        eload_lts_dir = eload_lts_dir or cfg['eloads_lts_dir']
+        project_lts_dir = project_lts_dir or cfg['projects_lts_dir']
+        eload_retrieval_dir = eload_retrieval_dir or cfg['eloads_dir']
+        project_retrieval_dir = project_retrieval_dir or cfg['projects_dir']
 
         if eload:
-            self.retrieve_eload(f'ELOAD_{eload}', retrieve_associated_project, update_path, eload_dirs_files,
-                                eload_lts_dir, project_lts_dir, eload_retrieval_dir, project_retrieval_dir)
+            project = self.retrieve_eload(f'ELOAD_{eload}', retrieve_associated_project, update_path, eload_dirs_files,
+                                eload_lts_dir, eload_retrieval_dir)
         if project:
             self.retrieve_project(project, project_dirs_files, project_lts_dir, project_retrieval_dir)

@@ -10,14 +10,15 @@ logger = log_cfg.get_logger(__name__)
 
 def main():
     argparse = ArgumentParser(description='Retrieve ELOAD/Project from Long Term Storage')
-    argparse.add_argument('--eload', required=False, type=int, help='The ELOAD to retrieve e.g. 919')
+    group = argparse.add_mutually_exclusive_group()
+    group.add_argument('--eload', required=False, type=int, help='The ELOAD to retrieve e.g. 919')
+    group.add_argument('--project', required=False, type=str, help='The Project to retrieve')
     argparse.add_argument('--retrieve_associated_project', action='store_true', default=False,
                           help='Retrieve the project associated with eload')
     argparse.add_argument('--update_path', action='store_true', default=False,
                           help='Update all noah paths to codon in ELOAD config file')
     argparse.add_argument('--eload_dirs_files', required=False, type=str, nargs='+',
                           help='Relative path to file or directories to retrieve in the eload archive')
-    argparse.add_argument('--project', required=False, type=str, help='The Project to retrieve')
     argparse.add_argument('--project_dirs_files', required=False, type=str, nargs='+',
                           help='Relative path to file or directories to retrieve in the project archive')
     argparse.add_argument('--eload_lts_dir', required=False, type=str,
@@ -25,9 +26,9 @@ def main():
     argparse.add_argument('--project_lts_dir', required=False, type=str,
                           help='The dir in lts where project are archived')
     argparse.add_argument('--eload_retrieval_dir', required=False, type=str,
-                          help='The output directory where archives will be retrieved')
+                          help='The output directory where archived ELOADs will be unpacked')
     argparse.add_argument('--project_retrieval_dir', required=False, type=str,
-                          help='The output directory where archives will be retrieved')
+                          help='The output directory where archived project directories will be unpacked')
 
     args = argparse.parse_args()
 
