@@ -89,22 +89,20 @@ ENV PATH="${PATH}:/usr/local/software/eva-submission/venv/bin"
 # install VEP
 WORKDIR /usr/local/software/vep
 
-# install general dependencies for vep
-RUN apt install -y tar libdbi-perl libdbd-mysql-perl libbz2-dev liblzma-dev
-
+# install dependencies for vep
+RUN apt install -y tar zip unzip libdbi-perl libdbd-mysql-perl libbz2-dev liblzma-dev libxml-libxml-perl
 # install htslib
 RUN wget https://github.com/samtools/htslib/releases/download/1.9/htslib-1.9.tar.bz2 -P /usr/bin
-RUN tar -vxjf /usr/bin/htslib-1.9.tar.bz2
+RUN tar -vxjf /usr/bin/htslib-1.9.tar.bz2 -C /usr/bin
 RUN make -C /usr/bin/htslib-1.9/
-ENV PATH="${PATH}:/usr/bin/htslib-1.9"
+ENV HTSLIB_DIR=/usr/bin/htslib-1.9
+ENV PATH="${PATH}:${HTSLIB_DIR}"
 
-# install perl dependencies for vep
-RUN cpan Alien::Libxml2
-RUN cpan XML::LibXML
-RUN cpan XML::LibXML::Reader
-RUN cpan Bio::SeqFeature::Lite
-RUN cpan Bio::DB::HTS --htslib /usr/bin/htslib-1.9
+ENV PERL_MM_USE_DEFAULT=1
+RUN cpan Bio::DB::HTS
 
 # install vep
 RUN git clone https://github.com/Ensembl/ensembl-vep.git
-RUN perl ensembl-vep/INSTALL.p
+RUN cd ensembl-vep && perl INSTALL.pl
+
+WORKDIR /usr/local/test_eva_submission
