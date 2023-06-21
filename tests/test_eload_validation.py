@@ -80,16 +80,6 @@ class TestEloadValidation(TestCase):
         assert nb_error == 8
         assert nb_warning == 1
 
-    def test_parse_bcftools_norm_report(self):
-        normalisation_log = os.path.join(self.resources_folder, 'validations', 'bcftools_norm.log')
-        expected = ([], 2, 0, 1, 0)
-        assert self.validation.parse_bcftools_norm_report(normalisation_log) == expected
-
-    def test_parse_bcftools_norm_report_failed(self):
-        normalisation_log = os.path.join(self.resources_folder, 'validations', 'failed_bcftools_norm.log')
-        expected = (["Reference allele mismatch at 20:17331 .. REF_SEQ:'TA' vs VCF:'GT'"], 0, 0, 0, 0)
-        assert self.validation.parse_bcftools_norm_report(normalisation_log) == expected
-
     def test_parse_sv_check_log(self):
         sv_check_log = os.path.join(self.resources_folder, 'validations', 'sv_check.log')
         assert self.validation.parse_sv_check_log(sv_check_log) == 33
@@ -101,7 +91,6 @@ VCF check: PASS
 Assembly check: PASS
 Sample names check: PASS
 Aggregation check: PASS
-Normalisation check: PASS
 Structural variant check: PASS
 ----------------------------------
 
@@ -147,15 +136,6 @@ Aggregation:
 VCF merge:
   Merge types:
   * a1: horizontal
-
-----------------------------------
-
-Normalisation:
-  * test.vcf: PASS
-    - number of error: 0
-    - nb of variant: 2
-    - nb of normalised: 1
-    - see report for detail: /path/to/report
 
 ----------------------------------
 
@@ -252,6 +232,6 @@ Structural variant check:
         assert self.validation.eload_cfg.query('validation', 'valid') is None
         self.validation.mark_valid_files_and_metadata(merge_per_analysis=False)
         # Check that the normalised file was picked up instead of the original file
-        expected = {'analyses': {'analysis_alias': {'vcf_files': ['normalised_test.vcf.gz']}},
+        expected = {'analyses': {'analysis_alias': {'vcf_files': ['test.vcf']}},
                     'metadata_spreadsheet': '/path/to/the/spreadsheet'}
         assert self.validation.eload_cfg.query('validation', 'valid') == expected

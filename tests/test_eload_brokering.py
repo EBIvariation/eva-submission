@@ -104,21 +104,33 @@ class TestEloadBrokering(TestCase):
             f'path_to_nextflow {nf_script} -params-file {config_file} -work-dir {temp_dir}'
         )
 
+    def test_parse_bcftools_norm_report(self):
+        normalisation_log = os.path.join(self.resources_folder, 'validations', 'bcftools_norm.log')
+        expected = ([], 2, 0, 1, 0)
+        assert self.eload.parse_bcftools_norm_report(normalisation_log) == expected
+
+    def test_parse_bcftools_norm_report_failed(self):
+        normalisation_log = os.path.join(self.resources_folder, 'validations', 'failed_bcftools_norm.log')
+        expected = (["Reference allele mismatch at 20:17331 .. REF_SEQ:'TA' vs VCF:'GT'"], 0, 0, 0, 0)
+        assert self.eload.parse_bcftools_norm_report(normalisation_log) == expected
+
+
     def test_collect_brokering_workflow_results(self):
-        tmp_dir = os.path.join(self.eload.eload_dir, 'tmp')
-        output_dir = os.path.join(tmp_dir, 'output')
+        output_dir = os.path.join(self.eload.eload_dir, 'output')
         os.makedirs(output_dir)
         for f in ['vcf_file1.vcf.gz']:
             touch(os.path.join(output_dir, f))
         for f in ['vcf_file1.vcf.gz.md5', 'vcf_file1.vcf.gz.csi', 'vcf_file1.vcf.gz.csi.md5']:
-            touch(os.path.join(tmp_dir, f), content=f'md5checksum {f}')
+            touch(os.path.join(output_dir, f), content=f'md5checksum {f}')
+        touch(os.path.join(output_dir, 'vcf_file1.vcf_bcftools_norm.log'),
+              content=f'Lines   total/split/realigned/skipped:  2/0/1/0')
         self.eload.eload_cfg.set('validation', 'valid', 'analyses', 'analysis alias 1', value={
             'assembly_accession': 'GCA_000001000.1',
             'assembly_fasta': 'fasta.fa',
             'assembly_report': 'assembly_report.txt',
             'vcf_files': ['vcf_file1.vcf']
         })
-        self.eload._collect_brokering_prep_results(tmp_dir)
+        self.eload._collect_brokering_prep_results(output_dir)
         vcf_file1 = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.gz')
         vcf_file1_csi = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.csi')
         assert os.path.isfile(vcf_file1)
@@ -134,7 +146,9 @@ class TestEloadBrokering(TestCase):
                         'output_vcf_file': vcf_file1,
                         'md5': 'md5checksum',
                         'csi': vcf_file1_csi,
-                        'csi_md5': 'md5checksum'
+                        'csi_md5': 'md5checksum',
+                        'normalisation': {'error_list': [], 'nb_realigned': 1, 'nb_skipped': 0, 'nb_split': 0,
+                                          'nb_variant': 2}
                     }
                 }
             }
