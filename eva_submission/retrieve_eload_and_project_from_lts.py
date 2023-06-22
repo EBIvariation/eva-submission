@@ -10,7 +10,7 @@ from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 logger = log_cfg.get_logger(__name__)
 
 
-class ELOADRetrieval():
+class ELOADRetrieval:
 
     def create_dir_if_not_exist(self, dir_path):
         if not os.path.exists(dir_path):
@@ -113,7 +113,6 @@ class ELOADRetrieval():
     def retrieve_eloads_and_projects(self, eload, retrieve_associated_project, update_path, eload_dirs_files, project,
                                      project_dirs_files, eload_lts_dir, project_lts_dir, eload_retrieval_dir,
                                      project_retrieval_dir):
-
         eload_lts_dir = eload_lts_dir or cfg['eloads_lts_dir']
         project_lts_dir = project_lts_dir or cfg['projects_lts_dir']
         eload_retrieval_dir = eload_retrieval_dir or cfg['eloads_dir']
