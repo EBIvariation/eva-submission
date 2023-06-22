@@ -1,10 +1,11 @@
 Changelog for eva-submission
 ============================
 
-## 1.10.8 (unreleased)
+## 1.10.8 (2023-06-22)
 ----------------------
 
-- Nothing changed yet.
+- New script to retrieve archived ELOAD from LTS
+- Fix bug qc_submission.py
 
 
 1.10.7 (2023-06-20)
