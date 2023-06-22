@@ -272,15 +272,15 @@ class EloadQC(Eload):
             if acc_import_result == 'FAIL':
                 failed_files[file]['acc_import'] = acc_import_error
 
+        self._variant_load_job_check_result = "PASS"
+        self._acc_import_job_check_result = "PASS"
+
         if failed_files:
             for file, errors in failed_files.items():
                 if 'variant_load' in errors:
                     self._variant_load_job_check_result = "FAIL"
                 if 'acc_import' in errors:
                     self._acc_import_job_check_result = "FAIL"
-        else:
-            self._variant_load_job_check_result = "PASS"
-            self._acc_import_job_check_result = "PASS"
 
         report = f"""
                 variant load result: {self._variant_load_job_check_result}
