@@ -1,26 +1,20 @@
+import csv
 import glob
 import gzip
 import os
-import shutil
+import subprocess
+import sys
+import tempfile
 from functools import cached_property
 
-import requests
+from ebi_eva_common_pyutils.common_utils import pretty_print
+from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name
 from ebi_eva_common_pyutils.mongo_utils import get_mongo_connection_handle
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
-
-from retry import retry
-
-from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 from ebi_eva_common_pyutils.config import cfg
-from ebi_eva_common_pyutils.config_utils import get_contig_alias_db_creds_for_profile
-
-
-from eva_submission.eload_submission import Eload, directory_structure
-from eva_submission.eload_utils import resolve_accession_from_text, get_reference_fasta_and_report, NCBIAssembly
+from eva_submission.eload_submission import Eload
 from eva_submission.retrieve_eload_and_project_from_lts import ELOADRetrieval
 from eva_submission.submission_config import EloadConfig
-from eva_submission.submission_in_ftp import FtpDepositBox
-from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
 
 class EloadStatus(Eload):
@@ -37,21 +31,47 @@ class EloadStatus(Eload):
 
     @cached_property
     def tmp_dir(self):
-        tmp_dir = '.'
-        os.makedirs(tmp_dir, exist_ok=True)
-        return tmp_dir
+        tmp_dir = tempfile.TemporaryDirectory()
+        return tmp_dir.name
 
-    def retrieve_project_from_config(self):
-        eload_config_file_name = '.' + self.eload + '_config.yml'
-        if not self.eload_exists():
-            eload_retrieval = ELOADRetrieval()
-            eload_retrieval.retrieve_eloads_and_projects(self.eload,
-                                                         eload_dirs_files=eload_config_file_name,
-                                                         eload_retrieval_dir=self.tmp_dir)
-            eload_cfg = EloadConfig(os.path.join(self.tmp_dir, eload_config_file_name))
+    @cached_property
+    def eload_config_file(self):
+        if not self.eload_dir_exists():
+            eload_config_file = self.eload + '/.' + self.eload + '_config.yml'
+            compressed_eload_config = eload_config_file + '.gz'
+            try:
+                eload_retrieval = ELOADRetrieval()
+                eload_retrieval.retrieve_eloads_and_projects(
+                    self.eload_num, retrieve_associated_project=False, update_path=False,
+                    eload_dirs_files=[compressed_eload_config], project=None, project_dirs_files=None, eload_lts_dir=None,
+                    project_lts_dir=None, eload_retrieval_dir=self.tmp_dir, project_retrieval_dir=None
+                )
+                eload_cfg = EloadConfig(os.path.join(self.tmp_dir, eload_config_file))
+            except subprocess.CalledProcessError:
+                return
         else:
-            eload_cfg = EloadConfig(os.path.join(self.eload_dir, eload_config_file_name))
-        return eload_cfg.query('brokering', 'ena', 'PROJECT')
+            eload_cfg = EloadConfig(os.path.join(self.eload_dir, '.' + self.eload + '_config.yml'))
+        return eload_cfg
+
+    @cached_property
+    def project_from_config(self):
+        if self.eload_config_file:
+            return self.eload_config_file.query('brokering', 'ena', 'PROJECT')
+
+    @cached_property
+    def analysis_from_config(self):
+        if self.eload_config_file:
+            return self.eload_config_file.query('brokering', 'ena', 'ANALYSIS')
+
+    @cached_property
+    def taxonomy_from_config(self):
+        if self.eload_config_file:
+            return self.eload_config_file.query('submission', 'taxonomy_id')
+
+    def source_assembly_from_config(self, analysis):
+        if self.eload_config_file:
+            alias = [alias for alias, a in self.analysis_from_config.items() if analysis == a][0]
+            return self.eload_config_file.query('submission', 'analyses', alias, 'assembly_accession')
 
     def retrieve_project_from_metadata(self):
         with self.metadata_connection_handle as conn:
@@ -62,31 +82,76 @@ class EloadStatus(Eload):
             return
         return rows[0][0]
 
-    def status(self):
-        print(self.project)
-
-    def eload_exists(self):
+    def eload_dir_exists(self):
         return os.path.exists(self.eload_dir)
 
+    @cached_property
     def project(self):
-        project_accession = self.retrieve_project_from_config()
+        project_accession = self.project_from_config
         if not project_accession:
             project_accession = self.retrieve_project_from_metadata()
         return project_accession
 
     @cached_property
+    def analyses(self):
+        analysis_dict = self.analysis_from_config
+        if analysis_dict:
+            return analysis_dict.values()
+
+    def status(self):
+        header = [
+            "eload", "project", "analysis", "taxonomy", "source_assembly", "target_assembly", "metadata_load_status",
+            "accessioning_status", "remapping_status", "clustering_status", "variant_load_status",
+            "statistics_status", "annotation_status"
+        ]
+        all_status = []
+        if self.analyses:
+            for analysis in self.analyses:
+                status = self.status_per_analysis(analysis)
+                if not status:
+                    all_status.append({
+                        "eload": self.eload,
+                        "project": self.project,
+                        "analysis": analysis,
+                        "taxonomy": self.taxonomy_from_config,
+                        "source_assembly": self.source_assembly_from_config(analysis),
+                        "target_assembly": self.find_current_target_assembly_for(self.taxonomy_from_config),
+                        "metadata_load_status": "Pending",
+                        "accessioning_status": "Pending",
+                        "remapping_status": "Pending",
+                        "clustering_status": "Pending",
+                        "variant_load_status": "Pending",
+                        "statistics_status": "Pending",
+                        "annotation_status": "Pending"
+                    })
+                else:
+                    all_status.extend(status)
+        else:
+            all_status = self.status_per_analysis()
+        writer = csv.DictWriter(sys.stdout, fieldnames=header)
+        writer.writeheader()
+        for st in all_status:
+            writer.writerow(st)
+
+    @cached_property
     def mongo_conn(self):
         return get_mongo_connection_handle(cfg['maven']['environment'], cfg['maven']['settings_file'])
 
-    def detect_project_status(self):
-        for analysis, source_assembly, taxonomy, filenames in self.project_information():
+    def status_per_analysis(self, analysis=None):
+        st_per_analysis = []
+        for analysis, source_assembly, taxonomy, filenames in self.project_information(analysis):
             # initialise results with default values
             accessioning_status = remapping_status = clustering_status = target_assembly = 'Not found'
             list_ssid_accessioned, list_ssid_remapped, list_ssid_clustered = ([], [], [])
             if not taxonomy:
                 self.error(f'No Assembly set present in the metadata for project: {self.project}:{analysis}')
                 taxonomy = self.get_taxonomy_for_project()
-            if taxonomy and taxonomy != 9606:
+            if not taxonomy:
+                self.error(f'Project {self.project}:{analysis} has no taxonomy associated and the metadata '
+                           f'should be checked.')
+                return
+
+            if taxonomy != 9606:
                 list_ssid_accessioned = self.check_accessioning_was_done(analysis, filenames)
                 accessioning_status = 'Done' if len(list_ssid_accessioned) > 0 else 'Pending'
                 target_assembly = self.find_current_target_assembly_for(taxonomy)
@@ -100,16 +165,29 @@ class EloadStatus(Eload):
                     assembly = source_assembly
                 list_ssid_clustered = self.check_clustering_was_done(assembly, list_ssid_accessioned)
                 clustering_status = 'Done' if list_ssid_clustered else 'Pending'
-            else:
-                if not taxonomy:
-                    self.error(f'Project {self.project}:{analysis} has no taxonomy associated and the metadata '
-                                 f'should be checked.')
-            print('\t'.join((str(e) for e in [self.project, analysis, taxonomy, source_assembly, target_assembly,
-                                              accessioning_status, len(list_ssid_accessioned), remapping_status,
-                                              len(list_ssid_remapped), clustering_status,
-                                              len(list_ssid_clustered)])))
 
-    def project_information(self):
+            study_loaded, statistics_loaded, annotation_loaded = self.find_loaded_study_in_variant_warehouse(source_assembly, taxonomy, analysis)
+            variant_load_status = 'Done' if study_loaded else 'Pending'
+            statistics_status = 'Done' if statistics_loaded else 'Pending'
+            annotation_status = 'Done' if annotation_loaded else 'Pending'
+            st_per_analysis.append({
+                "eload": self.eload,
+                "project": self.project,
+                "analysis": analysis,
+                "taxonomy": taxonomy,
+                "source_assembly": source_assembly,
+                "target_assembly": target_assembly,
+                "metadata_load_status": "Done",
+                "accessioning_status": accessioning_status,
+                "remapping_status": remapping_status,
+                "clustering_status": clustering_status,
+                "variant_load_status": variant_load_status,
+                "statistics_status": statistics_status,
+                "annotation_status": annotation_status
+            })
+        return st_per_analysis
+
+    def project_information(self, analysis):
         """Retrieve project information from the metadata. Information retrieve include
         the analysis and associated taxonomy, genome and file names that are included in this project."""
         query = (
@@ -119,26 +197,32 @@ class EloadStatus(Eload):
             "left join assembly_set at on at.assembly_set_id=a.assembly_set_id "
             "left join analysis_file af on af.analysis_accession=a.analysis_accession "
             "join file f on f.file_id=af.file_id "
-            f"where f.file_type='VCF' and pa.project_accession='{self.project}'"
-            "order by pa.project_accession, pa.analysis_accession")
+            f"where f.file_type='VCF' and pa.project_accession='{self.project}' "
+        )
+        if analysis:
+            query += f"and pa.analysis_accession='{analysis}'"
+        else:
+            query += "order by pa.project_accession, pa.analysis_accession"
         filenames = []
         current_analysis = current_assembly = current_tax_id = None
-        for project, analysis, assembly, tax_id, filename in get_all_results_for_query(self.metadata_conn, query):
-            if analysis != current_analysis:
-                if current_analysis:
-                    yield current_analysis, current_assembly, current_tax_id, filenames
-                current_analysis = analysis
-                current_assembly = assembly
-                current_tax_id = tax_id
-                filenames = []
-            filenames.append(filename)
-        yield current_analysis, current_assembly, current_tax_id, filenames
+        with self.metadata_connection_handle as conn:
+            for project, analysis, assembly, tax_id, filename in get_all_results_for_query(conn, query):
+                if analysis != current_analysis:
+                    if current_analysis:
+                        yield current_analysis, current_assembly, current_tax_id, filenames
+                    current_analysis = analysis
+                    current_assembly = assembly
+                    current_tax_id = tax_id
+                    filenames = []
+                filenames.append(filename)
+            yield current_analysis, current_assembly, current_tax_id, filenames
 
     def get_taxonomy_for_project(self):
         taxonomies = []
         query = f"select distinct taxonomy_id from evapro.project_taxonomy where project_accession='{self.project}'"
-        for tax_id, in get_all_results_for_query(self.metadata_conn, query):
-            taxonomies.append(tax_id)
+        with self.metadata_connection_handle as conn:
+            for tax_id, in get_all_results_for_query(conn, query):
+                taxonomies.append(tax_id)
         if len(taxonomies) == 1:
             return taxonomies[0]
         else:
@@ -204,7 +288,8 @@ class EloadStatus(Eload):
         Look for files ending with accessioned.vcf.gz.
         """
         local_files = glob.glob(os.path.join(cfg['projects_dir'], self.project, '60_eva_public', '*accessioned.vcf.gz'))
-        accessioning_reports = local_files
+        ftp_files = glob.glob(os.path.join(cfg['public_ftp_dir'], self.project, '*accessioned.vcf.gz'))
+        accessioning_reports = local_files + ftp_files
         if not accessioning_reports:
             self.error(f"Could not find any file in Noah or Codon for Study {self.project}")
 
@@ -229,11 +314,35 @@ class EloadStatus(Eload):
             variants.append(variant)
         return variants
 
+    def find_loaded_study_in_variant_warehouse(self, assembly, taxonomy, analysis):
+        with self.metadata_connection_handle as conn:
+            db_name = resolve_variant_warehouse_db_name(conn, assembly, taxonomy)
+        filters = {'sid': self.project, 'fid': analysis}
+        cursor = self.mongo_conn[db_name]['files_2_0'].find(filters)
+        studies = list(cursor)
+        study_loaded = statistics_loaded = annotation_loaded = False
+        if len(studies) > 0:
+            study_loaded = True
+            if 'st' in studies[0]:
+                statistics_loaded = True
+        self.info('study_loaded ' + str(study_loaded))
+        self.info('statistics_loaded ' + str(statistics_loaded))
+        filters = {"files.sid": self.project, "files.fid": analysis}
+        variant = self.mongo_conn[db_name]['variants_2_0'].find_one(filters)
+        if variant:
+            filters = {"_id": {"$regex": variant["_id"] + ".*"}}
+            annotation = self.mongo_conn[db_name]['annotations_2_0'].find_one(filters)
+            if annotation:
+                annotation_loaded = True
+        self.info('annotation_loaded ' + str(annotation_loaded))
+        return study_loaded, statistics_loaded, annotation_loaded
+
     def find_current_target_assembly_for(self, taxonomy):
         query = f"select assembly_id from evapro.supported_assembly_tracker where taxonomy_id={taxonomy} and current=true"
         assemblies = []
-        for asm, in get_all_results_for_query(self.metadata_conn, query):
-            assemblies.append(asm)
+        with self.metadata_connection_handle as conn:
+            for asm, in get_all_results_for_query(conn, query):
+                assemblies.append(asm)
         assert len(assemblies) < 2, f'Multiple target assemblies found for taxonomy {taxonomy}'
         if assemblies:
             return assemblies[0]
