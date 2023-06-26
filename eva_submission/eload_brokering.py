@@ -170,9 +170,20 @@ class EloadBrokering(Eload):
             raise e
         return output_dir
 
+    def parse_bcftools_norm_report(self, norm_report):
+        total = split = realigned = skipped = 0
+        error_list = []
+        with open(norm_report) as open_file:
+            for line in open_file:
+                if line.startswith('Lines   total/split/realigned/skipped:'):
+                    # Lines   total/split/realigned/skipped:  2/0/1/0
+                    total, split, realigned, skipped = line.strip().split()[-1].split('/')
+                else:
+                    error_list.append(line.strip())
+        return error_list, int(total), int(split), int(realigned), int(skipped)
+
     def _collect_brokering_prep_results(self, output_dir):
         # Collect information from the output and summarise in the config
-        nextflow_vcf_output = os.path.join(output_dir, 'output')
         valid_analyses = self.eload_cfg.query('validation', 'valid', 'analyses')
         for analysis in valid_analyses:
             analysis_config = {'assembly_accession': valid_analyses[analysis]['assembly_accession'],
@@ -186,7 +197,7 @@ class EloadBrokering(Eload):
                     vcf_file_name = vcf_file_name + '.gz'
 
                 output_vcf_file = os.path.join(self._get_dir('ena'), vcf_file_name)
-                os.rename(os.path.join(nextflow_vcf_output, vcf_file_name), output_vcf_file)
+                os.rename(os.path.join(output_dir, vcf_file_name), output_vcf_file)
                 os.rename(os.path.join(output_dir, vcf_file_name) + '.md5', output_vcf_file + '.md5')
 
                 # .csi index is now supported by ENA
@@ -196,13 +207,41 @@ class EloadBrokering(Eload):
                 os.rename(csi_file, output_csi_file)
                 os.rename(csi_file + '.md5', output_csi_file + '.md5')
 
+                uncompressed_vcf_name = vcf_file_name[:-3]
+                output_norm_log = os.path.join(self._get_dir('ena'), uncompressed_vcf_name + '_bcftools_norm.log')
+                os.rename(os.path.join(output_dir, uncompressed_vcf_name + '_bcftools_norm.log'), output_norm_log)
+
+                error_list, total, split, realigned, skipped = self.parse_bcftools_norm_report(output_norm_log)
+                normalisation_stat = {
+                    'error_list': error_list, 'nb_variant': total, 'nb_split': split,
+                    'nb_realigned': realigned, 'nb_skipped': skipped,
+                }
                 self.eload_cfg.set('brokering', 'analyses', analysis, 'vcf_files', output_vcf_file, value={
                     'original_vcf': vcf_file,
                     'output_vcf_file': output_vcf_file,
                     'md5': read_md5(output_vcf_file + '.md5'),
                     'csi': output_csi_file,
-                    'csi_md5': read_md5(output_csi_file + '.md5')
+                    'csi_md5': read_md5(output_csi_file + '.md5'),
+                    'normalisation': normalisation_stat
                 })
+
+    def _normalisation_check_report(self):
+        reports = []
+        for vcf_file in self.eload_cfg.query('validation', 'normalisation_check', 'files', ret_default=[]):
+            results = self.eload_cfg.query('validation', 'normalisation_check', 'files', vcf_file)
+            report_data = {
+                'vcf_file': vcf_file,
+                'pass': 'PASS' if len(results.get('error_list')) == 0 else 'FAIL',
+                'nb_error': len(results.get('error_list')),
+                'errors': '\n'.join(results['error_list']),
+            }
+            report_data.update(results)
+            reports.append("""  * {vcf_file}: {pass}
+    - number of error: {nb_error}
+    - nb of variant: {nb_variant}
+    - nb of normalised: {nb_realigned}
+    - see report for detail: {normalisation_log}""".format(**report_data))
+        return '\n'.join(reports)
 
     def _biosamples_report(self):
         reports = []
