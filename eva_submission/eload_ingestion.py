@@ -368,6 +368,7 @@ class EloadIngestion(Eload):
             'target_assembly_accession': target_assembly,
             'species_name': scientific_name,
             'output_dir': output_dir,
+            'logs_dir': os.path.join(self.project_dir, project_dirs['logs']),
             'genome_assembly_dir': cfg['genome_downloader']['output_directory'],
             'extraction_properties': extraction_properties_file,
             'ingestion_properties': ingestion_properties_file,

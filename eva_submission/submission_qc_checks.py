@@ -25,6 +25,7 @@ class EloadQC(Eload):
         self.private_config_xml_file = cfg['maven']['settings_file']
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
         self.path_to_data_dir = Path(cfg['projects_dir'], self.project_accession)
+        self.path_to_logs_dir = os.path.join(self.path_to_data_dir, '00_logs')
         self.taxonomy = self.eload_cfg.query('submission', 'taxonomy_id')
         self.analyses = self.eload_cfg.query('brokering', 'analyses')
         self.job_launched_and_completed_text_map = {
@@ -216,7 +217,7 @@ class EloadQC(Eload):
     def check_if_accessioning_completed_successfully(self, vcf_files):
         failed_files = {}
         for file in vcf_files:
-            accessioning_log_files = glob.glob(f"{self.path_to_data_dir}/00_logs/accessioning.*{file}*.log")
+            accessioning_log_files = glob.glob(f"{self.path_to_logs_dir}/accessioning.*{file}*.log")
             if accessioning_log_files:
                 # check if accessioning job completed successfully
                 if not self.check_if_job_completed_successfully(accessioning_log_files[0], 'accession'):
@@ -240,8 +241,8 @@ class EloadQC(Eload):
     def check_if_variant_load_completed_successfully(self, vcf_files):
         failed_files = defaultdict(dict)
         for file in vcf_files:
-            variant_load_log_files = glob.glob(f"{self.path_to_data_dir}/00_logs/pipeline.*{file}*.log")
-            acc_import_log_files = glob.glob(f"{self.path_to_data_dir}/00_logs/acc_import.*{file}*.log")
+            variant_load_log_files = glob.glob(f"{self.path_to_logs_dir}/pipeline.*{file}*.log")
+            acc_import_log_files = glob.glob(f"{self.path_to_logs_dir}/acc_import.*{file}*.log")
 
             variant_load_error = ""
             if variant_load_log_files:
@@ -300,7 +301,7 @@ class EloadQC(Eload):
     def check_if_variants_were_skipped_while_accessioning(self, vcf_files):
         failed_files = {}
         for file in vcf_files:
-            accessioning_log_files = glob.glob(f"{self.path_to_data_dir}/00_logs/accessioning.*{file}*.log")
+            accessioning_log_files = glob.glob(f"{self.path_to_logs_dir}/accessioning.*{file}*.log")
             if accessioning_log_files:
                 # check if any variants were skippped while accessioning
                 variants_skipped = self.check_if_variants_were_skipped(accessioning_log_files[0])
@@ -335,9 +336,9 @@ class EloadQC(Eload):
             missing files: {missing_files if missing_files else 'None'}"""
 
     def clustering_check_report(self, target_assembly):
-        clustering_log_file = glob.glob(f"{self.path_to_data_dir}/53_clustering/logs/{target_assembly}_clustering.log")
+        clustering_log_file = glob.glob(f"{self.path_to_logs_dir}/{target_assembly}_clustering.log")
         clustering_qc_log_file = glob.glob(
-            f"{self.path_to_data_dir}/53_clustering/logs/{target_assembly}_clustering_qc.log")
+            f"{self.path_to_logs_dir}/{target_assembly}_clustering_qc.log")
 
         clustering_error = ""
         if clustering_log_file:
@@ -380,9 +381,9 @@ class EloadQC(Eload):
             vcf_extractor_error = remapping_ingestion_error = ""
             if assembly_accession != target_assembly:
                 vcf_extractor_log_file = glob.glob(
-                    f"{self.path_to_data_dir}/53_clustering/logs/{assembly_accession}_vcf_extractor.log")
+                    f"{self.path_to_logs_dir}/{assembly_accession}_vcf_extractor.log")
                 remapped_ingestion_log_file = glob.glob(
-                    f"{self.path_to_data_dir}/53_clustering/logs/{assembly_accession}_eva_remapped.vcf_ingestion.log")
+                    f"{self.path_to_logs_dir}/{assembly_accession}_eva_remapped.vcf_ingestion.log")
 
                 if vcf_extractor_log_file:
                     if not self.check_if_job_completed_successfully(vcf_extractor_log_file[0], 'vcf_extractor'):
@@ -436,7 +437,7 @@ class EloadQC(Eload):
             backpropagation_error = ""
             if assembly_accession != target_assembly:
                 back_propagation_log_file = glob.glob(
-                    f"{self.path_to_data_dir}/53_clustering/logs/{target_assembly}_backpropagate_to_{assembly_accession}.log")
+                    f"{self.path_to_logs_dir}/{target_assembly}_backpropagate_to_{assembly_accession}.log")
 
                 if back_propagation_log_file:
                     if not self.check_if_job_completed_successfully(back_propagation_log_file[0], 'backpropagation'):
