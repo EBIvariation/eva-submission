@@ -1,16 +1,13 @@
 import fileinput
-import logging
 import os
 
 import yaml
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
-from ebi_eva_common_pyutils.logger import logging_config as log_cfg
-
-logger = log_cfg.get_logger(__name__)
+from ebi_eva_common_pyutils.logger import logging_config as log_cfg, AppLogger
 
 
-class ELOADRetrieval:
+class ELOADRetrieval(AppLogger):
 
     def create_dir_if_not_exist(self, dir_path):
         if not os.path.exists(dir_path):
@@ -44,9 +41,9 @@ class ELOADRetrieval:
                     project_acc = eload_content['brokering']['ena']['PROJECT']
                     return project_acc
                 except:
-                    logging.warning(f'No Project accession found in ELOAD config for ELOAD {archive_name}')
+                    self.warning(f'No Project accession found in ELOAD config for ELOAD {archive_name}')
         else:
-            logger.warning(f"No ELOAD config file found for eload: {archive_name}")
+            self.warning(f"No ELOAD config file found for eload: {archive_name}")
 
     def update_path_in_eload_config(self, retrieved_dir, archive_name):
         config_file_path = os.path.join(retrieved_dir, archive_name, f'.{archive_name}_config.yml')
@@ -62,7 +59,7 @@ class ELOADRetrieval:
             command = f"tar -xf {archive_path} -C {retrieval_output_path} {files_dirs_to_retrieve}"
             command_utils.run_command_with_output('Retrieve files/dir from tar', command)
         else:
-            logger.error(f'Archive path {archive_path} does not exist')
+            self.error(f'Archive path {archive_path} does not exist')
 
     def get_files_or_dirs_to_retrieve_from_archive(self, archive):
         files_dirs_to_retrieve = []
@@ -76,7 +73,7 @@ class ELOADRetrieval:
     def retrieve_eload(self, eload, retrieve_associated_project, update_path, eload_dirs_files, eload_lts_dir,
                        eload_output_dir):
         self.create_dir_if_not_exist(eload_output_dir)
-        logging.info(f"Retrieving Eloads")
+        self.info(f"Retrieving Eloads")
 
         # Retrieve eload
         eload_tar = f'{eload}.tar'
@@ -97,7 +94,7 @@ class ELOADRetrieval:
             return self.get_project_from_eload_config(eload_output_dir, eload)
 
     def retrieve_project(self, project, project_dirs_files, project_lts_dir, project_output_dir):
-        logging.info(f"Retrieving Project")
+        self.info(f"Retrieving Project")
         self.create_dir_if_not_exist(project_output_dir)
 
         project_tar = f'{project}.tar'
