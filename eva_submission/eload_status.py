@@ -7,7 +7,6 @@ import sys
 import tempfile
 from functools import cached_property
 
-from ebi_eva_common_pyutils.common_utils import pretty_print
 from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name
 from ebi_eva_common_pyutils.mongo_utils import get_mongo_connection_handle
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
@@ -43,8 +42,9 @@ class EloadStatus(Eload):
                 eload_retrieval = ELOADRetrieval()
                 eload_retrieval.retrieve_eloads_and_projects(
                     self.eload_num, retrieve_associated_project=False, update_path=False,
-                    eload_dirs_files=[compressed_eload_config], project=None, project_dirs_files=None, eload_lts_dir=None,
-                    project_lts_dir=None, eload_retrieval_dir=self.tmp_dir, project_retrieval_dir=None
+                    eload_dirs_files=[compressed_eload_config], project=None, project_dirs_files=None,
+                    eload_lts_dir=None, project_lts_dir=None, eload_retrieval_dir=self.tmp_dir,
+                    project_retrieval_dir=None
                 )
                 eload_cfg = EloadConfig(os.path.join(self.tmp_dir, eload_config_file))
             except subprocess.CalledProcessError:
@@ -109,27 +109,18 @@ class EloadStatus(Eload):
             for analysis in self.analyses:
                 status = self.status_per_analysis(analysis)
                 if not status:
-                    all_status.append({
-                        "eload": self.eload,
-                        "project": self.project,
-                        "analysis": analysis,
-                        "taxonomy": self.taxonomy_from_config,
-                        "source_assembly": self.source_assembly_from_config(analysis),
-                        "target_assembly": self.find_current_target_assembly_for(self.taxonomy_from_config),
-                        "metadata_load_status": "Pending",
-                        "accessioning_status": "Pending",
-                        "remapping_status": "Pending",
-                        "clustering_status": "Pending",
-                        "variant_load_status": "Pending",
-                        "statistics_status": "Pending",
-                        "annotation_status": "Pending"
-                    })
+                    all_status.append(self.build_status(
+                        analysis=analysis,
+                        taxonomy=self.taxonomy_from_config,
+                        source_assembly=self.source_assembly_from_config(analysis),
+                        target_assembly=self.find_current_target_assembly_for(self.taxonomy_from_config)
+                    ))
                 else:
                     all_status.extend(status)
         else:
             all_status = self.status_per_analysis()
-        writer = csv.DictWriter(sys.stdout, fieldnames=header)
-        writer.writeheader()
+        writer = csv.DictWriter(sys.stdout, fieldnames=header, delimiter='\t')
+        # writer.writeheader()
         for st in all_status:
             writer.writerow(st)
 
@@ -137,19 +128,38 @@ class EloadStatus(Eload):
     def mongo_conn(self):
         return get_mongo_connection_handle(cfg['maven']['environment'], cfg['maven']['settings_file'])
 
+    def build_status(self, analysis='Not found', taxonomy='Not found', source_assembly='Not found',
+                     target_assembly='Not found', metadata_load_status='Pending',  accessioning_status='Pending',
+                     remapping_status='Pending', clustering_status='Pending', variant_load_status='Pending',
+                     statistics_status='Pending', annotation_status='Pending'):
+        return {
+                "eload": self.eload,
+                "project": str(self.project),
+                "analysis": analysis,
+                "taxonomy": taxonomy,
+                "source_assembly": source_assembly,
+                "target_assembly": target_assembly,
+                "metadata_load_status": metadata_load_status,
+                "accessioning_status": accessioning_status,
+                "remapping_status": remapping_status,
+                "clustering_status": clustering_status,
+                "variant_load_status": variant_load_status,
+                "statistics_status": statistics_status,
+                "annotation_status": annotation_status
+            }
+
     def status_per_analysis(self, analysis=None):
         st_per_analysis = []
         for analysis, source_assembly, taxonomy, filenames in self.project_information(analysis):
             # initialise results with default values
             accessioning_status = remapping_status = clustering_status = target_assembly = 'Not found'
-            list_ssid_accessioned, list_ssid_remapped, list_ssid_clustered = ([], [], [])
             if not taxonomy:
                 self.error(f'No Assembly set present in the metadata for project: {self.project}:{analysis}')
                 taxonomy = self.get_taxonomy_for_project()
             if not taxonomy:
                 self.error(f'Project {self.project}:{analysis} has no taxonomy associated and the metadata '
                            f'should be checked.')
-                return
+                return [self.build_status(analysis=analysis)]
 
             if taxonomy != 9606:
                 list_ssid_accessioned = self.check_accessioning_was_done(analysis, filenames)
@@ -166,25 +176,25 @@ class EloadStatus(Eload):
                 list_ssid_clustered = self.check_clustering_was_done(assembly, list_ssid_accessioned)
                 clustering_status = 'Done' if list_ssid_clustered else 'Pending'
 
-            study_loaded, statistics_loaded, annotation_loaded = self.find_loaded_study_in_variant_warehouse(source_assembly, taxonomy, analysis)
+            study_loaded, statistics_loaded, annotation_loaded = self.find_loaded_study_in_variant_warehouse(
+                source_assembly, taxonomy, analysis
+            )
             variant_load_status = 'Done' if study_loaded else 'Pending'
             statistics_status = 'Done' if statistics_loaded else 'Pending'
             annotation_status = 'Done' if annotation_loaded else 'Pending'
-            st_per_analysis.append({
-                "eload": self.eload,
-                "project": self.project,
-                "analysis": analysis,
-                "taxonomy": taxonomy,
-                "source_assembly": source_assembly,
-                "target_assembly": target_assembly,
-                "metadata_load_status": "Done",
-                "accessioning_status": accessioning_status,
-                "remapping_status": remapping_status,
-                "clustering_status": clustering_status,
-                "variant_load_status": variant_load_status,
-                "statistics_status": statistics_status,
-                "annotation_status": annotation_status
-            })
+            st_per_analysis.append(self.build_status(
+                analysis=analysis,
+                taxonomy=taxonomy,
+                source_assembly=source_assembly,
+                target_assembly=target_assembly,
+                metadata_load_status="Done",
+                accessioning_status=accessioning_status,
+                remapping_status=remapping_status,
+                clustering_status=clustering_status,
+                variant_load_status=variant_load_status,
+                statistics_status=statistics_status,
+                annotation_status=annotation_status
+            ))
         return st_per_analysis
 
     def project_information(self, analysis):
@@ -246,11 +256,12 @@ class EloadStatus(Eload):
             accessioning_report = [r for r in accessioning_reports if analysis in r][0]
         elif accessioning_reports:
             self.warning(
-                f'Assume all accessioning reports are from project {self.project}:{analysis} and only use the first one.')
+                f'Assume all accessioning reports are from project {self.project}:{analysis} '
+                f'and only use the first one.')
             accessioning_report = accessioning_reports[0]
         else:
-            self.error(
-                f'Cannot assign accessioning report to project {self.project} analysis {analysis} for files {accessioning_reports}')
+            self.error(f'Cannot assign accessioning report to project {self.project} analysis {analysis} '
+                       f'for files {accessioning_reports}')
             accessioning_report = None
         if not accessioning_report:
             return []
@@ -325,16 +336,15 @@ class EloadStatus(Eload):
             study_loaded = True
             if 'st' in studies[0]:
                 statistics_loaded = True
-        self.info('study_loaded ' + str(study_loaded))
-        self.info('statistics_loaded ' + str(statistics_loaded))
-        filters = {"files.sid": self.project, "files.fid": analysis}
-        variant = self.mongo_conn[db_name]['variants_2_0'].find_one(filters)
-        if variant:
-            filters = {"_id": {"$regex": variant["_id"] + ".*"}}
-            annotation = self.mongo_conn[db_name]['annotations_2_0'].find_one(filters)
-            if annotation:
-                annotation_loaded = True
-        self.info('annotation_loaded ' + str(annotation_loaded))
+        # Searching for variants when they don't exist is Slow !
+        if study_loaded:
+            filters = {"files.sid": self.project, "files.fid": analysis}
+            variant = self.mongo_conn[db_name]['variants_2_0'].find_one(filters)
+            if variant:
+                filters = {"_id": {"$regex": "^" + variant["_id"] + ".*"}}
+                annotation = self.mongo_conn[db_name]['annotations_2_0'].find_one(filters)
+                if annotation:
+                    annotation_loaded = True
         return study_loaded, statistics_loaded, annotation_loaded
 
     def find_current_target_assembly_for(self, taxonomy):
