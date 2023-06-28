@@ -62,7 +62,7 @@ GRANT ALL ON SCHEMA eva_progress_tracker TO metadata_user;
 
 
 
------------------------------------------eva_pro------------------------------------------------------------------------
+------------------------------------------------------eva_pro-----------------------------------------------------------
 ------------------------------------------------------------------------------------------------------------------------
 
 CREATE SCHEMA evapro AUTHORIZATION metadata_user;
@@ -814,7 +814,6 @@ GRANT ALL ON TABLE evapro.study_browser TO metadata_user;
 
 ---------------------------------------------------- Data Inserts ------------------------------------------------------
 
----- accessioning
 INSERT INTO evapro.file_class_cv (file_class_id, file_class) VALUES(1, 'submitted');
 INSERT INTO evapro.file_class_cv (file_class_id, file_class) VALUES(2, 'eva_brokered');
 INSERT INTO evapro.file_class_cv (file_class_id, file_class) VALUES(3, 'eva_value_added');
@@ -825,37 +824,23 @@ INSERT INTO evapro.file_class_cv (file_class_id, file_class) VALUES(4, 'fixed_fo
 INSERT INTO evapro.taxonomy (taxonomy_id, common_name, scientific_name, taxonomy_code, eva_name)
 VALUES(4006, 'flax', 'Linum usitatissimum', 'lusitatissimum', 'flax');
 
-INSERT INTO evapro.assembly_set (assembly_set_id, taxonomy_id, assembly_name, assembly_code)
-VALUES(412, 4006, 'ASM22429v2', 'asm22429v2');
+INSERT INTO evapro.assembly_set (taxonomy_id, assembly_name, assembly_code)
+VALUES(4006, 'ASM22429v2', 'asm22429v2');
 
-INSERT INTO evapro.file (file_id, ena_submission_file_id, filename, file_md5, file_location, file_type, file_class, file_version, is_current, ftp_file, mongo_load_status, eva_submission_file_id)
-VALUES(120867, 'ERF153535013', 'Flax_SNP_variants.vcf.gz', 'd9918c2d697700f732a117576fc97ff7', '/nfs/production/keane/eva/submissions/ELOAD_1145/20_scratch', 'VCF', 'submitted', 1, 1, '/ftp.ebi.ac.uk/pub/databases/eva/PRJEB62432/Flax_SNP_variants.vcf.gz', 0, 'EVAF00120867');
+INSERT INTO evapro.accessioned_assembly (assembly_set_id, assembly_accession, assembly_chain, assembly_version)
+VALUES(1, 'GCA_000224295.2', 'GCA_000224295', 2);
+
+INSERT INTO evapro.file (ena_submission_file_id, filename, file_md5, file_location, file_type, file_class, file_version, is_current, ftp_file, mongo_load_status, eva_submission_file_id)
+VALUES('ERF153535013', 'Flax_SNP_variants.vcf.gz', 'd9918c2d697700f732a117576fc97ff7', '/nfs/production/keane/eva/submissions/ELOAD_1145/20_scratch', 'VCF', 'submitted', 1, 1, '/ftp.ebi.ac.uk/pub/databases/eva/PRJEB62432/Flax_SNP_variants.vcf.gz', 0, 'EVAF00120867');
 
 INSERT INTO evapro.browsable_file (file_id, ena_submission_file_id, filename, loaded, eva_release, deleted, eva_release_deleted, project_accession, loaded_assembly, assembly_set_id)
-VALUES(120867, 'ERF153535013', 'Flax_SNP_variants.vcf.gz', true, '20230521', false, 'None', 'PRJEB62432', 'GCA_000224295.2', 412);
+VALUES(1, 'ERF153535013', 'Flax_SNP_variants.vcf.gz', true, '20230521', false, 'None', 'PRJEB62432', 'GCA_000224295.2', 1);
 
 INSERT INTO evapro.supported_assembly_tracker (taxonomy_id, "source", assembly_id, "current", start_date)
 VALUES(4006, 'Ensembl', 'GCA_000224295.2', true, '2021-01-01');
 
--- INSERT INTO evapro.project (project_accession, center_name, alias, title, description, "scope", material, selection, "type", secondary_study_id, hold_date, source_type, project_accession_code, eva_description, eva_center_name, eva_submitter_link, eva_study_accession, ena_status, eva_status, ena_timestamp, eva_timestamp, study_type)
--- VALUES('PRJEB62432', 'NDSU', 'IFQT', 'Improvement of Flax Quantitative Traits', 'The study was done to analyze the genetic diversity, identify SNPs and genes associated to specific traits and optimize genomic selection models in NDSU Flax core collection.', 'multi-isolate', 'DNA', 'other', 'Other', 'ERP147519', NULL, 'Germline', 1803, NULL, NULL, NULL, 1804, 4, 1, NULL, NULL, 'Control Set');
-
--------------
-
-INSERT INTO evapro.taxonomy (taxonomy_id, common_name, scientific_name, taxonomy_code, eva_name)
-VALUES(8962, 'golden eagle', 'Aquila chrysaetos', 'achrysaetos', 'golden eagle');
-
-INSERT INTO evapro.assembly_set (assembly_set_id, taxonomy_id, assembly_name, assembly_code)
-VALUES(504, 8962, 'Aquila_chrysaetos-1.0.2', 'aquilachrysaetos102');
-
-INSERT INTO evapro.file (file_id, ena_submission_file_id, filename, file_md5, file_location, file_type, file_class, file_version, is_current, ftp_file, mongo_load_status, eva_submission_file_id)
-VALUES(120631, 'ERF147056879', 'goldeneagle_EVAv3.vcf.gz', 'b672aa33dc7694a052752d8ba588b1a7', '/nfs/production/keane/eva/submissions/ELOAD_1095/20_scratch', 'VCF', 'submitted', 1, 1, '/ftp.ebi.ac.uk/pub/databases/eva/PRJEB60512/goldeneagle_EVAv3.vcf.gz', 0, 'EVAF00120631');
-
-INSERT INTO evapro.browsable_file (file_id, ena_submission_file_id, filename, loaded, eva_release, deleted, eva_release_deleted, project_accession, loaded_assembly, assembly_set_id)
-VALUES(120631, 'ERF147056879', 'goldeneagle_EVAv3.vcf.gz', true, '20230312', false, 'None', 'PRJEB60512', 'GCA_000766835.1', 504);
-
--- INSERT INTO evapro.project (project_accession, center_name, alias, title, description, "scope", material, selection, "type", secondary_study_id, hold_date, source_type, project_accession_code, eva_description, eva_center_name, eva_submitter_link, eva_study_accession, ena_status, eva_status, ena_timestamp, eva_timestamp, study_type)
--- VALUES('PRJEB60512', 'Oklahoma State University', 'Golden Eagles', 'A 37K SNP array for the management and conservation of Golden Eagles (Aquila chrysaetos)', 'Golden eagle SNPs utilized from a 37K Affymetrix Axiom myDesign single nucleotide polymorphism (SNP)  array.', 'multi-isolate', 'DNA', 'other', 'Other', 'ERP145579', NULL, 'Germline', 1745, NULL, NULL, NULL, 1746, 4, 1, NULL, NULL, 'Control Set');
+INSERT INTO evapro.project (project_accession, center_name, alias, title, description, "scope", material, selection, "type", secondary_study_id, hold_date, source_type, eva_description, eva_center_name, eva_submitter_link, ena_status, eva_status, ena_timestamp, eva_timestamp, study_type)
+values ('PRJEB62432', 'NDSU', 'IFQT', 'Improvement of Flax Quantitative Traits', 'The study was done to analyze the genetic diversity, identify SNPs and genes associated to specific traits and optimize genomic selection models in NDSU Flax core collection.', 'multi-isolate', 'DNA', 'other', 'Other', 'ERP147519', NULL, 'Germline', NULL, NULL, NULL, 4, 1, NULL, NULL, 'Control Set');
 
 
 
