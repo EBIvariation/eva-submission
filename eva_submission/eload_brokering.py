@@ -1,3 +1,4 @@
+import csv
 import os
 import shutil
 import subprocess
@@ -144,10 +145,26 @@ class EloadBrokering(Eload):
             valid_vcf_files.extend(files) if files else None
         return valid_vcf_files
 
+    def _generate_csv_mappings(self):
+        vcf_files_mapping_csv = os.path.join(self.eload_dir, 'vcf_files_mapping.csv')
+        with open(vcf_files_mapping_csv, 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(['vcf', 'fasta', 'report', 'assembly_accession'])
+            sub_analyses = self.eload_cfg.query('submission', 'analyses')
+            valid_analyses = self.eload_cfg.query('validation', 'valid', 'analyses')
+            for analysis_alias in valid_analyses:
+                fasta = sub_analyses[analysis_alias]['assembly_fasta']
+                report = sub_analyses[analysis_alias]['assembly_report']
+                assembly_accession = sub_analyses[analysis_alias]['assembly_accession']
+                for vcf_file in valid_analyses[analysis_alias]['vcf_files']:
+                    writer.writerow([vcf_file, fasta, report, assembly_accession])
+        return vcf_files_mapping_csv
+
     def _run_brokering_prep_workflow(self):
         output_dir = self.create_nextflow_temp_output_directory()
+        cfg['executable']['python']['script_path'] = os.path.dirname(os.path.dirname(__file__))
         brokering_config = {
-            'vcf_files': self._get_valid_vcf_files(),
+            'vcf_files_mapping': self._generate_csv_mappings(),
             'output_dir': output_dir,
             'executable': cfg['executable']
         }
