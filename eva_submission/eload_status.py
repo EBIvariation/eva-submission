@@ -241,12 +241,10 @@ class EloadStatus(AppLogger):
         """
         accessioning_reports = self.get_accession_reports_for_study()
         accessioned_filenames = [self.get_accession_file(f) for f in filenames]
-        if not accessioning_reports:
-            return []
         if len(accessioning_reports) == 1:
             # Only one accessioning report
             accessioning_report = accessioning_reports[0]
-        elif len([r for r in accessioning_reports if r in accessioned_filenames]) == 1:
+        elif len([r for r in accessioning_reports if os.path.basename(r) in accessioned_filenames]) == 1:
             # Only one accessioning report name present in the database for this analysis
             accessioning_report = [r for r in accessioning_reports if os.path.basename(r) in accessioned_filenames][0]
         elif len([r for r in accessioning_reports if analysis in r]) == 1:
@@ -265,8 +263,6 @@ class EloadStatus(AppLogger):
             # No reports
             self.error(f'Cannot assign accessioning report to project {self.project} analysis {analysis} '
                        f'for files {accessioning_reports}')
-            accessioning_report = None
-        if not accessioning_report:
             return []
         return self.get_accessioning_info_from_file(accessioning_report)
 
