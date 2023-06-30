@@ -1,0 +1,4 @@
+vcf,fasta,report,assembly_accession
+vcfs/test1.vcf.gz,GCA_000002945.2/GCA_000002945.2.fa,GCA_000002945.2/GCA_000002945.2_assembly_report.txt,GCA_000002945.2
+vcfs/test2.vcf.gz,GCA_000002945.2/GCA_000002945.2.fa,GCA_000002945.2/GCA_000002945.2_assembly_report.txt,GCA_000002945.2
+vcfs/not_compressed.vcf,GCA_000002945.2/GCA_000002945.2.fa,GCA_000002945.2/GCA_000002945.2_assembly_report.txt,GCA_000002945.2

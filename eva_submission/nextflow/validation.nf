@@ -44,18 +44,6 @@ workflow {
     if ("assembly_check" in params.validation_tasks) {
         check_vcf_reference(vcf_channel)
     }
-    if ("normalisation_check" in params.validation_tasks) {
-        fasta_channel = Channel.fromPath(params.vcf_files_mapping)
-            .splitCsv(header:true)
-            .map{row -> tuple(file(row.fasta), file(row.report), row.assembly_accession, file(row.vcf))}
-            .groupTuple(by: [0, 1, 2])
-        prepare_genome(fasta_channel)
-        assembly_and_vcf_channel = Channel.fromPath(params.vcf_files_mapping)
-            .splitCsv(header:true)
-            .map{row -> tuple(row.assembly_accession, file(row.vcf))}
-            .combine(prepare_genome.out.custom_fasta, by: 0)
-        normalise_vcf(assembly_and_vcf_channel)
-    }
     if ("structural_variant_check" in params.validation_tasks) {
         detect_sv(vcf_channel)
     }
@@ -113,56 +101,6 @@ process check_vcf_reference {
     """
 }
 
-
-/*
-* Convert the genome to the same naming convention as the VCF
-*/
-process prepare_genome {
-
-    input:
-    tuple path(fasta), path(report), val(assembly_accession), path(vcf_files)
-
-    output:
-    tuple val(assembly_accession), path("${fasta.getSimpleName()}_custom.fa"), emit: custom_fasta
-
-    script:
-    """
-    export PYTHONPATH="$params.executable.python.script_path"
-    $params.executable.python.interpreter -m eva_submission.steps.rename_contigs_from_insdc_in_assembly \
-    --assembly_accession $assembly_accession --assembly_fasta $fasta --custom_fasta ${fasta.getSimpleName()}_custom.fa \
-    --assembly_report $report --vcf_files $vcf_files
-    """
-}
-
-
-/*
-* Normalise the VCF files
-*/
-process normalise_vcf {
-    publishDir "$params.output_dir",
-            overwrite: false,
-            mode: "copy"
-
-    input:
-    tuple val(assembly_accession), path(vcf_file), path(fasta)
-
-    output:
-    path "normalised_vcfs/*.gz", emit: normalised_vcf
-    path "normalised_vcfs/*.log", emit: normalisation_log
-
-    script:
-    """
-    trap 'if [[ \$? == 1 || \$? == 139 || \$? == 255 ]]; then exit 0; fi' EXIT
-
-    mkdir normalised_vcfs
-    if [[ $vcf_file =~ \\.gz\$ ]]
-    then
-        $params.executable.bcftools norm --no-version -f $fasta -O z -o normalised_vcfs/$vcf_file $vcf_file 2> normalised_vcfs/${vcf_file.getBaseName()}_bcftools_norm.log
-    else
-        $params.executable.bcftools norm --no-version -f $fasta -O z -o normalised_vcfs/${vcf_file}.gz $vcf_file 2> normalised_vcfs/${vcf_file}_bcftools_norm.log
-    fi
-    """
-}
 
 /*
  * Detect the structural variant in VCF
