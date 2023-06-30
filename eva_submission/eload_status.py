@@ -7,26 +7,22 @@ import sys
 import tempfile
 from functools import cached_property
 
+from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name
 from ebi_eva_common_pyutils.mongo_utils import get_mongo_connection_handle
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
 from ebi_eva_common_pyutils.config import cfg
-from eva_submission.eload_submission import Eload
 from eva_submission.retrieve_eload_and_project_from_lts import ELOADRetrieval
 from eva_submission.submission_config import EloadConfig
 
 
-class EloadStatus(Eload):
+class EloadStatus(AppLogger):
 
-    def __init__(self, eload_number: int, config_object: EloadConfig = None):
+    def __init__(self, eload_number: int):
         self.eload_num = eload_number
         self.eload = f'ELOAD_{eload_number}'
         self.eload_dir = os.path.abspath(os.path.join(cfg['eloads_dir'], self.eload))
         self.config_path = os.path.join(self.eload_dir, '.' + self.eload + '_config.yml')
-        if config_object:
-            self.eload_cfg = config_object
-        else:
-            self.eload_cfg = EloadConfig(self.config_path)
 
     @cached_property
     def tmp_dir(self):
@@ -50,7 +46,7 @@ class EloadStatus(Eload):
             except subprocess.CalledProcessError:
                 return
         else:
-            eload_cfg = EloadConfig(os.path.join(self.eload_dir, '.' + self.eload + '_config.yml'))
+            eload_cfg = EloadConfig(os.path.join(self.config_path))
         return eload_cfg
 
     @cached_property
@@ -113,7 +109,7 @@ class EloadStatus(Eload):
                         analysis=analysis,
                         taxonomy=self.taxonomy_from_config,
                         source_assembly=self.source_assembly_from_config(analysis),
-                        target_assembly=self.find_current_target_assembly_for(self.taxonomy_from_config)
+                        target_assembly=self.find_current_target_assembly_for_taxonomy(self.taxonomy_from_config)
                     ))
                 else:
                     all_status.extend(status)
@@ -148,9 +144,9 @@ class EloadStatus(Eload):
                 "annotation_status": annotation_status
             }
 
-    def status_per_analysis(self, analysis=None):
+    def status_per_analysis(self, analysis_provided=None):
         st_per_analysis = []
-        for analysis, source_assembly, taxonomy, filenames in self.project_information(analysis):
+        for analysis, source_assembly, taxonomy, filenames in self.project_information(analysis_provided):
             # initialise results with default values
             accessioning_status = remapping_status = clustering_status = target_assembly = 'Not found'
             if not taxonomy:
@@ -164,7 +160,7 @@ class EloadStatus(Eload):
             if taxonomy != 9606:
                 list_ssid_accessioned = self.check_accessioning_was_done(analysis, filenames)
                 accessioning_status = 'Done' if len(list_ssid_accessioned) > 0 else 'Pending'
-                target_assembly = self.find_current_target_assembly_for(taxonomy)
+                target_assembly = self.find_current_target_assembly_for_taxonomy(taxonomy)
                 remapping_status = 'Required' if source_assembly != target_assembly else 'Not_required'
                 if source_assembly != target_assembly:
                     list_ssid_remapped = self.check_remapping_was_done(target_assembly, list_ssid_accessioned)
@@ -240,7 +236,7 @@ class EloadStatus(Eload):
 
     def check_accessioning_was_done(self, analysis, filenames):
         """
-        Check that an accessioning file can be found in either noah or codon (assume access to both filesystem)
+        Check that an accessioning file can be found  on codon
         It parses and provide a 1000 submitted variant accessions from that project.
         """
         accessioning_reports = self.get_accession_reports_for_study()
@@ -248,18 +244,25 @@ class EloadStatus(Eload):
         if not accessioning_reports:
             return []
         if len(accessioning_reports) == 1:
+            # Only one accessioning report
             accessioning_report = accessioning_reports[0]
         elif len([r for r in accessioning_reports if r in accessioned_filenames]) == 1:
-            accessioning_report = [r for r in accessioning_reports if os.path.basename(r) in accessioned_filenames][
-                0]
+            # Only one accessioning report name present in the database for this analysis
+            accessioning_report = [r for r in accessioning_reports if os.path.basename(r) in accessioned_filenames][0]
         elif len([r for r in accessioning_reports if analysis in r]) == 1:
+            # Only one accessioning report that contains the analysis accession in its name
             accessioning_report = [r for r in accessioning_reports if analysis in r][0]
         elif accessioning_reports:
+            # Multiple accessioning reports and we cannot figure out which one is for this analysis
+            # Assume that the first one can be used
             self.warning(
                 f'Assume all accessioning reports are from project {self.project}:{analysis} '
-                f'and only use the first one.')
+                f'and only use the first one: {accessioning_reports[0]}\n'
+                f'All reports: {", ".join(accessioning_reports)}'
+            )
             accessioning_report = accessioning_reports[0]
         else:
+            # No reports
             self.error(f'Cannot assign accessioning report to project {self.project} analysis {analysis} '
                        f'for files {accessioning_reports}')
             accessioning_report = None
@@ -295,15 +298,16 @@ class EloadStatus(Eload):
 
     def get_accession_reports_for_study(self):
         """
-        Given a study, find the accessioning report path for that study on both noah and codon.
+        Given a study, find the accessioning report path for that study on codon and the FTP.
         Look for files ending with accessioned.vcf.gz.
         """
         local_files = glob.glob(os.path.join(cfg['projects_dir'], self.project, '60_eva_public', '*accessioned.vcf.gz'))
         ftp_files = glob.glob(os.path.join(cfg['public_ftp_dir'], self.project, '*accessioned.vcf.gz'))
-        accessioning_reports = local_files + ftp_files
+        local_file_base_names = [os.path.basename(f) for f in local_files]
+        # remove duplicates based on file base names
+        accessioning_reports = local_files + [f for f in ftp_files if os.path.basename(f) not in local_file_base_names]
         if not accessioning_reports:
-            self.error(f"Could not find any file in Noah or Codon for Study {self.project}")
-
+            self.error(f"Could not find any file in FTP or Codon for Study {self.project}")
         return accessioning_reports
 
     def check_remapping_was_done(self, target_assembly, list_ssid):
@@ -347,7 +351,7 @@ class EloadStatus(Eload):
                     annotation_loaded = True
         return study_loaded, statistics_loaded, annotation_loaded
 
-    def find_current_target_assembly_for(self, taxonomy):
+    def find_current_target_assembly_for_taxonomy(self, taxonomy):
         query = f"select assembly_id from evapro.supported_assembly_tracker where taxonomy_id={taxonomy} and current=true"
         assemblies = []
         with self.metadata_connection_handle as conn:
