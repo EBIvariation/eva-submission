@@ -229,18 +229,17 @@ class EloadValidation(Eload):
         return nb_sv
 
     def _generate_csv_mappings(self):
-        vcf_files_mapping_csv = os.path.join(self.eload_dir, 'vcf_files_mapping.csv')
+        vcf_files_mapping_csv = os.path.join(self.eload_dir, 'validation_vcf_files_mapping.csv')
         with open(vcf_files_mapping_csv, 'w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(['vcf', 'fasta', 'report', 'assembly_accession'])
+            writer.writerow(['vcf', 'fasta', 'report'])
             analyses = self.eload_cfg.query('submission', 'analyses')
             for analysis_alias, analysis_data in analyses.items():
                 fasta = analysis_data['assembly_fasta']
                 report = analysis_data['assembly_report']
-                assembly_accession = analysis_data['assembly_accession']
                 if analysis_data['vcf_files']:
                     for vcf_file in analysis_data['vcf_files']:
-                        writer.writerow([vcf_file, fasta, report, assembly_accession])
+                        writer.writerow([vcf_file, fasta, report])
                 else:
                     self.warning(f"VCF files for analysis {analysis_alias} not found")
         return vcf_files_mapping_csv

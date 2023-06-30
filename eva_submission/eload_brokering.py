@@ -146,7 +146,7 @@ class EloadBrokering(Eload):
         return valid_vcf_files
 
     def _generate_csv_mappings(self):
-        vcf_files_mapping_csv = os.path.join(self.eload_dir, 'vcf_files_mapping.csv')
+        vcf_files_mapping_csv = os.path.join(self.eload_dir, 'brokering_vcf_files_mapping.csv')
         with open(vcf_files_mapping_csv, 'w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(['vcf', 'fasta', 'report', 'assembly_accession'])
