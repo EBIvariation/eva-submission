@@ -56,11 +56,11 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    with ELOADRetrieval() as eload_retrieval:
-        eload_retrieval.retrieve_eloads_and_projects(args.eload, args.retrieve_associated_project, args.update_path,
-                                                     args.eload_dirs_files, args.project, args.project_dirs_files,
-                                                     args.eload_lts_dir, args.project_lts_dir, args.eload_retrieval_dir,
-                                                     args.project_retrieval_dir)
+    eload_retrieval = ELOADRetrieval()
+    eload_retrieval.retrieve_eloads_and_projects(args.eload, args.retrieve_associated_project, args.update_path,
+                                                 args.eload_dirs_files, args.project, args.project_dirs_files,
+                                                 args.eload_lts_dir, args.project_lts_dir, args.eload_retrieval_dir,
+                                                 args.project_retrieval_dir)
 
 
 if __name__ == "__main__":
