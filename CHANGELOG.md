@@ -1,11 +1,17 @@
 Changelog for eva-submission
 ============================
 
-## 1.10.9 (unreleased)
+## 1.11 (2023-07-03)
 ----------------------
 
-- Nothing changed yet.
+### Validation
+ - Remove normalisation
 
+### Brokering 
+ - Run normalisation in prepare brokering 
+
+### Ingestion
+ - Move log directory for remapping and clustering from 53_clustering to 00_logs
 
 ## 1.10.8 (2023-06-22)
 ----------------------
