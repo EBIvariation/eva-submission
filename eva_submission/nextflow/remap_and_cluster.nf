@@ -17,6 +17,7 @@ def helpMessage() {
             --clustering_properties         path to clustering properties file
             --clustering_instance           instance id to use for clustering
             --output_dir                    path to the directory where the output file should be copied.
+            --logs_dir                      logs directory
             --remapping_config              path to the remapping configuration file
     """
 }
@@ -25,6 +26,7 @@ params.source_assemblies = null
 params.target_assembly_accession = null
 params.species_name = null
 params.memory = 8
+params.logs_dir = null
 // help
 params.help = null
 
@@ -32,12 +34,13 @@ params.help = null
 if (params.help) exit 0, helpMessage()
 
 // Test input files
-if (!params.taxonomy_id || !params.source_assemblies || !params.target_assembly_accession || !params.species_name || !params.genome_assembly_dir ) {
+if (!params.taxonomy_id || !params.source_assemblies || !params.target_assembly_accession || !params.species_name || !params.logs_dir || !params.genome_assembly_dir ) {
     if (!params.taxonomy_id) log.warn('Provide the taxonomy id of the source submitted variants using --taxonomy_id')
     if (!params.source_assemblies) log.warn('Provide source assemblies using --source_assemblies')
     if (!params.target_assembly_accession) log.warn('Provide the target assembly using --target_assembly_accession')
     if (!params.species_name) log.warn('Provide a species name using --species_name')
     if (!params.genome_assembly_dir) log.warn('Provide a path to where the assembly should be downloaded using --genome_assembly_dir')
+    if (!params.logs_dir) log.warn('Provide logs directory using --logs_dir')
     exit 1, helpMessage()
 }
 
@@ -127,7 +130,7 @@ process extract_vcf_from_mongo {
     tuple val(source_assembly_accession), path(source_fasta), path("${source_assembly_accession}_eva.vcf"), emit: source_vcfs
     path "${source_assembly_accession}_vcf_extractor.log", emit: log_filename
 
-    publishDir "$params.output_dir/logs", overwrite: true, mode: "copy", pattern: "*.log*"
+    publishDir "$params.logs_dir", overwrite: true, mode: "copy", pattern: "*.log*"
 
     """
     java -Xmx8G -jar $params.jar.vcf_extractor \
@@ -191,7 +194,7 @@ process ingest_vcf_into_mongo {
     output:
     path "${remapped_vcf}_ingestion.log", emit: ingestion_log_filename
 
-    publishDir "$params.output_dir/logs", overwrite: true, mode: "copy", pattern: "*.log*"
+    publishDir "$params.logs_dir", overwrite: true, mode: "copy", pattern: "*.log*"
 
     script:
     """
@@ -219,7 +222,7 @@ process cluster_studies_from_mongo {
     path "${params.target_assembly_accession}_clustering.log", emit: clustering_log_filename
     path "${params.target_assembly_accession}_rs_report.txt", optional: true, emit: rs_report_filename
 
-    publishDir "$params.output_dir/logs", overwrite: true, mode: "copy"
+    publishDir "$params.logs_dir", overwrite: true, mode: "copy"
 
     """
     java -Xmx8G -jar $params.jar.clustering \
@@ -242,7 +245,7 @@ process qc_clustering {
     output:
     path "${params.target_assembly_accession}_clustering_qc.log", emit: clustering_qc_log_filename
 
-    publishDir "$params.output_dir/logs", overwrite: true, mode: "copy", pattern: "*.log*"
+    publishDir "$params.logs_dir", overwrite: true, mode: "copy", pattern: "*.log*"
 
     """
     java -Xmx8G -jar $params.jar.clustering \
@@ -267,7 +270,7 @@ process backpropagate_clusters {
     output:
     path "${params.target_assembly_accession}_backpropagate_to_${source_assembly_accession}.log", emit: backpropagate_log_filename
 
-    publishDir "$params.output_dir/logs", overwrite: true, mode: "copy", pattern: "*.log*"
+    publishDir "$params.logs_dir", overwrite: true, mode: "copy", pattern: "*.log*"
 
     """
     java -Xmx8G -jar $params.jar.clustering \
