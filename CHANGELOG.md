@@ -1,6 +1,12 @@
 Changelog for eva-submission
 ============================
 
+## 1.12 (unreleased)
+--------------------
+
+- Nothing changed yet.
+
+
 ## 1.11 (2023-07-03)
 ----------------------
 
