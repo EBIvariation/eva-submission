@@ -86,11 +86,18 @@ class TestEloadBrokering(TestCase):
         self.eload.eload_cfg.set('validation', 'valid', 'analyses', value={
             'analysis_alias1': {
                 'vcf_files': [os.path.join(self.resources_folder, 'vcf_file.vcf')],
+            },
+        })
+        self.eload.eload_cfg.set('submission', 'analyses', value={
+            'analysis_alias1': {
                 'assembly_fasta': os.path.join(self.resources_folder, 'reference_genome.fa'),
+                'assembly_report': os.path.join(self.resources_folder, 'reference_genome_assembly_report.tx'),
+                'assembly_accession': 'GCA000000.1'
             },
         })
         cfg.content['executable'] = {
-            'nextflow': 'path_to_nextflow'
+            'nextflow': 'path_to_nextflow',
+            'python': {'script_path': 'path_to_script'}
         }
         temp_dir = 'temporary_directory'
         nf_script = os.path.join(NEXTFLOW_DIR, 'prepare_brokering.nf')
