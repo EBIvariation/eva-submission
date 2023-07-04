@@ -404,12 +404,13 @@ class SampleMetadataSubmitter(SampleSubmitter):
                         pass
             if sample_row.get('Novel attribute(s)'):
                 for novel_attribute in sample_row.get('Novel attribute(s)').split(','):
-                    attribute, value = novel_attribute.split(':')
-                    self.apply_mapping(
-                        bsd_sample_entry['characteristics'],
-                        self.map_sample_key(attribute.lower()),
-                        [{'text': self.serialize(value)}]
-                    )
+                    if ":" in novel_attribute:
+                        attribute, value = novel_attribute.strip().split(':')
+                        self.apply_mapping(
+                            bsd_sample_entry['characteristics'],
+                            self.map_sample_key(attribute.lower()),
+                            [{'text': self.serialize(value)}]
+                        )
             # Apply defaults if the key doesn't already exist
             for key in self.characteristic_defaults:
                 if key not in sample_row:
