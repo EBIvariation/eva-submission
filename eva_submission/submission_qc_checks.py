@@ -152,7 +152,7 @@ class EloadQC(Eload):
             no_ext_file, _ = os.path.splitext(file)
             if file not in files_in_ftp:
                 missing_files.append(file)
-            if f'{file}.csi' not in files_in_ftp or f'{no_ext_file}.csi' not in files_in_ftp:
+            if f'{file}.csi' not in files_in_ftp and f'{no_ext_file}.csi' not in files_in_ftp:
                 missing_files.append(f'{file}.csi or {no_ext_file}.csi')
 
             # accessioned files will not be present for human taxonomy
@@ -161,7 +161,7 @@ class EloadQC(Eload):
                 no_ext_accessioned_file, _ = os.path.splitext(accessioned_file)
                 if accessioned_file not in files_in_ftp:
                     missing_files.append(accessioned_file)
-                if f'{accessioned_file}.csi' not in files_in_ftp or f'{no_ext_accessioned_file}.csi' not in files_in_ftp:
+                if f'{accessioned_file}.csi' not in files_in_ftp and f'{no_ext_accessioned_file}.csi' not in files_in_ftp:
                     missing_files.append(f'{accessioned_file}.csi or {no_ext_accessioned_file}.csi')
 
         self._ftp_check_result = "PASS" if not missing_files else "FAIL"
