@@ -85,7 +85,6 @@ class EloadValidation(Eload):
         valid_analysis_dict = self.eload_cfg.query('validation', 'valid', 'analyses')
         if valid_analysis_dict:
             for analysis_alias in valid_analysis_dict:
-                print(analysis_alias)
                 vcf_files[self._unique_analysis_alias(analysis_alias)] = valid_analysis_dict[analysis_alias]['vcf_files']
         return vcf_files
 
@@ -139,7 +138,6 @@ class EloadValidation(Eload):
         vcfs_to_horizontal_merge = {}
         vcfs_to_vertical_concat = {}
         for analysis_alias, vcf_files in vcfs_by_analysis.items():
-            print(analysis_alias)
             if len(vcf_files) < 2:
                 continue
             analysis_alias = self._unique_analysis_alias(analysis_alias)
