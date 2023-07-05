@@ -84,8 +84,8 @@ class TestEloadPreparation(TestCase):
         assert self.eload.eload_cfg.query('submission', 'project_title') == 'Greatest project ever'
         assert self.eload.eload_cfg.query('submission', 'taxonomy_id') == 9606
         assert self.eload.eload_cfg.query('submission', 'scientific_name') == 'Homo sapiens'
-        assert self.eload.eload_cfg.query('submission', 'analyses', 'GAE', 'assembly_accession') == 'GCA_000001405.1'
-        vcf_files = self.eload.eload_cfg.query('submission', 'analyses', 'GAE', 'vcf_files')
+        assert self.eload.eload_cfg.query('submission', 'analyses', 'ELOAD_1_GAE', 'assembly_accession') == 'GCA_000001405.1'
+        vcf_files = self.eload.eload_cfg.query('submission', 'analyses', 'ELOAD_1_GAE', 'vcf_files')
         assert len(vcf_files) == 1
         assert '10_submitted/vcf_files/T100.vcf.gz' in vcf_files[0]
 
