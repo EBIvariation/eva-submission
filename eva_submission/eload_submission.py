@@ -75,7 +75,7 @@ class Eload(AppLogger):
         return datetime.now()
 
     def _unique_alias(self, alias):
-        if not alias.startswith(self.eload):
+        if alias and not alias.startswith(self.eload):
             return f'{self.eload}_{alias}'
         return alias
 
