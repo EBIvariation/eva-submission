@@ -103,7 +103,7 @@ class EloadPreparation(Eload):
                        f'{", ".join(set(submitted_vcfs).difference(set(spreadsheet_vcfs)))}')
             analysis_alias = ''
             if len(eva_xls_reader.analysis) == 1:
-                analysis_alias = self._unique_analysis_alias(eva_xls_reader.analysis[0].get('Analysis Alias')) or ''
+                analysis_alias = self._unique_alias(eva_xls_reader.analysis[0].get('Analysis Alias')) or ''
             elif len(eva_xls_reader.analysis) > 1:
                 self.error("Multiple analyses found, can't add submitted VCF to spreadsheet")
                 raise ValueError("Multiple analyses found, can't add submitted VCF to spreadsheet")
@@ -123,7 +123,7 @@ class EloadPreparation(Eload):
         analysis_reference = {}
         for analysis in eva_metadata.analysis:
             reference_txt = analysis.get('Reference')
-            analysis_alias = self._unique_analysis_alias(analysis.get('Analysis Alias'))
+            analysis_alias = self._unique_alias(analysis.get('Analysis Alias'))
             assembly_accessions = resolve_accession_from_text(reference_txt) if reference_txt else None
             if not assembly_accessions:
                 assembly_accession = None
@@ -142,7 +142,7 @@ class EloadPreparation(Eload):
         for file in eva_metadata.files:
             if file.get("File Type") == 'vcf':
                 file_full = os.path.join(self.eload_dir, directory_structure['vcf'], file.get("File Name"))
-                analysis_alias = self._unique_analysis_alias(file.get("Analysis Alias"))
+                analysis_alias = self._unique_alias(file.get("Analysis Alias"))
                 analysis_reference[analysis_alias]['vcf_files'].append(file_full)
         self.eload_cfg.set('submission', 'analyses', value=analysis_reference)
 

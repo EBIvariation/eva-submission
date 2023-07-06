@@ -62,7 +62,7 @@ class EloadValidation(Eload):
             for validation_task in self.all_validation_tasks
         ]):
             for analysis_alias in self.eload_cfg.query('submission', 'analyses'):
-                u_analysis_alias = self._unique_analysis_alias(analysis_alias)
+                u_analysis_alias = self._unique_alias(analysis_alias)
                 self.eload_cfg.set('validation', 'valid', 'analyses', u_analysis_alias,
                                    value=self.eload_cfg.query('submission', 'analyses', analysis_alias))
                 self.eload_cfg.set(
@@ -76,7 +76,7 @@ class EloadValidation(Eload):
     def _get_vcf_files(self):
         vcf_files = []
         for analysis_alias in self.eload_cfg.query('submission', 'analyses'):
-            files = self.eload_cfg.query('submission', 'analyses', self._unique_analysis_alias(analysis_alias), 'vcf_files')
+            files = self.eload_cfg.query('submission', 'analyses', self._unique_alias(analysis_alias), 'vcf_files')
             vcf_files.extend(files) if files else None
         return vcf_files
 
@@ -85,7 +85,7 @@ class EloadValidation(Eload):
         valid_analysis_dict = self.eload_cfg.query('validation', 'valid', 'analyses')
         if valid_analysis_dict:
             for analysis_alias in valid_analysis_dict:
-                vcf_files[self._unique_analysis_alias(analysis_alias)] = valid_analysis_dict[analysis_alias]['vcf_files']
+                vcf_files[self._unique_alias(analysis_alias)] = valid_analysis_dict[analysis_alias]['vcf_files']
         return vcf_files
 
     def _validate_metadata_format(self):
@@ -102,7 +102,7 @@ class EloadValidation(Eload):
         )
         for analysis_alias in results_per_analysis_alias:
             has_difference, diff_submitted_file_submission, diff_submission_submitted_file = results_per_analysis_alias[analysis_alias]
-            analysis_alias = self._unique_analysis_alias(analysis_alias)
+            analysis_alias = self._unique_alias(analysis_alias)
             self.eload_cfg.set('validation', 'sample_check', 'analysis', analysis_alias, value={
                 'difference_exists': has_difference,
                 'in_VCF_not_in_metadata': diff_submitted_file_submission,
@@ -117,7 +117,7 @@ class EloadValidation(Eload):
                 detect_vcf_aggregation(vcf_file)
                 for vcf_file in self.eload_cfg.query('submission', 'analyses', analysis_alias, 'vcf_files')
             ]
-            analysis_alias = self._unique_analysis_alias(analysis_alias)
+            analysis_alias = self._unique_alias(analysis_alias)
             if len(set(aggregations)) == 1 and None not in aggregations:
                 aggregation = set(aggregations).pop()
                 self.eload_cfg.set('validation', 'aggregation_check', 'analyses', str(analysis_alias), value=aggregation)
@@ -140,7 +140,7 @@ class EloadValidation(Eload):
         for analysis_alias, vcf_files in vcfs_by_analysis.items():
             if len(vcf_files) < 2:
                 continue
-            analysis_alias = self._unique_analysis_alias(analysis_alias)
+            analysis_alias = self._unique_alias(analysis_alias)
             merge_type = detect_merge_type(vcf_files)
             if merge_type:
                 self.eload_cfg.set('validation', 'merge_type', analysis_alias, value=merge_type.value)
@@ -470,7 +470,7 @@ class EloadValidation(Eload):
         reports = []
         for analysis_alias in self.eload_cfg.query('validation', 'sample_check', 'analysis', ret_default=[]):
             results = self.eload_cfg.query('validation', 'sample_check', 'analysis', analysis_alias)
-            analysis_alias = self._unique_analysis_alias(analysis_alias)
+            analysis_alias = self._unique_alias(analysis_alias)
             report_data = {
                 'analysis_alias': analysis_alias,
                 'pass': 'FAIL' if results.get('difference_exists') else 'PASS',
@@ -489,7 +489,7 @@ class EloadValidation(Eload):
             return '  No mergeable VCFs\n'
         reports = ['  Merge types:']
         for analysis_alias, merge_type in analysis_merge_dict.items():
-            analysis_alias = self._unique_analysis_alias(analysis_alias)
+            analysis_alias = self._unique_alias(analysis_alias)
             reports.append(f'  * {analysis_alias}: {merge_type}')
 
         errors = self.eload_cfg.query('validation', 'merge_errors')
@@ -504,7 +504,7 @@ class EloadValidation(Eload):
         reports = []
         if aggregation_dict:
             for analysis_alias, aggregation in aggregation_dict.get('analyses', {}).items():
-                analysis_alias = self._unique_analysis_alias(analysis_alias)
+                analysis_alias = self._unique_alias(analysis_alias)
                 reports.append(f"  * {analysis_alias}: {aggregation}")
             reports.append("  * Errors:")
             for error in aggregation_dict.get('errors', []):

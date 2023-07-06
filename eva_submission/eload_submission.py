@@ -74,10 +74,10 @@ class Eload(AppLogger):
     def now(self):
         return datetime.now()
 
-    def _unique_analysis_alias(self, analysis_alias):
-        if not analysis_alias.startswith(self.eload):
-            return f'{self.eload}_{analysis_alias}'
-        return analysis_alias
+    def _unique_alias(self, alias):
+        if not alias.startswith(self.eload):
+            return f'{self.eload}_{alias}'
+        return alias
 
     def create_log_file(self):
         logfile_name = os.path.join(self.eload_dir, str(self.eload) + "_submission.log")
@@ -105,14 +105,14 @@ class Eload(AppLogger):
         reader = EvaXlsxReader(input_spreadsheet)
         single_analysis_alias = None
         if len(reader.analysis) == 1:
-            single_analysis_alias = self._unique_analysis_alias(reader.analysis[0].get('Analysis Alias'))
+            single_analysis_alias = self._unique_alias(reader.analysis[0].get('Analysis Alias'))
 
         sample_rows = []
         for sample_row in reader.samples:
             if self.eload_cfg.query('brokering', 'Biosamples', 'Samples', sample_row.get('Sample Name')):
                 sample_rows.append({
                     'row_num': sample_row.get('row_num'),
-                    'Analysis Alias': self._unique_analysis_alias(sample_row.get('Analysis Alias')) or single_analysis_alias,
+                    'Analysis Alias': self._unique_alias(sample_row.get('Analysis Alias')) or single_analysis_alias,
                     'Sample ID': sample_row.get('Sample Name'),
                     'Sample Accession': self.eload_cfg['brokering']['Biosamples']['Samples'][sample_row.get('Sample Name')]
                 })
@@ -145,7 +145,7 @@ class Eload(AppLogger):
             project_row['Project Alias'] = existing_project
         elif self.eload not in project_row['Project Alias']:
             # Add the eload id to ensure that the project alias is unique
-            project_row['Project Alias'] = self.eload + '_' + project_row['Project Alias']
+            project_row['Project Alias'] = self._unique_alias(project_row['Project Alias'])
         if output_spreadsheet:
             eva_xls_writer = EvaXlsxWriter(input_spreadsheet, output_spreadsheet)
         else:
