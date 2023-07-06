@@ -62,7 +62,7 @@ GRANT ALL ON SCHEMA eva_progress_tracker TO metadata_user;
 
 
 
------------------------------------------eva_pro------------------------------------------------------------------------
+------------------------------------------------------eva_pro-----------------------------------------------------------
 ------------------------------------------------------------------------------------------------------------------------
 
 CREATE SCHEMA evapro AUTHORIZATION metadata_user;
@@ -387,62 +387,469 @@ ALTER TABLE evapro.project OWNER TO metadata_user;
 GRANT ALL ON TABLE evapro.project TO metadata_user;
 
 
+CREATE TABLE evapro.project_counts (
+	project_accession varchar(15) NOT NULL,
+	etl_count int8 NULL,
+	estimate_count int8 NULL
+);
+
+ALTER TABLE evapro.project_counts OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.project_counts TO metadata_user;
+
+
+CREATE TABLE evapro.eva_submission_status_cv (
+	eva_submission_status_id int4 NOT NULL,
+	submission_status varchar(500) NOT NULL,
+	description varchar(1000) NULL,
+	CONSTRAINT eva_submission_status_cv_pkey PRIMARY KEY (eva_submission_status_id)
+);
+
+ALTER TABLE evapro.eva_submission_status_cv OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.eva_submission_status_cv TO metadata_user;
+
+
+CREATE TABLE evapro.eva_submission (
+	eva_submission_id serial4 NOT NULL,
+	eva_submission_status_id int4 NOT NULL,
+	hold_date date NULL,
+	CONSTRAINT eva_submission_pkey PRIMARY KEY (eva_submission_id)
+);
+
+ALTER TABLE evapro.eva_submission OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.eva_submission TO metadata_user;
+
+ALTER TABLE evapro.eva_submission ADD CONSTRAINT fk_evasubmission_eva_submission_status_id FOREIGN KEY (eva_submission_status_id) REFERENCES evapro.eva_submission_status_cv(eva_submission_status_id) MATCH FULL;
+
+
+CREATE TABLE evapro.project_eva_submission (
+	project_accession varchar(25) NOT NULL,
+	old_ticket_id int4 NOT NULL,
+	eload_id int4 NULL,
+	old_eva_submission_id int4 NULL,
+	CONSTRAINT project_eva_submission_pkey PRIMARY KEY (project_accession, old_ticket_id),
+	CONSTRAINT project_eva_submission_project_accession_key UNIQUE (project_accession)
+);
+
+ALTER TABLE evapro.project_eva_submission OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.project_eva_submission TO metadata_user;
+
+
+CREATE TABLE evapro.project_taxonomy (
+	project_accession varchar(45) NOT NULL,
+	taxonomy_id int4 NOT NULL,
+	CONSTRAINT project_taxonomy_pkey PRIMARY KEY (project_accession, taxonomy_id)
+);
+
+CREATE INDEX project_taxonomy_project_accession_idx ON evapro.project_taxonomy USING btree (project_accession);
+CREATE INDEX project_taxonomy_taxonomy_id_idx ON evapro.project_taxonomy USING btree (taxonomy_id);
+
+ALTER TABLE evapro.project_taxonomy OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.project_taxonomy TO metadata_user;
+
+ALTER TABLE evapro.project_taxonomy ADD CONSTRAINT fk_project_taxonomy_taxonomy_id FOREIGN KEY (taxonomy_id) REFERENCES evapro.taxonomy(taxonomy_id) MATCH FULL;
+
+
+CREATE TABLE evapro.linked_project (
+	linked_project_id serial4 NOT NULL,
+	project_accession varchar(45) NOT NULL,
+	linked_project_accession varchar(45) NOT NULL,
+	linked_project_relation varchar(45) NOT NULL,
+	link_live_for_eva bool NULL DEFAULT false,
+	CONSTRAINT linked_project_pkey PRIMARY KEY (linked_project_id)
+);
+CREATE INDEX linked_project_project_accession_idx ON evapro.linked_project USING btree (project_accession);
+
+ALTER TABLE evapro.linked_project OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.linked_project TO metadata_user;
+
+
+CREATE OR REPLACE VIEW evapro.project_children_taxonomy
+AS SELECT y.project_accession,
+    string_agg(DISTINCT y.child_project::text, ', '::text) AS child_projects,
+    string_agg(DISTINCT y.tax_id::text, ', '::text) AS taxonomy_ids,
+    string_agg(DISTINCT y.common_name, ', '::text) AS taxonomy_common_names,
+    string_agg(DISTINCT y.sci_name::text, ', '::text) AS taxonomy_scientific_names
+   FROM ( SELECT x.eva_ticket,
+            x.project_accession,
+            x.child_project,
+            x.tax_id,
+            upper(substr(COALESCE(evapro.taxonomy.eva_name, evapro.taxonomy.common_name)::text, 1, 1)) || substr(COALESCE(evapro.taxonomy.eva_name, evapro.taxonomy.common_name)::text, 2, length(COALESCE(evapro.taxonomy.eva_name, evapro.taxonomy.common_name)::text) - 1) AS common_name,
+            evapro.taxonomy.scientific_name AS sci_name
+           FROM ( SELECT z.eva_ticket,
+                    z.project_accession,
+                    COALESCE(z.child_2, z.child1) AS child_project,
+                    COALESCE(z.taxonomy_id, COALESCE(z.tax_id_child1, z.tax_id_child2)) AS tax_id
+                   FROM ( SELECT 'EVA-'::text || evapro.eva_submission.eva_submission_id AS eva_ticket,
+                            ps.project_accession,
+                            pt.taxonomy_id,
+                            cp.child AS child1,
+                            cp.child_tax_id AS tax_id_child1,
+                            cp1.child AS child_2,
+                            cp1.child_tax_id AS tax_id_child2
+                           FROM evapro.eva_submission
+                             LEFT JOIN evapro.project_eva_submission ps(project_accession, eva_submission_id, eload_id, old_eva_submission_id) USING (eva_submission_id)
+                             LEFT JOIN evapro.project_taxonomy pt USING (project_accession)
+                             LEFT JOIN ( SELECT p.project_accession,
+                                    p.type,
+                                    lp.project_accession AS child,
+                                    pt_1.taxonomy_id AS child_tax_id
+                                   FROM evapro.project p
+                                     JOIN evapro.linked_project lp ON lp.linked_project_accession::text = p.project_accession::text
+                                     LEFT JOIN evapro.project_taxonomy pt_1 ON lp.project_accession::text = pt_1.project_accession::text
+                                  WHERE p.type::text = 'Umbrella'::text) cp(project_accession_1, type, child, child_tax_id) ON ps.project_accession::text = cp.project_accession_1::text
+                             LEFT JOIN ( SELECT p.project_accession,
+                                    p.type,
+                                    lp.project_accession AS child,
+                                    pt_1.taxonomy_id AS child_tax_id
+                                   FROM evapro.project p
+                                     JOIN evapro.linked_project lp ON lp.linked_project_accession::text = p.project_accession::text
+                                     LEFT JOIN evapro.project_taxonomy pt_1 ON lp.project_accession::text = pt_1.project_accession::text
+                                  WHERE p.type::text = 'Umbrella'::text AND NOT (lp.project_accession::text IN ( SELECT linked_project.linked_project_accession
+   FROM evapro.linked_project))) cp1(project_accession_1, type, child, child_tax_id) ON cp.child::text = cp1.project_accession_1::text) z) x
+             JOIN evapro.taxonomy ON x.tax_id = evapro.taxonomy.taxonomy_id) y
+  WHERE y.project_accession IS NOT NULL
+  GROUP BY y.project_accession;
+
+ALTER TABLE evapro.project_children_taxonomy OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.project_children_taxonomy TO metadata_user;
+
+
+CREATE SEQUENCE evapro.pro_samp1_seq
+	INCREMENT BY 1
+	MINVALUE 1
+	MAXVALUE 9223372036854775807
+	START 43
+	CACHE 1
+	NO CYCLE;
+
+ALTER SEQUENCE evapro.pro_samp1_seq OWNER TO metadata_user;
+GRANT ALL ON SEQUENCE evapro.pro_samp1_seq TO metadata_user;
+
+CREATE TABLE evapro.project_samples_temp1 (
+	project_accession varchar(15) NOT NULL,
+	sample_count int4 NULL,
+	pro_samp1_id int4 NOT NULL DEFAULT nextval('evapro.pro_samp1_seq'::regclass),
+	CONSTRAINT project_samples_temp1_pkey PRIMARY KEY (project_accession)
+);
+
+ALTER TABLE evapro.project_samples_temp1 OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.project_samples_temp1 TO metadata_user;
+
+CREATE TABLE evapro.experiment_type (
+	experiment_type_id serial4 NOT NULL,
+	experiment_type varchar(45) NOT NULL,
+	CONSTRAINT experiment_type_pkey PRIMARY KEY (experiment_type_id)
+);
+
+ALTER TABLE evapro.experiment_type OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.experiment_type TO metadata_user;
+
+CREATE TABLE evapro.analysis_experiment_type (
+	analysis_accession varchar(45) NOT NULL,
+	experiment_type_id int4 NOT NULL,
+	CONSTRAINT analysis_experiment_type_pkey PRIMARY KEY (analysis_accession, experiment_type_id)
+);
+CREATE INDEX analysis_experiment_type_analysis_accession_idx ON evapro.analysis_experiment_type USING btree (analysis_accession);
+CREATE INDEX analysis_experiment_type_experiment_type_id_idx ON evapro.analysis_experiment_type USING btree (experiment_type_id);
+
+ALTER TABLE evapro.analysis_experiment_type OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.analysis_experiment_type TO metadata_user;
+
+ALTER TABLE evapro.analysis_experiment_type ADD CONSTRAINT analysis_experiment_type_analysis_accession_fkey FOREIGN KEY (analysis_accession) REFERENCES evapro.analysis(analysis_accession);
+ALTER TABLE evapro.analysis_experiment_type ADD CONSTRAINT fk_analysisexperimenttype_experiment_type_id FOREIGN KEY (experiment_type_id) REFERENCES evapro.experiment_type(experiment_type_id) MATCH FULL;
+
+
+CREATE TABLE evapro.experiment_cv (
+	experiment_type varchar(250) NOT NULL,
+	CONSTRAINT experiment_cv_pkey PRIMARY KEY (experiment_type)
+);
+COMMENT ON TABLE evapro.experiment_cv IS 'The Experiment Type CV from the Analysis XSD';
+
+ALTER TABLE evapro.experiment_cv OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.experiment_cv TO metadata_user;
+
+
+CREATE TABLE evapro.display_experiment_type (
+	experiment_type varchar(45) NOT NULL,
+	display_type varchar(45) NOT NULL
+);
+
+ALTER TABLE evapro.display_experiment_type OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.display_experiment_type TO metadata_user;
+
+ALTER TABLE evapro.display_experiment_type ADD CONSTRAINT display_experiment_type_experiment_type_fkey FOREIGN KEY (experiment_type) REFERENCES evapro.experiment_cv(experiment_type);
+
+
+CREATE OR REPLACE VIEW evapro.project_experiment
+AS SELECT de.project_accession,
+    string_agg(de.experiment_type::text, ', '::text) AS experiment_type,
+    string_agg(de.display_type::text, ', '::text) AS display_type,
+    string_agg(de.display_type::text, ', '::text) AS experiment_type_abbreviation
+   FROM ( SELECT DISTINCT pe1.project_accession,
+            pe1.experiment_type,
+            pe1.display_type
+           FROM ( SELECT DISTINCT evapro.project_analysis.project_accession,
+                    evapro.display_experiment_type.experiment_type,
+                    evapro.display_experiment_type.display_type
+                   FROM evapro.project_analysis
+                     JOIN evapro.analysis USING (analysis_accession)
+                     JOIN evapro.analysis_experiment_type USING (analysis_accession)
+                     JOIN evapro.experiment_type USING (experiment_type_id)
+                     JOIN evapro.display_experiment_type USING (experiment_type)
+                  WHERE analysis.hidden_in_eva <> 1
+                UNION
+                 SELECT DISTINCT evapro.linked_project.linked_project_accession,
+                    evapro.display_experiment_type.experiment_type,
+                    evapro.display_experiment_type.display_type
+                   FROM evapro.linked_project
+                     JOIN evapro.project_analysis USING (project_accession)
+                     JOIN evapro.analysis USING (analysis_accession)
+                     JOIN evapro.analysis_experiment_type USING (analysis_accession)
+                     JOIN evapro.experiment_type USING (experiment_type_id)
+                     JOIN evapro.display_experiment_type USING (experiment_type)
+                  WHERE evapro.analysis.hidden_in_eva <> 1 AND linked_project.link_live_for_eva IS TRUE) pe1
+          ORDER BY pe1.display_type DESC) de
+  GROUP BY de.project_accession;
+
+ALTER TABLE evapro.project_experiment OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.project_experiment TO metadata_user;
+
+
+CREATE TABLE evapro.dbxref (
+	dbxref_id serial4 NOT NULL,
+	db varchar(45) NOT NULL,
+	id varchar(45) NOT NULL,
+	"label" varchar(250) NULL DEFAULT NULL::character varying,
+	link_type varchar(100) NOT NULL,
+	source_object varchar(100) NOT NULL,
+	CONSTRAINT dbxref_db_id_key UNIQUE (db, id),
+	CONSTRAINT dbxref_pkey PRIMARY KEY (dbxref_id)
+);
+
+ALTER TABLE evapro.dbxref OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.dbxref TO metadata_user;
+
+
+CREATE TABLE evapro.project_dbxref (
+	project_accession varchar(45) NOT NULL,
+	dbxref_id int4 NOT NULL,
+	CONSTRAINT project_dbxref_pkey PRIMARY KEY (project_accession, dbxref_id)
+);
+CREATE INDEX project_dbxref_dbxref_id_idx ON evapro.project_dbxref USING btree (dbxref_id);
+CREATE INDEX project_dbxref_project_accession_idx ON evapro.project_dbxref USING btree (project_accession);
+
+ALTER TABLE evapro.project_dbxref OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.project_dbxref TO metadata_user;
+
+ALTER TABLE evapro.project_dbxref ADD CONSTRAINT project_dbxref_dbxref_id_fkey FOREIGN KEY (dbxref_id) REFERENCES evapro.dbxref(dbxref_id);
+
+
+CREATE OR REPLACE VIEW evapro.project_publication
+AS SELECT evapro.project_dbxref.project_accession,
+    evapro.dbxref.db,
+    evapro.dbxref.id
+   FROM evapro.project_dbxref
+     JOIN evapro.dbxref USING (dbxref_id)
+  WHERE evapro.dbxref.db::text = 'PubMed'::text;
+
+ALTER TABLE evapro.project_publication OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.project_publication TO metadata_user;
+
+
+CREATE OR REPLACE VIEW evapro.project_reference
+AS SELECT DISTINCT a.project_accession,
+    a.reference_accession,
+    a.reference_name
+   FROM ( SELECT pa.project_accession,
+            evapro.analysis.vcf_reference_accession AS reference_accession,
+            evapro.analysis.vcf_reference AS reference_name
+           FROM evapro.linked_project lp
+             JOIN evapro.project_analysis pa ON lp.linked_project_accession::text = pa.project_accession::text
+             JOIN evapro.analysis USING (analysis_accession)
+          WHERE evapro.analysis.hidden_in_eva <> 1
+        UNION
+         SELECT lp.linked_project_accession,
+            evapro.analysis.vcf_reference_accession AS reference_accession,
+            evapro.analysis.vcf_reference AS reference_name
+           FROM evapro.linked_project lp
+             JOIN evapro.project_analysis pa ON lp.project_accession::text = pa.project_accession::text
+             JOIN evapro.analysis USING (analysis_accession)
+          WHERE evapro.analysis.hidden_in_eva <> 1
+        UNION
+         SELECT pa.project_accession,
+            evapro.analysis.vcf_reference_accession AS reference_accession,
+            evapro.analysis.vcf_reference AS reference_name
+           FROM evapro.analysis
+             JOIN evapro.project_analysis pa USING (analysis_accession)
+          WHERE evapro.analysis.hidden_in_eva <> 1) a;
+
+ALTER TABLE evapro.project_reference OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.project_reference TO metadata_user;
+
+
+CREATE TABLE evapro.platform (
+	platform_id serial4 NOT NULL,
+	platform varchar(4000) NOT NULL,
+	manufacturer varchar(100) NULL,
+	CONSTRAINT platform_pkey PRIMARY KEY (platform_id)
+);
+
+ALTER TABLE evapro.platform OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.platform TO metadata_user;
+
+
+CREATE TABLE evapro.analysis_platform (
+	analysis_accession varchar(45) NOT NULL,
+	platform_id int4 NOT NULL,
+	CONSTRAINT analysis_platform_pkey PRIMARY KEY (analysis_accession, platform_id)
+);
+CREATE INDEX analysis_platform_analysis_accession_idx ON evapro.analysis_platform USING btree (analysis_accession);
+CREATE INDEX analysis_platform_platform_id_idx ON evapro.analysis_platform USING btree (platform_id);
+
+ALTER TABLE evapro.analysis_platform OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.analysis_platform TO metadata_user;
+
+ALTER TABLE evapro.analysis_platform ADD CONSTRAINT analysis_platform_analysis_accession_fkey FOREIGN KEY (analysis_accession) REFERENCES evapro.analysis(analysis_accession);
+ALTER TABLE evapro.analysis_platform ADD CONSTRAINT fk_analysisplatform_platform_id FOREIGN KEY (platform_id) REFERENCES evapro.platform(platform_id) MATCH FULL;
+
+
+CREATE OR REPLACE VIEW evapro.project_platform
+AS SELECT DISTINCT pp.project_accession,
+    pp.platform
+   FROM ( SELECT DISTINCT evapro.project_analysis.project_accession,
+            evapro.platform.platform
+           FROM evapro.analysis
+             JOIN evapro.project_analysis USING (analysis_accession)
+             JOIN evapro.analysis_platform USING (analysis_accession)
+             JOIN evapro.platform USING (platform_id)
+             JOIN evapro.project USING (project_accession)
+          WHERE analysis.hidden_in_eva <> 1
+        UNION
+         SELECT DISTINCT evapro.linked_project.linked_project_accession,
+            evapro.platform.platform
+           FROM evapro.analysis
+             JOIN evapro.project_analysis USING (analysis_accession)
+             JOIN evapro.linked_project USING (project_accession)
+             JOIN evapro.analysis_platform USING (analysis_accession)
+             JOIN evapro.platform USING (platform_id)
+             JOIN evapro.project USING (project_accession)
+          WHERE analysis.hidden_in_eva <> 1 AND linked_project.link_live_for_eva IS TRUE) pp;
+
+ALTER TABLE evapro.project_platform OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.project_platform TO metadata_user;
+
+
+CREATE TABLE evapro.project_resource (
+	project_accession varchar(45) NOT NULL,
+	resource varchar(250) NOT NULL
+);
+
+ALTER TABLE evapro.project_resource OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.project_resource TO metadata_user;
+
+
+CREATE MATERIALIZED VIEW evapro.study_browser
+AS SELECT evapro.project.project_accession,
+    evapro.project.eva_study_accession AS study_id,
+    evapro.project.title AS project_title,
+    COALESCE(evapro.project.eva_description, evapro.project.description) AS description,
+    COALESCE(evapro.project_children_taxonomy.taxonomy_ids, '-'::text) AS tax_id,
+    COALESCE(evapro.project_children_taxonomy.taxonomy_common_names, '-'::text) AS common_name,
+    COALESCE(evapro.project_children_taxonomy.taxonomy_scientific_names, '-'::text) AS scientific_name,
+    COALESCE(evapro.project.source_type, '-'::character varying) AS source_type,
+    COALESCE(evapro.project.study_type, '-'::character varying) AS study_type,
+    COALESCE(evapro.project_counts.etl_count, evapro.project_counts.estimate_count) AS variant_count,
+    evapro.project_samples_temp1.sample_count AS samples,
+    COALESCE(evapro.project.eva_center_name, evapro.project.center_name) AS center,
+    COALESCE(evapro.project.scope, '-'::character varying) AS scope,
+    COALESCE(evapro.project.material, '-'::character varying) AS material,
+    COALESCE(c.ids, '-'::text) AS publications,
+    COALESCE(evapro.project_children_taxonomy.child_projects, '-'::text) AS associated_projects,
+    COALESCE(initcap(evapro.project_experiment.experiment_type), '-'::text) AS experiment_type,
+    COALESCE(evapro.project_experiment.experiment_type_abbreviation, '-'::text) AS experiment_type_abbreviation,
+    COALESCE(a.v_ref, '-'::text) AS assembly_accession,
+    COALESCE(b.v_ref, '-'::text) AS assembly_name,
+    COALESCE(d.platform, '-'::text) AS platform,
+    COALESCE(r.resource, '-'::text::character varying) AS resource,
+    COALESCE(browsable_table.browsable, false) AS browsable
+   FROM evapro.project
+     LEFT JOIN evapro.project_counts USING (project_accession)
+     LEFT JOIN evapro.project_children_taxonomy USING (project_accession)
+     LEFT JOIN evapro.project_samples_temp1 USING (project_accession)
+     LEFT JOIN evapro.project_eva_submission project_eva_submission(project_accession, eva_submission_id, eload_id, old_eva_submission_id) USING (project_accession)
+     LEFT JOIN evapro.project_experiment USING (project_accession)
+     LEFT JOIN ( SELECT evapro.project_publication.project_accession,
+            string_agg(evapro.project_publication.id::text, ', '::text) AS ids
+           FROM evapro.project_publication
+          GROUP BY evapro.project_publication.project_accession) c(project_accession_1, ids) ON c.project_accession_1::text = project.project_accession::text
+     LEFT JOIN ( SELECT evapro.project_reference.project_accession,
+            string_agg(evapro.project_reference.reference_accession::text, ', '::text) AS v_ref
+           FROM evapro.project_reference
+          GROUP BY evapro.project_reference.project_accession) a(project_accession_1, v_ref) ON a.project_accession_1::text = project.project_accession::text
+     LEFT JOIN ( SELECT evapro.project_reference.project_accession,
+            string_agg(evapro.project_reference.reference_name::text, ', '::text) AS v_ref
+           FROM evapro.project_reference
+          GROUP BY evapro.project_reference.project_accession) b(project_accession_1, v_ref) ON b.project_accession_1::text = project.project_accession::text
+     LEFT JOIN ( SELECT evapro.project_platform.project_accession,
+            string_agg(evapro.project_platform.platform::text, ', '::text) AS platform
+           FROM evapro.project_platform
+          GROUP BY evapro.project_platform.project_accession) d(project_accession_1, platform) ON d.project_accession_1::text = project.project_accession::text
+     JOIN evapro.eva_submission USING (eva_submission_id)
+     LEFT JOIN evapro.project_resource r USING (project_accession)
+     LEFT JOIN ( SELECT evapro.browsable_file.project_accession,
+            bool_or(evapro.browsable_file.loaded) AS browsable
+           FROM evapro.browsable_file
+          GROUP BY evapro.browsable_file.project_accession) browsable_table(project_accession_browsable, browsable) ON browsable_table.project_accession_browsable::text = project.project_accession::text
+  WHERE (project.hold_date <= now()::date OR project.hold_date IS NULL) AND eva_submission.eva_submission_status_id >= 6 AND project.ena_status = 4 AND project.eva_status = 1
+  ORDER BY project_children_taxonomy.taxonomy_common_names
+WITH DATA;
+
+
+ALTER TABLE evapro.study_browser OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.study_browser TO metadata_user;
+
+
+
+
 
 ---------------------------------------------------- Data Inserts ------------------------------------------------------
 
----- accessioning
 INSERT INTO evapro.file_class_cv (file_class_id, file_class) VALUES(1, 'submitted');
 INSERT INTO evapro.file_class_cv (file_class_id, file_class) VALUES(2, 'eva_brokered');
 INSERT INTO evapro.file_class_cv (file_class_id, file_class) VALUES(3, 'eva_value_added');
 INSERT INTO evapro.file_class_cv (file_class_id, file_class) VALUES(4, 'fixed_for_eva');
 
+-------------
+
 INSERT INTO evapro.taxonomy (taxonomy_id, common_name, scientific_name, taxonomy_code, eva_name)
-VALUES(8962, 'golden eagle', 'Aquila chrysaetos', 'achrysaetos', 'golden eagle');
+VALUES(4006, 'flax', 'Linum usitatissimum', 'lusitatissimum', 'flax');
 
-INSERT INTO evapro.assembly_set (assembly_set_id, taxonomy_id, assembly_name, assembly_code)
-VALUES(1, 8962, 'Aquila_chrysaetos-1.0.2', 'aquilachrysaetos102');
+INSERT INTO evapro.assembly_set (taxonomy_id, assembly_name, assembly_code)
+VALUES(4006, 'ASM22429v2', 'asm22429v2');
 
--- should probably be filled by method load_from_ena() - (need to check)
 INSERT INTO evapro.accessioned_assembly (assembly_set_id, assembly_accession, assembly_chain, assembly_version)
-VALUES(1, 'GCA_000766835.1', 'GCA_000766835', 1);
+VALUES(1, 'GCA_000224295.2', 'GCA_000224295', 2);
 
+INSERT INTO evapro.file (ena_submission_file_id, filename, file_md5, file_location, file_type, file_class, file_version, is_current, ftp_file, mongo_load_status, eva_submission_file_id)
+VALUES('ERF153535013', 'Flax_SNP_variants.vcf.gz', 'd9918c2d697700f732a117576fc97ff7', '/nfs/production/keane/eva/submissions/ELOAD_1145/20_scratch', 'VCF', 'submitted', 1, 1, '/ftp.ebi.ac.uk/pub/databases/eva/PRJEB62432/Flax_SNP_variants.vcf.gz', 0, 'EVAF00120867');
 
-INSERT INTO evapro.analysis (analysis_accession, title, alias, description, center_name, "date", vcf_reference,
-                             vcf_reference_accession, hidden_in_eva, assembly_set_id)
-VALUES('ERZ16299910', 'A 37K SNP array for the management and conservation of Golden Eagles (Aquila chrysaetos)',
-       'Golden Eagles', 'Golden eagle SNPs utilized from a 37K Affymetrix Axiom myDesign single nucleotide polymorphism (SNP)  array.',
-       'Oklahoma State University', '2023-03-09 00:00:00.000', NULL, 'GCA_000766835.1', 0, 1);
+INSERT INTO evapro.browsable_file (file_id, ena_submission_file_id, filename, loaded, eva_release, deleted, eva_release_deleted, project_accession, loaded_assembly, assembly_set_id)
+VALUES(1, 'ERF153535013', 'Flax_SNP_variants.vcf.gz', true, '20230521', false, 'None', 'PRJEB62432', 'GCA_000224295.2', 1);
 
-INSERT INTO evapro.project_analysis (project_accession, analysis_accession) VALUES('PRJEB60512', 'ERZ16299910');
+INSERT INTO evapro.supported_assembly_tracker (taxonomy_id, "source", assembly_id, "current", start_date)
+VALUES(4006, 'Ensembl', 'GCA_000224295.2', true, '2021-01-01');
 
-INSERT INTO evapro.file (file_id, ena_submission_file_id, filename, file_md5, file_location, file_type, file_class,
-                         file_version, is_current, ftp_file, mongo_load_status, eva_submission_file_id)
-VALUES(120631, 'ERF147056879', 'goldeneagle_EVAv3.vcf.gz', 'b672aa33dc7694a052752d8ba588b1a7',
-       '/usr/local/test_eva_submission/submissions/ELOAD_1/20_scratch', 'VCF', 'submitted', 1, 1,
-       '/ftp.ebi.ac.uk/pub/databases/eva/PRJEB60512/goldeneagle_EVAv3.vcf.gz', 0, 'EVAF00120631');
-
-INSERT INTO evapro.analysis_file (analysis_accession, file_id) VALUES('ERZ16299910', 120631);
-
-
----- variant load
-INSERT INTO evapro.project (project_accession, center_name, alias, title, description, "scope", material, selection,
-                            "type", secondary_study_id, hold_date, source_type, project_accession_code, eva_description,
-                            eva_center_name, eva_submitter_link, eva_study_accession, ena_status, eva_status, ena_timestamp,
-                            eva_timestamp, study_type)
-VALUES('PRJEB60512', 'Oklahoma State University', 'Golden Eagles',
-       'A 37K SNP array for the management and conservation of Golden Eagles (Aquila chrysaetos)',
-       'Golden eagle SNPs utilized from a 37K Affymetrix Axiom myDesign single nucleotide polymorphism (SNP)  array.',
-       'multi-isolate', 'DNA', 'other', 'Other', 'ERP145579', NULL, 'Germline', 1745, NULL, NULL, NULL, 1746, 4, 1,
-       NULL, NULL, 'Control Set');
+INSERT INTO evapro.project (project_accession, center_name, alias, title, description, "scope", material, selection, "type", secondary_study_id, hold_date, source_type, eva_description, eva_center_name, eva_submitter_link, ena_status, eva_status, ena_timestamp, eva_timestamp, study_type)
+values ('PRJEB62432', 'NDSU', 'IFQT', 'Improvement of Flax Quantitative Traits', 'The study was done to analyze the genetic diversity, identify SNPs and genes associated to specific traits and optimize genomic selection models in NDSU Flax core collection.', 'multi-isolate', 'DNA', 'other', 'Other', 'ERP147519', NULL, 'Germline', NULL, NULL, NULL, 4, 1, NULL, NULL, 'Control Set');
 
 
 
 
--- Permission on Schema
+------------------- Permission on Schema
 GRANT ALL ON SCHEMA evapro TO metadata_user;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA evapro TO metadata_user;
 
 ALTER DATABASE metadata SET search_path TO evapro, public, "$user";
-------------------------------------------       -----------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------------------------------------
 
