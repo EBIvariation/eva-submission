@@ -99,6 +99,14 @@ def get_project_alias(project_accession):
     return rows[0][0]
 
 
+def check_project_exists_in_evapro(project_accession):
+    with get_metadata_connection_handle(cfg['maven']['environment'], cfg['maven']['settings_file']) as conn:
+        query = f"select alias from evapro.project where project_accession='{project_accession}';"
+        rows = get_all_results_for_query(conn, query)
+    if len(rows) == 1:
+        return True
+    return False
+
 def get_hold_date_from_ena(project_accession, project_alias=None):
     """Gets hold date from ENA"""
     if not project_alias:
