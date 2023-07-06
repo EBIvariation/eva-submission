@@ -107,6 +107,7 @@ def check_project_exists_in_evapro(project_accession):
         return True
     return False
 
+
 def get_hold_date_from_ena(project_accession, project_alias=None):
     """Gets hold date from ENA"""
     if not project_alias:
@@ -153,7 +154,7 @@ def download_file(url, dest):
 
 
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
-def check_existing_project(project_accession):
+def check_existing_project_in_ena(project_accession):
     """
     Check if a project accession exists and is public in ENA
     :param project_accession:

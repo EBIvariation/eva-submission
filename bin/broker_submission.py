@@ -20,7 +20,7 @@ from argparse import ArgumentParser
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
 from eva_submission.eload_brokering import EloadBrokering
-from eva_submission.eload_utils import check_existing_project
+from eva_submission.eload_utils import check_existing_project_in_ena
 from eva_submission.submission_config import load_config
 
 logger = log_cfg.get_logger(__name__)
@@ -28,7 +28,7 @@ logger = log_cfg.get_logger(__name__)
 
 def ENA_Project(project):
     """Helper function to validate early that the project provided exist in ENA and is public"""
-    if not check_existing_project(str(project)):
+    if not check_existing_project_in_ena(str(project)):
         logger.warning(f'Project {project} provided does not exist in ENA.')
         raise ValueError
     return str(project)
