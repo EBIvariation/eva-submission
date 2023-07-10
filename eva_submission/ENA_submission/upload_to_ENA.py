@@ -129,10 +129,13 @@ class ENAUploaderAsync(ENAUploader):
         response = self._post_xml_file_to_ena(cfg.query('ena', 'submit_async'), file_dict)
         if response.status_code == 200:
             json_data = response.json()
-            xml_link = [link_dict['href'] for link_dict in json_data['links'] if link_dict['rel'] == 'poll-xml'][0]
-            self.results['submissionId'] = json_data['submissionId']
-            self.results['poll-links'] = xml_link
-            self.monitor_results()
+            if 'links' in json_data:
+                xml_link = [link_dict['href'] for link_dict in json_data['links'] if link_dict['rel'] == 'poll-xml'][0]
+                self.results['submissionId'] = json_data['submissionId']
+                self.results['poll-links'] = xml_link
+                self.monitor_results()
+            else:
+                self.results['errors'] = [f'No links present in json document: {json_data}']
         else:
             self.results['errors'] = [f'{response.status_code}']
 

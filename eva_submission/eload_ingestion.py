@@ -20,7 +20,7 @@ from ebi_eva_common_pyutils.assembly.assembly import get_supported_asm_from_ense
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import provision_new_database_for_variant_warehouse
+from eva_submission.eload_utils import provision_new_database_for_variant_warehouse, check_project_exists_in_evapro
 from eva_submission.submission_config import EloadConfig
 from eva_submission.vep_utils import get_vep_and_vep_cache_version
 
@@ -207,7 +207,7 @@ class EloadIngestion(Eload):
             provision_new_database_for_variant_warehouse(db_info['db_name'])
 
     def load_from_ena(self):
-        if self.eload_cfg.query('brokering', 'ena', 'existing_project'):
+        if check_project_exists_in_evapro(self.project_accession):
             analyses = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
             for analysis_accession in analyses.values():
                 self.load_from_ena_from_project_or_analysis(analysis_accession)

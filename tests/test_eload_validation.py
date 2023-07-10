@@ -121,21 +121,21 @@ Assembly check:
 ----------------------------------
 
 Sample names check:
-  * a1: PASS
+  * ELOAD_2_a1: PASS
     - Samples that appear in the VCF but not in the Metadata sheet: 
     - Samples that appear in the Metadata sheet but not in the VCF file(s): 
 
 ----------------------------------
 
 Aggregation:
-  * a1: none
+  * ELOAD_2_a1: none
   * Errors:
 
 ----------------------------------
 
 VCF merge:
   Merge types:
-  * a1: horizontal
+  * ELOAD_2_a1: horizontal
 
 ----------------------------------
 
@@ -151,7 +151,7 @@ Structural variant check:
 
     def test_detect_and_optionally_merge(self):
         original_content = deepcopy(self.validation.eload_cfg.content)
-        analysis_alias = 'alias'
+        analysis_alias = 'ELOAD_2_alias'
         valid_files = ['file1', 'file2']
         merged_files = {analysis_alias: 'merged.vcf.gz'}
         self.validation.eload_cfg.set('validation', 'valid', 'analyses', analysis_alias, 'vcf_files', value=valid_files)
@@ -232,6 +232,6 @@ Structural variant check:
         assert self.validation.eload_cfg.query('validation', 'valid') is None
         self.validation.mark_valid_files_and_metadata(merge_per_analysis=False)
         # Check that the normalised file was picked up instead of the original file
-        expected = {'analyses': {'analysis_alias': {'vcf_files': ['test.vcf']}},
+        expected = {'analyses': {'ELOAD_2_analysis_alias': {'vcf_files': ['test.vcf']}},
                     'metadata_spreadsheet': '/path/to/the/spreadsheet'}
         assert self.validation.eload_cfg.query('validation', 'valid') == expected

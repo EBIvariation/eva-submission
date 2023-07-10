@@ -138,12 +138,14 @@ class TestEloadIngestion(TestCase):
             m_mongo.return_value.shard_collections.assert_called_once()
 
     def test_load_from_ena(self):
-        with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_execute:
+        with patch('eva_submission.eload_ingestion.check_project_exists_in_evapro'), \
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_execute:
             self.eload.load_from_ena()
             m_execute.assert_called_once()
 
     def test_load_from_ena_script_fails(self):
-        with patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_execute:
+        with patch('eva_submission.eload_ingestion.check_project_exists_in_evapro'), \
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_execute:
             m_execute.side_effect = subprocess.CalledProcessError(1, 'some command')
             with self.assertRaises(subprocess.CalledProcessError):
                 self.eload.load_from_ena()

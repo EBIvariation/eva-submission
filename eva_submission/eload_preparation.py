@@ -103,7 +103,7 @@ class EloadPreparation(Eload):
                        f'{", ".join(set(submitted_vcfs).difference(set(spreadsheet_vcfs)))}')
             analysis_alias = ''
             if len(eva_xls_reader.analysis) == 1:
-                analysis_alias = eva_xls_reader.analysis[0].get('Analysis Alias') or ''
+                analysis_alias = self._unique_alias(eva_xls_reader.analysis[0].get('Analysis Alias')) or ''
             elif len(eva_xls_reader.analysis) > 1:
                 self.error("Multiple analyses found, can't add submitted VCF to spreadsheet")
                 raise ValueError("Multiple analyses found, can't add submitted VCF to spreadsheet")
@@ -123,26 +123,26 @@ class EloadPreparation(Eload):
         analysis_reference = {}
         for analysis in eva_metadata.analysis:
             reference_txt = analysis.get('Reference')
+            analysis_alias = self._unique_alias(analysis.get('Analysis Alias'))
             assembly_accessions = resolve_accession_from_text(reference_txt) if reference_txt else None
             if not assembly_accessions:
                 assembly_accession = None
             elif len(assembly_accessions) == 1:
                 assembly_accession = assembly_accessions[0]
             else:
-                self.warning(f"Multiple assemblies found for {analysis.get('Analysis Alias')}: {', '.join(assembly_accessions)} ")
+                self.warning(f"Multiple assemblies found for {analysis_alias}: {', '.join(assembly_accessions)} ")
                 assembly_accession = sorted(assembly_accessions)[-1]
                 self.warning(f"Will use the most recent assembly: {assembly_accession}")
 
             if assembly_accession:
-                analysis_reference[analysis.get('Analysis Alias')] = {'assembly_accession': assembly_accession,
-                                                                      'vcf_files': []}
+                analysis_reference[analysis_alias] = {'assembly_accession': assembly_accession, 'vcf_files': []}
             else:
                 self.error(f"Reference is missing for Analysis {analysis.get('Analysis Alias')}")
 
         for file in eva_metadata.files:
             if file.get("File Type") == 'vcf':
                 file_full = os.path.join(self.eload_dir, directory_structure['vcf'], file.get("File Name"))
-                analysis_alias = file.get("Analysis Alias")
+                analysis_alias = self._unique_alias(file.get("Analysis Alias"))
                 analysis_reference[analysis_alias]['vcf_files'].append(file_full)
         self.eload_cfg.set('submission', 'analyses', value=analysis_reference)
 
