@@ -49,6 +49,7 @@ Sample:
     - Sampleset Accession
     - Sample Name
     - Title
+    - collection_date
 
   cast:
     Sample Name: string
