@@ -314,6 +314,7 @@ ALTER TABLE evapro.project_analysis OWNER TO metadata_user;
 GRANT ALL ON TABLE evapro.project_analysis TO metadata_user;
 
 ALTER TABLE evapro.project_analysis ADD CONSTRAINT project_analysis_analysis_accession_fkey FOREIGN KEY (analysis_accession) REFERENCES evapro.analysis(analysis_accession);
+ALTER TABLE evapro.project_analysis ADD CONSTRAINT project_analysis_project_accession_fkey FOREIGN KEY (project_accession) REFERENCES evapro.project(project_accession);
 
 
 
@@ -532,6 +533,7 @@ CREATE TABLE evapro.project_samples_temp1 (
 	CONSTRAINT project_samples_temp1_pkey PRIMARY KEY (project_accession)
 );
 
+ALTER TABLE evapro.project_samples_temp1 ADD CONSTRAINT project_samples_temp1_project_accession_fkey FOREIGN KEY (project_accession) REFERENCES evapro.project(project_accession);
 ALTER TABLE evapro.project_samples_temp1 OWNER TO metadata_user;
 GRANT ALL ON TABLE evapro.project_samples_temp1 TO metadata_user;
 
