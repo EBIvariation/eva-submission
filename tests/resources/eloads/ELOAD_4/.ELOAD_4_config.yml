@@ -7,7 +7,8 @@ brokering:
     pass: true
   brokering_date: 2021-01-01 12:20:.0
   ena:
-    ANALYSIS: ERZ0000001
+    ANALYSIS:
+      alias1: ERZ0000001
     PROJECT: PRJEB00001
     SUBMISSION: ERA0000001
     errors: []

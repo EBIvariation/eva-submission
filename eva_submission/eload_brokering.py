@@ -84,10 +84,12 @@ class EloadBrokering(Eload):
             # Upload XML to ENA
             ena_uploader.upload_xml_files_to_ena(dry_ena_upload)
             if not dry_ena_upload:
-                # Update the accessions in case we're working with existing project
-                accessions = ena_uploader.results
-                accessions.update(self.eload_cfg.query('brokering', 'ena', ret_default={}))
-                self.eload_cfg.set('brokering', 'ena', value=accessions)
+                # Update the project accession in case we're working with existing project
+                # We should not be uploading additional analysis in th same ELOAD so no need to update
+                pre_existing_project = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
+                if pre_existing_project and 'PROJECT' not in ena_uploader.results:
+                    ena_uploader.results['PROJECT'] = pre_existing_project
+                self.eload_cfg.set('brokering', 'ena', value=ena_uploader.results)
                 self.eload_cfg.set('brokering', 'ena', 'date', value=self.now)
                 self.eload_cfg.set('brokering', 'ena', 'hold_date', value=ena_uploader.converter.hold_date)
                 self.eload_cfg.set('brokering', 'ena', 'pass', value=not bool(ena_uploader.results['errors']))
@@ -292,8 +294,9 @@ class EloadBrokering(Eload):
         return '\n'.join(reports)
     
     def _archival_confirmation_text(self):
+        if not self._brokering_complete():
+            return 'NA'
         study_title = self.eload_cfg.query('submission', 'project_title')
-
         hold_date = self.eload_cfg.query('brokering', 'ena', 'hold_date')
         brokering_date_from_config = self.eload_cfg.query('brokering', 'brokering_date')
         try:
@@ -363,3 +366,6 @@ Archival Confirmation Text:
 {archival_confirmation_text}
 """
         print(report.format(**report_data))
+
+    def _brokering_complete(self):
+        return all([self.eload_cfg.query('brokering', key, 'pass') for key in ['ena', 'Biosamples']])
