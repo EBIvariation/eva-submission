@@ -77,7 +77,7 @@ class EvaXlsxValidator(AppLogger):
                 ['Analysis Alias', 'Sample Name', 'Title', 'Tax Id', 'Scientific Name', 'collection_date',
                  'geographic location (country and/or sea)']
             )
-            self.check_date(row, 'collection_date')
+            self.check_date(row, 'collection_date', required=True)
 
     def semantic_validation(self):
         """
@@ -149,11 +149,12 @@ class EvaXlsxValidator(AppLogger):
                 errors.append('%s present in %s not in %s' % (','.join(list2_list1), list2_desc, list1_desc))
             self.error_list.append('Check %s vs %s: %s' % (list1_desc, list2_desc, ' -- '.join(errors)))
 
-    def check_date(self, row, key, required=False):
+    def check_date(self, row, key, required=True):
         if required and key not in row:
             self.error_list.append(f'In row {row.get("row_num")}, {key} is required and missing')
             return
         if key in row and (isinstance(row[key], datetime) or str(row[key]).lower() in not_provided_check_list):
             return
-        self.error_list.append(f'In row {row.get("row_num")}, {key} is not a date or "not provided": it is "{row[key]}"')
+        self.error_list.append(f'In row {row.get("row_num")}, {key} is not a date or "not provided": '
+                               f'it is set to "{row.get(key)}"')
 
