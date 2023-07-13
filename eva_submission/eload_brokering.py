@@ -302,18 +302,24 @@ class EloadBrokering(Eload):
             brokering_date = datetime.date.today()
         brokering_date_plus_3 = brokering_date + datetime.timedelta(days=3)
         available_date = hold_date if hold_date is not None else brokering_date_plus_3
-
+        if isinstance(available_date, datetime.datetime) or isinstance(available_date, datetime.date):
+            available_date_str = available_date.strftime("%Y-%m-%d")
+        else:
+            available_date_str = available_date.split(" ")[0]
         project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
-        analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
+        analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={})
 
         taxonomy_id = self.eload_cfg.query('submission', 'taxonomy_id')
         non_human_study_text = 'Please allow at least 48 hours from the initial release date provided for the data to be made available through this link. Each variant will be issued a unique SS# ID which will be made available to download via the "browsable files" link on the EVA study page.' if taxonomy_id!=9606 else ""
 
         archival_text_data = {
             'study_title': study_title,
-            'available_date': available_date,
+            'available_date': available_date_str,
             'project_accession': project_accession,
-            'analysis_accession': analysis_accession,
+            'analysis_accession': ', '.join([
+                f'{self._undo_unique_alias(alias)}=>{accession}'
+                for alias, accession in analysis_accession.items()
+            ]),
             'non_human_study': non_human_study_text
         }
         
@@ -326,7 +332,7 @@ If you wish your data to be held private beyond the date specified above, please
 You can also notify us when your paper has been assigned a PMID. We will add this to your study page in the EVA. If there is anything else you need please do not hesitate to notify me. Archived data can be referenced using the project accession & associated URL e.g. The variant data for this study have been deposited in the European Variation Archive (EVA) at EMBL-EBI under accession number {project_accession} (https://www.ebi.ac.uk/eva/?eva-study={project_accession})
 The EVA can be cited directly using the associated literature:
 Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva AF, Tsukanov K, Venkataraman S, Flicek P, Parkinson H, Keane TM. The European Variation Archive: a FAIR resource of genomic variation for all species. Nucleic Acids Res. 2021 Oct 28:gkab960. doi: 10.1093/nar/gkab960. PMID: 34718739.
-        """
+"""
         
         return archival_text.format(**archival_text_data)
 

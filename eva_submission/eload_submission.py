@@ -79,6 +79,11 @@ class Eload(AppLogger):
             return f'{self.eload}_{alias}'
         return alias
 
+    def _undo_unique_alias(self, alias):
+        if alias.startswith(self.eload + '_'):
+            return alias[len(self.eload) + 1:]
+        return alias
+
     def create_log_file(self):
         logfile_name = os.path.join(self.eload_dir, str(self.eload) + "_submission.log")
         if logfile_name not in eload_logging_files:

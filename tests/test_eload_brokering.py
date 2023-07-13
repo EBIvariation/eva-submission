@@ -257,3 +257,20 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
             {'Analysis Alias': 'GAE2', 'File Name': 'ELOAD_3/GAE2.vcf.gz', 'File Type': 'vcf', 'MD5': None, 'row_num': 4},
             {'Analysis Alias': 'GAE2', 'File Name': 'ELOAD_3/GAE2.vcf.gz.csi', 'File Type': 'csi', 'MD5': None, 'row_num': 5}
         ]
+
+    def test_archival_confirmation_text(self):
+        self.eload.eload_cfg.set('submission', 'project_title', value='Great project')
+        self.eload.eload_cfg.set('brokering', 'ena', 'hold_date', value='2022-10-21 09:14:53.389160')
+        self.eload.eload_cfg.set('brokering', 'ena', 'PROJECT', value='PRJEB00001')
+        self.eload.eload_cfg.set('brokering', 'ena', 'ANALYSIS', value={'ELOAD_3_alias1': 'ERZ00000001', 'ELOAD_3_alias2': 'ERZ00000002'})
+        expected_text = '''
+Your EVA submission "Great project" has now been archived and will be made available to the public on 2022-10-21. The accessions associated with your submission are:
+Project: PRJEB00001
+Analyses: alias1=>ERZ00000001, alias2=>ERZ00000002 
+If you wish your data to be held private beyond the date specified above, please let us know. Once released, the data will be made available to download from this link: https://www.ebi.ac.uk/eva/?eva-study=PRJEB00001
+Please allow at least 48 hours from the initial release date provided for the data to be made available through this link. Each variant will be issued a unique SS# ID which will be made available to download via the "browsable files" link on the EVA study page.
+You can also notify us when your paper has been assigned a PMID. We will add this to your study page in the EVA. If there is anything else you need please do not hesitate to notify me. Archived data can be referenced using the project accession & associated URL e.g. The variant data for this study have been deposited in the European Variation Archive (EVA) at EMBL-EBI under accession number PRJEB00001 (https://www.ebi.ac.uk/eva/?eva-study=PRJEB00001)
+The EVA can be cited directly using the associated literature:
+Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva AF, Tsukanov K, Venkataraman S, Flicek P, Parkinson H, Keane TM. The European Variation Archive: a FAIR resource of genomic variation for all species. Nucleic Acids Res. 2021 Oct 28:gkab960. doi: 10.1093/nar/gkab960. PMID: 34718739.
+'''
+        assert self.eload._archival_confirmation_text() == expected_text
