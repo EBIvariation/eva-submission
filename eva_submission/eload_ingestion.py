@@ -140,10 +140,12 @@ class EloadIngestion(Eload):
         if self.project_accession is None:
             self.error('No project accession in submission config, check that brokering to ENA is done. ')
             raise ValueError('No project accession in submission config.')
+        # TODO: This breaks when processing analysis from a project that already had some analysis processed previously
+        # Need to switch to copy files to an analysis specific directory to allow this back
         # check there are no vcfs in valid folder that aren't in brokering config
-        for valid_vcf in self.valid_vcf_filenames:
-            if not any(f.endswith(valid_vcf.name) for f in vcf_files):
-                raise ValueError(f'Found {valid_vcf} in valid folder that was not in brokering config')
+        # for valid_vcf in self.valid_vcf_filenames:
+        #     if not any(f.endswith(valid_vcf.name) for f in vcf_files):
+        #         raise ValueError(f'Found {valid_vcf} in valid folder that was not in brokering config')
 
     def check_aggregation_done(self):
         errors = []

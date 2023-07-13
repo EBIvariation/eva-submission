@@ -1,3 +1,4 @@
+import datetime
 import os
 from unittest import TestCase
 
@@ -46,6 +47,7 @@ class TestXlsxReader(TestCase):
             'Sample Name': 'S1',
             'Sampleset Accession': None,
             'Title': 'Sample 1',
+            'collection_date': datetime.datetime(2020, 1, 15, 0, 0),
             'row_num': 4
         }
 
@@ -73,7 +75,9 @@ class TestXlsxReader(TestCase):
             'Sample Name': 'S1',
             'Sampleset Accession': None,
             'Title': 'Sample 1',
+            'collection_date': datetime.datetime(2020, 1, 15, 0, 0),
             'row_num': 4
         }
+
 
 

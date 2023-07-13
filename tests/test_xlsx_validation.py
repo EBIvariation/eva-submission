@@ -43,7 +43,8 @@ class TestEvaXlsValidator(TestCase):
         self.validator_fail.complex_validation()
         expected_errors = [
             'Check Analysis Alias vs Samples: GAE2,None present in Analysis Alias not in Samples',
-            'Check Analysis Alias vs Files: GAE2,None present in Analysis Alias not in Files'
+            'Check Analysis Alias vs Files: GAE2,None present in Analysis Alias not in Files',
+            'In row 102, collection_date is not a date or "not provided": it is "Dote of collection"'
         ]
         self.assertEqual(self.validator_fail.error_list, expected_errors)
 
