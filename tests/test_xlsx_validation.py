@@ -25,7 +25,6 @@ class TestEvaXlsValidator(TestCase):
     def tearDown(self) -> None:
         os.remove(self.metadata_file_wrong_sc_name_copy)
 
-
     def test_cerberus_validation(self):
         self.validator.cerberus_validation()
         self.assertEqual(self.validator.error_list, [])
@@ -44,7 +43,7 @@ class TestEvaXlsValidator(TestCase):
         expected_errors = [
             'Check Analysis Alias vs Samples: GAE2,None present in Analysis Alias not in Samples',
             'Check Analysis Alias vs Files: GAE2,None present in Analysis Alias not in Files',
-            'In row 102, collection_date is not a date or "not provided": it is set to "Dote of collection"'
+            'In row 102, collection_date is not a date or "not provided": it is set to "Date of collection"'
         ]
         self.assertEqual(self.validator_fail.error_list, expected_errors)
 
