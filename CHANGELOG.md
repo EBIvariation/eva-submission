@@ -1,10 +1,24 @@
 Changelog for eva-submission
 ============================
 
-## 1.12 (unreleased)
+## 1.12 (2023-07-17)
 --------------------
 
-- Nothing changed yet.
+### Test
+ - Add missing metadata files and process
+
+### Validation
+ - Make project and analysis alias unique by prepending the ELOAD number
+
+### Brokering 
+ - Remove spaces between novel attributes
+ - Improve formatting of archival text
+ - Brokering results overwrite previous one.
+
+### Ingestion
+ - Disable check for presence of extra file in the 30_valid dir
+ - Check that the project exists in EVAPRO before loading from ENA only load the analysis if it does
+ - Fix to QC stating that FTP files are missing
 
 
 ## 1.11 (2023-07-03)
