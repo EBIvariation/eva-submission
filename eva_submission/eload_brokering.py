@@ -84,10 +84,12 @@ class EloadBrokering(Eload):
             # Upload XML to ENA
             ena_uploader.upload_xml_files_to_ena(dry_ena_upload)
             if not dry_ena_upload:
-                # Update the accessions in case we're working with existing project
-                accessions = ena_uploader.results
-                accessions.update(self.eload_cfg.query('brokering', 'ena', ret_default={}))
-                self.eload_cfg.set('brokering', 'ena', value=accessions)
+                # Update the project accession in case we're working with existing project
+                # We should not be uploading additional analysis in th same ELOAD so no need to update
+                pre_existing_project = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
+                if pre_existing_project and 'PROJECT' not in ena_uploader.results:
+                    ena_uploader.results['PROJECT'] = pre_existing_project
+                self.eload_cfg.set('brokering', 'ena', value=ena_uploader.results)
                 self.eload_cfg.set('brokering', 'ena', 'date', value=self.now)
                 self.eload_cfg.set('brokering', 'ena', 'hold_date', value=ena_uploader.converter.hold_date)
                 self.eload_cfg.set('brokering', 'ena', 'pass', value=not bool(ena_uploader.results['errors']))
@@ -292,8 +294,9 @@ class EloadBrokering(Eload):
         return '\n'.join(reports)
     
     def _archival_confirmation_text(self):
+        if not self._brokering_complete():
+            return 'NA'
         study_title = self.eload_cfg.query('submission', 'project_title')
-
         hold_date = self.eload_cfg.query('brokering', 'ena', 'hold_date')
         brokering_date_from_config = self.eload_cfg.query('brokering', 'brokering_date')
         try:
@@ -302,18 +305,24 @@ class EloadBrokering(Eload):
             brokering_date = datetime.date.today()
         brokering_date_plus_3 = brokering_date + datetime.timedelta(days=3)
         available_date = hold_date if hold_date is not None else brokering_date_plus_3
-
+        if isinstance(available_date, datetime.datetime) or isinstance(available_date, datetime.date):
+            available_date_str = available_date.strftime("%Y-%m-%d")
+        else:
+            available_date_str = available_date.split(" ")[0]
         project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
-        analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
+        analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={})
 
         taxonomy_id = self.eload_cfg.query('submission', 'taxonomy_id')
         non_human_study_text = 'Please allow at least 48 hours from the initial release date provided for the data to be made available through this link. Each variant will be issued a unique SS# ID which will be made available to download via the "browsable files" link on the EVA study page.' if taxonomy_id!=9606 else ""
 
         archival_text_data = {
             'study_title': study_title,
-            'available_date': available_date,
+            'available_date': available_date_str,
             'project_accession': project_accession,
-            'analysis_accession': analysis_accession,
+            'analysis_accession': ', '.join([
+                f'{self._undo_unique_alias(alias)}=>{accession}'
+                for alias, accession in analysis_accession.items()
+            ]),
             'non_human_study': non_human_study_text
         }
         
@@ -326,7 +335,7 @@ If you wish your data to be held private beyond the date specified above, please
 You can also notify us when your paper has been assigned a PMID. We will add this to your study page in the EVA. If there is anything else you need please do not hesitate to notify me. Archived data can be referenced using the project accession & associated URL e.g. The variant data for this study have been deposited in the European Variation Archive (EVA) at EMBL-EBI under accession number {project_accession} (https://www.ebi.ac.uk/eva/?eva-study={project_accession})
 The EVA can be cited directly using the associated literature:
 Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva AF, Tsukanov K, Venkataraman S, Flicek P, Parkinson H, Keane TM. The European Variation Archive: a FAIR resource of genomic variation for all species. Nucleic Acids Res. 2021 Oct 28:gkab960. doi: 10.1093/nar/gkab960. PMID: 34718739.
-        """
+"""
         
         return archival_text.format(**archival_text_data)
 
@@ -357,3 +366,6 @@ Archival Confirmation Text:
 {archival_confirmation_text}
 """
         print(report.format(**report_data))
+
+    def _brokering_complete(self):
+        return all([self.eload_cfg.query('brokering', key, 'pass') for key in ['ena', 'Biosamples']])
