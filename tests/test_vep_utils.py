@@ -63,10 +63,10 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
 
     def test_get_vep_versions_from_ensembl(self):
         vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('GCA_000827895.1')
-        self.assertEqual(vep_version, 109)
-        self.assertEqual(cache_version, 56)
+        self.assertEqual(vep_version, 110)
+        self.assertEqual(cache_version, 57)
         assert os.path.exists(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei'))
-        assert os.listdir(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei')) == ['56_ASM82789v1']
+        assert os.listdir(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei')) == ['57_ASM82789v1']
 
     def test_get_vep_versions_from_ensembl_not_found(self):
         vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('GCA_015220235.1')
@@ -133,7 +133,7 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
             'GCA_000001405.1': ('homo_sapiens', 'GRCh37', False, '9606'),
             'GCA_000001405.14': ('homo_sapiens', 'GRCh37.p13', False, '9606'),
             'GCA_000001405.20': ('homo_sapiens', 'GRCh38.p5', False, '9606'),
-            'GCA_000001405.28': ('homo_sapiens', 'GRCh38.p13', True, '9606'),
+            'GCA_000001405.29': ('homo_sapiens', 'GRCh38.p14', True, '9606'),
             'GCA_000001635.2': ('mus_musculus', 'GRCm38', False, '10090'),
             'GCA_000002285.2': ('canis_lupus_familiaris', 'CanFam3.1', False, '9615'),
             'GCA_000002315.5': ('gallus_gallus', 'GRCg6a', True, '9031'),
