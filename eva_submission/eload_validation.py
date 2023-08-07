@@ -1,11 +1,8 @@
 #!/usr/bin/env python
-import copy
 import csv
 import os
-import re
 import shutil
 import subprocess
-import gzip
 
 import yaml
 from ebi_eva_common_pyutils import command_utils

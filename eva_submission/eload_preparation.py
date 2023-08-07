@@ -103,7 +103,7 @@ class EloadPreparation(Eload):
                        f'{", ".join(set(submitted_vcfs).difference(set(spreadsheet_vcfs)))}')
             analysis_alias = ''
             if len(eva_xls_reader.analysis) == 1:
-                analysis_alias = self._unique_alias(eva_xls_reader.analysis[0].get('Analysis Alias')) or ''
+                analysis_alias = eva_xls_reader.analysis[0].get('Analysis Alias') or ''
             elif len(eva_xls_reader.analysis) > 1:
                 self.error("Multiple analyses found, can't add submitted VCF to spreadsheet")
                 raise ValueError("Multiple analyses found, can't add submitted VCF to spreadsheet")

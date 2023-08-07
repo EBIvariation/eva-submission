@@ -151,11 +151,19 @@ class Eload(AppLogger):
         elif self.eload not in project_row['Project Alias']:
             # Add the eload id to ensure that the project alias is unique
             project_row['Project Alias'] = self._unique_alias(project_row['Project Alias'])
+
+        analysis_rows = reader.analysis
+        for analysis_row in analysis_rows:
+            if self.eload not in analysis_row['Analysis Alias']:
+                # Add the eload id to ensure that the analysis alias is unique
+                analysis_row['Analysis Alias'] = self._unique_alias(analysis_row['Analysis Alias'])
+
         if output_spreadsheet:
             eva_xls_writer = EvaXlsxWriter(input_spreadsheet, output_spreadsheet)
         else:
             eva_xls_writer = EvaXlsxWriter(input_spreadsheet)
         eva_xls_writer.set_project(project_row)
+        eva_xls_writer.set_analysis(analysis_rows)
         eva_xls_writer.set_samples(sample_rows)
         eva_xls_writer.set_files(file_rows)
         eva_xls_writer.save()
