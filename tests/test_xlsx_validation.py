@@ -1,3 +1,4 @@
+import datetime
 import os
 import shutil
 from unittest import TestCase
@@ -73,3 +74,22 @@ class TestEvaXlsValidator(TestCase):
         assert len([s for s in scientific_name_list if s == 'Homo Sapiens']) == 0
         assert len([s for s in scientific_name_list if s == 'HS']) == 10
 
+    def test_check_date(self):
+        assert self.validator.error_list == []
+        row = {"row_num": 1, "collection_date": 'not provided'}
+        self.validator.check_date(row, 'collection_date', required=True)
+        assert self.validator.error_list == []
+
+        row = {"row_num": 1, "collection_date": datetime.date(year=2019, month=6, day=8)}
+        self.validator.check_date(row, 'collection_date', required=True)
+        assert self.validator.error_list == []
+
+        row = {"row_num": 1, "collection_date": '2019-06-08'}
+        self.validator.check_date(row, 'collection_date', required=True)
+        assert self.validator.error_list == []
+
+        row = {"row_num": 1, "collection_date": '2019-06-08,2019-06-09'}
+        self.validator.check_date(row, 'collection_date', required=True)
+        assert self.validator.error_list == [
+            'In row 1, collection_date is not a date or "not provided": it is set to "2019-06-08,2019-06-09"'
+        ]
