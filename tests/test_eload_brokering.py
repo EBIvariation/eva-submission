@@ -221,7 +221,7 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
         metadata_file = os.path.join(self.resources_folder, 'metadata_2_analysis.xlsx')
         ena_metadata_file = os.path.join(self.eload.eload_dir, 'metadata_2_analysis_for_brokering.xlsx')
         analyses = {
-            'GAE': {
+            'ELOAD_3_GAE': {
                 'assembly_accession': 'GCA_000001405.1',
                 'vcf_files': {
                     'path/to/GAE.vcf.gz': {
@@ -233,7 +233,7 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
                     }
                 }
             },
-            'GAE2': {
+            'ELOAD_3_GAE2': {
                 'assembly_accession': 'GCA_000001405.1',
                 'vcf_files': {
                     'path/to/GAE2.vcf.gz': {
@@ -252,10 +252,10 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
         # Check that the Files get set to the merged file name and that the analysis alias is modified
         reader = EvaXlsxReader(ena_metadata_file)
         assert reader.files == [
-            {'Analysis Alias': 'GAE', 'File Name': 'ELOAD_3/GAE.vcf.gz', 'File Type': 'vcf', 'MD5': None, 'row_num': 2},
-            {'Analysis Alias': 'GAE', 'File Name': 'ELOAD_3/GAE.vcf.gz.csi', 'File Type': 'csi', 'MD5': None, 'row_num': 3},
-            {'Analysis Alias': 'GAE2', 'File Name': 'ELOAD_3/GAE2.vcf.gz', 'File Type': 'vcf', 'MD5': None, 'row_num': 4},
-            {'Analysis Alias': 'GAE2', 'File Name': 'ELOAD_3/GAE2.vcf.gz.csi', 'File Type': 'csi', 'MD5': None, 'row_num': 5}
+            {'Analysis Alias': 'ELOAD_3_GAE', 'File Name': 'ELOAD_3/GAE.vcf.gz', 'File Type': 'vcf', 'MD5': None, 'row_num': 2},
+            {'Analysis Alias': 'ELOAD_3_GAE', 'File Name': 'ELOAD_3/GAE.vcf.gz.csi', 'File Type': 'csi', 'MD5': None, 'row_num': 3},
+            {'Analysis Alias': 'ELOAD_3_GAE2', 'File Name': 'ELOAD_3/GAE2.vcf.gz', 'File Type': 'vcf', 'MD5': None, 'row_num': 4},
+            {'Analysis Alias': 'ELOAD_3_GAE2', 'File Name': 'ELOAD_3/GAE2.vcf.gz.csi', 'File Type': 'csi', 'MD5': None, 'row_num': 5}
         ]
 
     def test_archival_confirmation_text(self):
