@@ -130,7 +130,7 @@ class ENAUploaderAsync(ENAUploader):
         if response.status_code == 200:
             json_data = response.json()
             if 'links' in json_data:
-                xml_link = [link_dict['href'] for link_dict in json_data['links'] if link_dict['rel'] == 'poll-xml'][0]
+                xml_link = [link_dict['href'] for link_dict in json_data['_links'] if link_dict['rel'] == 'poll-xml'][0]
                 self.results['submissionId'] = json_data['submissionId']
                 self.results['poll-links'] = xml_link
                 self.monitor_results()
