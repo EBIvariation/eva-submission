@@ -225,11 +225,11 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
                 'assembly_accession': 'GCA_000001405.1',
                 'vcf_files': {
                     'path/to/GAE.vcf.gz': {
-                      'csi': 'path/to/GAE.vcf.gz.csi',
-                      'csi_md5': '',
-                      'md5': '',
-                      'original_vcf': 'path/to/original_GAE.vcf.gz',
-                      'output_vcf_file': None
+                        'csi': 'path/to/GAE.vcf.gz.csi',
+                        'csi_md5': '',
+                        'md5': '',
+                        'original_vcf': 'path/to/original_GAE.vcf.gz',
+                        'output_vcf_file': None
                     }
                 }
             },
@@ -247,16 +247,26 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
             }
         }
         self.eload.eload_cfg.set('brokering', 'analyses', value=analyses)
-        self.eload.update_metadata_spreadsheet(metadata_file, ena_metadata_file)
 
-        # Check that the Files get set to the merged file name and that the analysis alias is modified
+        source_reader = EvaXlsxReader(metadata_file)
+        self.eload.update_metadata_spreadsheet(metadata_file, ena_metadata_file)
         reader = EvaXlsxReader(ena_metadata_file)
+        # Check that the Files get set to the merged file name and that the analysis alias is modified
+        assert len(source_reader.files) == 12
+        assert len(reader.files) == 4
         assert reader.files == [
-            {'Analysis Alias': 'ELOAD_3_GAE', 'File Name': 'ELOAD_3/GAE.vcf.gz', 'File Type': 'vcf', 'MD5': None, 'row_num': 2},
-            {'Analysis Alias': 'ELOAD_3_GAE', 'File Name': 'ELOAD_3/GAE.vcf.gz.csi', 'File Type': 'csi', 'MD5': None, 'row_num': 3},
-            {'Analysis Alias': 'ELOAD_3_GAE2', 'File Name': 'ELOAD_3/GAE2.vcf.gz', 'File Type': 'vcf', 'MD5': None, 'row_num': 4},
-            {'Analysis Alias': 'ELOAD_3_GAE2', 'File Name': 'ELOAD_3/GAE2.vcf.gz.csi', 'File Type': 'csi', 'MD5': None, 'row_num': 5}
+            {'Analysis Alias': 'ELOAD_3_GAE', 'File Name': 'ELOAD_3/GAE.vcf.gz', 'File Type': 'vcf', 'MD5': None,
+             'row_num': 2},
+            {'Analysis Alias': 'ELOAD_3_GAE', 'File Name': 'ELOAD_3/GAE.vcf.gz.csi', 'File Type': 'csi', 'MD5': None,
+             'row_num': 3},
+            {'Analysis Alias': 'ELOAD_3_GAE2', 'File Name': 'ELOAD_3/GAE2.vcf.gz', 'File Type': 'vcf', 'MD5': None,
+             'row_num': 4},
+            {'Analysis Alias': 'ELOAD_3_GAE2', 'File Name': 'ELOAD_3/GAE2.vcf.gz.csi', 'File Type': 'csi', 'MD5': None,
+             'row_num': 5}
         ]
+        # Updated the reference genome to what the brokering contains
+        assert source_reader.analysis[1]['Reference'] == 'GCA_000001405'
+        assert reader.analysis[1]['Reference'] == 'GCA_000001405.1'
 
     def test_archival_confirmation_text(self):
         self.eload.eload_cfg.set('submission', 'project_title', value='Great project')

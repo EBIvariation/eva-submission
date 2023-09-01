@@ -157,6 +157,10 @@ class Eload(AppLogger):
         for analysis_row in analysis_rows:
             # Add the eload id to ensure that the analysis alias is unique
             analysis_row['Analysis Alias'] = self._unique_alias(analysis_row['Analysis Alias'])
+            # Ensure that the reference used in the brokering is the same as the one used during validation
+            analysis_row['Reference'] = self.eload_cfg.query(
+                'brokering', 'analyses', analysis_row['Analysis Alias'], 'assembly_accession'
+            )
 
         if output_spreadsheet:
             eva_xls_writer = EvaXlsxWriter(input_spreadsheet, output_spreadsheet)
