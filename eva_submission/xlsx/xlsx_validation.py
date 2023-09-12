@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+import datetime
 
 import yaml
 from cerberus import Validator
@@ -153,8 +153,20 @@ class EvaXlsxValidator(AppLogger):
         if required and key not in row:
             self.error_list.append(f'In row {row.get("row_num")}, {key} is required and missing')
             return
-        if key in row and (isinstance(row[key], datetime) or str(row[key]).lower() in not_provided_check_list):
+        if key in row and (
+                isinstance(row[key], datetime.date) or
+                isinstance(row[key], datetime.datetime) or
+                self._check_date_str_format(row[key]) or
+                str(row[key]).lower() in not_provided_check_list
+        ):
             return
         self.error_list.append(f'In row {row.get("row_num")}, {key} is not a date or "not provided": '
                                f'it is set to "{row.get(key)}"')
+
+    def _check_date_str_format(self, d):
+        try:
+            datetime.datetime.strptime(d, "%Y-%m-%d")
+            return True
+        except ValueError:
+            return False
 

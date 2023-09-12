@@ -122,6 +122,7 @@ class Eload(AppLogger):
                     'Sample Accession': self.eload_cfg['brokering']['Biosamples']['Samples'][sample_row.get('Sample Name')]
                 })
             else:
+                sample_row['Analysis Alias'] = self._unique_alias(sample_row['Analysis Alias'])
                 sample_rows.append(sample_row)
 
         file_rows = []
@@ -131,7 +132,7 @@ class Eload(AppLogger):
                 vcf_file_info = self.eload_cfg['brokering']['analyses'][analysis]['vcf_files'][vcf_file_name]
                 # Add the vcf file
                 file_rows.append({
-                    'Analysis Alias': analysis,
+                    'Analysis Alias': self._unique_alias(analysis),
                     'File Name': self.eload + '/' + os.path.basename(vcf_file_name),
                     'File Type': 'vcf',
                     'MD5': vcf_file_info['md5']
@@ -139,7 +140,7 @@ class Eload(AppLogger):
 
                 # Add the index file
                 file_rows.append({
-                    'Analysis Alias': analysis,
+                    'Analysis Alias': self._unique_alias(analysis),
                     'File Name': self.eload + '/' + os.path.basename(vcf_file_info['csi']),
                     'File Type': 'csi',
                     'MD5': vcf_file_info['csi_md5']
@@ -154,9 +155,12 @@ class Eload(AppLogger):
 
         analysis_rows = reader.analysis
         for analysis_row in analysis_rows:
-            if self.eload not in analysis_row['Analysis Alias']:
-                # Add the eload id to ensure that the analysis alias is unique
-                analysis_row['Analysis Alias'] = self._unique_alias(analysis_row['Analysis Alias'])
+            # Add the eload id to ensure that the analysis alias is unique
+            analysis_row['Analysis Alias'] = self._unique_alias(analysis_row['Analysis Alias'])
+            # Ensure that the reference used in the brokering is the same as the one used during validation
+            analysis_row['Reference'] = self.eload_cfg.query(
+                'brokering', 'analyses', analysis_row['Analysis Alias'], 'assembly_accession'
+            )
 
         if output_spreadsheet:
             eva_xls_writer = EvaXlsxWriter(input_spreadsheet, output_spreadsheet)
