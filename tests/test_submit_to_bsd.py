@@ -352,12 +352,12 @@ class TestSampleReferenceSubmitter(BSDTestCase):
     def test_retrieve_biosamples(self):
         sample_accessions = ['SAME001', 'SAME002']
         project_accession = 'PRJEB001'
-        sample_1 = {"name": "FakeSample1", "accession": "SAME001", "domain": "self.ExampleDomain", "_links": {}}
+        sample_1 = {"name": "FakeSample1", "accession": "SAME001", "domain": "self.ExampleDomain", "_links": {}, 'externalReferences': [{'url': 'test_url', 'duo': None}]}
         sample_2 = {"name": "FakeSample2", "accession": "SAME002", "domain": "self.ExampleDomain", "_links": {}}
         with patch.object(HALCommunicator, 'follows_link', side_effect=[sample_1, sample_2]):
             self.submitter = SampleReferenceSubmitter(sample_accessions, project_accession)
         assert self.submitter.sample_data == [
-            {'name': 'FakeSample1', 'accession': 'SAME001', 'domain': 'self.ExampleDomain', 'externalReferences': [{'url': 'https://www.ebi.ac.uk/eva/?eva-study=PRJEB001'}]},
+            {'name': 'FakeSample1', 'accession': 'SAME001', 'domain': 'self.ExampleDomain', 'externalReferences': [{'url': 'test_url'}, {'url': 'https://www.ebi.ac.uk/eva/?eva-study=PRJEB001'}]},
             {'name': 'FakeSample2', 'accession': 'SAME002', 'domain': 'self.ExampleDomain', 'externalReferences': [{'url': 'https://www.ebi.ac.uk/eva/?eva-study=PRJEB001'}]}
         ]
 
