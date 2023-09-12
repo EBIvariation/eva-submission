@@ -196,6 +196,15 @@ class BSDSubmitter(AppLogger):
     def convert_sample_data_to_curation_object(self, future_sample):
         """Curation object can only change 3 attributes characteristics, externalReferences and relationships"""
         current_sample = self.communicator.follows_link('samples', method='GET', join_url=future_sample.get('accession'))
+
+        #FIXME: Remove this hack when this i fixed on BioSample's side
+        # remove null values in externalReferences that causes crash when POSTing the curation object
+        if 'externalReferences' in current_sample:
+            current_sample['externalReferences'] = [
+                dict([(k, v) for k, v in external_ref.items() if v is not None])
+                for external_ref in current_sample['externalReferences']
+            ]
+
         curation_object = {}
         attributes_pre = []
         attributes_post = []
@@ -481,5 +490,14 @@ class SampleReferenceSubmitter(SampleSubmitter):
                 if 'externalReferences' not in sample_json:
                     sample_json['externalReferences'] = []
                 sample_json['externalReferences'].append({'url': eva_study_url})
+
+            # FIXME: Remove this hack when this i fixed on BioSample's side
+            # remove null values in externalReferences that causes crash when POSTing the curation object
+            if 'externalReferences' in sample_json:
+                sample_json['externalReferences'] = [
+                    dict([(k, v) for k, v in external_ref.items() if v is not None])
+                    for external_ref in sample_json['externalReferences']
+                ]
             biosample_objects.append(sample_json)
+
         return biosample_objects
