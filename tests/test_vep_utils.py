@@ -122,11 +122,12 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
     def test_download_and_extract_vep_cache(self):
         with patch('eva_submission.vep_utils.retrieve_species_scientific_name_from_tax_id_ncbi') as m_get_scf_name:
             m_get_scf_name.return_value = 'whatever_species_name'
-            download_and_extract_vep_cache(
-                get_ftp_connection('ftp.ensembl.org'),
-                '/pub/release-105/variation/indexed_vep_cache/papio_anubis_refseq_vep_105_Panubis1.0.tar.gz', 1001
-            )
-            assert os.path.exists(os.path.join(cfg['vep_cache_path'], 'whatever_species_name', '105_Panubis1.0'))
+            with get_ftp_connection('ftp.ensembl.org') as ftp_conn:
+                download_and_extract_vep_cache(
+                    ftp_conn,
+                    '/pub/release-105/variation/indexed_vep_cache/papio_anubis_refseq_vep_105_Panubis1.0.tar.gz', 1001
+                )
+                assert os.path.exists(os.path.join(cfg['vep_cache_path'], 'whatever_species_name', '105_Panubis1.0'))
 
     def test_get_species_and_assembly(self):
         assemblies2results = {
