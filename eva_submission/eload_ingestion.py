@@ -433,8 +433,9 @@ class EloadIngestion(Eload):
         target_assembly = self._get_supported_assembly_from_evapro() or self._insert_new_supported_asm_from_ensembl()
         if target_assembly is None:
             alt_tax_id = self._get_alt_tax_id()
-            target_assembly = self._get_supported_assembly_from_evapro(alt_tax_id) or \
-                              self._insert_new_supported_asm_from_ensembl(alt_tax_id)
+            if alt_tax_id:
+                target_assembly = self._get_supported_assembly_from_evapro(alt_tax_id) or \
+                                  self._insert_new_supported_asm_from_ensembl(alt_tax_id)
         if target_assembly is None:
             if len(self.assembly_accessions) == 1:
                 target_assembly = list(self.assembly_accessions)[0]

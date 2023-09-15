@@ -414,7 +414,7 @@ class TestEloadIngestion(TestCase):
     def test_ingest_clustering_no_supported_assembly(self):
         with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
-                patch.object(EloadIngestion, '_get_target_assembly')  as m_target_assembly, \
+                patch.object(EloadIngestion, '_get_target_assembly') as m_target_assembly, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_run_command, \
                 patch('eva_submission.eload_ingestion.insert_new_assembly_and_taxonomy') as insert_asm_tax, \
                 self._patch_mongo_database():
@@ -571,6 +571,9 @@ class TestEloadIngestion(TestCase):
             assert new_accession_nextflow_dir == self.eload.nextflow_complete_value
             assert not os.path.exists(accession_nextflow_dir)
 
-    def test_get_target_assembly(self):
-        # TODO mock only the db, run everything else
-        ...
+    def test_get_target_assembly_fallback_on_submitted_assembly(self):
+        with self._patch_metadata_handle(), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query'), \
+                patch.object(EloadIngestion, '_insert_new_supported_asm_from_ensembl') as m_ensembl_asm:
+            m_ensembl_asm.return_value = None  # Pretend Ensembl supports nothing
+            self.assertEqual(self.eload._get_target_assembly(), list(self.eload.assembly_accessions)[0])
