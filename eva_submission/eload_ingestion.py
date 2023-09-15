@@ -423,8 +423,9 @@ class EloadIngestion(Eload):
         4. If there is exactly one alternate taxonomy, check Ensembl (main then rapid release) for its supported
            assembly. If present use that, and insert into supported assembly table.
         5. If we still do not have a target assembly (i.e. project taxonomy is not supported by Ensembl AND alternate
-           taxonomy cannot be determined or is not supported by Ensembl), then choose one of the project's
-           assemblies and insert into the supported assembly table.
+           taxonomy cannot be determined or is not supported by Ensembl), and the project has exactly one assembly,
+           then choose that one and insert into the supported assembly table.
+        6. Otherwise return None (which will skip clustering)
         """
         if self.taxonomy == 9606:
             self.info('No remapping or clustering for human studies')
@@ -435,8 +436,10 @@ class EloadIngestion(Eload):
             target_assembly = self._get_supported_assembly_from_evapro(alt_tax_id) or \
                               self._insert_new_supported_asm_from_ensembl(alt_tax_id)
         if target_assembly is None:
-            # TODO any particular one?
-            target_assembly = list(self.assembly_accessions)[0]
+            if len(self.assembly_accessions) == 1:
+                target_assembly = list(self.assembly_accessions)[0]
+                add_to_supported_assemblies(self.metadata_connection_handle, source_of_assembly='EVA',
+                                            target_assembly=target_assembly, taxonomy_id=self.taxonomy)
         return target_assembly
 
     def _get_alt_tax_id(self):
