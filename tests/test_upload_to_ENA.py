@@ -95,13 +95,15 @@ class TestENAUploader(TestCase):
         }
 
     def test_single_upload_xml_files_to_ena(self):
-        with patch.object(ENAUploader, '_post_xml_file_to_ena') as mock_post,\
-             patch('eva_submission.ENA_submission.upload_to_ENA.requests.get') as mock_get:
+        with patch.object(ENAUploader, '_post_xml_file_to_ena') as mock_post, \
+                patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_taxonomy') as m_sci_name, \
+                patch('eva_submission.ENA_submission.upload_to_ENA.requests.get') as mock_get:
+            m_sci_name.return_value = 'Homo Sapiens'
             json_data = {'submissionId': 'ERA123456', '_links': [{'rel': 'poll-xml', 'href': 'https://example.com/link'}]}
             mock_post.return_value = Mock(status_code=200, json=Mock(return_value=json_data))
             mock_get.return_value = Mock(status_code=200, text=self.receipt)
             self.assertFalse(os.path.isfile(self.uploader_async.converter.single_submission_file))
-            self.uploader_async.upload_xml_files_to_ena()
+            self.uploader_async.upload_xml_files_to_ena(None, None)
             self.assertTrue(os.path.isfile(self.uploader_async.converter.single_submission_file))
             mock_post.assert_called_with(
                 'https://wwwdev.ebi.ac.uk/ena/submit/webin-v2/submit/queue',
@@ -119,16 +121,21 @@ class TestENAUploader(TestCase):
 
     def test_single_upload_xml_files_to_ena_failed(self):
         self.assertFalse(os.path.isfile(self.uploader_async.converter.single_submission_file))
-        self.uploader_async.upload_xml_files_to_ena()
+        with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_taxonomy') as m_sci_name:
+            m_sci_name.return_value = 'Homo Sapiens'
+            self.uploader_async.upload_xml_files_to_ena(None, None)
         self.assertTrue(os.path.isfile(self.uploader_async.converter.single_submission_file))
         self.assertEqual(self.uploader_async.results, {'errors': ['403']})
+
 
     def test_single_dry_upload_xml_files_to_ena(self):
         with patch.object(ENAUploader, '_post_xml_file_to_ena') as mock_post,\
              patch('eva_submission.ENA_submission.upload_to_ENA.requests.get') as mock_get, \
+             patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_taxonomy') as m_sci_name, \
              patch.object(ENAUploaderAsync, 'info') as mock_info:
+            m_sci_name.return_value = 'Homo Sapiens'
             self.assertFalse(os.path.isfile(self.uploader_async.converter.single_submission_file))
-            self.uploader_async.upload_xml_files_to_ena(dry_ena_upload=True)
+            self.uploader_async.upload_xml_files_to_ena(None, None, dry_ena_upload=True)
             self.assertTrue(os.path.isfile(self.uploader_async.converter.single_submission_file))
             mock_info.assert_any_call('Would have uploaded the following XML files to ENA asynchronous submission '
                                       'endpoint:')
