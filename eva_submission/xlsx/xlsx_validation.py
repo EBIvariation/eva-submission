@@ -4,7 +4,7 @@ import datetime
 import yaml
 from cerberus import Validator
 from ebi_eva_common_pyutils.logger import AppLogger
-from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
+from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_taxonomy
 from ebi_eva_common_pyutils.variation.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
 from requests import HTTPError
 
@@ -25,10 +25,10 @@ class EvaXlsxValidator(AppLogger):
 
         self.error_list = []
 
-    def validate(self):
+    def validate(self, private_config_xml_file, profile):
         self.cerberus_validation()
         self.complex_validation()
-        self.semantic_validation()
+        self.semantic_validation(private_config_xml_file, profile)
 
     def cerberus_validation(self):
         """
@@ -79,7 +79,7 @@ class EvaXlsxValidator(AppLogger):
             )
             self.check_date(row, 'collection_date', required=True)
 
-    def semantic_validation(self):
+    def semantic_validation(self, private_config_xml_file, profile):
         """
         Validation of the data that involve checking its meaning
         This function adds error statements to the errors attribute
@@ -98,7 +98,9 @@ class EvaXlsxValidator(AppLogger):
         taxid_and_species_list = set([(row['Tax Id'], row['Scientific Name']) for row in self.metadata['Sample'] if row['Tax Id']])
         for taxid, species in taxid_and_species_list:
             try:
-                scientific_name = get_scientific_name_from_ensembl(int(taxid))
+                scientific_name = get_scientific_name_from_taxonomy(int(taxid),
+                                                                private_config_xml_file=private_config_xml_file,
+                                                                profile=profile)
                 if species != scientific_name:
                     if species.lower() == scientific_name.lower():
                         correct_taxid_sc_name[taxid] = scientific_name

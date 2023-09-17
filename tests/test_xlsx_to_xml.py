@@ -158,9 +158,9 @@ class TestEnaXlsConverter(TestCase):
 </PROJECT_SET>
 '''
         self.converter.reader = Mock(project=self.project_row)
-        with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_ensembl') as m_sci_name:
+        with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_taxonomy') as m_sci_name:
             m_sci_name.return_value = 'Oncorhynchus mykiss'
-            root = self.converter._create_project_xml()
+            root = self.converter._create_project_xml(None, None)
             expected_root = ET.fromstring(expected_project)
             assert elements_equal(root, expected_root)
 
@@ -179,9 +179,9 @@ class TestEnaXlsConverter(TestCase):
         ))
 
     def test_process_metadata_spreadsheet(self):
-        with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_ensembl') as m_sci_name:
+        with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_taxonomy') as m_sci_name:
             m_sci_name.return_value = 'Oncorhynchus mykiss'
-            self.converter.create_submission_files('TEST1')
+            self.converter.create_submission_files('TEST1', None, None)
         assert os.path.isfile(os.path.join(self.brokering_folder, 'TEST1.Submission.xml'))
         assert os.path.isfile(os.path.join(self.brokering_folder, 'TEST1.Project.xml'))
         assert os.path.isfile(os.path.join(self.brokering_folder, 'TEST1.Analysis.xml'))
@@ -243,21 +243,29 @@ class TestEnaXlsConverter(TestCase):
         assert elements_equal(root, expected_root)
 
     def test_create_submission_files(self):
-        submission_file, project_file, analysis_file = self.converter.create_submission_files('ELOAD_1')
+        with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_taxonomy') as m_sci_name:
+            m_sci_name.return_value = 'Homo Sapiens'
+            submission_file, project_file, analysis_file = self.converter.create_submission_files('ELOAD_1',
+                                                                                                  None, None)
         assert os.path.exists(submission_file)
         assert os.path.exists(project_file)
         assert os.path.exists(analysis_file)
 
     def test_create_submission_files_for_existing_project(self):
         # When the project already exist not PROJECT XML will be generated
-        with patch.object(EnaXlsxConverter, 'is_existing_project', return_value=True):
-            submission_file, project_file, analysis_file = self.converter.create_submission_files('ELOAD_1')
+        with (patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_taxonomy') as m_sci_name,
+              patch.object(EnaXlsxConverter, 'is_existing_project', return_value=True)):
+            m_sci_name.return_value = 'Homo Sapiens'
+            submission_file, project_file, analysis_file = self.converter.create_submission_files('ELOAD_1',
+                                                                                                  None, None)
             assert os.path.exists(submission_file)
             assert project_file is None
             assert os.path.exists(analysis_file)
             assert not os.path.exists(self.converter.project_file)
 
     def test_create_single_submission_files(self):
-        self.converter.create_single_submission_file('ELOAD_1')
+        with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_taxonomy') as m_sci_name:
+            m_sci_name.return_value = 'Homo Sapiens'
+            self.converter.create_single_submission_file('ELOAD_1', None, None)
 
 

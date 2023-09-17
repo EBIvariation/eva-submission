@@ -71,9 +71,10 @@ class ENAUploader(AppLogger):
         )
         return response
 
-    def upload_xml_files_to_ena(self, dry_ena_upload=False):
+    def upload_xml_files_to_ena(self, private_config_xml_file, profile, dry_ena_upload=False):
         """Upload the xml files to the webin submission endpoint and parse the receipt."""
-        submission_file, project_file, analysis_file = self.converter.create_submission_files(self.eload)
+        submission_file, project_file, analysis_file = self.converter.create_submission_files(self.eload,
+                                                                                    private_config_xml_file, profile)
         file_dict = {
             'SUBMISSION': (os.path.basename(submission_file), get_file_content(submission_file), 'application/xml'),
             'ANALYSIS': (os.path.basename(analysis_file), get_file_content(analysis_file), 'application/xml')
@@ -114,10 +115,10 @@ class ENAUploader(AppLogger):
 
 class ENAUploaderAsync(ENAUploader):
 
-    def upload_xml_files_to_ena(self, dry_ena_upload=False):
+    def upload_xml_files_to_ena(self, private_config_xml_file, profile, dry_ena_upload=False):
         """Upload the xml file to the asynchronous endpoint and monitor the results from the poll endpoint."""
 
-        webin_file = self.converter.create_single_submission_file(self.eload)
+        webin_file = self.converter.create_single_submission_file(self.eload, private_config_xml_file, profile)
         file_dict = {
             'file': (os.path.basename(webin_file), get_file_content(webin_file), 'application/xml'),
         }

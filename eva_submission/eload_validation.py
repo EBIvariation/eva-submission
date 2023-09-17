@@ -87,7 +87,7 @@ class EloadValidation(Eload):
 
     def _validate_metadata_format(self):
         validator = EvaXlsxValidator(self.eload_cfg['submission']['metadata_spreadsheet'])
-        validator.validate()
+        validator.validate(cfg['maven']['settings_file'], cfg['maven']['environment'])
         self.eload_cfg['validation']['metadata_check']['metadata_spreadsheet'] = self.eload_cfg['submission']['metadata_spreadsheet']
         self.eload_cfg['validation']['metadata_check']['errors'] = validator.error_list
         self.eload_cfg['validation']['metadata_check']['pass'] = len(validator.error_list) == 0

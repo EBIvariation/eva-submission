@@ -49,9 +49,9 @@ class TestEvaXlsValidator(TestCase):
         self.assertEqual(self.validator_fail.error_list, expected_errors)
 
     def test_validate(self):
-        with patch('eva_submission.xlsx.xlsx_validation.get_scientific_name_from_ensembl') as m_sci_name:
+        with patch('eva_submission.xlsx.xlsx_validation.get_scientific_name_from_taxonomy') as m_sci_name:
             m_sci_name.return_value = 'Homo sapiens'
-            self.validator.validate()
+            self.validator.validate(None, None)
         assert self.validator.error_list == []
 
     def test_correct_scientific_name_in_metadata(self):
@@ -62,9 +62,9 @@ class TestEvaXlsValidator(TestCase):
         assert len([s for s in scientific_name_list if s == 'Homo Sapiens']) == 10
         assert len([s for s in scientific_name_list if s == 'HS']) == 10
 
-        with patch('eva_submission.xlsx.xlsx_validation.get_scientific_name_from_ensembl') as m_sci_name:
+        with patch('eva_submission.xlsx.xlsx_validation.get_scientific_name_from_taxonomy') as m_sci_name:
             m_sci_name.return_value = 'Homo sapiens'
-            self.validator_sc_name.validate()
+            self.validator_sc_name.validate(None, None)
         assert self.validator_sc_name.error_list == ['In Samples, Taxonomy 9606 and scientific name HS are inconsistent']
 
         reader_after_modification = EvaXlsxReader(self.metadata_file_wrong_sc_name_copy)

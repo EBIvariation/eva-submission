@@ -82,7 +82,8 @@ class EloadBrokering(Eload):
             else:
                 ena_uploader.upload_vcf_files_to_ena_ftp(files_to_upload)
             # Upload XML to ENA
-            ena_uploader.upload_xml_files_to_ena(dry_ena_upload)
+            ena_uploader.upload_xml_files_to_ena(cfg['maven']['settings_file'], cfg['maven']['environment'],
+                                                 dry_ena_upload)
             if not dry_ena_upload:
                 # Update the project accession in case we're working with existing project
                 # We should not be uploading additional analysis in th same ELOAD so no need to update

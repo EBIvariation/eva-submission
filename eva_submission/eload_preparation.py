@@ -5,7 +5,7 @@ import requests
 
 from retry import retry
 
-from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
+from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_taxonomy
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.config_utils import get_contig_alias_db_creds_for_profile
 
@@ -151,7 +151,9 @@ class EloadPreparation(Eload):
         taxonomy_id = eva_metadata.project.get('Tax ID')
         if taxonomy_id and (isinstance(taxonomy_id, int) or taxonomy_id.isdigit()):
             self.eload_cfg.set('submission', 'taxonomy_id', value=int(taxonomy_id))
-            scientific_name = get_scientific_name_from_ensembl(taxonomy_id)
+            scientific_name = get_scientific_name_from_taxonomy(taxonomy_id,
+                                                                private_config_xml_file=cfg['maven']['settings_file'],
+                                                                profile=cfg['maven']['environment'])
             self.eload_cfg.set('submission', 'scientific_name', value=scientific_name)
         else:
             if taxonomy_id:

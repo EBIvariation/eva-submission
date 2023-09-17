@@ -2,6 +2,7 @@ import glob
 import os
 import shutil
 from unittest import TestCase, mock
+from unittest.mock import patch
 
 from ebi_eva_common_pyutils.config import cfg
 
@@ -79,7 +80,11 @@ class TestEloadPreparation(TestCase):
         self.create_vcfs()
         metadata = self.create_metadata()
         self.eload.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata)
-        self.eload.detect_metadata_attributes()
+        cfg.content['maven']['settings_file'] = None
+        cfg.content['maven']['environment'] = None
+        with patch('eva_submission.eload_preparation.get_scientific_name_from_taxonomy') as m_sci_name:
+            m_sci_name.return_value = 'Homo sapiens'
+            self.eload.detect_metadata_attributes()
 
         assert self.eload.eload_cfg.query('submission', 'project_title') == 'Greatest project ever'
         assert self.eload.eload_cfg.query('submission', 'taxonomy_id') == 9606
