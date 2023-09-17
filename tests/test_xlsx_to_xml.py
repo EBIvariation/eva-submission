@@ -253,8 +253,8 @@ class TestEnaXlsConverter(TestCase):
 
     def test_create_submission_files_for_existing_project(self):
         # When the project already exist not PROJECT XML will be generated
-        with (patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_taxonomy') as m_sci_name,
-              patch.object(EnaXlsxConverter, 'is_existing_project', return_value=True)):
+        with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_taxonomy') as m_sci_name, \
+                patch.object(EnaXlsxConverter, 'is_existing_project', return_value=True):
             m_sci_name.return_value = 'Homo Sapiens'
             submission_file, project_file, analysis_file = self.converter.create_submission_files('ELOAD_1',
                                                                                                   None, None)
