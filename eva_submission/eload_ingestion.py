@@ -420,8 +420,8 @@ class EloadIngestion(Eload):
            If present use that, and insert into supported assembly table.
         3. If the project's taxonomy is not in Ensembl, check ENA for the taxonomies associated with the project's
            assemblies, called the alternate taxonomies.
-        4. If there is exactly one alternate taxonomy, check Ensembl (main then rapid release) for its supported
-           assembly. If present use that, and insert into supported assembly table.
+        4. If there is exactly one alternate taxonomy, check EVAPRO first then Ensembl (main and rapid release) for its
+           supported assembly. If present use that, inserting into supported assembly table if necessary.
         5. If we still do not have a target assembly (i.e. project taxonomy is not supported by Ensembl AND alternate
            taxonomy cannot be determined or is not supported by Ensembl), and the project has exactly one assembly,
            then choose that one and insert into the supported assembly table.
@@ -441,6 +441,9 @@ class EloadIngestion(Eload):
                 target_assembly = list(self.assembly_accessions)[0]
                 add_to_supported_assemblies(self.metadata_connection_handle, source_of_assembly='EVA',
                                             target_assembly=target_assembly, taxonomy_id=self.taxonomy)
+            else:
+                self.warning(f'Could not determine target assembly from EVAPRO, Ensembl, or submitted assemblies: '
+                             f'{", ".join(self.assembly_accessions)}')
         return target_assembly
 
     def _get_alt_tax_id(self):
