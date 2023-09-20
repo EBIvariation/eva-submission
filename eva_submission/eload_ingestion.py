@@ -399,7 +399,9 @@ class EloadIngestion(Eload):
         tax_id = tax_id or self.taxonomy
         target_assembly = None
         try:
-            target_assembly = get_supported_asm_from_ensembl(tax_id)
+            target_assembly = get_supported_asm_from_ensembl(tax_id,
+                                                             private_config_xml_file=cfg['maven']['settings_file'],
+                                                             profile=cfg['maven']['environment'])
         except requests.exceptions.HTTPError as ex:
             # Ensembl throws HTTP 400 Error if it cannot resolve a tax ID
             if ex.errno == 400:

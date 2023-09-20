@@ -82,7 +82,9 @@ class TestEloadPreparation(TestCase):
         self.eload.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata)
         cfg.content['maven']['settings_file'] = None
         cfg.content['maven']['environment'] = None
-        with patch('eva_submission.eload_preparation.get_scientific_name_from_taxonomy') as m_sci_name:
+        with patch('eva_submission.eload_preparation.get_scientific_name_from_taxonomy') as m_sci_name, \
+            patch('eva_submission.eload_preparation.get_metadata_connection_handle', autospec=True), \
+            patch('eva_submission.eload_preparation.ensure_taxonomy_is_in_evapro'):
             m_sci_name.return_value = 'Homo sapiens'
             self.eload.detect_metadata_attributes()
 

@@ -62,11 +62,13 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
         )
 
     def test_get_vep_versions_from_ensembl(self):
-        vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('GCA_000827895.1')
-        self.assertEqual(vep_version, 110)
-        self.assertEqual(cache_version, 57)
-        assert os.path.exists(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei'))
-        assert os.listdir(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei')) == ['57_ASM82789v1']
+        with patch('eva_submission.vep_utils.get_normalized_scientific_name') as m_get_scf_name:
+            m_get_scf_name.return_value = 'thelohanellus_kitauei'
+            vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('GCA_000827895.1')
+            self.assertEqual(vep_version, 110)
+            self.assertEqual(cache_version, 57)
+            assert os.path.exists(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei'))
+            assert os.listdir(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei')) == ['57_ASM82789v1']
 
     def test_get_vep_versions_from_ensembl_not_found(self):
         vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('GCA_015220235.1')
@@ -120,7 +122,7 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
                 get_vep_and_vep_cache_version('fake_mongo', 'fake_db', 'fake_assembly')
 
     def test_download_and_extract_vep_cache(self):
-        with patch('eva_submission.vep_utils.retrieve_species_scientific_name_from_tax_id_ncbi') as m_get_scf_name:
+        with patch('eva_submission.vep_utils.get_normalized_scientific_name') as m_get_scf_name:
             m_get_scf_name.return_value = 'whatever_species_name'
             download_and_extract_vep_cache(
                 get_ftp_connection('ftp.ensembl.org'),

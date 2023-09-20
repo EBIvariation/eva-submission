@@ -2,6 +2,7 @@ import glob
 import os
 import shutil
 import requests
+from ebi_eva_common_pyutils.metadata_utils import get_metadata_connection_handle, ensure_taxonomy_is_in_evapro
 
 from retry import retry
 
@@ -151,6 +152,8 @@ class EloadPreparation(Eload):
         taxonomy_id = eva_metadata.project.get('Tax ID')
         if taxonomy_id and (isinstance(taxonomy_id, int) or taxonomy_id.isdigit()):
             self.eload_cfg.set('submission', 'taxonomy_id', value=int(taxonomy_id))
+            with get_metadata_connection_handle(cfg['maven']['environment'], cfg['maven']['settings_file']) as pg_conn:
+                ensure_taxonomy_is_in_evapro(pg_conn, taxonomy_id)
             scientific_name = get_scientific_name_from_taxonomy(taxonomy_id,
                                                                 private_config_xml_file=cfg['maven']['settings_file'],
                                                                 profile=cfg['maven']['environment'])

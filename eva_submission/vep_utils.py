@@ -9,8 +9,8 @@ from fnmatch import fnmatch
 
 import pymongo
 import requests
-from ebi_eva_common_pyutils.ncbi_utils import get_ncbi_assembly_dicts_from_term, \
-    retrieve_species_scientific_name_from_tax_id_ncbi
+from ebi_eva_common_pyutils.ncbi_utils import get_ncbi_assembly_dicts_from_term
+from ebi_eva_common_pyutils.taxonomy.taxonomy import get_normalized_scientific_name
 from retry import retry
 
 from ebi_eva_common_pyutils.config import cfg
@@ -254,9 +254,9 @@ def recursive_nlst(ftp, root, pattern):
 
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3), logger=logger)
 def download_and_extract_vep_cache(ftp, vep_cache_file, taxonomy_id):
-    scientific_name = retrieve_species_scientific_name_from_tax_id_ncbi(taxonomy_id)
-    species_name = scientific_name.replace(' ', '_').lower()
-
+    species_name = get_normalized_scientific_name(taxonomy_id,
+                                                    private_config_xml_file=cfg['maven']['settings_file'],
+                                                    profile=cfg['maven']['environment'])
     tmp_dir = tempfile.TemporaryDirectory()
     destination = os.path.join(tmp_dir.name, f'{species_name}.tar.gz')
     with open(destination, 'wb+') as dest:
