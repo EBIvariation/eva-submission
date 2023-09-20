@@ -4,6 +4,7 @@ import shutil
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
+import pytest
 from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission.submission_config import load_config
@@ -61,6 +62,8 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
             ['root/1_collection/1_collection.tar.gz', 'root/2_collection/2_collection.tar.gz', 'root/root.tar.gz']
         )
 
+    # TODO re-enable once public FTP access is restored
+    @pytest.mark.skip(reason='Temporarily disabled due to issues with public FTP access')
     def test_get_vep_versions_from_ensembl(self):
         vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('GCA_000827895.1')
         self.assertEqual(vep_version, 110)
@@ -73,18 +76,17 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
         self.assertEqual(vep_version, None)
         self.assertEqual(cache_version, None)
 
-    # DISABLED because too slow and make deployment difficult.
-    # def test_get_vep_versions_from_ensembl_older_version(self):
-    #     # Older version of assembly using NCBI assembly code isn't found successfully
-    #     # TODO this takes about 20 minutes to finish when I test locally
-    #     vep_version, cache_version, vep_species = get_vep_and_vep_cache_version_from_ensembl('GCA_000002765.1')
-    #     self.assertEqual(vep_version, None)
-    #     self.assertEqual(cache_version, None)
-    #     # If we magically knew the Ensembl assembly code was EPr1 we could find it!
-    #     vep_version, cache_version, vep_species = get_vep_and_vep_cache_version_from_ensembl('GCA_000002765.1', 'EPr1')
-    #     self.assertEqual(vep_version, 44 + 53)
-    #     self.assertEqual(cache_version, 44)
-    #     self.assertEqual(vep_species, 'plasmodium_falciparum')
+    @pytest.mark.skip(reason='Too slow to run as is, which makes deployment difficult')
+    def test_get_vep_versions_from_ensembl_older_version(self):
+        # Older version of assembly using NCBI assembly code isn't found successfully
+        vep_version, cache_version, vep_species = get_vep_and_vep_cache_version_from_ensembl('GCA_000002765.1')
+        self.assertEqual(vep_version, None)
+        self.assertEqual(cache_version, None)
+        # If we magically knew the Ensembl assembly code was EPr1 we could find it!
+        vep_version, cache_version, vep_species = get_vep_and_vep_cache_version_from_ensembl('GCA_000002765.1', 'EPr1')
+        self.assertEqual(vep_version, 44 + 53)
+        self.assertEqual(cache_version, 44)
+        self.assertEqual(vep_species, 'plasmodium_falciparum')
 
     def test_get_vep_versions(self):
         with patch('eva_submission.vep_utils.get_vep_and_vep_cache_version_from_db') as m_get_db, \
