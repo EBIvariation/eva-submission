@@ -19,7 +19,7 @@ from argparse import ArgumentParser
 
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
-from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name, get_metadata_connection_handle, \
+from ebi_eva_internal_pyutils.metadata_utils import get_metadata_connection_handle, \
     insert_new_assembly_and_taxonomy
 
 from eva_submission.submission_config import load_config

@@ -6,8 +6,8 @@ from datetime import datetime
 from cached_property import cached_property
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
-from ebi_eva_common_pyutils.metadata_utils import get_metadata_connection_handle
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
+from ebi_eva_internal_pyutils.metadata_utils import get_metadata_connection_handle
 
 from eva_submission import __version__
 from eva_submission.config_migration import upgrade_version_0_1

@@ -7,8 +7,8 @@ from pathlib import Path
 import requests
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config
-from ebi_eva_common_pyutils.metadata_utils import get_metadata_connection_handle
-from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
+from ebi_eva_internal_pyutils.metadata_utils import get_metadata_connection_handle
+from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query
 from requests import HTTPError
 from retry import retry
 

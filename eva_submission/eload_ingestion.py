@@ -1,23 +1,24 @@
 import csv
 import os
-import requests
 import shutil
 import subprocess
 from pathlib import Path
 
+import requests
 import yaml
 from cached_property import cached_property
 from ebi_eva_common_pyutils import command_utils
+from ebi_eva_common_pyutils.assembly.assembly import get_supported_asm_from_ensembl
 from ebi_eva_common_pyutils.config import cfg
-from ebi_eva_common_pyutils.config_utils import get_mongo_uri_for_eva_profile
 from ebi_eva_common_pyutils.ena_utils import get_assembly_name_and_taxonomy_id
-from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name, insert_new_assembly_and_taxonomy, \
-    get_assembly_set_from_metadata, add_to_supported_assemblies
 from ebi_eva_common_pyutils.ncbi_utils import get_species_name_from_ncbi
-from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
-from ebi_eva_common_pyutils.spring_properties import SpringPropertiesGenerator
 from ebi_eva_common_pyutils.assembly.assembly import get_supported_asm_from_ensembl,\
     get_supported_asm_from_ensembl_rapid_release
+from ebi_eva_internal_pyutils.config_utils import get_mongo_uri_for_eva_profile
+from ebi_eva_internal_pyutils.metadata_utils import resolve_variant_warehouse_db_name, insert_new_assembly_and_taxonomy, \
+    get_assembly_set_from_metadata, add_to_supported_assemblies
+from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query, execute_query
+from ebi_eva_internal_pyutils.spring_properties import SpringPropertiesGenerator
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload

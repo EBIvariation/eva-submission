@@ -2,7 +2,7 @@ import os
 import urllib
 
 from cached_property import cached_property
-from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
+from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query
 
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import get_reference_fasta_and_report, get_project_alias, download_file
