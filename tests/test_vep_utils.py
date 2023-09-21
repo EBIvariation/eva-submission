@@ -62,8 +62,6 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
             ['root/1_collection/1_collection.tar.gz', 'root/2_collection/2_collection.tar.gz', 'root/root.tar.gz']
         )
 
-    # TODO re-enable once public FTP access is restored
-    @pytest.mark.skip(reason='Temporarily disabled due to issues with public FTP access')
     def test_get_vep_versions_from_ensembl(self):
         vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('GCA_000827895.1')
         self.assertEqual(vep_version, 110)
