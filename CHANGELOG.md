@@ -1,11 +1,18 @@
 Changelog for eva-submission
 ============================
 
-## 1.13 (unreleased)
+## 1.13 (2023-09-21)
 --------------------
 
-- Nothing changed yet.
+### Validation
+- Fix unique analysis usage in Prepare submission and ENA brokering
+- Flag for normalisation to warn on reference check issues rather than fail
+- Fix validation of date in metadata
+- Update the reference assembly in the metadata spreadsheet before brokering
 
+### Brokering
+- Fix link retrieval from upload single file to ENA
+- Hack to remove the null values in external reference
 
 ## 1.12 (2023-07-17)
 --------------------
