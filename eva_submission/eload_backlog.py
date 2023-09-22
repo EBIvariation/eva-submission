@@ -124,7 +124,7 @@ class EloadBacklog(Eload):
         if not os.path.exists(full_path):
             try:
                 self.info(f'Retrieve {basename} in {analysis} from ENA ftp')
-                url = f'http://ftp.sra.ebi.ac.uk/vol1/{analysis[:6]}/{analysis}/{basename}'
+                url = f'https://ftp.sra.ebi.ac.uk/vol1/{analysis[:6]}/{analysis}/{basename}'
                 download_file(url, full_path)
             except urllib.error.URLError:
                 self.error(f'Could not access {url} on ENA: most likely does not exist')
