@@ -16,7 +16,8 @@ from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_n
 from ebi_eva_common_pyutils.ncbi_utils import get_species_name_from_ncbi
 from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query, execute_query
 from ebi_eva_common_pyutils.spring_properties import SpringPropertiesGenerator
-from ebi_eva_common_pyutils.assembly.assembly import get_supported_asm_from_ensembl
+from ebi_eva_common_pyutils.assembly.assembly import get_supported_asm_from_ensembl,\
+    get_supported_asm_from_ensembl_rapid_release
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
@@ -404,31 +405,59 @@ class EloadIngestion(Eload):
             # Ensembl throws HTTP 400 Error if it cannot resolve a tax ID
             if ex.errno == 400:
                 pass
+        if not target_assembly:
+            target_assembly = get_supported_asm_from_ensembl_rapid_release(tax_id)
         if target_assembly:
             add_to_supported_assemblies(self.metadata_connection_handle, source_of_assembly='Ensembl',
                                         target_assembly=target_assembly, taxonomy_id=tax_id)
         return target_assembly
 
     def _get_target_assembly(self):
+        """
+        Algorithm for finding the target assembly:
+        1. If the project's taxonomy is contained in EVA's supported assembly table, use that.
+        2. Otherwise, check Ensembl (main then rapid release) for supported assembly for this taxonomy.
+           If present use that, and insert into supported assembly table.
+        3. If the project's taxonomy is not in Ensembl, check ENA for the taxonomies associated with the project's
+           assemblies, called the alternate taxonomies.
+        4. If there is exactly one alternate taxonomy, check EVAPRO first then Ensembl (main and rapid release) for its
+           supported assembly. If present use that, inserting into supported assembly table if necessary.
+        5. If we still do not have a target assembly (i.e. project taxonomy is not supported by Ensembl AND alternate
+           taxonomy cannot be determined or is not supported by Ensembl), and the project has exactly one assembly,
+           then choose that one and insert into the supported assembly table.
+        6. Otherwise return None (which will skip clustering)
+        """
         if self.taxonomy == 9606:
             self.info('No remapping or clustering for human studies')
             return None
         target_assembly = self._get_supported_assembly_from_evapro() or self._insert_new_supported_asm_from_ensembl()
         if target_assembly is None:
-            self.warning(f"Could not find remapping target assembly from EVAPRO or Ensembl for the submitted taxonomy: "
-                         f"{self.taxonomy}... Attempting to find assemblies in an alternate taxonomy...")
-            alt_tax_ids = {tax_id for tax_id in
-                               [get_assembly_name_and_taxonomy_id(asm)[1] for asm in self.assembly_accessions]
-                           if tax_id != self.taxonomy}
-            if len(alt_tax_ids) != 1:
-                self.warning("Could not find a unique alternate taxonomy for the submitted assemblies!")
-                return None
-            alt_tax_id = alt_tax_ids.pop()
-
-            self.info(f"Found a unique alternate taxonomy {alt_tax_id} for the submitted assemblies!")
-            target_assembly = self._get_supported_assembly_from_evapro(alt_tax_id) or \
-                              self._insert_new_supported_asm_from_ensembl(alt_tax_id)
+            alt_tax_id = self._get_alt_tax_id()
+            if alt_tax_id:
+                target_assembly = self._get_supported_assembly_from_evapro(alt_tax_id) or \
+                                  self._insert_new_supported_asm_from_ensembl(alt_tax_id)
+        if target_assembly is None:
+            if len(self.assembly_accessions) == 1:
+                target_assembly = list(self.assembly_accessions)[0]
+                add_to_supported_assemblies(self.metadata_connection_handle, source_of_assembly='EVA',
+                                            target_assembly=target_assembly, taxonomy_id=self.taxonomy)
+            else:
+                self.warning(f'Could not determine target assembly from EVAPRO, Ensembl, or submitted assemblies: '
+                             f'{", ".join(self.assembly_accessions)}')
         return target_assembly
+
+    def _get_alt_tax_id(self):
+        self.warning(f"Could not find remapping target assembly from EVAPRO or Ensembl for the submitted taxonomy: "
+                     f"{self.taxonomy}... Attempting to find assemblies in an alternate taxonomy...")
+        alt_tax_ids = {tax_id for tax_id in
+                       [get_assembly_name_and_taxonomy_id(asm)[1] for asm in self.assembly_accessions]
+                       if tax_id != self.taxonomy}
+        if len(alt_tax_ids) != 1:
+            self.warning("Could not find a unique alternate taxonomy for the submitted assemblies!")
+            return None
+        alt_tax_id = alt_tax_ids.pop()
+        self.info(f"Found a unique alternate taxonomy {alt_tax_id} for the submitted assemblies!")
+        return alt_tax_id
 
     def create_extraction_properties(self, output_file_path, taxonomy):
         properties = self.properties_generator.get_remapping_extraction_properties(
@@ -463,7 +492,6 @@ class EloadIngestion(Eload):
     def create_accession_properties(self, instance_id, output_file_path):
         properties = self.properties_generator.get_accessioning_properties(
             instance=instance_id,
-            target_assembly=self._get_target_assembly(),
             project_accession=self.project_accession,
             taxonomy_accession=self.taxonomy
         )

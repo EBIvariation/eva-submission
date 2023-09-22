@@ -15,10 +15,13 @@ def default_db_results_for_metadata_load():
         [(391,)]  # Check the assembly_set_id in update_assembly_set_in_analysis
     ]
 
+
 def default_db_results_for_target_assembly():
     return [
         [('GCA_999')]
     ]
+
+
 def default_db_results_for_accession():
     browsable_files = [(1, 'ERA', 'filename_1', 'PRJ', 123), (2, 'ERA', 'filename_1', 'PRJ', 123)]
     return [
@@ -44,7 +47,6 @@ def default_db_results_for_clustering():
 def default_db_results_for_ingestion():
     return (
             default_db_results_for_metadata_load()
-            + default_db_results_for_target_assembly()
             + default_db_results_for_accession()
             + default_db_results_for_clustering()
             + default_db_results_for_variant_load()
@@ -207,7 +209,7 @@ class TestEloadIngestion(TestCase):
             m_get_vep_versions.return_value = (100, 100)
             m_get_species.return_value = 'homo_sapiens'
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_get_results.side_effect = default_db_results_for_target_assembly() + default_db_results_for_accession()
+            m_get_results.side_effect = default_db_results_for_accession()
             self.eload.ingest(
                 instance_id=1,
                 tasks=['accession']
@@ -412,7 +414,7 @@ class TestEloadIngestion(TestCase):
     def test_ingest_clustering_no_supported_assembly(self):
         with self._patch_metadata_handle(), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
-                patch.object(EloadIngestion, '_get_target_assembly')  as m_target_assembly, \
+                patch.object(EloadIngestion, '_get_target_assembly') as m_target_assembly, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_run_command, \
                 patch('eva_submission.eload_ingestion.insert_new_assembly_and_taxonomy') as insert_asm_tax, \
                 self._patch_mongo_database():
@@ -469,7 +471,6 @@ class TestEloadIngestion(TestCase):
             m_get_species.return_value = 'homo_sapiens'
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = default_db_results_for_metadata_load() \
-                                        + default_db_results_for_target_assembly()\
                                         + default_db_results_for_ingestion()
 
             m_run_command.side_effect = [
@@ -535,9 +536,10 @@ class TestEloadIngestion(TestCase):
             m_get_vep_versions.return_value = (100, 100)
             m_get_species.return_value = 'homo_sapiens'
             m_post.return_value.text = self.get_mock_result_for_ena_date()
-            m_get_results.side_effect = (default_db_results_for_target_assembly()
-                    + default_db_results_for_variant_load() + default_db_results_for_target_assembly()
-                    + default_db_results_for_accession() + default_db_results_for_variant_load()
+            m_get_results.side_effect = (
+                    default_db_results_for_variant_load()
+                    + default_db_results_for_accession()
+                    + default_db_results_for_variant_load()
             )
 
             m_run_command.side_effect = [
@@ -568,3 +570,10 @@ class TestEloadIngestion(TestCase):
                                                                     'nextflow_dir')
             assert new_accession_nextflow_dir == self.eload.nextflow_complete_value
             assert not os.path.exists(accession_nextflow_dir)
+
+    def test_get_target_assembly_fallback_on_submitted_assembly(self):
+        with self._patch_metadata_handle(), \
+                patch('eva_submission.eload_ingestion.get_all_results_for_query'), \
+                patch.object(EloadIngestion, '_insert_new_supported_asm_from_ensembl') as m_ensembl_asm:
+            m_ensembl_asm.return_value = None  # Pretend Ensembl supports nothing
+            self.assertEqual(self.eload._get_target_assembly(), list(self.eload.assembly_accessions)[0])

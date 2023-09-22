@@ -32,7 +32,6 @@ ensembl_genome_dirs = [
 ]
 
 
-
 def vep_path(version):
     return os.path.join(cfg['vep_path'], f'ensembl-vep-release-{version}/vep')
 
@@ -110,19 +109,19 @@ def get_vep_cache_version_from_ftp(assembly_accession, ensembl_assembly_name=Non
     # otherwise we just search the most recent release.
 
     # First try main Ensembl release
-    ftp = get_ftp_connection(ensembl_ftp_url)
-    all_releases = get_releases(ftp, '/pub', current_release_only)
-    release = search_releases(ftp, all_releases, species_name, assembly_name, taxonomy_id)
-    if release:
-        return release, 'ensembl'
+    with get_ftp_connection(ensembl_ftp_url) as ftp:
+        all_releases = get_releases(ftp, '/pub', current_release_only)
+        release = search_releases(ftp, all_releases, species_name, assembly_name, taxonomy_id)
+        if release:
+            return release, 'ensembl'
 
     # Then try all Ensembl genomes
-    genome_ftp = get_ftp_connection(ensembl_genome_ftp_url)
-    for subdir in ensembl_genome_dirs:
-        genome_releases = get_releases(genome_ftp, subdir, current_release_only)
-        release = search_releases(genome_ftp, genome_releases, species_name, assembly_name, taxonomy_id)
-        if release:
-            return release, 'genomes'
+    with get_ftp_connection(ensembl_genome_ftp_url) as genome_ftp:
+        for subdir in ensembl_genome_dirs:
+            genome_releases = get_releases(genome_ftp, subdir, current_release_only)
+            release = search_releases(genome_ftp, genome_releases, species_name, assembly_name, taxonomy_id)
+            if release:
+                return release, 'genomes'
 
     logger.info(f'No VEP cache found anywhere on Ensembl FTP for {species_name} and {assembly_name}')
     return None, None
