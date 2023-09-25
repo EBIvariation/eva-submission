@@ -137,8 +137,6 @@ process normalise_vcf {
 
     script:
     """
-    trap 'if [[ \$? == 1 || \$? == 139 || \$? == 255 ]]; then exit 0; fi' EXIT
-
     mkdir normalised_vcfs
     $params.executable.bcftools norm --no-version -cw -f $fasta -O z -o normalised_vcfs/$vcf_file $vcf_file 2> normalised_vcfs/${vcf_file.getBaseName()}_bcftools_norm.log
     $params.executable.bcftools index -c normalised_vcfs/$vcf_file
