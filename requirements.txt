@@ -1,7 +1,7 @@
 cached-property
 cerberus
-ebi-eva-common-pyutils==0.5.8.dev1
-eva-vcf-merge>=0.0.6
+ebi-eva-common-pyutils==0.5.8.dev2
+git+https://github.com/tcezard/eva-vcf-merge.git@EVA3322-refactor#egg=eva-vcf-merge
 humanize
 lxml
 openpyxl

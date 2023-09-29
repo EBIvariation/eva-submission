@@ -5,7 +5,6 @@ import shutil
 from unittest import TestCase
 from unittest.mock import patch, PropertyMock
 
-import yaml
 from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission import NEXTFLOW_DIR

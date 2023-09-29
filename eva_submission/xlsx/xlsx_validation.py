@@ -3,8 +3,8 @@ import os
 
 import yaml
 from cerberus import Validator
-from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
+from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 from requests import HTTPError
@@ -15,6 +15,7 @@ from eva_submission.eload_utils import cast_list, check_existing_project_in_ena,
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
 not_provided_check_list = ['not provided']
+
 
 class EvaXlsxValidator(AppLogger):
 
