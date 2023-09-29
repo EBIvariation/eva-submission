@@ -9,7 +9,7 @@ from xml.etree.ElementTree import Element, ElementTree
 from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 
-from eva_submission.eload_utils import check_existing_project_in_ena
+from eva_submission.eload_utils import check_existing_project_in_ena, check_project_format
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 
@@ -103,9 +103,9 @@ class EnaXlsxConverter(AppLogger):
     def existing_project(self):
         prj_alias = self.reader.project.get('Project Alias', '')
         prj_title = self.reader.project.get('Project Title', '')
-        if re.match(r'^PRJ(EB|NA)', prj_alias) and check_existing_project_in_ena(prj_alias):
+        if check_project_format(prj_alias) and check_existing_project_in_ena(prj_alias):
             return prj_alias
-        elif re.match(r'^PRJ(EB|NA)', prj_title) and check_existing_project_in_ena(prj_title):
+        elif check_project_format(prj_title) and check_existing_project_in_ena(prj_title):
             return prj_title
         return None
 

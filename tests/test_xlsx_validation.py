@@ -93,3 +93,18 @@ class TestEvaXlsValidator(TestCase):
         assert self.validator.error_list == [
             'In row 1, collection_date is not a date or "not provided": it is set to "2019-06-08,2019-06-09"'
         ]
+
+    def test_semantic_validation(self):
+        self.validator.semantic_validation()
+        assert self.validator.error_list == []
+
+    def test_check_biosamples_accessions(self):
+        self.validator_fail.check_biosamples_accessions()
+        assert self.validator_fail.error_list == ['In Sample, row 103 BioSamples accession SAME000001 does not exist or is private']
+
+    def test_check_project_accessions(self):
+        self.validator_fail.check_project_accessions()
+        assert self.validator_fail.error_list == [
+            'In Project, row 2, Child Project(s): PRJEB00001 does not exist or is private',
+            'In Project, row 2, Child Project(s): ASMXX00001 is not a valid project accession'
+        ]

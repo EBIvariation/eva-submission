@@ -1,5 +1,6 @@
 import glob
 import os
+import re
 import urllib
 from datetime import datetime
 from xml.etree import ElementTree as ET
@@ -151,6 +152,10 @@ def download_file(url, dest):
     """Download a public file accessible via http or ftp."""
     urllib.request.urlretrieve(url, dest)
     urllib.request.urlcleanup()
+
+
+def check_project_format(project_accession):
+    return re.match(r'^PRJ(EB|NA)', project_accession)
 
 
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))

@@ -3,13 +3,15 @@ import datetime
 
 import yaml
 from cerberus import Validator
+from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 from ebi_eva_common_pyutils.variation.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
 from requests import HTTPError
 
 from eva_submission import ETC_DIR
-from eva_submission.eload_utils import cast_list
+from eva_submission.biosamples_submission import AAPHALCommunicator
+from eva_submission.eload_utils import cast_list, check_existing_project_in_ena, check_project_format
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
 not_provided_check_list = ['not provided']
@@ -24,6 +26,12 @@ class EvaXlsxValidator(AppLogger):
             self.metadata[worksheet] = self.reader._get_all_rows(worksheet)
 
         self.error_list = []
+        self.communicator = AAPHALCommunicator(
+            cfg.query('biosamples', 'aap_url'), cfg.query('biosamples', 'bsd_url'),
+            cfg.query('biosamples', 'username'), cfg.query('biosamples', 'password'),
+            cfg.query('biosamples', 'domain')
+        )
+
 
     def validate(self):
         self.cerberus_validation()
@@ -67,7 +75,7 @@ class EvaXlsxValidator(AppLogger):
         )
         self.same_set(analysis_aliases, [file_row['Analysis Alias'] for file_row in self.metadata['Files']], 'Analysis Alias', 'Files')
 
-        project_titles = [analysis_row['Project Title'] for analysis_row in self.metadata['Project']]
+        project_titles = [project_row['Project Title'] for project_row in self.metadata['Project']]
         self.same_set(project_titles, [analysis_row['Project Title'] for analysis_row in self.metadata['Analysis']], 'Project Title', 'Analysis')
 
         for row in self.metadata['Sample']:
@@ -84,7 +92,13 @@ class EvaXlsxValidator(AppLogger):
         Validation of the data that involve checking its meaning
         This function adds error statements to the errors attribute
         """
-        # Check if the references can be retrieved
+        self.check_reference_genome()
+        self.check_taxonomy_scientific_name()
+        self.check_biosamples_accessions()
+        self.check_project_accessions()
+
+    def check_reference_genome(self):
+        """Check if the references can be retrieved"""
         references = set([row['Reference'] for row in self.metadata['Analysis'] if row['Reference']])
         for reference in references:
             accessions = retrieve_genbank_assembly_accessions_from_ncbi(reference)
@@ -93,8 +107,9 @@ class EvaXlsxValidator(AppLogger):
             elif len(accessions) > 1:
                 self.error_list.append(f'In Analysis, Reference {reference} resolve to more than one accession: {accessions}')
 
+    def check_taxonomy_scientific_name(self):
+        """Check taxonomy scientific name pair"""
         correct_taxid_sc_name = {}
-        # Check taxonomy scientific name pair
         taxid_and_species_list = set([(row['Tax Id'], row['Scientific Name']) for row in self.metadata['Sample'] if row['Tax Id']])
         for taxid, species in taxid_and_species_list:
             try:
@@ -114,6 +129,39 @@ class EvaXlsxValidator(AppLogger):
         if correct_taxid_sc_name:
             self.warning(f'In some Samples, Taxonomy and scientific names are inconsistent. TaxId - {correct_taxid_sc_name.keys()}')
             self.correct_taxid_scientific_name_in_metadata(correct_taxid_sc_name, self.metadata_file, self.metadata['Sample'])
+
+    def check_biosamples_accessions(self):
+        """Check that BioSample accessions exist and are public"""
+        for row in self.metadata['Sample']:
+            if row.get('Sample Accession'):
+                sample_accession = row.get('Sample Accession').strip()
+                try:
+                    _ = self.communicator.follows_link('samples', join_url=sample_accession)
+                except ValueError:
+                    self.error_list.append(
+                        f'In Sample, row {row.get("row_num")} BioSamples accession {sample_accession} '
+                        f'does not exist or is private')
+
+    def check_project_accessions(self):
+        """Check that ENA project accessions exists and are public"""
+        for project_row in self.metadata['Project']:
+            for column_name in ['Parent Project(s)', 'Child Project(s)', 'Peer Project(s)']:
+                if project_row.get(column_name):
+                    for project_acc in project_row[column_name].split(','):
+                        if not check_project_format(project_acc):
+                            self.error_list.append(
+                                f'In Project, row {project_row.get("row_num")}, {column_name}: {project_acc} is not a valid project accession')
+                            continue
+                        if not check_existing_project_in_ena(str(project_acc)):
+                            self.error_list.append(
+                                f'In Project, row {project_row.get("row_num")}, {column_name}: {project_acc} does not exist or is private')
+
+            column_name = 'Project Alias'
+            if project_row.get(column_name):
+                project_acc = project_row.get(column_name)
+                if check_project_format(project_acc) and not check_existing_project_in_ena(str(project_acc)):
+                    self.error_list.append(
+                        f'In Project, row {project_row.get("row_num")}, {column_name}: {project_acc} does not exist or is private')
 
     def correct_taxid_scientific_name_in_metadata(self, correct_taxid_sc_name, metadata_file, samples):
         eva_xls_writer = EvaXlsxWriter(metadata_file)
@@ -169,4 +217,5 @@ class EvaXlsxValidator(AppLogger):
             return True
         except ValueError:
             return False
+
 
