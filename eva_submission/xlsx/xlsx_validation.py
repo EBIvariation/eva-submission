@@ -155,12 +155,13 @@ class EvaXlsxValidator(AppLogger):
                         if not check_existing_project_in_ena(str(project_acc)):
                             self.error_list.append(
                                 f'In Project, row {project_row.get("row_num")}, {column_name}: {project_acc} does not exist or is private')
-                column_name = 'Project Alias'
-                if project_row.get(column_name):
-                    project_acc = project_row.get(column_name)
-                    if check_project_format(project_acc) and not check_existing_project_in_ena(str(project_acc)):
-                        self.error_list.append(
-                            f'In Project, row {project_row.get("row_num")}, {column_name}: {project_acc} does not exist or is private')
+
+            column_name = 'Project Alias'
+            if project_row.get(column_name):
+                project_acc = project_row.get(column_name)
+                if check_project_format(project_acc) and not check_existing_project_in_ena(str(project_acc)):
+                    self.error_list.append(
+                        f'In Project, row {project_row.get("row_num")}, {column_name}: {project_acc} does not exist or is private')
 
     def correct_taxid_scientific_name_in_metadata(self, correct_taxid_sc_name, metadata_file, samples):
         eva_xls_writer = EvaXlsxWriter(metadata_file)
