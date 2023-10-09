@@ -7,11 +7,12 @@ import sys
 import tempfile
 from functools import cached_property
 
-from ebi_eva_common_pyutils.logger import AppLogger
-from ebi_eva_common_pyutils.metadata_utils import resolve_variant_warehouse_db_name
-from ebi_eva_common_pyutils.mongo_utils import get_mongo_connection_handle
-from ebi_eva_common_pyutils.pg_utils import get_all_results_for_query
 from ebi_eva_common_pyutils.config import cfg
+from ebi_eva_common_pyutils.logger import AppLogger
+from ebi_eva_internal_pyutils.metadata_utils import resolve_variant_warehouse_db_name
+from ebi_eva_internal_pyutils.mongo_utils import get_mongo_connection_handle
+from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query
+
 from eva_submission.retrieve_eload_and_project_from_lts import ELOADRetrieval
 from eva_submission.submission_config import EloadConfig
 

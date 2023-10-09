@@ -1,14 +1,12 @@
 import glob
 import os
 import shutil
+
 import requests
-
-from retry import retry
-
-from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 from ebi_eva_common_pyutils.config import cfg
-from ebi_eva_common_pyutils.config_utils import get_contig_alias_db_creds_for_profile
-
+from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
+from ebi_eva_internal_pyutils.config_utils import get_contig_alias_db_creds_for_profile
+from retry import retry
 
 from eva_submission.eload_submission import Eload, directory_structure
 from eva_submission.eload_utils import resolve_accession_from_text, get_reference_fasta_and_report, NCBIAssembly
