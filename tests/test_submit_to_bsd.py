@@ -305,8 +305,6 @@ class TestSampleMetadataSubmitter(BSDTestCase):
             'tree.ind': [{'text': '168-B1-R1'}]
         })
         payload = self.submitter.map_metadata_to_bsd_data()
-        print(payload[0])
-        print(expected_payload[0])
         self.assertEqual(payload, expected_payload)
 
     def test_map_partial_metadata_to_bsd_data(self):
