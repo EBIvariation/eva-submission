@@ -292,8 +292,12 @@ class EnaXlsxConverter(AppLogger):
 
     def _create_submission_xml(self, files_to_submit, action, project_row, eload):
         root = Element('SUBMISSION_SET')
+        if self.is_existing_project:
+            submission_alias = self.existing_project + '_' + eload
+        else:
+            submission_alias = eload
         submission_elemt = add_element(root, 'SUBMISSION',
-                                       alias=eload,
+                                       alias=submission_alias,
                                        center_name=project_row.get('Center'))
         actions_elemt = add_element(submission_elemt, 'ACTIONS')
         for file_dict in files_to_submit:
@@ -315,8 +319,12 @@ class EnaXlsxConverter(AppLogger):
 
     def _create_submission_single_xml(self,  action, project_row, eload):
         root = Element('SUBMISSION_SET')
+        if self.is_existing_project:
+            submission_alias = self.existing_project + '_' + eload
+        else:
+            submission_alias = eload
         submission_elemt = add_element(root, 'SUBMISSION',
-                                       alias=eload,
+                                       alias=submission_alias,
                                        center_name=project_row.get('Center'))
         actions_elemt = add_element(submission_elemt, 'ACTIONS')
         action_elemt = add_element(actions_elemt, 'ACTION')
