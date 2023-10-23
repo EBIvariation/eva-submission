@@ -106,7 +106,7 @@ Sample:
      cell_line: {           type: 'string',  nullable: True}
      serotype: {            type: 'string',  nullable: True}
      serovar: {             type: 'string',  nullable: True}
-     Novel attribute(s) : { type: 'string',  nullable: True, regex: '\w+:\w+(,\w+:\w+)*'}
+     Novel attribute(s): {  type: 'string',  nullable: True, regex: '[\w.\-]+:[\w.\-]+(,\s*[\w.\-]+:[\w.\-]+)*'}
 
 Files:
   type: 'list'
