@@ -29,6 +29,8 @@ def main():
         description='query Biosamples accessions from a file')
     arg_parser.add_argument('--accession_file', required=True,
                             help='file containing the list of accession to query')
+    arg_parser.add_argument('--charac_to_query', nargs='*',
+                            help='If set, print out the samples and the values specified')
     args = arg_parser.parse_args()
 
     log_cfg.add_stdout_handler()
@@ -42,12 +44,17 @@ def main():
         for sample_accession in open_file:
             sample_accession = sample_accession.strip()
             try:
-                response = communicator.follows_link('samples', join_url=sample_accession)
+                json_data = communicator.follows_link('samples', join_url=sample_accession)
             except ValueError:
                 print(f'{sample_accession} does not exist or is private')
                 continue
-            if response:
-                print(f'{sample_accession} exist and is public')
+            if json_data:
+                output = [f'{sample_accession} exist and is public: ']
+                if args.charac_to_query:
+                    for charac in args.charac_to_query:
+                        if charac not in json_data.get("characteristics", {}):
+                            output.append(f'{charac}: {json_data.get("characteristics", {}).get(charac)}')
+                print(' '.join(output))
 
 
 if __name__ == "__main__":
