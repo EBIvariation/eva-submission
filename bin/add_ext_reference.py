@@ -70,14 +70,17 @@ class EvaproExtReference:
             with self.metadata_connection_handle as conn:
                 execute_query(conn, query)
 
+
 def _curie_exist(curie):
     response = requests.get('https://resolver.api.identifiers.org/' + curie)
     json_data = response.json()
     resources = json_data["payload"]["resolvedResources"]
     for resource in resources:
-        response = requests.get(resource['compactIdentifierResolvedUrl'])
+        response = requests.head(resource['compactIdentifierResolvedUrl'])
         if response.ok:
             return True
+        else:
+            logger.warning(f'Cannot resolve {curie} in {resource["description"]}')
     return False
 
 
