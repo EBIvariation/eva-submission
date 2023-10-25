@@ -188,8 +188,8 @@ class BSDSubmitter(AppLogger):
 
     def validate_in_bsd(self, samples_data):
         for sample in samples_data:
-            # If we're only retrieving, don't need to validate.
-            if not self.should_retrieve(sample):
+            # If we're only retrieving, or updating don't need to validate.
+            if not self.should_retrieve(sample) and not self.should_update(sample):
                 sample.update(self.communicator.communicator_attributes)
                 self.communicator.follows_link('samples', join_url='validate', method='POST', json=sample)
 
@@ -197,7 +197,7 @@ class BSDSubmitter(AppLogger):
         """Curation object can only change 3 attributes characteristics, externalReferences and relationships"""
         current_sample = self.communicator.follows_link('samples', method='GET', join_url=future_sample.get('accession'))
 
-        #FIXME: Remove this hack when this i fixed on BioSample's side
+        #FIXME: Remove this hack when this is fixed on BioSample's side
         # remove null values in externalReferences that causes crash when POSTing the curation object
         if 'externalReferences' in current_sample:
             current_sample['externalReferences'] = [
