@@ -18,7 +18,8 @@ nextflow run ${SOURCE_DIR}/accession_and_load.nf -params-file test_ingestion_con
 	 --public_dir ${SCRIPT_DIR}/project/public
 # check for public files and logs
 printf "\e[32m====== Files made public ======\e[0m\n"
-ls project/public
+for f in test1 test2 test3; do ls project/public/${f}.accessioned.vcf.gz project/public/${f}.accessioned.vcf.gz.csi; done
+ls project/public/ | wc -l
 printf "\n\e[32m======== Commands run ========\e[0m\n"
 find work/ \( -name '*.out' -o -name '*.err' \) -exec cat {} \;
 

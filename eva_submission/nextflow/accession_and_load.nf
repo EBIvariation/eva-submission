@@ -115,8 +115,13 @@ workflow {
             .map{row -> tuple(file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name, row.vep_version, row.vep_cache_version, row.vep_species, row.aggregation)}
     load_vcf(annotated_vcfs)
 
-    if (is_human_study) {
-        import_accession(sort_and_compress_vcf.out.compressed_vcf, load_vcf.out.variant_load_complete)
+    if (!is_human_study) {
+        vcf_files_dbname = Channel.fromPath(params.valid_vcfs)
+                .splitCsv(header:true)
+                .map{row -> tuple(file(row.vcf_file), row.db_name)}
+        // the vcf_files_dbname give the link between input file and compressed_vcf is to ensure the accessioning has
+        // been completed
+        import_accession(vcf_files_dbname, sort_and_compress_vcf.out.compressed_vcf, load_vcf.out.variant_load_complete)
     }
 }
 
@@ -176,7 +181,6 @@ process sort_and_compress_vcf {
     path tmp_file
 
     output:
-    // used by csi indexing process
     path "*.gz", emit: compressed_vcf
 
     """
@@ -219,7 +223,7 @@ process csi_index_vcf {
         """
         cd $params.public_dir
         # remove the uncompressed accessioned vcf file
-        rm ${accessioned_vcfs.join(' ')}
+        rm -f ${accessioned_vcfs.join(' ')}
         rsync -va * ${params.public_ftp_dir}/${params.project_accession}
         ls -l ${params.public_ftp_dir}/${params.project_accession}/*
         """
@@ -296,6 +300,7 @@ process import_accession {
 
     input:
     tuple val(vcf_file), val(db_name)
+    path compressed_vcf
     val variant_load_output
 
     memory '5 GB'
