@@ -61,7 +61,7 @@ jobs:
         # Run nextflow tests
         tests/nextflow-tests/run_tests_validation.sh
         tests/nextflow-tests/run_tests_prep_brokering.sh
-        tests/nextflow-tests/run_tests.sh
-        tests/nextflow-tests/run_tests_human.sh
+        tests/nextflow-tests/run_tests_accession_and_variant_load.sh
+        tests/nextflow-tests/run_tests_accession_and_variant_load_human.sh
         tests/nextflow-tests/run_tests_clustering.sh
         tests/nextflow-tests/run_tests_remapping_clustering.sh

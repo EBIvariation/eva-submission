@@ -11,13 +11,11 @@ mkdir -p project project/accessions project/public ftp
 
 # run accession and variant load
 # note public_dir needs to be an absolute path, unlike others in config
-printf "\e[32m===== ACCESSION PIPELINE =====\e[0m\n"
-nextflow run "${SOURCE_DIR}/accession.nf" -params-file test_ingestion_config.yaml \
+printf "\e[32m==== ACCESSION & VARIANT LOAD PIPELINES ====\e[0m\n"
+nextflow run ${SOURCE_DIR}/accession_and_load.nf -params-file test_ingestion_config_human.yaml \
+   --project_dir ${SCRIPT_DIR}/project \
    --accessions_dir ${SCRIPT_DIR}/project/accessions \
 	 --public_dir ${SCRIPT_DIR}/project/public
-printf "\e[32m==== VARIANT LOAD PIPELINE ====\e[0m\n"
-nextflow run ${SOURCE_DIR}/variant_load.nf -params-file test_ingestion_config.yaml \
-   --project_dir ${SCRIPT_DIR}/project
 
 # check for public files and logs
 printf "\e[32m====== Files made public ======\e[0m\n"
