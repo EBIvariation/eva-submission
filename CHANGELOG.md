@@ -1,10 +1,15 @@
 Changelog for eva-submission
 ============================
 
-## 1.14 (unreleased)
+## 1.14 (2023-10-30)
 --------------------
-
-- Nothing changed yet.
+- Use new version of eva-common-pyutils (v0.6.2).
+- Do not validate biosamples when we update sample info. See [here](https://github.com/EBIvariation/eva-submission/pull/178).
+- Improve novel attributes validation. See [here](https://github.com/EBIvariation/eva-submission/pull/176).
+- Refactor to use new version of pyutils. See [here](https://github.com/EBIvariation/eva-submission/pull/174).
+- Add check for ENA projects and Biosamples accession. See [here](https://github.com/EBIvariation/eva-submission/pull/173).
+- Do not catch errors during normalisation. See [here](https://github.com/EBIvariation/eva-submission/pull/172).
+- Use Ensembl rapid release and project assembly as fallbacks for target assembly. See [here](https://github.com/EBIvariation/eva-submission/pull/170).
 
 
 ## 1.13 (2023-09-21)
