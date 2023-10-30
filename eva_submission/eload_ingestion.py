@@ -89,7 +89,7 @@ class EloadIngestion(Eload):
         if do_accession or do_variant_load or annotation_only:
             self.fill_vep_versions(vep_cache_assembly_name)
             vcf_files_to_ingest = self._generate_csv_mappings_to_ingest()
-            self.run_accession_and_load_workflow(vcf_files_to_ingest, annotation_only, resume=resume)
+            self.run_accession_and_load_workflow(vcf_files_to_ingest, annotation_only, resume=resume, tasks=tasks)
 
         if 'optional_remap_and_cluster' in tasks:
             self.eload_cfg.set(self.config_section, 'clustering', 'instance_id', value=clustering_instance_id)
@@ -100,10 +100,13 @@ class EloadIngestion(Eload):
             else:
                 self.warning(f'Could not find any current supported assembly for the submission, skipping clustering')
 
-        # update metadata
-        self.update_loaded_assembly_in_browsable_files()
+        if do_accession or do_variant_load or annotation_only:
+            self._update_metadata_post_ingestion()
+
+    def _update_metadata_post_ingestion(self):
         self.insert_browsable_files()
         self.update_browsable_files_with_date()
+        self.update_loaded_assembly_in_browsable_files()
         self.update_files_with_ftp_path()
         self.refresh_study_browser()
 
@@ -305,7 +308,7 @@ class EloadIngestion(Eload):
                     self.warning(f"VCF files for analysis {analysis_alias} not found")
         return vcf_files_to_ingest
 
-    def run_accession_and_load_workflow(self, vcf_files_to_ingest, annotation_only, resume):
+    def run_accession_and_load_workflow(self, vcf_files_to_ingest, annotation_only, resume, tasks=None):
         instance_id = self.eload_cfg.query(self.config_section, 'accession', 'instance_id')
         output_dir = os.path.join(self.project_dir, project_dirs['accessions'])
         accession_properties_file = self.create_accession_properties(
@@ -331,9 +334,10 @@ class EloadIngestion(Eload):
             'annotation_only': annotation_only,
             'accession_job_props': accession_properties_file,
             'load_job_props': variant_load_properties_file,
-            'acc_import_job_props': accession_import_properties_file
+            'acc_import_job_props': accession_import_properties_file,
+            'tasks': tasks
         }
-        self.run_nextflow('accession_and_load', accession_config, resume)
+        self.run_nextflow('accession_and_load', accession_config, resume, tasks)
 
     def run_remap_and_cluster_workflow(self, target_assembly, resume):
         clustering_instance = self.eload_cfg.query(self.config_section, 'clustering', 'instance_id')
@@ -626,15 +630,21 @@ class EloadIngestion(Eload):
     def valid_vcf_filenames(self):
         return list(self.project_dir.joinpath(project_dirs['valid']).glob('*.vcf.gz'))
 
-    def run_nextflow(self, workflow_name, params, resume):
+    def run_nextflow(self, workflow_name, params, resume, tasks=None):
         """
         Runs a Nextflow workflow using the provided parameters.
         This will create a Nextflow work directory and delete it if the process completes successfully.
         If the process fails, the work directory is preserved and the process can be resumed.
         """
         work_dir = None
+        if tasks and tasks is not self.all_tasks:
+            # The subsection name combine the workflow and the tasks to ensure resumability only applies to a workflow
+            # and its tasks
+            subsection_name = workflow_name + '_' + '_'.join(sorted(tasks))
+        else:
+            subsection_name = workflow_name
         if resume:
-            work_dir = self.eload_cfg.query(self.config_section, workflow_name, 'nextflow_dir')
+            work_dir = self.eload_cfg.query(self.config_section, subsection_name, 'nextflow_dir')
             if work_dir == self.nextflow_complete_value:
                 self.info(f'Nextflow {workflow_name} pipeline already completed, skipping.')
                 return
@@ -643,7 +653,7 @@ class EloadIngestion(Eload):
                 work_dir = None
         if not resume or not work_dir:
             work_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
-            self.eload_cfg.set(self.config_section, workflow_name, 'nextflow_dir', value=work_dir)
+            self.eload_cfg.set(self.config_section, subsection_name, 'nextflow_dir', value=work_dir)
 
         params_file = os.path.join(self.project_dir, f'{workflow_name}_params.yaml')
         with open(params_file, 'w') as open_file:
@@ -662,7 +672,7 @@ class EloadIngestion(Eload):
                 ))
             )
             shutil.rmtree(work_dir)
-            self.eload_cfg.set(self.config_section, str(workflow_name), 'nextflow_dir',
+            self.eload_cfg.set(self.config_section, str(subsection_name), 'nextflow_dir',
                                value=self.nextflow_complete_value)
         except subprocess.CalledProcessError as e:
             error_msg = f'Nextflow {workflow_name} pipeline failed: results might not be complete.'

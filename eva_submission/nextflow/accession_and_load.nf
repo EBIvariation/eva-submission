@@ -39,6 +39,8 @@ params.annotation_only = null
 params.executable = ["bcftools": "bcftools", "tabix": "tabix", "bgzip": "bgzip"]
 // java jars
 params.jar = ["accession_pipeline": "accession_pipeline", "eva_pipeline": "eva_pipeline"]
+// ingestion tasks
+params.ingestion_tasks = ["metadata_load", "accession", "variant_load", "annotation", "optional_remap_and_cluster"]
 // help
 params.help = null
 
@@ -92,36 +94,43 @@ human study:
   - Initialize csi_vcfs with values enabling them to start the processes "csi_index_vcf".
 */
 workflow {
+    all_accession_complete = null
     is_human_study = (params.taxonomy == 9606)
-    if (is_human_study) {
-        csi_vcfs = Channel.fromPath(params.valid_vcfs)
-            .splitCsv(header:true)
-            .map{row -> tuple(file(row.vcf_file))}
-        accessioned_files_to_rm = Channel.empty()
-    } else {
-        valid_vcfs = Channel.fromPath(params.valid_vcfs)
-            .splitCsv(header:true)
-            .map{row -> tuple(file(row.vcf_file), row.assembly_accession, row.aggregation, file(row.fasta), file(row.report))}
-        accession_vcf(valid_vcfs)
-        sort_and_compress_vcf(accession_vcf.out.accession_done)
-        csi_vcfs = sort_and_compress_vcf.out.compressed_vcf
-        accessioned_files_to_rm = accession_vcf.out.accessioned_filenames
-    }
-    csi_index_vcf(csi_vcfs)
-    copy_to_ftp(csi_index_vcf.out.csi_indexed_vcf.toList(), accessioned_files_to_rm.toList())
-
-    annotated_vcfs = Channel.fromPath(params.valid_vcfs)
-            .splitCsv(header:true)
-            .map{row -> tuple(file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name, row.vep_version, row.vep_cache_version, row.vep_species, row.aggregation)}
-    load_vcf(annotated_vcfs)
-
-    if (!is_human_study) {
-        vcf_files_dbname = Channel.fromPath(params.valid_vcfs)
+    if ("accession" in params.ingestion_tasks) {
+        if (is_human_study) {
+            csi_vcfs = Channel.fromPath(params.valid_vcfs)
                 .splitCsv(header:true)
-                .map{row -> tuple(file(row.vcf_file), row.db_name)}
-        // the vcf_files_dbname give the link between input file and compressed_vcf is to ensure the accessioning has
-        // been completed
-        import_accession(vcf_files_dbname, sort_and_compress_vcf.out.compressed_vcf, load_vcf.out.variant_load_complete)
+                .map{row -> tuple(file(row.vcf_file))}
+            accessioned_files_to_rm = Channel.empty()
+        } else {
+            valid_vcfs = Channel.fromPath(params.valid_vcfs)
+                .splitCsv(header:true)
+                .map{row -> tuple(file(row.vcf_file), row.assembly_accession, row.aggregation, file(row.fasta), file(row.report))}
+            accession_vcf(valid_vcfs)
+            sort_and_compress_vcf(accession_vcf.out.accession_done)
+            csi_vcfs = sort_and_compress_vcf.out.compressed_vcf
+            accessioned_files_to_rm = accession_vcf.out.accessioned_filenames
+            all_accession_complete = sort_and_compress_vcf.out.compressed_vcf
+        }
+        csi_index_vcf(csi_vcfs)
+        copy_to_ftp(csi_index_vcf.out.csi_indexed_vcf.toList(), accessioned_files_to_rm.toList())
+    }
+    if ("variant_load" in params.ingestion_tasks || "annotation" in params.ingestion_tasks) {
+        annotated_vcfs = Channel.fromPath(params.valid_vcfs)
+                .splitCsv(header:true)
+                .map{row -> tuple(file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name, row.vep_version, row.vep_cache_version, row.vep_species, row.aggregation)}
+        load_vcf(annotated_vcfs)
+
+        if (!is_human_study) {
+            vcf_files_dbname = Channel.fromPath(params.valid_vcfs)
+                    .splitCsv(header:true)
+                    .map{row -> tuple(file(row.vcf_file), row.db_name)}
+            // the vcf_files_dbname give the link between input file and all_accession_complete is to ensure the
+            // accessioning has been completed
+            if (all_accession_complete){
+                import_accession(vcf_files_dbname, all_accession_complete, load_vcf.out.variant_load_complete)
+            }
+        }
     }
 }
 
@@ -300,7 +309,7 @@ process import_accession {
 
     input:
     tuple val(vcf_file), val(db_name)
-    path compressed_vcf
+    val all_accession_complete
     val variant_load_output
 
     memory '5 GB'
