@@ -2,8 +2,7 @@ import os
 from datetime import datetime
 from unittest import TestCase
 import xml.etree.ElementTree as ET
-from unittest.mock import patch, Mock
-
+from unittest.mock import patch, Mock, PropertyMock
 from eva_submission import ROOT_DIR
 from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsxConverter
 
@@ -250,12 +249,15 @@ class TestEnaXlsConverter(TestCase):
 
     def test_create_submission_files_for_existing_project(self):
         # When the project already exist not PROJECT XML will be generated
-        with patch.object(EnaXlsxConverter, 'is_existing_project', return_value=True):
+        with patch.object(EnaXlsxConverter, 'existing_project', new_callable=PropertyMock(return_value='PRJEB00001')):
             submission_file, project_file, analysis_file = self.converter.create_submission_files('ELOAD_1')
             assert os.path.exists(submission_file)
             assert project_file is None
             assert os.path.exists(analysis_file)
             assert not os.path.exists(self.converter.project_file)
+            with open(submission_file) as open_file:
+                root = ET.fromstring(open_file.read())
+                assert list(root)[0].attrib['alias'] == 'PRJEB00001_ELOAD_1'
 
     def test_create_single_submission_files(self):
         self.converter.create_single_submission_file('ELOAD_1')
