@@ -1,14 +1,31 @@
 Changelog for eva-submission
 ============================
 
+## 1.14.1 (2023-11-02)
+--------------------
+
+### Brokering
+ - Fix submission to existing project accession (see [PR177](https://github.com/EBIvariation/eva-submission/pull/177))
+ - New script to Insert a publication in EVAPRO (see [PR180](https://github.com/EBIvariation/eva-submission/pull/180))
+
+### Ingestion 
+ - Change the default ingestion instance to 2 (see [PR182](https://github.com/EBIvariation/eva-submission/pull/182))
+
 ## 1.14 (2023-10-30)
 --------------------
+
 - Use new version of eva-common-pyutils (v0.6.2).
-- Do not validate biosamples when we update sample info. See [here](https://github.com/EBIvariation/eva-submission/pull/178).
-- Improve novel attributes validation. See [here](https://github.com/EBIvariation/eva-submission/pull/176).
 - Refactor to use new version of pyutils. See [here](https://github.com/EBIvariation/eva-submission/pull/174).
+
+### Validation
 - Add check for ENA projects and Biosamples accession. See [here](https://github.com/EBIvariation/eva-submission/pull/173).
+- Improve novel attributes validation. See [here](https://github.com/EBIvariation/eva-submission/pull/176).
+- Do not validate biosamples when we update sample info. See [here](https://github.com/EBIvariation/eva-submission/pull/178).
+
+### Brokering
 - Do not catch errors during normalisation. See [here](https://github.com/EBIvariation/eva-submission/pull/172).
+
+### Ingestion
 - Use Ensembl rapid release and project assembly as fallbacks for target assembly. See [here](https://github.com/EBIvariation/eva-submission/pull/170).
 
 
