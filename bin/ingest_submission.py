@@ -27,7 +27,7 @@ logger = log_cfg.get_logger(__name__)
 def main():
     argparse = ArgumentParser(description='Accession and ingest submission data into EVA')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission.')
-    argparse.add_argument('--instance', required=False, type=int, choices=range(1, 13), default=1,
+    argparse.add_argument('--instance', required=False, type=int, choices=range(1, 13), default=2,
                           help='The instance id to use for accessioning. Only needed if running accessioning.')
     argparse.add_argument('--clustering_instance', required=False, type=int, choices=range(1, 13), default=6,
                           help='The instance id to use for clustering. Only needed if running clustering.')
