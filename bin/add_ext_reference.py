@@ -16,6 +16,7 @@
 
 import argparse
 import logging
+import sys
 
 import requests
 from ebi_eva_common_pyutils.config import cfg
@@ -31,7 +32,7 @@ logger = log_cfg.get_logger(__name__)
 
 
 def add_external_reference_to_ena(project_accession, source_database, identifier):
-    pass
+    logger.warning('This script does not support uploading the external reference to ENA. Please do this manually')
 
 
 class EvaproExtReference:
@@ -108,14 +109,18 @@ def main():
 
     if not check_project_exists_in_evapro(args.project_accession):
         logger.error(f'{args.project_accession} does not exist in EVAPRO')
+        return 1
     if not check_existing_project_in_ena(args.project_accession):
         logger.error(f'{args.project_accession} does not exist or is not public in ENA')
+        return 1
     if _curie_exist(args.source_database + ":" + args.identifier):
         add_external_reference_to_ena(args.project_accession, args.source_database, args.identifier)
         EvaproExtReference().add_external_reference_to_evapro(args.project_accession, args.source_database, args.identifier)
     else:
         logger.error(f'Cannot resolve {args.source_database}:{args.identifier} in identifiers.org')
 
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
