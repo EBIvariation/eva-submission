@@ -50,7 +50,12 @@ def add_links(links_elemt, links, link_type=None):
         link_type_elemt = add_element(links_elemt, link_type)
         if re.match('^(ftp:|http:|file:|https:)', link):
             # TODO: requirement in the format
-            url, label = link.split('|')
+            sp_link = link.split('|')
+            if len(sp_link) == 2:
+                url, label = sp_link
+            else:
+                url = link
+                label = link
             url_link_elemt = add_element(link_type_elemt, 'URL_LINK')
             add_element(url_link_elemt, 'LABEL', element_text=label)
             add_element(url_link_elemt, 'URL', element_text=url)
