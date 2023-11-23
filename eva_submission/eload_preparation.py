@@ -9,7 +9,8 @@ from ebi_eva_internal_pyutils.config_utils import get_contig_alias_db_creds_for_
 from retry import retry
 
 from eva_submission.eload_submission import Eload, directory_structure
-from eva_submission.eload_utils import resolve_accession_from_text, get_reference_fasta_and_report, NCBIAssembly
+from eva_submission.eload_utils import resolve_accession_from_text, get_reference_fasta_and_report, NCBIAssembly, \
+    create_assembly_report_from_fasta
 from eva_submission.submission_in_ftp import FtpDepositBox
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
@@ -175,10 +176,9 @@ class EloadPreparation(Eload):
 
                 assembly_fasta_path, assembly_report_path = get_reference_fasta_and_report(scientific_name,
                                                                                            assembly_accession)
-                if assembly_report_path:
-                    self.eload_cfg.set('submission', 'analyses', analysis_alias, 'assembly_report', value=assembly_report_path)
-                else:
-                    self.warning(f'Assembly report was not set for {assembly_accession}')
+                if not assembly_report_path:
+                    create_assembly_report_from_fasta(assembly_fasta_path, assembly_report_path)
+                self.eload_cfg.set('submission', 'analyses', analysis_alias, 'assembly_report', value=assembly_report_path)
                 self.eload_cfg.set('submission', 'analyses', analysis_alias, 'assembly_fasta', value=assembly_fasta_path)
 
             self.contig_alias_put_db(contig_alias_payload, contig_alias_url, contig_alias_user,
