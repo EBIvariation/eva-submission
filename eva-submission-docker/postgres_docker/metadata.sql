@@ -256,7 +256,7 @@ ALTER TABLE evapro.file ADD CONSTRAINT file_fileclass_fk FOREIGN KEY (file_class
 
 CREATE TABLE evapro.browsable_file (
 	file_id int4 NOT NULL,
-	ena_submission_file_id varchar(45) NOT NULL,
+	ena_submission_file_id varchar(45) NULL DEFAULT NULL::character varying,,
 	filename varchar(250) NOT NULL,
 	loaded bool NOT NULL DEFAULT false,
 	eva_release varchar(50) NOT NULL DEFAULT 'Unreleased'::character varying,
