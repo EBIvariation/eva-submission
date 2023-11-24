@@ -228,10 +228,11 @@ def detect_vcf_aggregation(vcf_file):
             return None
 
 
-def create_assembly_report_from_fasta(assembly_fasta_path, assembly_report_path):
+def create_assembly_report_from_fasta(assembly_fasta_path):
     contig_name_in_fasta = []
     seq_length = 0
     name = None
+    assembly_report_path = os.path.splitext(assembly_fasta_path)[0] + '_assembly_report.txt'
     with open(assembly_fasta_path, 'r') as open_file:
         for line in open_file:
             if line.startswith('>'):
@@ -251,3 +252,4 @@ def create_assembly_report_from_fasta(assembly_fasta_path, assembly_report_path)
         ]) + '\n')
         for contig_name, seq_length in contig_name_in_fasta:
             open_file.write('\t'.join(['na', 'na', 'na', 'na', contig_name, '<>', 'na', 'na', str(seq_length), 'na']) + '\n')
+    return assembly_report_path

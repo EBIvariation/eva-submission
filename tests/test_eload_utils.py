@@ -1,4 +1,5 @@
 import os
+import shutil
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -18,7 +19,12 @@ class TestEloadUtils(TestCase):
         os.chdir(self.top_dir)
 
     def tearDown(self) -> None:
-        os.remove(os.path.join(self.resources_folder, 'GCA_000002945.2', 'GCA_000002945.2_generated_report.txt'))
+        generated_assembly_report = os.path.join(self.resources_folder, 'GCA_000002945.2',
+                                                 'copy_GCA_000002945.2_assembly_report.txt')
+        copied_assembly = os.path.join(self.resources_folder, 'GCA_000002945.2', 'copy_GCA_000002945.2.fa')
+        for f in [copied_assembly, generated_assembly_report]:
+            if os.path.exists(f):
+                os.remove(f)
 
     def test_check_project_exists_in_evapro(self):
         with patch('eva_submission.eload_utils.get_metadata_connection_handle'), \
@@ -46,8 +52,10 @@ class TestEloadUtils(TestCase):
 
     def test_create_assembly_report_from_fasta(self):
         fasta_file = os.path.join(self.resources_folder, 'GCA_000002945.2', 'GCA_000002945.2.fa')
-        report_file = os.path.join(self.resources_folder, 'GCA_000002945.2', 'GCA_000002945.2_generated_report.txt')
+        c_fasta_file = os.path.join(self.resources_folder, 'GCA_000002945.2', 'copy_GCA_000002945.2.fa')
+        shutil.copy(fasta_file, c_fasta_file)
+        report_file = os.path.join(self.resources_folder, 'GCA_000002945.2', 'copy_GCA_000002945.2_assembly_report.txt')
         assert not os.path.isfile(report_file)
-        create_assembly_report_from_fasta(fasta_file, report_file)
+        report_file = create_assembly_report_from_fasta(c_fasta_file)
         assert os.path.isfile(report_file)
 
