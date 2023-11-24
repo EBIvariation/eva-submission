@@ -9,7 +9,7 @@ from functools import cached_property
 
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
-from ebi_eva_internal_pyutils.metadata_utils import resolve_variant_warehouse_db_name
+from ebi_eva_internal_pyutils.metadata_utils import resolve_variant_warehouse_db_name, get_metadata_connection_handle
 from ebi_eva_internal_pyutils.mongo_utils import get_mongo_connection_handle
 from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query
 
@@ -17,6 +17,7 @@ from eva_submission.retrieve_eload_and_project_from_lts import ELOADRetrieval
 from eva_submission.submission_config import EloadConfig
 
 
+# noinspection SqlDialectInspection,SqlNoDataSourceInspection
 class EloadStatus(AppLogger):
 
     def __init__(self, eload_number: int):
@@ -117,9 +118,13 @@ class EloadStatus(AppLogger):
         else:
             all_status = self.status_per_analysis()
         writer = csv.DictWriter(sys.stdout, fieldnames=header, delimiter='\t')
-        # writer.writeheader()
+        writer.writeheader()
         for st in all_status:
             writer.writerow(st)
+
+    @property
+    def metadata_connection_handle(self):
+        return get_metadata_connection_handle(cfg['maven']['environment'], cfg['maven']['settings_file'])
 
     @cached_property
     def mongo_conn(self):
@@ -222,7 +227,8 @@ class EloadStatus(AppLogger):
                     current_tax_id = tax_id
                     filenames = []
                 filenames.append(filename)
-            yield current_analysis, current_assembly, current_tax_id, filenames
+            if current_analysis:
+                yield current_analysis, current_assembly, current_tax_id, filenames
 
     def get_taxonomy_for_project(self):
         taxonomies = []
@@ -242,6 +248,11 @@ class EloadStatus(AppLogger):
         """
         accessioning_reports = self.get_accession_reports_for_study()
         accessioned_filenames = [self.get_accession_file(f) for f in filenames]
+        if not accessioning_reports:
+            # No reports
+            self.error(f'Cannot assign accessioning report to project {self.project} analysis {analysis} '
+                       f'for files {accessioning_reports}')
+            return []
         if len(accessioning_reports) == 1:
             # Only one accessioning report
             accessioning_report = accessioning_reports[0]
@@ -252,7 +263,7 @@ class EloadStatus(AppLogger):
             # Only one accessioning report that contains the analysis accession in its name
             accessioning_report = [r for r in accessioning_reports if analysis in r][0]
         elif accessioning_reports:
-            # Multiple accessioning reports and we cannot figure out which one is for this analysis
+            # Multiple accessioning reports, and we cannot figure out which one is for this analysis
             # Assume that the first one can be used
             self.warning(
                 f'Assume all accessioning reports are from project {self.project}:{analysis} '
@@ -260,11 +271,6 @@ class EloadStatus(AppLogger):
                 f'All reports: {", ".join(accessioning_reports)}'
             )
             accessioning_report = accessioning_reports[0]
-        else:
-            # No reports
-            self.error(f'Cannot assign accessioning report to project {self.project} analysis {analysis} '
-                       f'for files {accessioning_reports}')
-            return []
         return self.get_accessioning_info_from_file(accessioning_report)
 
     def get_accession_file(self, filename):

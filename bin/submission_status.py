@@ -41,8 +41,8 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    with EloadStatus(args.eload) as eload:
-        eload.status()
+    eload = EloadStatus(args.eload)
+    eload.status()
 
 
 if __name__ == "__main__":
