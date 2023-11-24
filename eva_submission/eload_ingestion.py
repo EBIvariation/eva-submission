@@ -282,8 +282,8 @@ class EloadIngestion(Eload):
         vcf_files_to_ingest = os.path.join(self.eload_dir, 'vcf_files_to_ingest.csv')
         with open(vcf_files_to_ingest, 'w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(['vcf_file', 'assembly_accession', 'fasta', 'report', 'analysis_accession', 'db_name',
-                             'vep_version', 'vep_cache_version', 'vep_species', 'aggregation'])
+            writer.writerow(['vcf_file', 'csi_file', 'assembly_accession', 'fasta', 'report', 'analysis_accession',
+                             'db_name', 'vep_version', 'vep_cache_version', 'vep_species', 'aggregation'])
             analyses = self.eload_cfg.query('brokering', 'analyses')
             for analysis_alias, analysis_data in analyses.items():
                 assembly_accession = analysis_data['assembly_accession']
@@ -302,7 +302,8 @@ class EloadIngestion(Eload):
                 aggregation = self.eload_cfg.query(self.config_section, 'aggregation', analysis_accession)
                 if analysis_data['vcf_files']:
                     for vcf_file in analysis_data['vcf_files']:
-                        writer.writerow([vcf_file, assembly_accession, fasta, report, analysis_accession, db_name,
+                        csi_file = analysis_data['vcf_files'][vcf_file]['csi']
+                        writer.writerow([vcf_file, csi_file, assembly_accession, fasta, report, analysis_accession, db_name,
                                          vep_version, vep_cache_version, vep_species, aggregation])
                 else:
                     self.warning(f"VCF files for analysis {analysis_alias} not found")
