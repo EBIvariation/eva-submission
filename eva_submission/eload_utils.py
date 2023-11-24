@@ -229,6 +229,10 @@ def detect_vcf_aggregation(vcf_file):
 
 
 def create_assembly_report_from_fasta(assembly_fasta_path):
+    """
+    Create a dummy assembly report based solely on the provided fasta.
+    This method assume the fasta file contains INSDC sequence accession.
+    """
     contig_name_in_fasta = []
     seq_length = 0
     name = None
