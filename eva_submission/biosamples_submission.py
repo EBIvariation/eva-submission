@@ -245,10 +245,11 @@ class BSDSubmitter(AppLogger):
             elif self.should_update(sample):
                 self.debug('Update sample ' + sample.get('name') + ' with accession ' + sample.get('accession'))
                 curation_object = self.convert_sample_data_to_curation_object(sample)
-                sample_json = self.communicator.follows_link('samples', method='POST',
-                                                             join_url=sample.get('accession')+'/curationlinks',
-                                                             json=curation_object)
-
+                curation_json = self.communicator.follows_link('samples', method='POST',
+                                                               join_url=sample.get('accession')+'/curationlinks',
+                                                               json=curation_object)
+                self.debug(f'Curation: {curation_json}')
+                sample_json = sample
             # Otherwise Keep the sample as is and retrieve the name so that list of sample to accession is complete
             else:
                 sample_json = self.communicator.follows_link('samples', method='GET', join_url=sample.get('accession'))
