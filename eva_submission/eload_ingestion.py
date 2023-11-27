@@ -335,8 +335,8 @@ class EloadIngestion(Eload):
             'accession_job_props': accession_properties_file,
             'load_job_props': variant_load_properties_file,
             'acc_import_job_props': accession_import_properties_file,
-            'tasks': tasks
         }
+        tasks = [task for task in tasks if task in ['accession', 'variant_load', 'annotation']]
         self.run_nextflow('accession_and_load', accession_config, resume, tasks)
 
     def run_remap_and_cluster_workflow(self, target_assembly, resume):
@@ -375,7 +375,7 @@ class EloadIngestion(Eload):
         }
         for part in ['executable', 'nextflow', 'jar']:
             remap_cluster_config[part] = cfg[part]
-        self.run_nextflow('remap_and_cluster', remap_cluster_config, resume)
+        self.run_nextflow('remap_and_cluster', remap_cluster_config, resume, tasks=['optional_remap_and_cluster'])
 
     def _get_supported_assembly_from_evapro(self, tax_id: int = None):
         tax_id = tax_id or self.taxonomy
@@ -630,31 +630,45 @@ class EloadIngestion(Eload):
     def valid_vcf_filenames(self):
         return list(self.project_dir.joinpath(project_dirs['valid']).glob('*.vcf.gz'))
 
-    def run_nextflow(self, workflow_name, params, resume, tasks=None):
+    def run_nextflow(self, workflow_name, params, resume, tasks=all_tasks):
         """
         Runs a Nextflow workflow using the provided parameters.
         This will create a Nextflow work directory and delete it if the process completes successfully.
         If the process fails, the work directory is preserved and the process can be resumed.
         """
         work_dir = None
-        if tasks and tasks is not self.all_tasks:
-            # The subsection name combine the workflow and the tasks to ensure resumability only applies to a workflow
-            # and its tasks
-            subsection_name = workflow_name + '_' + '_'.join(sorted(tasks))
-        else:
-            subsection_name = workflow_name
         if resume:
-            work_dir = self.eload_cfg.query(self.config_section, subsection_name, 'nextflow_dir')
-            if work_dir == self.nextflow_complete_value:
-                self.info(f'Nextflow {workflow_name} pipeline already completed, skipping.')
-                return
-            if not work_dir or not os.path.exists(work_dir):
+            completed_tasks = [
+                task for task in tasks
+                if self.eload_cfg.query(self.config_section, workflow_name, 'nextflow_dir', task) == self.nextflow_complete_value
+            ]
+            if completed_tasks:
+                self.info(f'Task(s) {", ".join(completed_tasks)} already completed, skipping.')
+            # Remove completed tasks
+            for task in completed_tasks:
+                tasks.remove(task)
+            # Retrieve the work directory for the remaining tasks
+            work_dirs = [
+                self.eload_cfg.query(self.config_section, workflow_name, 'nextflow_dir', task)
+                for task in tasks
+            ]
+            # Remove None and non-existing directories because they are not started
+            work_dirs = set([w for w in work_dirs if w and os.path.exists(w)])
+            if len(work_dirs) == 1:
+                work_dir = work_dirs.pop()
+            else:
                 self.warning(f'Work directory for {workflow_name} not found, will start from scratch.')
                 work_dir = None
         if not resume or not work_dir:
             work_dir = self.create_nextflow_temp_output_directory(base=self.project_dir)
-            self.eload_cfg.set(self.config_section, subsection_name, 'nextflow_dir', value=work_dir)
-
+            for task in tasks:
+                self.eload_cfg.set(self.config_section, workflow_name, 'nextflow_dir', task, value=work_dir)
+        # Set the tasks for nextflow to perform
+        if tasks:
+            params['tasks'] = tasks
+        else:
+            return
+            # No tasks to perform skip running nextflow altogether
         params_file = os.path.join(self.project_dir, f'{workflow_name}_params.yaml')
         with open(params_file, 'w') as open_file:
             yaml.safe_dump(params, open_file)
@@ -672,8 +686,9 @@ class EloadIngestion(Eload):
                 ))
             )
             shutil.rmtree(work_dir)
-            self.eload_cfg.set(self.config_section, str(subsection_name), 'nextflow_dir',
-                               value=self.nextflow_complete_value)
+            for task in tasks:
+                self.eload_cfg.set(self.config_section, workflow_name, 'nextflow_dir', task,
+                                   value=self.nextflow_complete_value)
         except subprocess.CalledProcessError as e:
             error_msg = f'Nextflow {workflow_name} pipeline failed: results might not be complete.'
             error_msg += (f"See Nextflow logs in {self.eload_dir}/.nextflow.log or pipeline logs "

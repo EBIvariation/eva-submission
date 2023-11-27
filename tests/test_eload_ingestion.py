@@ -6,6 +6,9 @@ from copy import deepcopy
 from unittest import TestCase, mock
 from unittest.mock import patch, MagicMock
 
+import yaml
+
+from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_ingestion import EloadIngestion
 from eva_submission.submission_config import load_config
 
@@ -499,10 +502,13 @@ class TestEloadIngestion(TestCase):
 
             with self.assertRaises(subprocess.CalledProcessError):
                 self.eload.ingest()
-            nextflow_dir = self.eload.eload_cfg.query(self.eload.config_section, 'accession_and_load', 'nextflow_dir')
-            assert os.path.exists(nextflow_dir)
+            for task in ['accession', 'variant_load', 'annotation']:
+                nextflow_dir = self.eload.eload_cfg.query(self.eload.config_section, 'accession_and_load', 'nextflow_dir', task)
+                assert os.path.exists(nextflow_dir)
 
             self.eload.ingest(resume=True)
+            for task in ['accession', 'variant_load', 'annotation']:
+                assert self.eload.eload_cfg.query(self.eload.config_section, 'accession_and_load', 'nextflow_dir', task) == '<complete>'
             assert not os.path.exists(nextflow_dir)
 
     def test_resume_completed_job(self):
@@ -563,18 +569,19 @@ class TestEloadIngestion(TestCase):
                 None,  # remapping run alone
                 None,  # accession on resume
             ]
-            accession_config_section = 'accession_and_load_accession'
+            accession_config_section = 'accession_and_load'
             remap_config_section = 'remap_and_cluster'
 
             # Accession fails...
             with self.assertRaises(subprocess.CalledProcessError):
                 self.eload.ingest(tasks=['accession'], resume=True)
-            accession_nextflow_dir = self.eload.eload_cfg.query(self.eload.config_section, accession_config_section, 'nextflow_dir')
+            accession_nextflow_dir = self.eload.eload_cfg.query(self.eload.config_section, accession_config_section,
+                                                                'nextflow_dir', 'accession')
             assert os.path.exists(accession_nextflow_dir)
 
             # ...doesn't resume when we run just optional_remap_and_cluster (successfully)...
             self.eload.ingest(tasks=['optional_remap_and_cluster'], resume=True)
-            new_remap_nextflow_dir = self.eload.eload_cfg.query(self.eload.config_section, remap_config_section, 'nextflow_dir')
+            new_remap_nextflow_dir = self.eload.eload_cfg.query(self.eload.config_section, remap_config_section, 'nextflow_dir', 'optional_remap_and_cluster')
             assert new_remap_nextflow_dir != accession_nextflow_dir
             assert os.path.exists(accession_nextflow_dir)
             assert not os.path.exists(new_remap_nextflow_dir)
@@ -583,7 +590,7 @@ class TestEloadIngestion(TestCase):
             # ...and does resume when we run accession again.
             self.eload.ingest(tasks=['accession'], resume=True)
             new_accession_nextflow_dir = self.eload.eload_cfg.query(self.eload.config_section, accession_config_section,
-                                                                    'nextflow_dir')
+                                                                    'nextflow_dir', 'accession')
             assert new_accession_nextflow_dir == self.eload.nextflow_complete_value
             assert not os.path.exists(accession_nextflow_dir)
 
@@ -593,3 +600,71 @@ class TestEloadIngestion(TestCase):
                 patch.object(EloadIngestion, '_insert_new_supported_asm_from_ensembl') as m_ensembl_asm:
             m_ensembl_asm.return_value = None  # Pretend Ensembl supports nothing
             self.assertEqual(self.eload._get_target_assembly(), list(self.eload.assembly_accessions)[0])
+
+    def _patch_pre_run_nextflow(self):
+        return patch.object(EloadIngestion, 'create_nextflow_temp_output_directory', return_value='work_dir'), \
+                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
+                patch('eva_submission.eload_ingestion.shutil.rmtree')
+
+    def _post_run_nextflow_assert(self, m_run_command, workflow_name, work_dir, resume, task_performed, task_completed):
+        for task in task_completed:
+            assert self.eload.eload_cfg.query('ingestion', workflow_name, 'nextflow_dir', task) == '<complete>'
+        nextflow_script = os.path.join(NEXTFLOW_DIR, f'{workflow_name}.nf')
+        command = (f'export NXF_OPTS="-Xms1g -Xmx8g";  '
+                   f'/path/to/nextflow {nextflow_script} -params-file {self.eload.project_dir}/workflow_params.yaml '
+                   f'-work-dir {work_dir} ')
+        if resume:
+            command += '-resume'
+        m_run_command.assert_called_once_with('Nextflow workflow process', command)
+        with open(os.path.join(self.eload.project_dir, 'workflow_params.yaml')) as open_file:
+            params = yaml.safe_load(open_file)
+            assert sorted(params['tasks']) == sorted(task_performed)
+
+    def test_run_nextflow(self):
+        p_cr, p_cmd, p_rm = self._patch_pre_run_nextflow()
+        workflow_name = 'workflow'
+        param_values = {'key': 'value'}
+        self.eload.project_dir = os.path.join(self.resources_folder, 'projects', 'PRJEB12345')
+        os.makedirs(self.eload.project_dir, exist_ok=True)
+        tasks = ['task1']
+        with p_cr, p_cmd as m_run_command, p_rm:
+            self.eload.run_nextflow(workflow_name, param_values, resume=False, tasks=tasks)
+            self._post_run_nextflow_assert(m_run_command, workflow_name, work_dir='work_dir', resume=False,
+                                           task_performed=tasks, task_completed=tasks)
+
+    def test_run_nextflow_resume(self):
+        p_cr, p_cmd, p_rm = self._patch_pre_run_nextflow()
+        workflow_name = 'workflow'
+        param_values = {'key': 'value'}
+        self.eload.project_dir = os.path.join(self.resources_folder, 'projects', 'PRJEB12345')
+        nextflow_dir = os.path.join(self.eload.project_dir, 'nextflow_dir')
+        os.makedirs(nextflow_dir, exist_ok=True)
+        tasks = ['task1', 'task2']
+
+        with p_cr, p_cmd as m_run_command, p_rm:
+            self.eload.eload_cfg.set('ingestion', workflow_name, 'nextflow_dir', 'task1', value='<complete>')
+            self.eload.eload_cfg.set('ingestion', workflow_name, 'nextflow_dir', 'task2', value=nextflow_dir)
+            self.eload.run_nextflow(workflow_name, param_values, resume=True, tasks=tasks)
+            # Reuse the existing nextflow_dir
+            self._post_run_nextflow_assert(m_run_command, workflow_name, work_dir=nextflow_dir, resume=True,
+                                           task_performed=['task2'], task_completed=tasks)
+
+    def test_run_nextflow_resume_incompatible(self):
+        p_cr, p_cmd, p_rm = self._patch_pre_run_nextflow()
+        workflow_name = 'workflow'
+        param_values = {'key': 'value'}
+        self.eload.project_dir = os.path.join(self.resources_folder, 'projects', 'PRJEB12345')
+        os.makedirs(self.eload.project_dir, exist_ok=True)
+        nextflow_dir1 = os.path.join(self.eload.project_dir, 'nextflow_dir1')
+        nextflow_dir2 = os.path.join(self.eload.project_dir, 'nextflow_dir2')
+        os.makedirs(nextflow_dir1, exist_ok=True)
+        os.makedirs(nextflow_dir2, exist_ok=True)
+        tasks = ['task1', 'task2']
+        with p_cr, p_cmd as m_run_command, p_rm:
+            self.eload.eload_cfg.set('ingestion', workflow_name, 'nextflow_dir', 'task1', value=nextflow_dir1)
+            self.eload.eload_cfg.set('ingestion', workflow_name, 'nextflow_dir', 'task2', value=nextflow_dir2)
+            self.eload.run_nextflow(workflow_name, param_values, resume=True, tasks=tasks)
+            # Cannot reuse the existing nextflow_dir1 or nextflow_dir2 because they are not compatible
+            self._post_run_nextflow_assert(m_run_command, workflow_name, work_dir='work_dir', resume=True,
+                                           task_performed=tasks, task_completed=tasks)
+
