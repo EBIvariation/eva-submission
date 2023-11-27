@@ -13,6 +13,7 @@ elif [[ $1 == "sort" ]]; then
     touch $filename
 elif [[ $1 == "norm" ]]; then
     filename=${*: -2}
+    printf $filename
     touch $filename
 else
     filename=$3

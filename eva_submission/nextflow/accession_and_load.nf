@@ -99,15 +99,16 @@ workflow {
         .splitCsv(header:true)
         .map{row -> tuple(file(row.fasta), file(row.report), row.assembly_accession, file(row.vcf_file))}
         .groupTuple(by: [0, 1, 2])
+
     prepare_genome(fasta_channel)
+
     assembly_and_vcf_channel = Channel.fromPath(params.valid_vcfs)
         .splitCsv(header:true)
         .map{row -> tuple(row.assembly_accession, file(row.vcf_file), file(row.csi_file))}
-        .combine(prepare_genome.out.custom_fasta, by: 0)         // Join based on the assembly
-        .map{tuple(it[1].name, it[0], it[1], it[2], it[3])}      // reorder to get the input file name, accession, vcf_file, csi_file, fasta_file
-    normalise_vcf(assembly_and_vcf_channel)
-    csi_index_vcf()
+        .combine(prepare_genome.out.custom_fasta, by: 0)     // Join based on the assembly
+        .map{tuple(it[1].name, it[3], it[1], it[2])}         // reorder to get the input file name, fasta_file, vcf_file, csi_file
 
+    normalise_vcf(assembly_and_vcf_channel)
     all_accession_complete = null
     is_human_study = (params.taxonomy == 9606)
     if ("accession" in params.ingestion_tasks) {
@@ -117,10 +118,12 @@ workflow {
                 .map{row -> tuple(file(row.vcf_file))}
             accessioned_files_to_rm = Channel.empty()
         } else {
-            valid_vcfs = Channel.fromPath(params.valid_vcfs)
+            normalised_vcfs_ch = Channel.fromPath(params.valid_vcfs)
                 .splitCsv(header:true)
-                .map{row -> tuple(file(row.vcf_file), row.assembly_accession, row.aggregation, file(row.fasta), file(row.report))}
-            accession_vcf(valid_vcfs)
+                .map{row -> tuple(file(row.vcf_file).name, file(row.vcf_file), row.assembly_accession, row.aggregation, file(row.fasta), file(row.report))}
+                .combine(normalise_vcf.out.vcf_tuples, by:0)     // Join based on the vcf file name
+                .map {tuple(it[0], it[7], it[2], it[3], it[4], it[5])}   // filename, normalised vcf, assembly_accession, aggregation, fasta, report
+            accession_vcf(normalised_vcfs_ch)
             sort_and_compress_vcf(accession_vcf.out.accession_done)
             csi_vcfs = sort_and_compress_vcf.out.compressed_vcf
             accessioned_files_to_rm = accession_vcf.out.accessioned_filenames
@@ -130,10 +133,12 @@ workflow {
         copy_to_ftp(csi_index_vcf.out.csi_indexed_vcf.toList(), accessioned_files_to_rm.toList())
     }
     if ("variant_load" in params.ingestion_tasks || "annotation" in params.ingestion_tasks) {
-        annotated_vcfs = Channel.fromPath(params.valid_vcfs)
+        normalised_vcfs_ch = Channel.fromPath(params.valid_vcfs)
                 .splitCsv(header:true)
-                .map{row -> tuple(file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name, row.vep_version, row.vep_cache_version, row.vep_species, row.aggregation)}
-        load_vcf(annotated_vcfs)
+                .map{row -> tuple(file(row.vcf_file).name, file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name, row.vep_version, row.vep_cache_version, row.vep_species, row.aggregation)}
+                .combine(normalise_vcf.out.vcf_tuples, by:0)
+                .map{tuple(it[0], it[9], it[2], it[3], it[4], it[5], it[6], it[7], it[8])}   // filename, normalised vcf, fasta, analysis_accession, db_name, vep_version, vep_cache_version, vep_species, aggregation
+        load_vcf(normalised_vcfs_ch)
 
         if (!is_human_study) {
             vcf_files_dbname = Channel.fromPath(params.valid_vcfs)
@@ -174,18 +179,11 @@ process prepare_genome {
 * Normalise the VCF files
 */
 process normalise_vcf {
-    publishDir "$params.output_dir",
-            overwrite: false,
-            mode: "copy",
-            saveAs: { fn -> fn.substring(fn.lastIndexOf('/')+1) }
-
     input:
-    tuple val(filename), val(assembly_accession),  path(fasta), path(vcf_file), path(csi_file)
+    tuple val(filename), path(fasta), path(vcf_file), path(csi_file)
 
     output:
-    path "normalised_vcfs/*.gz", emit: normalised_vcf
-    path "normalised_vcfs/*.csi", emit: normalised_vcf_index
-    path "normalised_vcfs/*.log", emit: normalisation_log
+    tuple val(filename), path("normalised_vcfs/*.gz"), path("normalised_vcfs/*.csi"), emit: vcf_tuples
 
     script:
     """
@@ -207,7 +205,7 @@ process accession_vcf {
     memory '6.7 GB'
 
     input:
-    tuple val(vcf_file), val(assembly_accession), val(aggregation), val(fasta), val(report)
+    tuple val(vcf_filename), val(vcf_file), val(assembly_accession), val(aggregation), val(fasta), val(report)
 
     output:
     val accessioned_filename, emit: accessioned_filenames
@@ -221,7 +219,6 @@ process accession_vcf {
     pipeline_parameters += " --parameters.assemblyReportUrl=file:" + report.toString()
     pipeline_parameters += " --parameters.vcf=" + vcf_file.toString()
 
-    vcf_filename = vcf_file.getFileName().toString()
     accessioned_filename = vcf_filename.take(vcf_filename.indexOf(".vcf")) + ".accessioned.vcf"
     log_filename = "accessioning.${vcf_filename}"
 
@@ -311,13 +308,12 @@ process csi_index_vcf {
  */
 process load_vcf {
     clusterOptions {
-        log_filename = vcf_file.getFileName().toString()
-        return "-o $params.logs_dir/pipeline.${log_filename}.log \
-                -e $params.logs_dir/pipeline.${log_filename}.err"
+        return "-o $params.logs_dir/pipeline.${filename}.log \
+                -e $params.logs_dir/pipeline.${filename}.err"
     }
 
     input:
-    tuple val(vcf_file), val(fasta), val(analysis_accession), val(db_name), val(vep_version), val(vep_cache_version), val(vep_species), val(aggregation)
+    tuple val(filename), val(vcf_file), val(fasta), val(analysis_accession), val(db_name), val(vep_version), val(vep_cache_version), val(vep_species), val(aggregation)
 
     output:
     val true, emit: variant_load_complete

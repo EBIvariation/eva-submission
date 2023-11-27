@@ -17,6 +17,10 @@ executable:
   bcftools: ../../../bin/fake_bcftools.sh
   bgzip: ../../../bin/fake_bgzip.sh
   tabix: ../../../bin/fake_tabix.sh
+  python:
+    script_path: ../../../../../
+    interpreter: '`which python`'
+
 jar:
   accession_pipeline: ../../../java/accession.jar
   eva_pipeline: ../../../java/variant-load.jar

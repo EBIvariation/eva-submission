@@ -8,7 +8,6 @@ import requests
 import yaml
 from cached_property import cached_property
 from ebi_eva_common_pyutils import command_utils
-from ebi_eva_common_pyutils.assembly.assembly import get_supported_asm_from_ensembl
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.ena_utils import get_assembly_name_and_taxonomy_id
 from ebi_eva_common_pyutils.ncbi_utils import get_species_name_from_ncbi

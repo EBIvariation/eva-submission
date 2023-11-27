@@ -28,6 +28,9 @@ executable:
   genome_downloader: ../../../bin/fake_genome_downloader.py
   custom_assembly: ../../../bin/fake_custom_assembly.py
   python_activate: ../../../bin/venv_activate
+  python:
+    script_path: ../../../../../
+    interpreter: '`which python`'
 
 nextflow:
   remapping: ../../../bin/fake_remapping_pipeline.nf
