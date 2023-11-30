@@ -667,8 +667,8 @@ class EloadIngestion(Eload):
         if tasks:
             params['tasks'] = tasks
         else:
+            # No tasks to perform, skip running nextflow altogether
             return
-            # No tasks to perform skip running nextflow altogether
         params_file = os.path.join(self.project_dir, f'{workflow_name}_params.yaml')
         with open(params_file, 'w') as open_file:
             yaml.safe_dump(params, open_file)
