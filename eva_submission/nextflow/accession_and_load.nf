@@ -180,10 +180,10 @@ process prepare_genome {
 */
 process normalise_vcf {
     input:
-    tuple val(filename), path(fasta), path(vcf_file), path(csi_file)
+    tuple val(vcf_filename), path(fasta), path(vcf_file), path(csi_file)
 
     output:
-    tuple val(filename), path("normalised_vcfs/*.gz"), path("normalised_vcfs/*.csi"), emit: vcf_tuples
+    tuple val(vcf_filename), path("normalised_vcfs/*.gz"), path("normalised_vcfs/*.csi"), emit: vcf_tuples
 
     script:
     """
@@ -308,12 +308,12 @@ process csi_index_vcf {
  */
 process load_vcf {
     clusterOptions {
-        return "-o $params.logs_dir/pipeline.${filename}.log \
-                -e $params.logs_dir/pipeline.${filename}.err"
+        return "-o $params.logs_dir/pipeline.${vcf_filename}.log \
+                -e $params.logs_dir/pipeline.${vcf_filename}.err"
     }
 
     input:
-    tuple val(filename), val(vcf_file), val(fasta), val(analysis_accession), val(db_name), val(vep_version), val(vep_cache_version), val(vep_species), val(aggregation)
+    tuple val(vcf_filename), val(vcf_file), val(fasta), val(analysis_accession), val(db_name), val(vep_version), val(vep_cache_version), val(vep_species), val(aggregation)
 
     output:
     val true, emit: variant_load_complete
