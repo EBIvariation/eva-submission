@@ -104,9 +104,9 @@ workflow {
 
     assembly_and_vcf_channel = Channel.fromPath(params.valid_vcfs)
         .splitCsv(header:true)
-        .map{row -> tuple(row.assembly_accession, file(row.vcf_file), file(row.csi_file))}
+        .map{row -> row.assembly_accession, file(row.vcf_file), file(row.csi_file))}
         .combine(prepare_genome.out.custom_fasta, by: 0)     // Join based on the assembly
-        .map{tuple(it[1].name, it[3], it[1], it[2])}         // reorder to get the input file name, fasta_file, vcf_file, csi_file
+        .map{tuple(it[1].name, it[3], it[1], it[2])}         // vcf_filename, fasta_file, vcf_file, csi_file
 
     normalise_vcf(assembly_and_vcf_channel)
     all_accession_complete = null
@@ -121,8 +121,8 @@ workflow {
             normalised_vcfs_ch = Channel.fromPath(params.valid_vcfs)
                 .splitCsv(header:true)
                 .map{row -> tuple(file(row.vcf_file).name, file(row.vcf_file), row.assembly_accession, row.aggregation, file(row.fasta), file(row.report))}
-                .combine(normalise_vcf.out.vcf_tuples, by:0)     // Join based on the vcf file name
-                .map {tuple(it[0], it[7], it[2], it[3], it[4], it[5])}   // filename, normalised vcf, assembly_accession, aggregation, fasta, report
+                .combine(normalise_vcf.out.vcf_tuples, by:0)     // Join based on the vcf_filename
+                .map {tuple(it[0], it[7], it[2], it[3], it[4], it[5])}   // vcf_filename, normalised vcf, assembly_accession, aggregation, fasta, report
             accession_vcf(normalised_vcfs_ch)
             sort_and_compress_vcf(accession_vcf.out.accession_done)
             csi_vcfs = sort_and_compress_vcf.out.compressed_vcf
@@ -137,7 +137,7 @@ workflow {
                 .splitCsv(header:true)
                 .map{row -> tuple(file(row.vcf_file).name, file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name, row.vep_version, row.vep_cache_version, row.vep_species, row.aggregation)}
                 .combine(normalise_vcf.out.vcf_tuples, by:0)
-                .map{tuple(it[0], it[9], it[2], it[3], it[4], it[5], it[6], it[7], it[8])}   // filename, normalised vcf, fasta, analysis_accession, db_name, vep_version, vep_cache_version, vep_species, aggregation
+                .map{tuple(it[0], it[9], it[2], it[3], it[4], it[5], it[6], it[7], it[8])}   // vcf_filename, normalised vcf, fasta, analysis_accession, db_name, vep_version, vep_cache_version, vep_species, aggregation
         load_vcf(normalised_vcfs_ch)
 
         if (!is_human_study) {
