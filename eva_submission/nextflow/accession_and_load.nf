@@ -104,7 +104,7 @@ workflow {
 
     assembly_and_vcf_channel = Channel.fromPath(params.valid_vcfs)
         .splitCsv(header:true)
-        .map{row -> row.assembly_accession, file(row.vcf_file), file(row.csi_file))}
+        .map{row -> tuple(row.assembly_accession, file(row.vcf_file), file(row.csi_file))}
         .combine(prepare_genome.out.custom_fasta, by: 0)     // Join based on the assembly
         .map{tuple(it[1].name, it[3], it[1], it[2])}         // vcf_filename, fasta_file, vcf_file, csi_file
 
