@@ -9,6 +9,12 @@ from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 from eva_submission.xlsx.xlsx_validation import EvaXlsxValidator
 
 
+def patch_retrieve_genbank_assembly_accessions_from_ncbi(value='GCA_000001405.1'):
+    # retrieving the assembly information from ncbi is flaky
+    return patch('eva_submission.xlsx.xlsx_validation.retrieve_genbank_assembly_accessions_from_ncbi',
+                 return_value=[value])
+
+
 class TestEvaXlsValidator(TestCase):
 
     def setUp(self) -> None:
@@ -40,7 +46,8 @@ class TestEvaXlsValidator(TestCase):
         assert self.validator.error_list == []
 
     def test_complex_validation_failure(self):
-        self.validator_fail.complex_validation()
+        with patch_retrieve_genbank_assembly_accessions_from_ncbi():
+            self.validator_fail.complex_validation()
         expected_errors = [
             'Check Analysis Alias vs Samples: GAE2,None present in Analysis Alias not in Samples',
             'Check Analysis Alias vs Files: GAE2,None present in Analysis Alias not in Files',
@@ -62,7 +69,8 @@ class TestEvaXlsValidator(TestCase):
         assert len([s for s in scientific_name_list if s == 'Homo Sapiens']) == 10
         assert len([s for s in scientific_name_list if s == 'HS']) == 10
 
-        with patch('eva_submission.xlsx.xlsx_validation.get_scientific_name_from_ensembl') as m_sci_name:
+        with patch('eva_submission.xlsx.xlsx_validation.get_scientific_name_from_ensembl') as m_sci_name,\
+             patch_retrieve_genbank_assembly_accessions_from_ncbi():
             m_sci_name.return_value = 'Homo sapiens'
             self.validator_sc_name.validate()
         assert self.validator_sc_name.error_list == ['In Samples, Taxonomy 9606 and scientific name HS are inconsistent']
@@ -95,7 +103,9 @@ class TestEvaXlsValidator(TestCase):
         ]
 
     def test_semantic_validation(self):
-        self.validator.semantic_validation()
+        # retrieving the assembly information from ncbi is flaky
+        with patch_retrieve_genbank_assembly_accessions_from_ncbi():
+            self.validator.semantic_validation()
         assert self.validator.error_list == []
 
     def test_check_biosamples_accessions(self):
