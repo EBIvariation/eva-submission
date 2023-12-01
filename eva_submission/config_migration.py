@@ -15,8 +15,10 @@ def upgrade_version_1_14_to_1_15(eload_cfg):
     """
     accession_nexflow_dir = eload_cfg.query('ingestion', 'accession', 'nextflow_dir')
     variant_load_nexflow_dir = eload_cfg.query('ingestion', 'variant_load', 'nextflow_dir')
-    eload_cfg.set('ingestion', 'accession_and_load', 'nextflow_dir', 'accession', value=accession_nexflow_dir)
-    eload_cfg.set('ingestion', 'accession_and_load', 'nextflow_dir', 'variant_load', value=variant_load_nexflow_dir)
+    if accession_nexflow_dir:
+        eload_cfg.set('ingestion', 'accession_and_load', 'nextflow_dir', 'accession', value=accession_nexflow_dir)
+    if variant_load_nexflow_dir:
+        eload_cfg.set('ingestion', 'accession_and_load', 'nextflow_dir', 'variant_load', value=variant_load_nexflow_dir)
 
     # Set version once we've successfully upgraded
     eload_cfg.set('version', value=__version__)
