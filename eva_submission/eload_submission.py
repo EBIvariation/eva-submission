@@ -102,10 +102,11 @@ class Eload(AppLogger):
             self.debug(f'No version found in config, upgrading to version {__version__}.')
             self.eload_cfg.backup()
             upgrade_version_0_1(self.eload_cfg, analysis_alias)
-        elif version.parse(self.eload_cfg.query('version')) < version.parse("1.15"):
-            self.debug(f'Pre version 1.15, upgrading to version {__version__}.')
             upgrade_version_1_14_to_1_15(self.eload_cfg)
+        elif version.parse(self.eload_cfg.query('version')) < version.parse("1.15"):
+            self.debug(f'Pre version 1.15, upgrading to version from {version} to {__version__}.')
             self.eload_cfg.backup()
+            upgrade_version_1_14_to_1_15(self.eload_cfg)
         else:
             self.debug(f"Config is version {self.eload_cfg.query('version')}, not upgrading.")
 
