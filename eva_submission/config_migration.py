@@ -9,6 +9,21 @@ from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 logger = log_cfg.get_logger(__name__)
 
 
+def upgrade_version_1_14_to_1_15(eload_cfg):
+    """
+    Upgrades a version 1.14 config to version 1.15 to change the path to ingestion nextflow directories
+    """
+    accession_nexflow_dir = eload_cfg.query('ingestion', 'accession', 'nextflow_dir')
+    variant_load_nexflow_dir = eload_cfg.query('ingestion', 'variant_load', 'nextflow_dir')
+    if accession_nexflow_dir:
+        eload_cfg.set('ingestion', 'accession_and_load', 'nextflow_dir', 'accession', value=accession_nexflow_dir)
+    if variant_load_nexflow_dir:
+        eload_cfg.set('ingestion', 'accession_and_load', 'nextflow_dir', 'variant_load', value=variant_load_nexflow_dir)
+
+    # Set version once we've successfully upgraded
+    eload_cfg.set('version', value=__version__)
+
+
 def upgrade_version_0_1(eload_cfg, analysis_alias=None):
     """
     Upgrades a version 0.x config to version 1, using the provided analysis alias for all files.

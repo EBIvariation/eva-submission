@@ -8,9 +8,10 @@ from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from ebi_eva_internal_pyutils.metadata_utils import get_metadata_connection_handle
+from packaging import version
 
 from eva_submission import __version__
-from eva_submission.config_migration import upgrade_version_0_1
+from eva_submission.config_migration import upgrade_version_0_1, upgrade_version_1_14_to_1_15
 from eva_submission.eload_utils import get_hold_date_from_ena
 from eva_submission.submission_config import EloadConfig
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
@@ -92,13 +93,20 @@ class Eload(AppLogger):
 
     def upgrade_config_if_needed(self, analysis_alias=None):
         """
-        Upgrades configs to the current version, making a backup first and using the provided analysis alias for all
-        vcf files. Currently doesn't perform any other version upgrades.
+        Upgrades configs to the current version, it supports:
+         - making a backup
+         - using the provided analysis alias for all vcf files (pre version 1)
+         - reformat nextflow directories in the config (pre version 1.15)
         """
         if 'version' not in self.eload_cfg:
             self.debug(f'No version found in config, upgrading to version {__version__}.')
             self.eload_cfg.backup()
             upgrade_version_0_1(self.eload_cfg, analysis_alias)
+            upgrade_version_1_14_to_1_15(self.eload_cfg)
+        elif version.parse(self.eload_cfg.query('version')) < version.parse("1.15"):
+            self.debug(f'Pre version 1.15, upgrading to version from {version} to {__version__}.')
+            self.eload_cfg.backup()
+            upgrade_version_1_14_to_1_15(self.eload_cfg)
         else:
             self.debug(f"Config is version {self.eload_cfg.query('version')}, not upgrading.")
 

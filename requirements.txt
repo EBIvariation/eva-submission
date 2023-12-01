@@ -11,3 +11,4 @@ pysam
 pyyaml
 requests
 retry
+packaging
