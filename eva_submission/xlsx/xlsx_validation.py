@@ -86,7 +86,9 @@ class EvaXlsxValidator(AppLogger):
                 ['Analysis Alias', 'Sample Name', 'Title', 'Tax Id', 'Scientific Name', 'collection_date',
                  'geographic location (country and/or sea)']
             )
-            self.check_date(row, 'collection_date', required=True)
+            # We check the collection_date only if it is a novel samples, or we're updating the existing sample
+            if not row.get('Sample Accession') or row.get('collection_date'):
+                self.check_date(row, 'collection_date', required=True)
 
     def semantic_validation(self):
         """

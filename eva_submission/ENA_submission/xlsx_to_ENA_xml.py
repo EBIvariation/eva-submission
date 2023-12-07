@@ -9,7 +9,7 @@ from xml.etree.ElementTree import Element, ElementTree
 from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 
-from eva_submission.eload_utils import check_existing_project_in_ena, check_project_format
+from eva_submission.eload_utils import check_existing_project_in_ena, check_project_format, is_single_insdc_sequence
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 
@@ -253,16 +253,16 @@ class EnaXlsxConverter(AppLogger):
         # Add analysis type
         anal_type_elemt = add_element(analysis_elemt, 'ANALYSIS_TYPE')
         seq_var_elemt = add_element(anal_type_elemt, 'SEQUENCE_VARIATION')
-        assembly_elemt = add_element(seq_var_elemt, 'ASSEMBLY')
-        if analysis_row.get('Reference').split(':')[0] in ['file', 'http', 'ftp']:
-            custom_elemt = add_element(assembly_elemt, 'CUSTOM')
-            url_link_elemt = add_element(custom_elemt, 'URL_LINK')
-            add_element(url_link_elemt, 'URL', element_text=analysis_row.get('Reference').strip())
+        if is_single_insdc_sequence(analysis_row.get('Reference').strip()):
+            add_element(seq_var_elemt, 'SEQUENCE', accession=analysis_row.get('Reference').strip())
         else:
-            add_element(assembly_elemt, 'STANDARD', accession=analysis_row.get('Reference').strip())
-        # TODO: Check if the Sequence section needs to be supported.
-        #  There was a section in the perl code that added SEQUENCE elements for each contig
-
+            assembly_elemt = add_element(seq_var_elemt, 'ASSEMBLY')
+            if analysis_row.get('Reference').split(':')[0] in ['file', 'http', 'ftp']:
+                custom_elemt = add_element(assembly_elemt, 'CUSTOM')
+                url_link_elemt = add_element(custom_elemt, 'URL_LINK')
+                add_element(url_link_elemt, 'URL', element_text=analysis_row.get('Reference').strip())
+            else:
+                add_element(assembly_elemt, 'STANDARD', accession=analysis_row.get('Reference').strip())
         experiments = analysis_row.get('Experiment Type').strip().split(':')
         for experiment in experiments:
             add_element(seq_var_elemt, 'EXPERIMENT_TYPE', element_text=experiment.lower().capitalize())
