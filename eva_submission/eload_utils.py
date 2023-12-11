@@ -162,8 +162,12 @@ def check_project_format(project_accession):
     return re.match(r'^PRJ(EB|NA)', project_accession)
 
 
-@retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
 def check_existing_project_in_ena(project_accession):
+    return check_existing_public_project_in_ena(project_accession) or \
+        check_existing_private_project_in_ena(project_accession)
+
+
+def check_existing_public_project_in_ena(project_accession):
     """
     Check if a project accession exists and is public in ENA
     :param project_accession:
@@ -171,6 +175,21 @@ def check_existing_project_in_ena(project_accession):
     """
     try:
         download_xml_from_ena(f'https://www.ebi.ac.uk/ena/browser/api/xml/{project_accession}')
+    except requests.exceptions.HTTPError:
+        return False
+    return True
+
+
+def check_existing_private_project_in_ena(project_accession):
+    """
+    Check if a project accession exists and is private in ENA
+    :param project_accession:
+    :return:
+    """
+    try:
+        response = requests.get(f'https://www.ebi.ac.uk/ena/submit/drop-box/cli/reference/project/{project_accession}',
+                     auth=HTTPBasicAuth(cfg.query('ena', 'username'), cfg.query('ena', 'password')))
+        response.raise_for_status()
     except requests.exceptions.HTTPError:
         return False
     return True
