@@ -180,7 +180,16 @@ class BSDSubmitter(AppLogger):
     def should_create(self, sample):
         return 'accession' not in sample
 
-    def should_update(self, sample):
+    def _is_sample_owner(self, sample):
+        sample_data = self.communicator.follows_link('samples', method='GET', join_url=sample.get('accession'))
+        # This check if we own the If we own the BioSample by checking if the 'domain' or 'webinSubmissionAccountId'
+        # are the same as the one who submitted the sample
+        if self.communicator.communicator_attributes <= sample_data:
+            return True
+        return False
+
+    def should_overwrite(self, sample):
+        """ We should overwrite a samples when it is owned by the same domain as the current uploader"""
         return 'accession' in sample and 'name' in sample
 
     def should_retrieve(self, sample):
@@ -189,7 +198,7 @@ class BSDSubmitter(AppLogger):
     def validate_in_bsd(self, samples_data):
         for sample in samples_data:
             # If we're only retrieving, or updating don't need to validate.
-            if not self.should_retrieve(sample) and not self.should_update(sample):
+            if not self.should_retrieve(sample) and not self.should_overwrite(sample):
                 sample.update(self.communicator.communicator_attributes)
                 self.communicator.follows_link('samples', join_url='validate', method='POST', json=sample)
 
@@ -204,7 +213,6 @@ class BSDSubmitter(AppLogger):
                 dict([(k, v) for k, v in external_ref.items() if v is not None])
                 for external_ref in current_sample['externalReferences']
             ]
-
         curation_object = {}
         attributes_pre = []
         attributes_post = []
@@ -229,6 +237,19 @@ class BSDSubmitter(AppLogger):
 
         return dict(curation=curation_object, sample=future_sample.get('accession'))
 
+    def build_sample_from_existing(self, samples_data):
+        for sample in samples_data:
+            sample.update(self.communicator.communicator_attributes)
+            if self.should_create(sample):
+                # Nothing to do all the information is already in there
+                pass
+            elif self.should_overwrite(sample):
+                # retrieve the sample without any curation and add the new data on top
+                current_sample = self.communicator.follows_link('samples', method='GET', join_url=sample.get('accession'))
+                for attribute in current_sample['characteristics']:
+                    if attribute not in sample['characteristics']:
+                        sample['characteristics'][attribute] = current_sample['characteristics'][attribute]
+
     def submit_to_bsd(self, samples_data):
         """
         This function creates or updates samples in BioSamples and return a map of sample name to sample accession
@@ -242,14 +263,19 @@ class BSDSubmitter(AppLogger):
             # To trigger and update we require at least the sample name to be populated
             # NOTE that it create a curation object that will only update fields that are present in the
             # characteristics, externalReference and relationship.
-            elif self.should_update(sample):
-                self.debug('Update sample ' + sample.get('name') + ' with accession ' + sample.get('accession'))
-                curation_object = self.convert_sample_data_to_curation_object(sample)
-                curation_json = self.communicator.follows_link('samples', method='POST',
-                                                               join_url=sample.get('accession')+'/curationlinks',
-                                                               json=curation_object)
-                self.debug(f'Curation: {curation_json}')
-                sample_json = sample
+            elif self.should_overwrite(sample):
+                self.debug('Overwrite sample ' + sample.get('name') + ' with accession ' + sample.get('accession'))
+                sample_json = self.communicator.follows_link('samples', method='PUT', join_url=sample.get('accession'),
+                                                             json=sample)
+            # TODO: support for derived sample and/or sample curation should be implemented in EVA-3471
+            # elif self.should_curate(sample):
+            #     self.debug('Update sample ' + sample.get('name') + ' with accession ' + sample.get('accession'))
+            #     curation_object = self.convert_sample_data_to_curation_object(sample)
+            #     curation_json = self.communicator.follows_link('samples', method='POST',
+            #                                                    join_url=sample.get('accession')+'/curationlinks',
+            #                                                    json=curation_object)
+            #     self.debug(f'Curation: {curation_json}')
+            #     sample_json = sample
             # Otherwise Keep the sample as is and retrieve the name so that list of sample to accession is complete
             else:
                 sample_json = self.communicator.follows_link('samples', method='GET', join_url=sample.get('accession'))
@@ -331,6 +357,7 @@ class SampleSubmitter(AppLogger):
     def submit_to_bioSamples(self):
         # Check that the data exists
         if self.sample_data:
+            self.submitter.build_sample_from_existing(self.sample_data)
             self.info('Validate {} sample(s) in BioSample'.format(len(self.sample_data)))
             self.submitter.validate_in_bsd(self.sample_data)
             self.info('Upload {} sample(s) '.format(len(self.sample_data)))
