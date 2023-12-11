@@ -304,6 +304,7 @@ class SampleSubmitter(AppLogger):
     def submit_to_bioSamples(self):
         # Check that the data exists
         if self.sample_data:
+            self.submitter.build_sample_from_existing(self.sample_data)
             self.info('Validate {} sample(s) in BioSample'.format(len(self.sample_data)))
             self.submitter.validate_in_bsd(self.sample_data)
             self.info('Upload {} sample(s) '.format(len(self.sample_data)))
