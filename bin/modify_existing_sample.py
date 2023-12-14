@@ -22,6 +22,7 @@ from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
 from eva_submission.biosamples_submission import AAPHALCommunicator, SampleMetadataSubmitter, BioSamplesSubmitter
 from eva_submission.submission_config import load_config
+from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxWriter, EvaXlsxReader
 
 
 def main():
@@ -43,7 +44,19 @@ def main():
     # Load the config_file from default location
     load_config()
     sample_submitter = SampleMetadataSubmitter(args.metadata_file, submit_type=(args.action,))
-    sample_submitter.submit_to_bioSamples()
+    sample_name_to_accession = sample_submitter.submit_to_bioSamples()
+    if args.action == 'derive':
+        eva_xls_reader = EvaXlsxReader(args.metadata_file)
+        eva_xls_writer = EvaXlsxWriter(args.metadata_file)
+        sample_rows = []
+        for sample_row in eva_xls_reader.samples:
+            if sample_row.get('Sample Name') in sample_name_to_accession:
+                sample_row['Sample Accession'] = sample_name_to_accession[sample_row.get('Sample Name')]
+                sample_row['Sample ID'] = sample_row.get('Sample ID')
+            elif sample_row.get('Sample ID') in sample_name_to_accession:
+                sample_row['Sample Accession'] = sample_name_to_accession[sample_row.get('Sample ID')]
+        eva_xls_writer.set_samples(sample_rows)
+        eva_xls_writer.save()
 
 
 if __name__ == "__main__":
