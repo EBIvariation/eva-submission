@@ -14,11 +14,9 @@
 # limitations under the License.
 
 import re
-import sys
 from copy import deepcopy
 from datetime import datetime, date
 from functools import lru_cache
-from pprint import pprint
 
 import requests
 from cached_property import cached_property
