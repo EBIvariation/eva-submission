@@ -99,7 +99,7 @@ class EloadBrokering(Eload):
     def upload_to_bioSamples(self, force=False):
         metadata_spreadsheet = self.eload_cfg['validation']['valid']['metadata_spreadsheet']
         sample_metadata_submitter = SampleMetadataSubmitter(metadata_spreadsheet)
-        if sample_metadata_submitter.check_submit_done() and not force:
+        if sample_metadata_submitter.check_submit_done():
             self.info('Biosamples accession already provided in the metadata, Skip!')
             self.eload_cfg.set('brokering', 'Biosamples', 'pass', value=True)
             # Retrieve the sample names to accession from the metadata
@@ -108,7 +108,6 @@ class EloadBrokering(Eload):
         elif (
             self.eload_cfg.query('brokering', 'Biosamples', 'Samples')
             and self.eload_cfg.query('brokering', 'Biosamples', 'pass')
-            and not force
         ):
             self.info('BioSamples brokering is already done, Skip!')
         else:
