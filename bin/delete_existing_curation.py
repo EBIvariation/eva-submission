@@ -77,7 +77,7 @@ class LastSampleCurationDeleter(BioSamplesSubmitter):
                     f'- Relationship with {curation_object["curation"]["relationshipsPre"]} to {curation_object["curation"]["relationshipsPost"]}'
                 )
                 if delete:
-                    self.default_communicator.follows_link(curation_object, 'self', method='DELETE')
+                    self.default_communicator.follows_link('self', json_obj=curation_object, method='DELETE')
                 pass
 
 

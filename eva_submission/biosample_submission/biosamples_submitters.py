@@ -16,6 +16,7 @@
 from copy import deepcopy
 from datetime import datetime, date
 from functools import lru_cache
+from json import JSONDecodeError
 
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
