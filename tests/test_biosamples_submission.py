@@ -5,16 +5,10 @@ from unittest.mock import patch, Mock, PropertyMock
 
 import yaml
 
+from eva_submission.biosample_submission.biosamples_communicators import HALCommunicator
 from eva_submission import ROOT_DIR
 from eva_submission.biosample_submission import biosamples_submitters
-from eva_submission.biosample_submission.biosamples_communicators import HALCommunicator, WebinHALCommunicator, \
-    AAPHALCommunicator
 from eva_submission.biosample_submission.biosamples_submitters import BioSamplesSubmitter, SampleMetadataSubmitter, \
-    SampleReferenceSubmitter
-import eva_submission.biosample_submission.biosamples_submitters
-from eva_submission import ROOT_DIR
-from eva_submission.biosample_submission import biosamples_submitters
-from eva_submission.biosample_submission.biosamples_submitters import HALCommunicator, BioSamplesSubmitter, SampleMetadataSubmitter, \
     SampleReferenceSubmitter, AAPHALCommunicator, WebinHALCommunicator
 
 
