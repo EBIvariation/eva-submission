@@ -30,7 +30,7 @@ logger = log_cfg.get_logger(__name__)
 
 class LastSampleCurationDeleter(BioSamplesSubmitter):
 
-    def __init__(self, communicators):
+    def __init__(self, communicators=None):
         if not communicators:
             communicators = LastSampleCurationDeleter.get_config_communicators()
         super().__init__(communicators, submit_type=('curate',), allow_removal=True)
@@ -53,29 +53,31 @@ class LastSampleCurationDeleter(BioSamplesSubmitter):
         ))
         return communicators
 
-    def delete_last_curation_of(self, accession):
+    def delete_last_curation_of(self, accession, delete=False):
         sample_data = self.default_communicator.follows_link('samples', method='GET', join_url=accession)
         curation_data = self.default_communicator.follows_link('curationLinks', json_obj=sample_data, all_pages=True)
         curation_links = curation_data.get('_embedded').get('curationLinks')
         curation_object = curation_links[-1]
 
         communicator = None
-        # Check who owns the curation
-        if curation_links[-1]['domain']:
-            for c in self.communicators:
-                if c.communicator_attributes.items() <= curation_object.items():
-                    communicator = c
+        # Check if we own the curation
+        for c in self.communicators:
+            if c.communicator_attributes.items() <= curation_object.items():
+                communicator = c
         if not communicator:
-            self.warning(f'Curation object {curation_object["hash"]} is not owned by you')
+            self.warning(f'Curation object {curation_object["hash"]} is not owned by you: '
+                         f'Webin: {curation_object["webinSubmissionAccountId"]} - '
+                         f'Domain: {curation_object["domain"]}')
         else:
             if curation_object:
                 logger.info(
-                    f'About to delete BioSamples curation {curation_object["hash"]} for accession {accession} which changed \n '
+                    f'About to delete BioSamples curation {curation_object["hash"]} for accession {accession} which changed\n '
                     f'- attributes with {curation_object["curation"]["attributesPre"]} to {curation_object["curation"]["attributesPost"]}\n'
                     f'- External Ref with {curation_object["curation"]["externalReferencesPre"]} to {curation_object["curation"]["externalReferencesPost"]}\n'
                     f'- Relationship with {curation_object["curation"]["relationshipsPre"]} to {curation_object["curation"]["relationshipsPost"]}'
                 )
-                # self.default_communicator.follows_link(curation_object, 'self', method='DELETE')
+                if delete:
+                    self.default_communicator.follows_link(curation_object, 'self', method='DELETE')
                 pass
 
 
@@ -84,7 +86,7 @@ def main():
         description='query Biosamples accessions from a file')
     arg_parser.add_argument('--accession_file', required=True,
                             help='file containing the list of accession to query')
-
+    arg_parser.add_argument('--set_delete', action='store_true', default=False, help='Actually does the deletion')
     # Load the config_file from default location
     load_config()
 
@@ -94,8 +96,11 @@ def main():
 
     # Load the config_file from default location
     load_config()
-    sample_submitter = SampleMetadataSubmitter(args.accession_file)
-
+    last_sample_curation_deleter = LastSampleCurationDeleter()
+    with open(args.accession_file) as open_file:
+        for line in open_file:
+            accession = line.strip()
+            last_sample_curation_deleter.delete_last_curation_of(accession, args.set_delete)
 
 
 if __name__ == "__main__":
