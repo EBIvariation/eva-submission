@@ -10,7 +10,7 @@ from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.ENA_submission.upload_to_ENA import ENAUploader, ENAUploaderAsync
-from eva_submission.biosamples_submission import SampleMetadataSubmitter, SampleReferenceSubmitter
+from eva_submission.biosample_submission.biosamples_submitters import SampleMetadataSubmitter, SampleReferenceSubmitter
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import read_md5
 from eva_submission.submission_config import EloadConfig
@@ -99,7 +99,7 @@ class EloadBrokering(Eload):
     def upload_to_bioSamples(self, force=False):
         metadata_spreadsheet = self.eload_cfg['validation']['valid']['metadata_spreadsheet']
         sample_metadata_submitter = SampleMetadataSubmitter(metadata_spreadsheet)
-        if sample_metadata_submitter.check_submit_done() and not force:
+        if sample_metadata_submitter.check_submit_done():
             self.info('Biosamples accession already provided in the metadata, Skip!')
             self.eload_cfg.set('brokering', 'Biosamples', 'pass', value=True)
             # Retrieve the sample names to accession from the metadata
@@ -108,7 +108,6 @@ class EloadBrokering(Eload):
         elif (
             self.eload_cfg.query('brokering', 'Biosamples', 'Samples')
             and self.eload_cfg.query('brokering', 'Biosamples', 'pass')
-            and not force
         ):
             self.info('BioSamples brokering is already done, Skip!')
         else:

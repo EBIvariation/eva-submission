@@ -13,190 +13,71 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import re
+from copy import deepcopy
 from datetime import datetime, date
+from functools import lru_cache
 
-import requests
-from cached_property import cached_property
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
-from retry import retry
 
+from eva_submission.biosample_submission.biosamples_communicators import AAPHALCommunicator, WebinHALCommunicator
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 _now = datetime.now().isoformat()
 
 
-class HALNotReadyError(Exception):
-    pass
+class BioSamplesSubmitter(AppLogger):
 
+    valid_actions = ('create', 'overwrite', 'curate', 'derive')
 
-class HALCommunicator(AppLogger):
-    """
-    This class helps navigate through REST API that uses the HAL standard.
-    """
-    acceptable_code = [200, 201]
-
-    def __init__(self, auth_url, bsd_url, username, password):
-        self.auth_url = auth_url
-        self.bsd_url = bsd_url
-        self.username = username
-        self.password = password
-
-    def _validate_response(self, response):
-        """Check that the response has an acceptable code and raise if it does not"""
-        if response.status_code not in self.acceptable_code:
-            self.error(response.request.method + ': ' + response.request.url + " with " + str(response.request.body))
-            self.error("headers: {}".format(response.request.headers))
-            self.error("<{}>: {}".format(response.status_code, response.text))
-            raise ValueError('The HTTP status code ({}) is not one of the acceptable codes ({})'.format(
-                str(response.status_code), str(self.acceptable_code))
-            )
-        return response
-
-    @cached_property
-    def token(self):
-        """Retrieve the token from the AAP REST API then cache it for further quering"""
-        response = requests.get(self.auth_url, auth=(self.username, self.password))
-        self._validate_response(response)
-        return response.text
-
-    @retry(exceptions=(ValueError, requests.RequestException), tries=3, delay=2, backoff=1.2, jitter=(1, 3))
-    def _req(self, method, url, **kwargs):
-        """private method that sends a request using the specified method. It adds the headers required by bsd"""
-        headers = kwargs.pop('headers', {})
-        headers.update({'Accept': 'application/hal+json', 'Authorization': 'Bearer ' + self.token})
-        if 'json' in kwargs:
-            headers['Content-Type'] = 'application/json'
-        response = requests.request(
-            method=method,
-            url=url,
-            headers=headers,
-            **kwargs
-        )
-        self._validate_response(response)
-        return response
-
-    def follows(self, query, json_obj=None, method='GET', url_template_values=None, join_url=None, **kwargs):
-        """
-        Finds a link within the json_obj using a query string or list, modify the link using the
-        url_template_values dictionary then query the link using the method and any additional keyword argument.
-        If the json_obj is not specified then it will use the root query defined by the base url.
-        """
-        all_pages = kwargs.pop('all_pages', False)
-
-        if json_obj is None:
-            json_obj = self.root
-        # Drill down into a dict using dot notation
-        _json_obj = json_obj
-        if isinstance(query, str):
-            query_list = query.split('.')
-        else:
-            query_list = query
-        for query_element in query_list:
-            if query_element in _json_obj:
-                _json_obj = _json_obj[query_element]
-            else:
-                raise KeyError('{} does not exist in json object'.format(query_element, _json_obj))
-        if not isinstance(_json_obj, str):
-            raise ValueError('The result of the query_string must be a string to use as a url')
-        url = _json_obj
-        # replace the template in the url with the value provided
-        if url_template_values:
-            for k, v in url_template_values.items():
-                url = re.sub('{(' + k + ')(:.*)?}', v, url)
-        if join_url:
-            url += '/' + join_url
-        # Now query the url
-        json_response = self._req(method, url, **kwargs).json()
-
-        # Depaginate the call if requested
-        if all_pages is True:
-            # This depagination code will iterate over all the pages available until the pages comes back  without a
-            # next page. It stores the embedded elements in the initial query's json response
-            content = json_response
-            while 'next' in content.get('_links'):
-                content = self._req(method, content.get('_links').get('next').get('href'), **kwargs).json()
-                for key in content.get('_embedded'):
-                    json_response['_embedded'][key].extend(content.get('_embedded').get(key))
-            # Remove the pagination information as it is not relevant to the depaginated response
-            if 'page' in json_response: json_response.pop('page')
-            if 'first' in json_response['_links']: json_response['_links'].pop('first')
-            if 'last' in json_response['_links']: json_response['_links'].pop('last')
-            if 'next' in json_response['_links']: json_response['_links'].pop('next')
-        return json_response
-
-    def follows_link(self, key, json_obj=None, method='GET', url_template_values=None, join_url=None, **kwargs):
-        """
-        Same function as follows but construct the query_string from a single keyword surrounded by '_links' and 'href'.
-        """
-        return self.follows(('_links', key, 'href'),
-                            json_obj=json_obj, method=method, url_template_values=url_template_values,
-                            join_url=join_url, **kwargs)
-
-    @cached_property
-    def root(self):
-        return self._req('GET', self.bsd_url).json()
-
-    @property
-    def communicator_attributes(self):
-        raise NotImplementedError
-
-
-class AAPHALCommunicator(HALCommunicator):
-
-    def __init__(self, auth_url, bsd_url, username, password, domain=None):
-        super(AAPHALCommunicator, self).__init__(auth_url, bsd_url, username, password)
-        self.domain = domain
-
-    @property
-    def communicator_attributes(self):
-        return {'domain': self.domain}
-
-
-class WebinHALCommunicator(HALCommunicator):
-
-    @cached_property
-    def token(self):
-        """Retrieve the token from the ENA Webin REST API then cache it for further quering"""
-        response = requests.post(self.auth_url,
-                                 json={"authRealms": ["ENA"], "password": self.password,
-                                       "username": self.username})
-        self._validate_response(response)
-        return response.text
-
-    @property
-    def communicator_attributes(self):
-        return {'webinSubmissionAccountId': self.username}
-
-
-
-class BSDSubmitter(AppLogger):
-
-    def __init__(self, communicator):
-        self.communicator = communicator
+    def __init__(self, communicators, submit_type=('create',), allow_removal=False):
+        assert len(communicators) > 0, 'Specify at least one communicator object to BioSamplesSubmitter'
+        assert set(submit_type) <= set(self.valid_actions), f'all actions must be in {self.valid_actions}'
+        self.default_communicator = communicators[0]
+        self.communicators = communicators
         self.sample_name_to_accession = {}
+        self.submit_type = submit_type
+        self.allow_removal = allow_removal
 
-    def should_create(self, sample):
-        return 'accession' not in sample
+    @lru_cache
+    def _get_existing_sample(self, accession):
+        return self.default_communicator.follows_link('samples', method='GET', join_url=accession)
 
-    def should_update(self, sample):
-        return 'accession' in sample and 'name' in sample
+    def can_create(self, sample):
+        return 'create' in self.submit_type and 'accession' not in sample
 
-    def should_retrieve(self, sample):
-        return 'accession' in sample and 'name' not in sample
+    def can_overwrite(self, sample):
+        """ We should overwrite a samples when it is owned by a domain supported current uploader"""
+        return 'overwrite' in self.submit_type and \
+            'accession' in sample and \
+            self._get_communicator_for_sample(sample)
+
+    def can_curate(self, sample):
+        """ We can curate a samples if it has an existing accessionr"""
+        return 'curate' in self.submit_type and 'accession' in sample
+
+    def can_derive(self, sample):
+        return 'derive' in self.submit_type and 'accession' in sample
+
+    def _get_communicator_for_sample(self, sample):
+        sample_data = self._get_existing_sample(sample.get('accession'))
+        # This check If one of the account own the BioSample by checking if the 'domain' or 'webinSubmissionAccountId'
+        # are the same as the one who submitted the sample
+        for communicator in self.communicators:
+            if communicator.communicator_attributes.items() <= sample_data.items():
+                return communicator
+        return None
 
     def validate_in_bsd(self, samples_data):
         for sample in samples_data:
-            # If we're only retrieving, or updating don't need to validate.
-            if not self.should_retrieve(sample) and not self.should_update(sample):
-                sample.update(self.communicator.communicator_attributes)
-                self.communicator.follows_link('samples', join_url='validate', method='POST', json=sample)
+            # If we're only retrieving don't need to validate.
+            if self.can_create(sample) or self.can_overwrite(sample):
+                sample.update(self.default_communicator.communicator_attributes)
+                self.default_communicator.follows_link('samples', join_url='validate', method='POST', json=sample)
 
     def convert_sample_data_to_curation_object(self, future_sample):
         """Curation object can only change 3 attributes characteristics, externalReferences and relationships"""
-        current_sample = self.communicator.follows_link('samples', method='GET', join_url=future_sample.get('accession'))
-
+        current_sample = self._get_existing_sample(future_sample.get('accession'))
         #FIXME: Remove this hack when this is fixed on BioSample's side
         # remove null values in externalReferences that causes crash when POSTing the curation object
         if 'externalReferences' in current_sample:
@@ -204,23 +85,47 @@ class BSDSubmitter(AppLogger):
                 dict([(k, v) for k, v in external_ref.items() if v is not None])
                 for external_ref in current_sample['externalReferences']
             ]
-
         curation_object = {}
         attributes_pre = []
         attributes_post = []
-        for attribute in future_sample['characteristics']:
-            if attribute in current_sample['characteristics']:
+        # To add or modify attributes
+        attributes = set(future_sample['characteristics']).union(set(current_sample['characteristics']))
+        for attribute in attributes:
+            # Addition
+            if attribute in future_sample['characteristics'] and attribute not in current_sample['characteristics']:
+                post_attribute = future_sample['characteristics'].get(attribute)[0]
+                attributes_post.append({
+                    'type': attribute,
+                    'value': post_attribute.get('text'),
+                    **({'tag': post_attribute['tag']} if 'tag' in post_attribute else {})
+                })
+            # Removal
+            elif self.allow_removal and \
+                    attribute in current_sample['characteristics'] and \
+                    attribute not in future_sample['characteristics']:
+                pre_attribute = current_sample['characteristics'].get(attribute)[0]
                 attributes_pre.append({
                     'type': attribute,
-                    'value': current_sample['characteristics'].get(attribute)[0].get('text')
+                    'value': pre_attribute.get('text'),
+                    **({'tag': pre_attribute['tag']} if 'tag' in pre_attribute else {})
                 })
-            attributes_post.append({
-                'type': attribute,
-                'value': future_sample['characteristics'].get(attribute)[0].get('text')
-            })
+            # Replacement
+            elif attribute in future_sample['characteristics'] and attribute in current_sample['characteristics'] and \
+                    future_sample['characteristics'][attribute] != current_sample['characteristics'][attribute]:
+                pre_attribute = current_sample['characteristics'].get(attribute)[0]
+                attributes_pre.append({
+                    'type': attribute,
+                    'value': pre_attribute.get('text'),
+                    **({'tag': pre_attribute['tag']} if 'tag' in pre_attribute else {})
+                })
+                post_attribute = future_sample['characteristics'].get(attribute)[0]
+                attributes_post.append({
+                    'type': attribute,
+                    'value': post_attribute.get('text'),
+                    **({'tag': post_attribute['tag']} if 'tag' in post_attribute else {})
+                })
         curation_object['attributesPre'] = attributes_pre
         curation_object['attributesPost'] = attributes_post
-
         # for externalReferences and relationships we're assuming you want to replace them all
         curation_object['externalReferencesPre'] = current_sample.get('externalReferences', [])
         curation_object['externalReferencesPost'] = future_sample.get('externalReferences', [])
@@ -229,29 +134,96 @@ class BSDSubmitter(AppLogger):
 
         return dict(curation=curation_object, sample=future_sample.get('accession'))
 
-    def submit_to_bsd(self, samples_data):
+    @staticmethod
+    def _update_from_array(key, sample_source, sample_dest):
+        """Add the element of an array stored in specified key from source to destination"""
+        if key in sample_source:
+            if key not in sample_dest:
+                sample_dest[key] = []
+            for element in sample_source[key]:
+                if element not in sample_dest[key]:
+                    sample_dest[key].append(element)
+
+    def _update_samples_with(self, sample_source, sample_dest):
+        """Update a BioSample object with the value of another"""
+        for attribute in sample_source['characteristics']:
+            if attribute not in sample_dest['characteristics']:
+                sample_dest['characteristics'][attribute] = sample_source['characteristics'][attribute]
+        self._update_from_array('externalReferences', sample_source, sample_dest)
+        self._update_from_array('relationships', sample_source, sample_dest)
+        self._update_from_array('contact', sample_source, sample_dest)
+        self._update_from_array('organization', sample_source, sample_dest)
+        for key in ['taxId', 'accession', 'name', 'release']:
+            if key in sample_source and key not in sample_dest:
+                sample_dest[key] = sample_source[key]
+
+    def create_sample_to_overwrite(self, sample):
+        """Create the sample that will be used to overwrite the exising ones"""
+        # We only add existing characteristics if we do not want to remove anything
+        if self.can_overwrite(sample) and not self.allow_removal:
+            # retrieve the sample without any curation and add the new data on top
+            current_sample = self._get_existing_sample(sample.get('accession'))
+            self._update_samples_with(current_sample, sample)
+        return sample
+
+    def create_derived_sample(self, sample):
+        skipped_attributes = ['SRA accession']
+        if self.can_derive(sample):
+            derived_sample = deepcopy(sample)
+            current_sample = self._get_existing_sample(derived_sample.get('accession'))
+            self._update_samples_with(current_sample, derived_sample)
+            # Remove the accession of previous samples
+            accession = derived_sample.pop('accession')
+            # Remove the SRA accession if it is there
+            if 'SRA accession' in derived_sample['characteristics']:
+                derived_sample['characteristics'].pop('SRA accession')
+            derived_sample['release'] = _now
+            return derived_sample, accession
+
+    def submit_biosamples_to_bsd(self, samples_data):
         """
-        This function creates or updates samples in BioSamples and return a map of sample name to sample accession
+        This function iterate through the multiple sample data to process and based on each sample characteristics and
+        the submit_type will:
+          - Create sample from provided annotation
+          - Overwrite existing samples in BioSamples
+          - Create curation objects and apply them to an existing sample
+          - Derive a sample from an existing sample carrying over all its characteristics
+        Then it returns a map of sample name to sample accession.
         """
         for sample in samples_data:
-            sample.update(self.communicator.communicator_attributes)
-            if self.should_create(sample):
-                # Create a sample
-                sample_json = self.communicator.follows_link('samples', method='POST', json=sample)
+            sample.update(self.default_communicator.communicator_attributes)
+            if self.can_create(sample):
+                sample_json = self.default_communicator.follows_link('samples', method='POST', json=sample)
                 self.debug('Accession sample ' + sample.get('name') + ' as ' + sample_json.get('accession'))
-            # To trigger and update we require at least the sample name to be populated
-            # NOTE that it create a curation object that will only update fields that are present in the
-            # characteristics, externalReference and relationship.
-            elif self.should_update(sample):
+            elif self.can_overwrite(sample):
+                sample_to_overwrite = self.create_sample_to_overwrite(sample)
+                self.debug('Overwrite sample ' + sample.get('name') + ' with accession ' + sample.get('accession'))
+                # Use the communicator that can own the sample to overwrite it.
+                communicator = self._get_communicator_for_sample(sample)
+                sample_json = communicator.follows_link('samples', method='PUT', join_url=sample.get('accession'),
+                                                                     json=sample_to_overwrite)
+            elif self.can_curate(sample):
                 self.debug('Update sample ' + sample.get('name') + ' with accession ' + sample.get('accession'))
                 curation_object = self.convert_sample_data_to_curation_object(sample)
-                sample_json = self.communicator.follows_link('samples', method='POST',
-                                                             join_url=sample.get('accession')+'/curationlinks',
-                                                             json=curation_object)
-
+                curation_json = self.default_communicator.follows_link(
+                    'samples', method='POST', join_url=sample.get('accession')+'/curationlinks', json=curation_object
+                )
+                sample_json = sample
+            elif self.can_derive(sample):
+                derived_sample, original_accession = self.create_derived_sample(sample)
+                sample_json = self.default_communicator.follows_link('samples', method='POST', json=derived_sample)
+                if 'relationships' not in sample_json:
+                    sample_json['relationships'] = []
+                sample_json['relationships'].append(
+                    {'type': "derived from", 'target': original_accession, 'source': sample_json['accession']}
+                )
+                sample_json = self.default_communicator.follows_link('samples', method='PUT',
+                                                                     join_url=sample_json.get('accession'), json=sample_json)
+                self.debug(f'Accession sample {sample.get("name")} as {sample_json.get("accession")} derived from'
+                           f' {original_accession}')
             # Otherwise Keep the sample as is and retrieve the name so that list of sample to accession is complete
             else:
-                sample_json = self.communicator.follows_link('samples', method='GET', join_url=sample.get('accession'))
+                sample_json = self._get_existing_sample(sample.get('accession'))
             self.sample_name_to_accession[sample_json.get('name')] = sample_json.get('accession')
 
 
@@ -261,19 +233,21 @@ class SampleSubmitter(AppLogger):
 
     project_mapping = {}
 
-    def __init__(self):
-        communicator = AAPHALCommunicator(cfg.query('biosamples', 'aap_url'), cfg.query('biosamples', 'bsd_url'),
-                                          cfg.query('biosamples', 'username'), cfg.query('biosamples', 'password'),
-                                          cfg.query('biosamples', 'domain'))
-        # If the config has the credential for using webin with BioSamples prefer webin
+    def __init__(self, submit_type):
+        communicators = []
+        # If the config has the credential for using webin with BioSamples use webin first
         if cfg.query('biosamples', 'webin_url') and cfg.query('biosamples', 'webin_username') and \
                 cfg.query('biosamples', 'webin_password'):
-            communicator = WebinHALCommunicator(cfg.query('biosamples', 'webin_url'),
-                                                cfg.query('biosamples', 'bsd_url'),
-                                                cfg.query('biosamples', 'webin_username'),
-                                                cfg.query('biosamples', 'webin_password'))
-
-        self.submitter = BSDSubmitter(communicator)
+            communicators.append(WebinHALCommunicator(
+                cfg.query('biosamples', 'webin_url'), cfg.query('biosamples', 'bsd_url'),
+                cfg.query('biosamples', 'webin_username'), cfg.query('biosamples', 'webin_password')
+            ))
+        communicators.append(AAPHALCommunicator(
+            cfg.query('biosamples', 'aap_url'), cfg.query('biosamples', 'bsd_url'),
+            cfg.query('biosamples', 'username'), cfg.query('biosamples', 'password'),
+            cfg.query('biosamples', 'domain')
+        ))
+        self.submitter = BioSamplesSubmitter(communicators, submit_type)
         self.sample_data = None
 
     @staticmethod
@@ -333,7 +307,7 @@ class SampleSubmitter(AppLogger):
             self.info('Validate {} sample(s) in BioSample'.format(len(self.sample_data)))
             self.submitter.validate_in_bsd(self.sample_data)
             self.info('Upload {} sample(s) '.format(len(self.sample_data)))
-            self.submitter.submit_to_bsd(self.sample_data)
+            self.submitter.submit_biosamples_to_bsd(self.sample_data)
 
         return self.submitter.sample_name_to_accession
 
@@ -373,8 +347,8 @@ class SampleMetadataSubmitter(SampleSubmitter):
         'Address': 'Address',
     }
 
-    def __init__(self, metadata_spreadsheet):
-        super().__init__()
+    def __init__(self, metadata_spreadsheet, submit_type=('create',)):
+        super().__init__(submit_type=submit_type)
         self.metadata_spreadsheet = metadata_spreadsheet
         self.reader = EvaXlsxReader(self.metadata_spreadsheet)
         self.sample_data = self.map_metadata_to_bsd_data()
@@ -473,7 +447,7 @@ class SampleMetadataSubmitter(SampleSubmitter):
 class SampleReferenceSubmitter(SampleSubmitter):
 
     def __init__(self, biosample_accession_list, project_accession):
-        super().__init__()
+        super().__init__(submit_type=('curate',))
         self.biosample_accession_list = biosample_accession_list
         self.project_accession = project_accession
         self.sample_data = self.retrieve_biosamples()
@@ -482,7 +456,7 @@ class SampleReferenceSubmitter(SampleSubmitter):
         biosample_objects = []
         eva_study_url = f'https://www.ebi.ac.uk/eva/?eva-study={self.project_accession}'
         for sample_accession in self.biosample_accession_list:
-            sample_json = self.submitter.communicator.follows_link('samples', method='GET', join_url=sample_accession)
+            sample_json = self.submitter._get_existing_sample(sample_accession)
             # remove any property that should not be uploaded again (the ones that starts with underscore)
             sample_json = dict([(prop, value) for prop, value in sample_json.items() if not prop.startswith('_')])
             # check if the external reference already exist before inserting it
@@ -491,7 +465,7 @@ class SampleReferenceSubmitter(SampleSubmitter):
                     sample_json['externalReferences'] = []
                 sample_json['externalReferences'].append({'url': eva_study_url})
 
-            # FIXME: Remove this hack when this i fixed on BioSample's side
+            # FIXME: Remove this hack when this is fixed on BioSample's side
             # remove null values in externalReferences that causes crash when POSTing the curation object
             if 'externalReferences' in sample_json:
                 sample_json['externalReferences'] = [
