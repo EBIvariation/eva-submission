@@ -7,8 +7,10 @@ import yaml
 
 from eva_submission import ROOT_DIR
 from eva_submission.biosample_submission import biosamples_submitters
-from eva_submission.biosample_submission.biosamples_submitters import HALCommunicator, BioSamplesSubmitter, SampleMetadataSubmitter, \
-    SampleReferenceSubmitter, AAPHALCommunicator, WebinHALCommunicator
+from eva_submission.biosample_submission.biosamples_communicators import HALCommunicator, WebinHALCommunicator, \
+    AAPHALCommunicator
+from eva_submission.biosample_submission.biosamples_submitters import BioSamplesSubmitter, SampleMetadataSubmitter, \
+    SampleReferenceSubmitter
 
 
 class BSDTestCase(TestCase):
@@ -320,7 +322,7 @@ class TestSampleMetadataSubmitter(BSDTestCase):
 
     def test_map_metadata_to_bsd_data(self):
         now = '2020-07-06T19:09:29.090Z'
-        biosamples_submission._now = now
+        biosamples_submitters._now = now
         expected_payload = [
             {'name': 'S%s' % (i + 1), 'taxId': 9606, 'release': now,
              'contact': [{'LastName': 'John', 'FirstName': 'Doe', 'E-mail': 'john.doe@example.com'},
