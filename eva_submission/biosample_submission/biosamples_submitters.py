@@ -20,6 +20,7 @@ from functools import lru_cache
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 
+from eva_submission.biosample_submission.biosamples_communicators import AAPHALCommunicator, WebinHALCommunicator
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 _now = datetime.now().isoformat()

@@ -11,7 +11,7 @@ from eva_submission.biosample_submission.biosamples_communicators import HALComm
     AAPHALCommunicator
 from eva_submission.biosample_submission.biosamples_submitters import BioSamplesSubmitter, SampleMetadataSubmitter, \
     SampleReferenceSubmitter
-
+import eva_submission.biosample_submission.biosamples_submitters
 
 class BSDTestCase(TestCase):
 
@@ -348,7 +348,7 @@ class TestSampleMetadataSubmitter(BSDTestCase):
 
     def test_map_partial_metadata_to_bsd_data(self):
         now = '2020-07-06T19:09:29.090Z'
-        biosamples_submission._now = now
+        biosamples_submitters._now = now
         contacts = [
             {'LastName': 'John', 'FirstName': 'Doe', 'E-mail': 'john.doe@example.com'},
             {'LastName': 'Jane', 'FirstName': 'Doe', 'E-mail': 'jane.doe@example.com'}
