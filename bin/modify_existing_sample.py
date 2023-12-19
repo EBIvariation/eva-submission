@@ -44,6 +44,7 @@ def main():
     sample_submitter = SampleMetadataSubmitter(args.metadata_file, submit_type=(args.action,))
     sample_name_to_accession = sample_submitter.submit_to_bioSamples()
     if args.action == 'derive':
+        # When deriving samples we need to copy the resulting accessions in the spreadsheet.
         eva_xls_reader = EvaXlsxReader(args.metadata_file)
         eva_xls_writer = EvaXlsxWriter(args.metadata_file)
         sample_rows = []
