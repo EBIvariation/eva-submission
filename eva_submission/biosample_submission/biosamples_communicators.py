@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import re
+from json import JSONDecodeError
 
 import requests
 from cached_property import cached_property
@@ -29,7 +30,7 @@ class HALCommunicator(AppLogger):
     """
     This class helps navigate through REST API that uses the HAL standard.
     """
-    acceptable_code = [200, 201]
+    acceptable_code = [200, 201, 204]
 
     def __init__(self, auth_url, bsd_url, username, password):
         self.auth_url = auth_url
@@ -102,7 +103,12 @@ class HALCommunicator(AppLogger):
         if join_url:
             url += '/' + join_url
         # Now query the url
-        json_response = self._req(method, url, **kwargs).json()
+        response = self._req(method, url, **kwargs)
+        try:
+            json_response = response.json()
+        except JSONDecodeError:
+            self.debug(f'No response available for request {method} to {url}')
+            return {}
 
         # Depaginate the call if requested
         if all_pages is True:

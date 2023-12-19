@@ -15,15 +15,13 @@
 # limitations under the License.
 
 import argparse
-import logging
 
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.biosamples_submission import AAPHALCommunicator, SampleMetadataSubmitter, BioSamplesSubmitter, \
-    WebinHALCommunicator
+from eva_submission.biosample_submission.biosamples_communicators import WebinHALCommunicator, AAPHALCommunicator
+from eva_submission.biosample_submission.biosamples_submitters import BioSamplesSubmitter
 from eva_submission.submission_config import load_config
-from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxWriter, EvaXlsxReader
 
 logger = log_cfg.get_logger(__name__)
 
