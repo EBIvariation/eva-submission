@@ -10,7 +10,7 @@ from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.ENA_submission.upload_to_ENA import ENAUploader, ENAUploaderAsync
-from eva_submission.biosamples_submission import SampleMetadataSubmitter, SampleReferenceSubmitter
+from eva_submission.biosample_submission.biosamples_submitters import SampleMetadataSubmitter, SampleReferenceSubmitter
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import read_md5
 from eva_submission.submission_config import EloadConfig

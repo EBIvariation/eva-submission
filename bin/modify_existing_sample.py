@@ -15,12 +15,10 @@
 # limitations under the License.
 
 import argparse
-import logging
 
-from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.biosamples_submission import AAPHALCommunicator, SampleMetadataSubmitter, BioSamplesSubmitter
+from eva_submission.biosample_submission.biosamples_submitters import SampleMetadataSubmitter
 from eva_submission.submission_config import load_config
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxWriter, EvaXlsxReader
 
@@ -46,6 +44,7 @@ def main():
     sample_submitter = SampleMetadataSubmitter(args.metadata_file, submit_type=(args.action,))
     sample_name_to_accession = sample_submitter.submit_to_bioSamples()
     if args.action == 'derive':
+        # When deriving samples we need to copy the resulting accessions in the spreadsheet.
         eva_xls_reader = EvaXlsxReader(args.metadata_file)
         eva_xls_writer = EvaXlsxWriter(args.metadata_file)
         sample_rows = []

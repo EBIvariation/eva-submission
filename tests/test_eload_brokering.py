@@ -1,4 +1,3 @@
-import csv
 import glob
 import os
 import shutil
@@ -8,7 +7,7 @@ from unittest.mock import patch, PropertyMock
 from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission import NEXTFLOW_DIR
-from eva_submission.biosamples_submission import SampleMetadataSubmitter
+from eva_submission.biosample_submission.biosamples_submitters import SampleMetadataSubmitter
 from eva_submission.eload_brokering import EloadBrokering
 from eva_submission.eload_submission import Eload
 from eva_submission.submission_config import load_config

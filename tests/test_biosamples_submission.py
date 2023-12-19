@@ -3,11 +3,11 @@ from copy import deepcopy
 from unittest import TestCase
 from unittest.mock import patch, Mock, PropertyMock
 
-import pytest
 import yaml
 
-from eva_submission import biosamples_submission, ROOT_DIR
-from eva_submission.biosamples_submission import HALCommunicator, BioSamplesSubmitter, SampleMetadataSubmitter, \
+from eva_submission import ROOT_DIR
+from eva_submission.biosample_submission import biosamples_submitters
+from eva_submission.biosample_submission.biosamples_submitters import HALCommunicator, BioSamplesSubmitter, SampleMetadataSubmitter, \
     SampleReferenceSubmitter, AAPHALCommunicator, WebinHALCommunicator
 
 

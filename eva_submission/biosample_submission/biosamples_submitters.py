@@ -13,163 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import re
 from copy import deepcopy
 from datetime import datetime, date
 from functools import lru_cache
 
-import requests
-from cached_property import cached_property
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
-from retry import retry
 
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 _now = datetime.now().isoformat()
-
-
-class HALNotReadyError(Exception):
-    pass
-
-
-class HALCommunicator(AppLogger):
-    """
-    This class helps navigate through REST API that uses the HAL standard.
-    """
-    acceptable_code = [200, 201]
-
-    def __init__(self, auth_url, bsd_url, username, password):
-        self.auth_url = auth_url
-        self.bsd_url = bsd_url
-        self.username = username
-        self.password = password
-
-    def _validate_response(self, response):
-        """Check that the response has an acceptable code and raise if it does not"""
-        if response.status_code not in self.acceptable_code:
-            self.error(response.request.method + ': ' + response.request.url + " with " + str(response.request.body))
-            self.error("headers: {}".format(response.request.headers))
-            self.error("<{}>: {}".format(response.status_code, response.text))
-            raise ValueError('The HTTP status code ({}) is not one of the acceptable codes ({})'.format(
-                str(response.status_code), str(self.acceptable_code))
-            )
-        return response
-
-    @cached_property
-    def token(self):
-        """Retrieve the token from the AAP REST API then cache it for further quering"""
-        response = requests.get(self.auth_url, auth=(self.username, self.password))
-        self._validate_response(response)
-        return response.text
-
-    @retry(exceptions=(ValueError, requests.RequestException), tries=3, delay=2, backoff=1.2, jitter=(1, 3))
-    def _req(self, method, url, **kwargs):
-        """private method that sends a request using the specified method. It adds the headers required by bsd"""
-        headers = kwargs.pop('headers', {})
-        headers.update({'Accept': 'application/hal+json', 'Authorization': 'Bearer ' + self.token})
-        if 'json' in kwargs:
-            headers['Content-Type'] = 'application/json'
-        response = requests.request(
-            method=method,
-            url=url,
-            headers=headers,
-            **kwargs
-        )
-        self._validate_response(response)
-        return response
-
-    def follows(self, query, json_obj=None, method='GET', url_template_values=None, join_url=None, **kwargs):
-        """
-        Finds a link within the json_obj using a query string or list, modify the link using the
-        url_template_values dictionary then query the link using the method and any additional keyword argument.
-        If the json_obj is not specified then it will use the root query defined by the base url.
-        """
-        all_pages = kwargs.pop('all_pages', False)
-
-        if json_obj is None:
-            json_obj = self.root
-        # Drill down into a dict using dot notation
-        _json_obj = json_obj
-        if isinstance(query, str):
-            query_list = query.split('.')
-        else:
-            query_list = query
-        for query_element in query_list:
-            if query_element in _json_obj:
-                _json_obj = _json_obj[query_element]
-            else:
-                raise KeyError('{} does not exist in json object'.format(query_element, _json_obj))
-        if not isinstance(_json_obj, str):
-            raise ValueError('The result of the query_string must be a string to use as a url')
-        url = _json_obj
-        # replace the template in the url with the value provided
-        if url_template_values:
-            for k, v in url_template_values.items():
-                url = re.sub('{(' + k + ')(:.*)?}', v, url)
-        if join_url:
-            url += '/' + join_url
-        # Now query the url
-        json_response = self._req(method, url, **kwargs).json()
-
-        # Depaginate the call if requested
-        if all_pages is True:
-            # This depagination code will iterate over all the pages available until the pages comes back  without a
-            # next page. It stores the embedded elements in the initial query's json response
-            content = json_response
-            while 'next' in content.get('_links'):
-                content = self._req(method, content.get('_links').get('next').get('href'), **kwargs).json()
-                for key in content.get('_embedded'):
-                    json_response['_embedded'][key].extend(content.get('_embedded').get(key))
-            # Remove the pagination information as it is not relevant to the depaginated response
-            if 'page' in json_response: json_response.pop('page')
-            if 'first' in json_response['_links']: json_response['_links'].pop('first')
-            if 'last' in json_response['_links']: json_response['_links'].pop('last')
-            if 'next' in json_response['_links']: json_response['_links'].pop('next')
-        return json_response
-
-    def follows_link(self, key, json_obj=None, method='GET', url_template_values=None, join_url=None, **kwargs):
-        """
-        Same function as follows but construct the query_string from a single keyword surrounded by '_links' and 'href'.
-        """
-        return self.follows(('_links', key, 'href'),
-                            json_obj=json_obj, method=method, url_template_values=url_template_values,
-                            join_url=join_url, **kwargs)
-
-    @cached_property
-    def root(self):
-        return self._req('GET', self.bsd_url).json()
-
-    @property
-    def communicator_attributes(self):
-        raise NotImplementedError
-
-
-class AAPHALCommunicator(HALCommunicator):
-
-    def __init__(self, auth_url, bsd_url, username, password, domain=None):
-        super(AAPHALCommunicator, self).__init__(auth_url, bsd_url, username, password)
-        self.domain = domain
-
-    @property
-    def communicator_attributes(self):
-        return {'domain': self.domain}
-
-
-class WebinHALCommunicator(HALCommunicator):
-
-    @cached_property
-    def token(self):
-        """Retrieve the token from the ENA Webin REST API then cache it for further quering"""
-        response = requests.post(self.auth_url,
-                                 json={"authRealms": ["ENA"], "password": self.password,
-                                       "username": self.username})
-        self._validate_response(response)
-        return response.text
-
-    @property
-    def communicator_attributes(self):
-        return {'webinSubmissionAccountId': self.username}
 
 
 class BioSamplesSubmitter(AppLogger):
@@ -196,7 +49,7 @@ class BioSamplesSubmitter(AppLogger):
         """ We should overwrite a samples when it is owned by a domain supported current uploader"""
         return 'overwrite' in self.submit_type and \
             'accession' in sample and \
-            self._get_sample_owner(sample)
+            self._get_communicator_for_sample(sample)
 
     def can_curate(self, sample):
         """ We can curate a samples if it has an existing accessionr"""
@@ -205,7 +58,7 @@ class BioSamplesSubmitter(AppLogger):
     def can_derive(self, sample):
         return 'derive' in self.submit_type and 'accession' in sample
 
-    def _get_sample_owner(self, sample):
+    def _get_communicator_for_sample(self, sample):
         sample_data = self._get_existing_sample(sample.get('accession'))
         # This check If one of the account own the BioSample by checking if the 'domain' or 'webinSubmissionAccountId'
         # are the same as the one who submitted the sample
@@ -304,7 +157,7 @@ class BioSamplesSubmitter(AppLogger):
                 sample_dest[key] = sample_source[key]
 
     def create_sample_to_overwrite(self, sample):
-        """Create all the sample that will be used to overwrite the exising ones"""
+        """Create the sample that will be used to overwrite the exising ones"""
         # We only add existing characteristics if we do not want to remove anything
         if self.can_overwrite(sample) and not self.allow_removal:
             # retrieve the sample without any curation and add the new data on top
@@ -328,7 +181,13 @@ class BioSamplesSubmitter(AppLogger):
 
     def submit_biosamples_to_bsd(self, samples_data):
         """
-        This function creates or overwrite samples in BioSamples and return a map of sample name to sample accession
+        This function iterate through the multiple sample data to process and based on each sample characteristics and
+        the submit_type will:
+          - Create sample from provided annotation
+          - Overwrite existing samples in BioSamples
+          - Create curation objects and apply them to an existing sample
+          - Derive a sample from an existing sample carrying over all its characteristics
+        Then it returns a map of sample name to sample accession.
         """
         for sample in samples_data:
             sample.update(self.default_communicator.communicator_attributes)
@@ -338,7 +197,9 @@ class BioSamplesSubmitter(AppLogger):
             elif self.can_overwrite(sample):
                 sample_to_overwrite = self.create_sample_to_overwrite(sample)
                 self.debug('Overwrite sample ' + sample.get('name') + ' with accession ' + sample.get('accession'))
-                sample_json = self.default_communicator.follows_link('samples', method='PUT', join_url=sample.get('accession'),
+                # Use the communicator that can own the sample to overwrite it.
+                communicator = self._get_communicator_for_sample(sample)
+                sample_json = communicator.follows_link('samples', method='PUT', join_url=sample.get('accession'),
                                                                      json=sample_to_overwrite)
             elif self.can_curate(sample):
                 self.debug('Update sample ' + sample.get('name') + ' with accession ' + sample.get('accession'))

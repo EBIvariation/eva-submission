@@ -10,7 +10,7 @@ from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_en
 from requests import HTTPError
 
 from eva_submission import ETC_DIR
-from eva_submission.biosamples_submission import AAPHALCommunicator
+from eva_submission.biosample_submission.biosamples_submitters import AAPHALCommunicator
 from eva_submission.eload_utils import cast_list, check_existing_project_in_ena, check_project_format
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
@@ -138,7 +138,7 @@ class EvaXlsxValidator(AppLogger):
                 sample_accession = row.get('Sample Accession').strip()
                 try:
                     sample_data = self.communicator.follows_link('samples', join_url=sample_accession)
-                    self._validate_existing_bioSample(sample_data)
+                    self._validate_existing_bioSample(sample_data, row.get('row_num'), sample_accession)
                 except ValueError:
                     self.error_list.append(
                         f'In Sample, row {row.get("row_num")} BioSamples accession {sample_accession} '

@@ -15,12 +15,11 @@
 # limitations under the License.
 
 import argparse
-import logging
 
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.biosamples_submission import AAPHALCommunicator
+from eva_submission.biosample_submission.biosamples_submitters import AAPHALCommunicator
 from eva_submission.submission_config import load_config
 
 
