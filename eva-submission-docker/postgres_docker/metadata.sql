@@ -847,6 +847,30 @@ VALUES ('doi', '10.3389/fgene.2023.1229741', 'publication', 'project');
 INSERT INTO evapro.project_dbxref (project_accession, dbxref_id)
 VALUES ('PRJEB62432', 1);
 
+----- The following inserts are required to get the study to appear in the study browser
+
+INSERT INTO evapro.eva_submission_status_cv (eva_submission_status_id, submission_status, description)
+VALUES (0,'Submission Defined','A submission has been initiated, but not files yet received'),
+       (1,'Files Received','EVA has receieved the submission files'),
+       (2,'VCF File Valid','The VCF files are technically valid'),
+       (3,'Meta-data Valid','The required meta-data is complete and correct'),
+       (4,'ENA Project Accession Assigned','A project accession has be assigned by ENA'),
+       (5,'File submitted to ENA','The VCF files have been submitted to ENA'),
+       (6,'ENA Submission Complete','The ENA submission is complete'),
+       (7,'EVA Processing Started','The files have started to be processed by EVA'),
+       (8,'EVA Processing Complete','The files have completed processing by EVA'),
+       (9,'Mongo Loading Started','The data is loading to MongoDB'),
+       (10,'Submission Live','The submission is live and public at EVA'),
+       (-1,'Submission Private','The submission is private at EVA (e.g. hide parent project)');
+
+INSERT INTO evapro.eva_submission (eva_submission_status_id)
+VALUES (6);
+
+INSERT INTO evapro.project_eva_submission (project_accession, old_ticket_id, eload_id)
+VALUES ('PRJEB62432', 1, 42);
+
+REFRESH MATERIALIZED VIEW evapro.study_browser;
+
 ------------------- Permission on Schema
 GRANT ALL ON SCHEMA evapro TO metadata_user;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA evapro TO metadata_user;
