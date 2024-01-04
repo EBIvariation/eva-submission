@@ -778,7 +778,7 @@ AS SELECT evapro.project.project_accession,
      LEFT JOIN evapro.project_eva_submission project_eva_submission(project_accession, eva_submission_id, eload_id, old_eva_submission_id) USING (project_accession)
      LEFT JOIN evapro.project_experiment USING (project_accession)
      LEFT JOIN ( SELECT evapro.project_publication.project_accession,
-            string_agg(evapro.project_publication.id::text, ', '::text) AS ids
+            string_agg(evapro.project_publication.db::text||':'||evapro.project_publication.id::text, ', '::text) AS ids
            FROM evapro.project_publication
           GROUP BY evapro.project_publication.project_accession) c(project_accession_1, ids) ON c.project_accession_1::text = project.project_accession::text
      LEFT JOIN ( SELECT evapro.project_reference.project_accession,
@@ -839,15 +839,24 @@ INSERT INTO evapro.supported_assembly_tracker (taxonomy_id, "source", assembly_i
 VALUES(4006, 'Ensembl', 'GCA_000224295.2', true, '2021-01-01');
 
 INSERT INTO evapro.project (project_accession, center_name, alias, title, description, "scope", material, selection, "type", secondary_study_id, hold_date, source_type, eva_description, eva_center_name, eva_submitter_link, ena_status, eva_status, ena_timestamp, eva_timestamp, study_type)
-values ('PRJEB62432', 'NDSU', 'IFQT', 'Improvement of Flax Quantitative Traits', 'The study was done to analyze the genetic diversity, identify SNPs and genes associated to specific traits and optimize genomic selection models in NDSU Flax core collection.', 'multi-isolate', 'DNA', 'other', 'Other', 'ERP147519', NULL, 'Germline', NULL, NULL, NULL, 4, 1, NULL, NULL, 'Control Set');
+VALUES ('PRJEB62432', 'NDSU', 'IFQT', 'Improvement of Flax Quantitative Traits', 'The study was done to analyze the genetic diversity, identify SNPs and genes associated to specific traits and optimize genomic selection models in NDSU Flax core collection.', 'multi-isolate', 'DNA', 'other', 'Other', 'ERP147519', NULL, 'Germline', NULL, NULL, NULL, 4, 1, NULL, NULL, 'Control Set');
+
+INSERT INTO evapro.project_taxonomy (project_accession, taxonomy_id)
+VALUES ('PRJEB62432', 4006);
+
+-- required for web services to work, "temp1" name notwithstanding
+INSERT INTO evapro.project_samples_temp1 (project_accession, sample_count)
+VALUES ('PRJEB62432', 100);
 
 INSERT INTO evapro.dbxref (db, id, link_type, source_object)
-VALUES ('doi', '10.3389/fgene.2023.1229741', 'publication', 'project');
+VALUES ('doi', '10.3389/fgene.2023.1229741', 'publication', 'project'),
+       ('PubMed', '37955008', 'publication', 'project');
 
 INSERT INTO evapro.project_dbxref (project_accession, dbxref_id)
-VALUES ('PRJEB62432', 1);
+VALUES ('PRJEB62432', 1),
+       ('PRJEB62432', 2);
 
------ The following inserts are required to get the study to appear in the study browser
+-- A valid submission status is required to get the study to appear in the study browser materialized view
 
 INSERT INTO evapro.eva_submission_status_cv (eva_submission_status_id, submission_status, description)
 VALUES (0,'Submission Defined','A submission has been initiated, but not files yet received'),
