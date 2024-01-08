@@ -140,7 +140,7 @@ class EvaXlsxValidator(AppLogger):
                 sample_accession = row.get('Sample Accession').strip()
                 try:
                     sample_data = self.communicator.follows_link('samples', join_url=sample_accession)
-                    self._validate_existing_bioSample(sample_data, row.get('row_num'), sample_accession)
+                    self._validate_existing_biosample(sample_data, row.get('row_num'), sample_accession)
                 except ValueError:
                     self.error_list.append(
                         f'In Sample, row {row.get("row_num")} BioSamples accession {sample_accession} '
@@ -208,7 +208,7 @@ class EvaXlsxValidator(AppLogger):
                str(date).lower() in not_provided_check_list
 
     def check_date(self, row, key, required=True):
-        if required and key not in row:
+        if required and not row.get(key):
             self.error_list.append(f'In row {row.get("row_num")}, {key} is required and missing')
             return
         if key in row and self._check_date(row[key]):
@@ -226,13 +226,13 @@ class EvaXlsxValidator(AppLogger):
     def _validate_existing_biosample(self, sample_data, row_num, accession):
         """This function only check if the existing sample has the expected fields present"""
         found_collection_date=False
-        for key in  ['collection_date', 'collection date']:
+        for key in ['collection_date', 'collection date']:
             if key in sample_data['characteristics'] and \
                     self._check_date(sample_data['characteristics'][key][0]['text']):
                 found_collection_date = True
         if not found_collection_date:
             self.error_list.append(
-                f'In row {row_num}, samples accession {accession} does not have a valid collection date')
+                f'In row {row_num}, existing sample accession {accession} does not have a valid collection date')
         found_geo_loc = False
         for key in ['geographic location (country and/or sea)']:
             if key in sample_data['characteristics'] and \
@@ -240,4 +240,4 @@ class EvaXlsxValidator(AppLogger):
                 found_geo_loc = True
         if not found_geo_loc:
             self.error_list.append(
-                f'In row {row_num}, samples accession {accession} does not have a valid geographic location')
+                f'In row {row_num}, existing sample accession {accession} does not have a valid geographic location')
