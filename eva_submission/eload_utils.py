@@ -41,6 +41,10 @@ def get_reference_fasta_and_report(species_name, reference_accession, output_dir
         logger.warning(f'{reference_accession} is not recognize as either an INSDC assembly or sequence.')
 
 
+def is_single_insdc_sequence(reference_accession):
+    return not NCBIAssembly.is_assembly_accession_format(reference_accession) and \
+           NCBISequence.is_genbank_accession_format(reference_accession)
+
 def resolve_accession_from_text(reference_text):
     """
     :param reference_text:
@@ -257,3 +261,4 @@ def create_assembly_report_from_fasta(assembly_fasta_path):
         for contig_name, seq_length in contig_name_in_fasta:
             open_file.write('\t'.join(['na', 'na', 'na', 'na', contig_name, '<>', 'na', 'na', str(seq_length), 'na']) + '\n')
     return assembly_report_path
+
