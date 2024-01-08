@@ -122,7 +122,7 @@ workflow {
                 .splitCsv(header:true)
                 .map{row -> tuple(file(row.vcf_file).name, file(row.vcf_file), row.assembly_accession, row.aggregation, file(row.fasta), file(row.report))}
                 .combine(normalise_vcf.out.vcf_tuples, by:0)     // Join based on the vcf_filename
-                .map {tuple(it[0], it[7], it[2], it[3], it[4], it[5])}   // vcf_filename, normalised vcf, assembly_accession, aggregation, fasta, report
+                .map {tuple(it[0], it[6], it[2], it[3], it[4], it[5])}   // vcf_filename, normalised vcf, assembly_accession, aggregation, fasta, report
             accession_vcf(normalised_vcfs_ch)
             sort_and_compress_vcf(accession_vcf.out.accession_done)
             csi_vcfs = sort_and_compress_vcf.out.compressed_vcf
