@@ -132,13 +132,15 @@ workflow {
         csi_index_vcf(csi_vcfs)
         copy_to_ftp(csi_index_vcf.out.csi_indexed_vcf.toList(), accessioned_files_to_rm.toList())
     }
-    if ("variant_load" in params.ingestion_tasks || "annotation" in params.ingestion_tasks) {
+    if ("variant_load" in params.ingestion_tasks) {
         normalised_vcfs_ch = Channel.fromPath(params.valid_vcfs)
                 .splitCsv(header:true)
                 .map{row -> tuple(file(row.vcf_file).name, file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name, row.vep_version, row.vep_cache_version, row.vep_species, row.aggregation)}
                 .combine(normalise_vcf.out.vcf_tuples, by:0)
                 .map{tuple(it[0], it[9], it[2], it[3], it[4], it[5], it[6], it[7], it[8])}   // vcf_filename, normalised vcf, fasta, analysis_accession, db_name, vep_version, vep_cache_version, vep_species, aggregation
-        load_vcf(normalised_vcfs_ch)
+        load_variants_vcf(normalised_vcfs_ch)
+        run_vep_on_variants(normalised_vcfs_ch, load_variants_vcf.out.variant_load_complete)
+        calculate_statistics_vcf(normalised_vcfs_ch, load_variants_vcf.out.variant_load_complete)
 
         if (!is_human_study) {
             vcf_files_dbname = Channel.fromPath(params.valid_vcfs)
@@ -147,7 +149,7 @@ workflow {
             // the vcf_files_dbname give the link between input file and all_accession_complete is to ensure the
             // accessioning has been completed
             if (all_accession_complete){
-                import_accession(vcf_files_dbname, all_accession_complete, load_vcf.out.variant_load_complete)
+                import_accession(vcf_files_dbname, all_accession_complete, load_variants_vcf.out.variant_load_complete)
             }
         }
     }
@@ -302,14 +304,13 @@ process csi_index_vcf {
         """
  }
 
-
 /*
  * Load into variant db.
  */
-process load_vcf {
+process load_variants_vcf {
     clusterOptions {
-        return "-o $params.logs_dir/pipeline.${vcf_filename}.log \
-                -e $params.logs_dir/pipeline.${vcf_filename}.err"
+        return "-o $params.logs_dir/load_variants.${vcf_filename}.log \
+                -e $params.logs_dir/load_variants.${vcf_filename}.err"
     }
 
     input:
@@ -323,13 +324,46 @@ process load_vcf {
     script:
     def pipeline_parameters = ""
 
-    if (params.annotation_only) {
-        pipeline_parameters += " --spring.batch.job.names=annotate-variants-job"
-    } else if(aggregation.toString() == "none"){
-        pipeline_parameters += " --spring.batch.job.names=genotyped-vcf-job"
+    if(aggregation.toString() == "none"){
+        pipeline_parameters += " --spring.batch.job.names=genotyped-variant-load-vcf-job"
     } else{
-        pipeline_parameters += " --spring.batch.job.names=aggregated-vcf-job"
+        pipeline_parameters += " --spring.batch.job.names=aggregated-variant-load-vcf-job"
     }
+
+    pipeline_parameters += " --input.vcf.aggregation=" + aggregation.toString().toUpperCase()
+    pipeline_parameters += " --input.vcf=" + vcf_file.toRealPath().toString()
+    pipeline_parameters += " --input.vcf.id=" + analysis_accession.toString()
+    pipeline_parameters += " --input.fasta=" + fasta.toString()
+    pipeline_parameters += " --spring.data.mongodb.database=" + db_name.toString()
+
+    """
+    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
+    """
+}
+
+
+/*
+ * Load into variant db.
+ */
+process run_vep_on_variants {
+    clusterOptions {
+        return "-o $params.logs_dir/annotation.${vcf_filename}.log \
+                -e $params.logs_dir/annotation.${vcf_filename}.err"
+    }
+
+    input:
+    tuple val(vcf_filename), val(vcf_file), val(fasta), val(analysis_accession), val(db_name), val(vep_version), val(vep_cache_version), val(vep_species), val(aggregation)
+    val variant_load_complete
+
+    output:
+    val true, emit: vep_run_complete
+
+    memory '5 GB'
+
+    script:
+    def pipeline_parameters = ""
+
+    pipeline_parameters += " --spring.batch.job.names=annotate-variants-job"
 
     pipeline_parameters += " --input.vcf.aggregation=" + aggregation.toString().toUpperCase()
     pipeline_parameters += " --input.vcf=" + vcf_file.toRealPath().toString()
@@ -338,14 +372,11 @@ process load_vcf {
 
     pipeline_parameters += " --spring.data.mongodb.database=" + db_name.toString()
 
-    if (vep_version.trim() == "" || vep_cache_version.trim() == "") {
-        pipeline_parameters += " --annotation.skip=true"
-    } else {
-        pipeline_parameters += " --annotation.skip=false"
-        pipeline_parameters += " --app.vep.version=" + vep_version.toString()
-        pipeline_parameters += " --app.vep.path=" + "${params.vep_path}/ensembl-vep-release-${vep_version}/vep"
-        pipeline_parameters += " --app.vep.cache.version=" + vep_cache_version.toString()
-        pipeline_parameters += " --app.vep.cache.species=" + vep_species.toString()
+    pipeline_parameters += " --annotation.skip=false"
+    pipeline_parameters += " --app.vep.version=" + vep_version.toString()
+    pipeline_parameters += " --app.vep.path=" + "${params.vep_path}/ensembl-vep-release-${vep_version}/vep"
+    pipeline_parameters += " --app.vep.cache.version=" + vep_cache_version.toString()
+    pipeline_parameters += " --app.vep.cache.species=" + vep_species.toString()
     }
 
     """
@@ -353,6 +384,43 @@ process load_vcf {
     """
 }
 
+
+
+/*
+ * Load into variant db.
+ */
+process calculate_statistics_vcf {
+    clusterOptions {
+        return "-o $params.logs_dir/statistics.${vcf_filename}.log \
+                -e $params.logs_dir/statistics.${vcf_filename}.err"
+    }
+
+    input:
+    tuple val(vcf_filename), val(vcf_file), val(fasta), val(analysis_accession), val(db_name), val(vep_version), val(vep_cache_version), val(vep_species), val(aggregation)
+    val variant_load_complete
+
+    output:
+    val true, emit: statistics_calc_complete
+
+    memory '5 GB'
+
+    script:
+    def pipeline_parameters = ""
+
+
+    pipeline_parameters += " --spring.batch.job.names=calculate-statistics-job"
+
+    pipeline_parameters += " --input.vcf.aggregation=" + aggregation.toString().toUpperCase()
+    pipeline_parameters += " --input.vcf=" + vcf_file.toRealPath().toString()
+    pipeline_parameters += " --input.vcf.id=" + analysis_accession.toString()
+    pipeline_parameters += " --input.fasta=" + fasta.toString()
+
+    pipeline_parameters += " --spring.data.mongodb.database=" + db_name.toString()
+
+    """
+    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
+    """
+}
 
 /*
  * Import Accession Into Variant warehouse
