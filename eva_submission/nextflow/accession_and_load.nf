@@ -377,7 +377,6 @@ process run_vep_on_variants {
     pipeline_parameters += " --app.vep.path=" + "${params.vep_path}/ensembl-vep-release-${vep_version}/vep"
     pipeline_parameters += " --app.vep.cache.version=" + vep_cache_version.toString()
     pipeline_parameters += " --app.vep.cache.species=" + vep_species.toString()
-    }
 
     """
     java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
