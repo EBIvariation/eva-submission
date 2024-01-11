@@ -256,7 +256,7 @@ ALTER TABLE evapro.file ADD CONSTRAINT file_fileclass_fk FOREIGN KEY (file_class
 
 CREATE TABLE evapro.browsable_file (
 	file_id int4 NOT NULL,
-	ena_submission_file_id varchar(45) NULL DEFAULT NULL::character varying,,
+	ena_submission_file_id varchar(45) NULL DEFAULT NULL::character varying,
 	filename varchar(250) NOT NULL,
 	loaded bool NOT NULL DEFAULT false,
 	eva_release varchar(50) NOT NULL DEFAULT 'Unreleased'::character varying,
@@ -297,28 +297,6 @@ ALTER TABLE evapro.analysis_file ADD CONSTRAINT analysis_file_analysis_accession
 ALTER TABLE evapro.analysis_file ADD CONSTRAINT fk_analysisfile_file_id FOREIGN KEY (file_id) REFERENCES evapro.file(file_id) MATCH FULL;
 
 
-
-CREATE TABLE evapro.project_analysis (
-	project_accession varchar(45) NOT NULL,
-	analysis_accession varchar(45) NOT NULL,
-	CONSTRAINT project_analysis_pkey PRIMARY KEY (project_accession, analysis_accession)
-);
-CREATE INDEX projanal_analacc_idx ON evapro.project_analysis USING btree (analysis_accession);
-CREATE UNIQUE INDEX projanal_analproj_idx ON evapro.project_analysis USING btree (project_accession, analysis_accession);
-CREATE INDEX projanal_projacc_idx ON evapro.project_analysis USING btree (project_accession);
-CREATE INDEX project_analysis_analysis_accession_idx ON evapro.project_analysis USING btree (analysis_accession);
-CREATE INDEX project_analysis_project_accession_idx ON evapro.project_analysis USING btree (project_accession);
-COMMENT ON TABLE evapro.project_analysis IS 'Table assigning an ENA Analysis object to a project';
-
-ALTER TABLE evapro.project_analysis OWNER TO metadata_user;
-GRANT ALL ON TABLE evapro.project_analysis TO metadata_user;
-
-ALTER TABLE evapro.project_analysis ADD CONSTRAINT project_analysis_analysis_accession_fkey FOREIGN KEY (analysis_accession) REFERENCES evapro.analysis(analysis_accession);
-ALTER TABLE evapro.project_analysis ADD CONSTRAINT project_analysis_project_accession_fkey FOREIGN KEY (project_accession) REFERENCES evapro.project(project_accession);
-
-
-
-
 CREATE SEQUENCE evapro.project_accession_code_seq
 	INCREMENT BY 1
 	NO MINVALUE
@@ -355,6 +333,25 @@ CREATE TABLE evapro.project (
 	CONSTRAINT pac_unq UNIQUE (project_accession_code),
 	CONSTRAINT project_pkey PRIMARY KEY (project_accession)
 );
+
+CREATE TABLE evapro.project_analysis (
+	project_accession varchar(45) NOT NULL,
+	analysis_accession varchar(45) NOT NULL,
+	CONSTRAINT project_analysis_pkey PRIMARY KEY (project_accession, analysis_accession)
+);
+CREATE INDEX projanal_analacc_idx ON evapro.project_analysis USING btree (analysis_accession);
+CREATE UNIQUE INDEX projanal_analproj_idx ON evapro.project_analysis USING btree (project_accession, analysis_accession);
+CREATE INDEX projanal_projacc_idx ON evapro.project_analysis USING btree (project_accession);
+CREATE INDEX project_analysis_analysis_accession_idx ON evapro.project_analysis USING btree (analysis_accession);
+CREATE INDEX project_analysis_project_accession_idx ON evapro.project_analysis USING btree (project_accession);
+COMMENT ON TABLE evapro.project_analysis IS 'Table assigning an ENA Analysis object to a project';
+
+ALTER TABLE evapro.project_analysis OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.project_analysis TO metadata_user;
+
+ALTER TABLE evapro.project_analysis ADD CONSTRAINT project_analysis_analysis_accession_fkey FOREIGN KEY (analysis_accession) REFERENCES evapro.analysis(analysis_accession);
+ALTER TABLE evapro.project_analysis ADD CONSTRAINT project_analysis_project_accession_fkey FOREIGN KEY (project_accession) REFERENCES evapro.project(project_accession);
+
 
 CREATE OR REPLACE FUNCTION evapro.eva_study_accession_trigfunc()
  RETURNS trigger
@@ -652,7 +649,7 @@ AS SELECT evapro.project_dbxref.project_accession,
     evapro.dbxref.id
    FROM evapro.project_dbxref
      JOIN evapro.dbxref USING (dbxref_id)
-  WHERE evapro.dbxref.db::text = 'PubMed'::text;
+  WHERE evapro.dbxref.db::text ILIKE 'PubMed'::text OR evapro.dbxref.db::text ILIKE 'doi'::text;
 
 ALTER TABLE evapro.project_publication OWNER TO metadata_user;
 GRANT ALL ON TABLE evapro.project_publication TO metadata_user;
@@ -781,7 +778,7 @@ AS SELECT evapro.project.project_accession,
      LEFT JOIN evapro.project_eva_submission project_eva_submission(project_accession, eva_submission_id, eload_id, old_eva_submission_id) USING (project_accession)
      LEFT JOIN evapro.project_experiment USING (project_accession)
      LEFT JOIN ( SELECT evapro.project_publication.project_accession,
-            string_agg(evapro.project_publication.id::text, ', '::text) AS ids
+            string_agg(evapro.project_publication.db::text||':'||evapro.project_publication.id::text, ', '::text) AS ids
            FROM evapro.project_publication
           GROUP BY evapro.project_publication.project_accession) c(project_accession_1, ids) ON c.project_accession_1::text = project.project_accession::text
      LEFT JOIN ( SELECT evapro.project_reference.project_accession,
@@ -842,10 +839,46 @@ INSERT INTO evapro.supported_assembly_tracker (taxonomy_id, "source", assembly_i
 VALUES(4006, 'Ensembl', 'GCA_000224295.2', true, '2021-01-01');
 
 INSERT INTO evapro.project (project_accession, center_name, alias, title, description, "scope", material, selection, "type", secondary_study_id, hold_date, source_type, eva_description, eva_center_name, eva_submitter_link, ena_status, eva_status, ena_timestamp, eva_timestamp, study_type)
-values ('PRJEB62432', 'NDSU', 'IFQT', 'Improvement of Flax Quantitative Traits', 'The study was done to analyze the genetic diversity, identify SNPs and genes associated to specific traits and optimize genomic selection models in NDSU Flax core collection.', 'multi-isolate', 'DNA', 'other', 'Other', 'ERP147519', NULL, 'Germline', NULL, NULL, NULL, 4, 1, NULL, NULL, 'Control Set');
+VALUES ('PRJEB62432', 'NDSU', 'IFQT', 'Improvement of Flax Quantitative Traits', 'The study was done to analyze the genetic diversity, identify SNPs and genes associated to specific traits and optimize genomic selection models in NDSU Flax core collection.', 'multi-isolate', 'DNA', 'other', 'Other', 'ERP147519', NULL, 'Germline', NULL, NULL, NULL, 4, 1, NULL, NULL, 'Control Set');
 
+INSERT INTO evapro.project_taxonomy (project_accession, taxonomy_id)
+VALUES ('PRJEB62432', 4006);
 
+-- required for web services to work, "temp1" name notwithstanding
+INSERT INTO evapro.project_samples_temp1 (project_accession, sample_count)
+VALUES ('PRJEB62432', 100);
 
+INSERT INTO evapro.dbxref (db, id, link_type, source_object)
+VALUES ('doi', '10.3389/fgene.2023.1229741', 'publication', 'project'),
+       ('PubMed', '37955008', 'publication', 'project');
+
+INSERT INTO evapro.project_dbxref (project_accession, dbxref_id)
+VALUES ('PRJEB62432', 1),
+       ('PRJEB62432', 2);
+
+-- A valid submission status is required to get the study to appear in the study browser materialized view
+
+INSERT INTO evapro.eva_submission_status_cv (eva_submission_status_id, submission_status, description)
+VALUES (0,'Submission Defined','A submission has been initiated, but not files yet received'),
+       (1,'Files Received','EVA has receieved the submission files'),
+       (2,'VCF File Valid','The VCF files are technically valid'),
+       (3,'Meta-data Valid','The required meta-data is complete and correct'),
+       (4,'ENA Project Accession Assigned','A project accession has be assigned by ENA'),
+       (5,'File submitted to ENA','The VCF files have been submitted to ENA'),
+       (6,'ENA Submission Complete','The ENA submission is complete'),
+       (7,'EVA Processing Started','The files have started to be processed by EVA'),
+       (8,'EVA Processing Complete','The files have completed processing by EVA'),
+       (9,'Mongo Loading Started','The data is loading to MongoDB'),
+       (10,'Submission Live','The submission is live and public at EVA'),
+       (-1,'Submission Private','The submission is private at EVA (e.g. hide parent project)');
+
+INSERT INTO evapro.eva_submission (eva_submission_status_id)
+VALUES (6);
+
+INSERT INTO evapro.project_eva_submission (project_accession, old_ticket_id, eload_id)
+VALUES ('PRJEB62432', 1, 42);
+
+REFRESH MATERIALIZED VIEW evapro.study_browser;
 
 ------------------- Permission on Schema
 GRANT ALL ON SCHEMA evapro TO metadata_user;
