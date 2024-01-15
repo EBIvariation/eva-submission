@@ -642,11 +642,14 @@ class EloadIngestion(Eload):
                 task for task in tasks
                 if self.eload_cfg.query(self.config_section, workflow_name, 'nextflow_dir', task) == self.nextflow_complete_value
             ]
-            if completed_tasks:
-                self.info(f'Task(s) {", ".join(completed_tasks)} already completed, skipping.')
+            for task in completed_tasks:
+                self.info(f'Task {task} already completed, skipping.')
             # Remove completed tasks
             for task in completed_tasks:
                 tasks.remove(task)
+            if not tasks:
+                self.info(f'No more to perform: Skip nextflow run.')
+                return
             # Retrieve the work directory for the remaining tasks
             work_dirs = [
                 self.eload_cfg.query(self.config_section, workflow_name, 'nextflow_dir', task)
