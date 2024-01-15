@@ -322,14 +322,7 @@ process load_variants_vcf {
     memory '5 GB'
 
     script:
-    def pipeline_parameters = ""
-
-    if(aggregation.toString() == "none"){
-        pipeline_parameters += " --spring.batch.job.names=genotyped-variant-load-vcf-job"
-    } else{
-        pipeline_parameters += " --spring.batch.job.names=aggregated-variant-load-vcf-job"
-    }
-
+    def pipeline_parameters = " --spring.batch.job.names=load-vcf-job"
     pipeline_parameters += " --input.vcf.aggregation=" + aggregation.toString().toUpperCase()
     pipeline_parameters += " --input.vcf=" + vcf_file.toRealPath().toString()
     pipeline_parameters += " --input.vcf.id=" + analysis_accession.toString()
@@ -343,7 +336,7 @@ process load_variants_vcf {
 
 
 /*
- * Load into variant db.
+ * Run VEP using eva-pipeline.
  */
 process run_vep_on_variants {
     clusterOptions {
@@ -386,7 +379,7 @@ process run_vep_on_variants {
 
 
 /*
- * Load into variant db.
+ * Calculate statistics using eva-pipeline.
  */
 process calculate_statistics_vcf {
     clusterOptions {
