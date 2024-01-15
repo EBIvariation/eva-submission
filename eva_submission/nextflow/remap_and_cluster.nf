@@ -127,7 +127,7 @@ process extract_vcf_from_mongo {
 
     output:
     // Only pass on the EVA vcf, dbSNP one will be empty
-    tuple val(source_assembly_accession), path(source_fasta), path("${source_assembly_accession}_eva.vcf"), emit: source_vcfs
+    tuple val(source_assembly_accession), path(source_fasta), path("${source_assembly_accession}*_eva.vcf"), emit: source_vcfs
     path "${source_assembly_accession}_vcf_extractor.log", emit: log_filename
 
     publishDir "$params.logs_dir", overwrite: true, mode: "copy", pattern: "*.log*"
