@@ -344,6 +344,9 @@ process run_vep_on_variants {
                 -e $params.logs_dir/annotation.${vcf_filename}.err"
     }
 
+    when:
+    vep_version.trim() != "" && vep_cache_version.trim() != ""
+
     input:
     tuple val(vcf_filename), val(vcf_file), val(fasta), val(analysis_accession), val(db_name), val(vep_version), val(vep_cache_version), val(vep_species), val(aggregation)
     val variant_load_complete
@@ -386,6 +389,10 @@ process calculate_statistics_vcf {
         return "-o $params.logs_dir/statistics.${vcf_filename}.log \
                 -e $params.logs_dir/statistics.${vcf_filename}.err"
     }
+
+    when:
+    // Statistics calculation is not required for Already aggregated analysis/study
+    aggregation.toString() == "none"
 
     input:
     tuple val(vcf_filename), val(vcf_file), val(fasta), val(analysis_accession), val(db_name), val(vep_version), val(vep_cache_version), val(vep_species), val(aggregation)
