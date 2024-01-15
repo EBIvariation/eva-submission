@@ -1,0 +1,6 @@
+include *.md
+include *.txt
+recursive-include bin *.py
+recursive-include eva_submission *.py
+recursive-include eva-submission-docker *
+recursive-exclude tests *

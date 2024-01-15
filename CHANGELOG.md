@@ -1,10 +1,25 @@
 Changelog for eva-submission
 ============================
 
-## 1.14.2 (unreleased)
+## 1.15 (2024-01-15)
 ----------------------
 
-- Nothing changed yet.
+### Preparation
+ - Create a dummy assembly report when none exists for sequences 
+
+### Validation
+ - Validate existing BioSamples
+
+### Brokering
+ - Allow the Link label to be the link if no label is provided
+ - New script to update Biosamples
+ - Pass single sequence accession to ENA
+
+### Ingestion
+ - Split variant load
+ - During variant remapping extract VCF file with taxonomy id
+ - Normalise VCF before accessioning/variant load
+ - Merge accessioning and variant load in a single nextflow workflow 
 
 
 ## 1.14.1 (2023-11-02)
