@@ -42,7 +42,7 @@ SUPPORTED_ASSEMBLY_TRACKER_TABLE = "evapro.supported_assembly_tracker"
 
 class EloadIngestion(Eload):
     config_section = 'ingestion'  # top-level config key
-    all_tasks = ['metadata_load', 'accession', 'variant_load', 'annotation', 'optional_remap_and_cluster']
+    all_tasks = ['metadata_load', 'accession', 'variant_load', 'optional_remap_and_cluster']
     nextflow_complete_value = '<complete>'
 
     def __init__(self, eload_number, config_object: EloadConfig = None):
@@ -78,17 +78,16 @@ class EloadIngestion(Eload):
             self.update_assembly_set_in_analysis()
         do_accession = 'accession' in tasks
         do_variant_load = 'variant_load' in tasks
-        annotation_only = 'annotation' in tasks and not do_variant_load
 
         if instance_id:
             self.eload_cfg.set(self.config_section, 'accession', 'instance_id', value=instance_id)
         if do_accession:
             self.update_config_with_hold_date(self.project_accession)
 
-        if do_accession or do_variant_load or annotation_only:
+        if do_accession or do_variant_load:
             self.fill_vep_versions(vep_cache_assembly_name)
             vcf_files_to_ingest = self._generate_csv_mappings_to_ingest()
-            self.run_accession_and_load_workflow(vcf_files_to_ingest, annotation_only, resume=resume, tasks=tasks)
+            self.run_accession_and_load_workflow(vcf_files_to_ingest, resume=resume, tasks=tasks)
 
         if 'optional_remap_and_cluster' in tasks:
             self.eload_cfg.set(self.config_section, 'clustering', 'instance_id', value=clustering_instance_id)
@@ -99,7 +98,7 @@ class EloadIngestion(Eload):
             else:
                 self.warning(f'Could not find any current supported assembly for the submission, skipping clustering')
 
-        if do_accession or do_variant_load or annotation_only:
+        if do_accession or do_variant_load:
             self._update_metadata_post_ingestion()
 
     def _update_metadata_post_ingestion(self):
@@ -308,7 +307,7 @@ class EloadIngestion(Eload):
                     self.warning(f"VCF files for analysis {analysis_alias} not found")
         return vcf_files_to_ingest
 
-    def run_accession_and_load_workflow(self, vcf_files_to_ingest, annotation_only, resume, tasks=None):
+    def run_accession_and_load_workflow(self, vcf_files_to_ingest, resume, tasks=None):
         instance_id = self.eload_cfg.query(self.config_section, 'accession', 'instance_id')
         output_dir = os.path.join(self.project_dir, project_dirs['accessions'])
         accession_properties_file = self.create_accession_properties(
@@ -331,12 +330,11 @@ class EloadIngestion(Eload):
             'executable': cfg['executable'],
             'jar': cfg['jar'],
             'taxonomy': self.taxonomy,
-            'annotation_only': annotation_only,
             'accession_job_props': accession_properties_file,
             'load_job_props': variant_load_properties_file,
             'acc_import_job_props': accession_import_properties_file,
         }
-        tasks = [task for task in tasks if task in ['accession', 'variant_load', 'annotation']]
+        tasks = [task for task in tasks if task in ['accession', 'variant_load']]
         self.run_nextflow('accession_and_load', accession_config, resume, tasks)
 
     def run_remap_and_cluster_workflow(self, target_assembly, resume):
