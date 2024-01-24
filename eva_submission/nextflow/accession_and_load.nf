@@ -141,8 +141,8 @@ workflow {
         load_variants_vcf(normalised_vcfs_ch)
         // Ensure that all the load are completed before the VEP and calculate statistics starts
         vep_ch = normalised_vcfs_ch
-                .groupTuple(by: [4, 5, 6, 7] ) // group by db_name, vep_version, vep_cache_version, vep_species
-                .map{tuple(it[4], it[5], it[6], it[7])}
+                .groupTuple(by: [2, 3, 4, 5, 6, 7] ) // group by fasta, analysis_accession, db_name, vep_version, vep_cache_version, vep_species
+                .map{tuple(it[2], it[3], it[4], it[5], it[6], it[7])}
         run_vep_on_variants(vep_ch, load_variants_vcf.out.variant_load_complete.collect())
         stats_ch = normalised_vcfs_ch
                    .groupTuple(by: [3, 4, 8])  // group by analysis_accession, db_name, aggregation
@@ -356,7 +356,7 @@ process run_vep_on_variants {
     vep_version.trim() != "" && vep_cache_version.trim() != ""
 
     input:
-    tuple val(db_name), val(vep_version), val(vep_cache_version), val(vep_species)
+    tuple  val(fasta), val(analysis_accession), val(db_name), val(vep_version), val(vep_cache_version), val(vep_species)
     val variant_load_complete
 
     output:
@@ -368,7 +368,8 @@ process run_vep_on_variants {
     def pipeline_parameters = ""
 
     pipeline_parameters += " --spring.batch.job.names=annotate-variants-job"
-    pipeline_parameters += " --input.vcf.id="  // The whole study will be annotated again
+    pipeline_parameters += " --input.vcf.id=" + analysis_accession.toString()
+    pipeline_parameters += " --input.fasta=" + fasta.toString()
 
     pipeline_parameters += " --spring.data.mongodb.database=" + db_name.toString()
 
