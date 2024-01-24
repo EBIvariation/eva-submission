@@ -358,7 +358,6 @@ process run_vep_on_variants {
     vep_version.trim() != "" && vep_cache_version.trim() != ""
 
     input:
-    //tuple val(vcf_filename), val(vcf_file), val(fasta), val(analysis_accession), val(db_name), val(vep_version), val(vep_cache_version), val(vep_species), val(aggregation)
     tuple val(db_name), val(vep_version), val(vep_cache_version), val(vep_species)
     val variant_load_complete
 
