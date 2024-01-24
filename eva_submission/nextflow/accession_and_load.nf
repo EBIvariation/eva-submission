@@ -144,11 +144,9 @@ workflow {
                 .groupTuple(by: [4, 5, 6, 7] ) // group by db_name, vep_version, vep_cache_version, vep_species
                 .map{tuple(it[4], it[5], it[6], it[7])}
         run_vep_on_variants(vep_ch, load_variants_vcf.out.variant_load_complete.collect())
-        normalised_vcfs_ch.view()
         stats_ch = normalised_vcfs_ch
                    .groupTuple(by: [3, 4, 8])  // group by analysis_accession, db_name, aggregation
                    .map{tuple(it[3], it[4], it[8], it[1])} // analysis_accession, db_name, aggregation, grouped normalised_vcf_files
-        stats_ch.view()
 
         calculate_statistics_vcf(stats_ch, load_variants_vcf.out.variant_load_complete.collect())
 
