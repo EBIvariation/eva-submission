@@ -348,8 +348,8 @@ process load_variants_vcf {
  */
 process run_vep_on_variants {
     clusterOptions {
-        return "-o $params.logs_dir/annotation.${vcf_filename}.log \
-                -e $params.logs_dir/annotation.${vcf_filename}.err"
+        return "-o $params.logs_dir/annotation.${analysis_accession}.log \
+                -e $params.logs_dir/annotation.${analysis_accession}.err"
     }
 
     when:
@@ -391,8 +391,8 @@ process run_vep_on_variants {
  */
 process calculate_statistics_vcf {
     clusterOptions {
-        return "-o $params.logs_dir/statistics.${vcf_filename}.log \
-                -e $params.logs_dir/statistics.${vcf_filename}.err"
+        return "-o $params.logs_dir/statistics.${analysis_accession}.log \
+                -e $params.logs_dir/statistics.${analysis_accession}.err"
     }
 
     when:
