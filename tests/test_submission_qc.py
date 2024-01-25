@@ -255,7 +255,7 @@ class TestSubmissionQC(TestCase):
                 accession import result: FAIL
                     Failed Files:
                         test1.vcf.gz: 
-                            load_vcf failed job/step : load-variants-step
+                            load_vcf error : No load_vcf log file found for test1.vcf.gz
                             acc_import failed job/step : accession-import-step
                         test2.vcf.gz: 
                             load_vcf error : No load_vcf log file found for test2.vcf.gz
