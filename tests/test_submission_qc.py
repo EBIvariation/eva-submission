@@ -7,6 +7,7 @@ from requests import HTTPError
 from eva_submission.submission_config import load_config
 from eva_submission.submission_qc_checks import EloadQC
 
+
 class TestSubmissionQC(TestCase):
     top_dir = os.path.dirname(os.path.dirname(__file__))
     resources_folder = os.path.join(os.path.dirname(__file__), 'resources')
@@ -19,7 +20,7 @@ class TestSubmissionQC(TestCase):
     def _patch_metadata_handle(self):
         return patch('eva_submission.submission_qc_checks.get_metadata_connection_handle', autospec=True)
 
-    def _mock_response(self, status=200,content="CONTENT", json_data=None, raise_for_status=None):
+    def _mock_response(self, status=200, content="CONTENT", json_data=None, raise_for_status=None):
         mock_resp = mock.Mock()
         mock_resp.raise_for_status = mock.Mock()
         if raise_for_status:
@@ -36,8 +37,8 @@ class TestSubmissionQC(TestCase):
         self.eload = EloadQC(101)
 
         with self._patch_metadata_handle(), \
-                patch('eva_submission.submission_qc_checks.FTP.login') as m_ftp_login, \
-                patch('eva_submission.submission_qc_checks.FTP.cwd') as m_ftp_cwd, \
+                patch('eva_submission.submission_qc_checks.FTP.login'), \
+                patch('eva_submission.submission_qc_checks.FTP.cwd'), \
                 patch('eva_submission.submission_qc_checks.FTP.nlst') as m_ftp_nlst, \
                 patch('eva_submission.submission_qc_checks.requests.get') as m_get, \
                 patch('eva_submission.submission_qc_checks.get_all_results_for_query') as m_get_browsable_files:
@@ -47,7 +48,7 @@ class TestSubmissionQC(TestCase):
                                  self._mock_response(status=500, raise_for_status=HTTPError("service is down")),
                                  self._mock_response(status=500, raise_for_status=HTTPError("service is down")),
                                  self._mock_response(status=500, raise_for_status=HTTPError("service is down")),
-                                 self._mock_response(status=500, raise_for_status=HTTPError("service is down")),]
+                                 self._mock_response(status=500, raise_for_status=HTTPError("service is down"))]
             m_ftp_nlst.return_value = []
             self.assertEqual(self.expected_report_of_eload_101(), self.eload.run_qc_checks_for_submission())
 
@@ -55,8 +56,8 @@ class TestSubmissionQC(TestCase):
         self.eload = EloadQC(102)
 
         with self._patch_metadata_handle(), \
-                patch('eva_submission.submission_qc_checks.FTP.login') as m_ftp_login, \
-                patch('eva_submission.submission_qc_checks.FTP.cwd') as m_ftp_cwd, \
+                patch('eva_submission.submission_qc_checks.FTP.login'), \
+                patch('eva_submission.submission_qc_checks.FTP.cwd'), \
                 patch('eva_submission.submission_qc_checks.FTP.nlst') as m_ftp_nlst, \
                 patch('eva_submission.submission_qc_checks.requests.get') as m_get, \
                 patch('eva_submission.submission_qc_checks.get_all_results_for_query') as m_get_browsable_files:
@@ -65,21 +66,28 @@ class TestSubmissionQC(TestCase):
                 json_data={"response": [{"numResults": 1, "numTotalResults": 1, "result": [{"id": "PRJEB99999"}]}]}),
                                  self._mock_response(json_data={"response": [
                                      {"numResults": 1, "numTotalResults": 1, "result": [{"studyId": "PRJEB99999"}]}]})]
-            m_ftp_nlst.return_value = ['test1.vcf.gz.csi', 'test1.vcf.csi', 'test1.accessioned.vcf.gz.csi', 'test1.accessioned.vcf.csi']
+            m_ftp_nlst.return_value = ['test1.vcf.gz.csi', 'test1.vcf.csi', 'test1.accessioned.vcf.gz.csi',
+                                       'test1.accessioned.vcf.csi']
             self.assertEqual(self.expected_report_of_eload_102(), self.eload.run_qc_checks_for_submission())
 
     def test_submission_qc_checks_passed(self):
         self.eload = EloadQC(103)
 
         with self._patch_metadata_handle(), \
-                patch('eva_submission.submission_qc_checks.FTP.login') as m_ftp_login, \
-                patch('eva_submission.submission_qc_checks.FTP.cwd') as m_ftp_cwd, \
+                patch('eva_submission.submission_qc_checks.FTP.login'), \
+                patch('eva_submission.submission_qc_checks.FTP.cwd'), \
                 patch('eva_submission.submission_qc_checks.FTP.nlst') as m_ftp_nlst, \
                 patch('eva_submission.submission_qc_checks.requests.get') as m_get, \
                 patch('eva_submission.submission_qc_checks.get_all_results_for_query') as m_get_browsable_files:
             m_get_browsable_files.side_effect = [[['test1.vcf.gz'], ['test2.vcf.gz']], [[['Homo Sapiens']]]]
-            m_get.side_effect = [self._mock_response(json_data={"response": [{"numResults": 1, "numTotalResults": 1, "result": [{"id": "PRJEB33333"}]}]}),
-                                 self._mock_response(json_data={"response": [{"numResults": 1, "numTotalResults": 1, "result": [{"studyId": "PRJEB33333"}]}]})]
+            m_get.side_effect = [
+                self._mock_response(json_data={
+                    "response": [{"numResults": 1, "numTotalResults": 1, "result": [{"id": "PRJEB33333"}]}]
+                }),
+                self._mock_response(json_data={
+                    "response": [{"numResults": 1, "numTotalResults": 1, "result": [{"studyId": "PRJEB33333"}]}]
+                })
+            ]
             m_ftp_nlst.return_value = ['test1.vcf.gz', 'test1.vcf.gz.csi', 'test1.vcf.csi', 'test1.accessioned.vcf.gz',
                                        'test1.accessioned.vcf.gz.csi', 'test1.accessioned.vcf.csi']
             self.assertEqual(self.expected_report_of_eload_103(), self.eload.run_qc_checks_for_submission())
@@ -88,18 +96,23 @@ class TestSubmissionQC(TestCase):
         self.eload = EloadQC(104)
 
         with self._patch_metadata_handle(), \
-                patch('eva_submission.submission_qc_checks.FTP.login') as m_ftp_login, \
-                patch('eva_submission.submission_qc_checks.FTP.cwd') as m_ftp_cwd, \
+                patch('eva_submission.submission_qc_checks.FTP.login'), \
+                patch('eva_submission.submission_qc_checks.FTP.cwd'), \
                 patch('eva_submission.submission_qc_checks.FTP.nlst') as m_ftp_nlst, \
                 patch('eva_submission.submission_qc_checks.requests.get') as m_get, \
                 patch('eva_submission.submission_qc_checks.get_all_results_for_query') as m_get_browsable_files:
             m_get_browsable_files.side_effect = [[['test1.vcf.gz'], ['test2.vcf.gz']], [[['Homo Sapiens']]]]
-            m_get.side_effect = [self._mock_response(json_data={"response": [{"numResults": 1, "numTotalResults": 1, "result": [{"id": "PRJEB44444"}]}]}),
-                                 self._mock_response(json_data={"response": [{"numResults": 1, "numTotalResults": 1, "result": [{"studyId": "PRJEB44444"}]}]})]
+            m_get.side_effect = [
+                self._mock_response(json_data={
+                    "response": [{"numResults": 1, "numTotalResults": 1, "result": [{"id": "PRJEB44444"}]}]
+                }),
+                self._mock_response(json_data={
+                    "response": [{"numResults": 1, "numTotalResults": 1, "result": [{"studyId": "PRJEB44444"}]}]
+                })
+            ]
             m_ftp_nlst.return_value = ['test1.vcf.gz', 'test1.vcf.gz.csi', 'test1.vcf.csi', 'test1.accessioned.vcf.gz',
                                        'test1.accessioned.vcf.gz.csi', 'test1.accessioned.vcf.csi']
             self.assertEqual(self.expected_report_of_eload_104(), self.eload.run_qc_checks_for_submission())
-
 
     def expected_report_of_eload_101(self):
         return """
@@ -110,6 +123,8 @@ class TestSubmissionQC(TestCase):
         Variants Skipped accessioning check: PASS with Warning (Manual Check Required)
         Variant load and Accession Import check:
             Variant load check: FAIL
+            Annotation check: FAIL
+            Statistics check: FAIL
             Accession Import check: FAIL
         Remapping and Clustering Check:
             Clustering check: FAIL 
@@ -145,15 +160,21 @@ class TestSubmissionQC(TestCase):
         
         Variant load check:
         
-                variant load result: FAIL
+                vcf load result: FAIL
+                annotation result: FAIL
+                statistics result: FAIL
                 accession import result: FAIL
                     Failed Files:
                         test1.vcf.gz: 
-                            variant load error : No variant load log file found for test1.vcf.gz
-                            accession import error : No acc import file found for test1.vcf.gz
+                            load_vcf error : No load_vcf log file found for test1.vcf.gz
+                            acc_import error : No acc_import log file found for test1.vcf.gz
                         test2.vcf.gz: 
-                            variant load error : No variant load log file found for test2.vcf.gz
-                            accession import error : No acc import file found for test2.vcf.gz
+                            load_vcf error : No load_vcf log file found for test2.vcf.gz
+                            acc_import error : No acc_import log file found for test2.vcf.gz
+                    Failed Analysis:
+                        ERZ2499196: 
+                            annotate_variants error : No annotate_variants log file found for ERZ2499196
+                            calculate_statistics error : No calculate_statistics log file found for ERZ2499196
         ----------------------------------
 
         Remapping and Clustering check:
@@ -192,6 +213,8 @@ class TestSubmissionQC(TestCase):
         Variants Skipped accessioning check: PASS with Warning (Manual Check Required)
         Variant load and Accession Import check:
             Variant load check: FAIL
+            Annotation check: FAIL
+            Statistics check: FAIL
             Accession Import check: FAIL
         Remapping and Clustering Check:
             Clustering check: FAIL 
@@ -226,15 +249,21 @@ class TestSubmissionQC(TestCase):
         
         Variant load check:
         
-                variant load result: FAIL
+                vcf load result: FAIL
+                annotation result: FAIL
+                statistics result: FAIL
                 accession import result: FAIL
                     Failed Files:
                         test1.vcf.gz: 
-                            variant load failed job/step : load-variants-step
-                            accession import failed job/step : accession-import-step
+                            load_vcf failed job/step : load-variants-step
+                            acc_import failed job/step : accession-import-step
                         test2.vcf.gz: 
-                            variant load error : No variant load log file found for test2.vcf.gz
-                            accession import error : No acc import file found for test2.vcf.gz
+                            load_vcf error : No load_vcf log file found for test2.vcf.gz
+                            acc_import error : No acc_import log file found for test2.vcf.gz
+                    Failed Analysis:
+                        ERZ2499196: 
+                            annotate_variants error : No annotate_variants log file found for ERZ2499196
+                            calculate_statistics error : No calculate_statistics log file found for ERZ2499196
         ----------------------------------
 
         Remapping and Clustering check:
@@ -274,6 +303,8 @@ class TestSubmissionQC(TestCase):
         Variants Skipped accessioning check: PASS
         Variant load and Accession Import check:
             Variant load check: PASS
+            Annotation check: PASS
+            Statistics check: PASS
             Accession Import check: PASS
         Remapping and Clustering Check:
             Clustering check: PASS 
@@ -303,7 +334,9 @@ class TestSubmissionQC(TestCase):
         
         Variant load check:
         
-                variant load result: PASS
+                vcf load result: PASS
+                annotation result: PASS
+                statistics result: PASS
                 accession import result: PASS
         ----------------------------------
 
@@ -354,6 +387,8 @@ class TestSubmissionQC(TestCase):
         Variants Skipped accessioning check: PASS with Warning (Manual Check Required)
         Variant load and Accession Import check:
             Variant load check: FAIL
+            Annotation check: FAIL
+            Statistics check: FAIL
             Accession Import check: FAIL
         Remapping and Clustering Check:
             Clustering check: FAIL 
@@ -387,31 +422,37 @@ class TestSubmissionQC(TestCase):
         
         Variant load check:
         
-                variant load result: FAIL
+                vcf load result: FAIL
+                annotation result: FAIL
+                statistics result: FAIL
                 accession import result: FAIL
                     Failed Files:
                         test1.vcf.gz: 
-                            variant load error : No variant load log file found for test1.vcf.gz
-                            accession import error : No acc import file found for test1.vcf.gz
+                            load_vcf error : No load_vcf log file found for test1.vcf.gz
+                            acc_import error : No acc_import log file found for test1.vcf.gz
+                    Failed Analysis:
+                        ERZ2499196: 
+                            annotate_variants error : No annotate_variants log file found for ERZ2499196
+                            calculate_statistics error : No calculate_statistics log file found for ERZ2499196
         ----------------------------------
 
         Remapping and Clustering check:
         
                 clustering check: FAIL
                     Clustering Job: FAIL        
-                        Clustering Error : No clustering file found for GCA_000247795.2_clustering.log
+                        clustering error : No clustering log file found for GCA_000247795.2
                     Clustering QC Job: FAIL
-                        Clustering QC Error : No clustering qc file found for GCA_000247795.2_clustering_qc.log
+                        clustering_qc error : No clustering_qc log file found for GCA_000247795.2
         
                 remapping check: FAIL
                     remapping result of assemblies:
                         GCA_000003205.6:
-                            - vcf_extractor_result : FAIL - VCF Extractor Error: No vcf extractor file found for GCA_000003205.6_vcf_extractor.log
-                            - remapping_ingestion_result: FAIL - Remapping Ingestion Error: No remapping ingestion file found for GCA_000003205.6_eva_remapped.vcf_ingestion.log
+                            - vcf_extractor_result : FAIL - vcf_extractor error : No vcf_extractor log file found for GCA_000003205.6
+                            - remapping_ingestion_result: FAIL - remapping_ingestion error : No remapping_ingestion log file found for GCA_000003205.6
                     
                 backpropagation check: FAIL
                     backpropagation result of assemblies:
-                        GCA_000003205.6: FAIL - Backpropagation Error: No backpropagation file found for GCA_000247795.2_backpropagate_to_GCA_000003205.6.log
+                        GCA_000003205.6: FAIL - backpropagation error : No backpropagation log file found for GCA_000003205.6
                 
         ----------------------------------
         
