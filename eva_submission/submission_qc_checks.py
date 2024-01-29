@@ -188,7 +188,7 @@ class EloadQC(Eload):
         ftp.cwd(f'pub/databases/eva/{project_accession}')
         return ftp.nlst()
 
-    def check_if_job_completed_successfully(self, file_path, job_type):
+    def _did_job_complete_successfully_from_log(self, file_path, job_type):
         with open(file_path, 'r') as f:
             job_status = 'FAILED'
             job_launched_str, job_completed_str = self.job_launched_and_completed_text_map[job_type]
@@ -232,7 +232,7 @@ class EloadQC(Eload):
             accessioning_log_files = glob.glob(f"{self.path_to_logs_dir}/accessioning.*{file}*.log")
             if accessioning_log_files:
                 # check if accessioning job completed successfully
-                if not self.check_if_job_completed_successfully(accessioning_log_files[0], 'accession'):
+                if not self._did_job_complete_successfully_from_log(accessioning_log_files[0], 'accession'):
                     failed_files[
                         file] = f"failed job/step : {self.get_failed_job_or_step_name(accessioning_log_files[0])}"
             else:
@@ -253,13 +253,13 @@ class EloadQC(Eload):
     def check_if_variant_load_completed_successfully(self, vcf_files):
         failed_files = defaultdict(dict)
         for file_name in vcf_files:
-            self._check_if_one_job_completed_successfully(
+            self._find_log_and_check_job(
                 file_name, f"pipeline.*{file_name}*.log", "variant_load", failed_files
             )
-            self._check_if_one_job_completed_successfully(
+            self._find_log_and_check_job(
                 file_name, f"load_variants.*{file_name}*.log", "load_vcf", failed_files
             )
-            self._check_if_one_job_completed_successfully(
+            self._find_log_and_check_job(
                 file_name, f"acc_import.*{file_name}*.log", "acc_import", failed_files
             )
         self._load_vcf_job_check_result = "PASS"
@@ -286,10 +286,10 @@ class EloadQC(Eload):
                 os.path.basename(f) for f in self.analyses.get(analysis_alias).get('vcf_files')
             ]
 
-            self._check_if_one_job_completed_successfully(
+            self._find_log_and_check_job(
                 analysis_accession, f"annotation.*{analysis_accession}*.log", "annotate_variants", failed_analysis
             )
-            self._check_if_one_job_completed_successfully(
+            self._find_log_and_check_job(
                 analysis_accession, f"statistics.*{analysis_accession}*.log", "calculate_statistics", failed_analysis
             )
         self._annotation_job_check_result = "PASS"
@@ -342,12 +342,12 @@ class EloadQC(Eload):
                             {error_txt.get('calculate_statistics', "")}"""
         return report
 
-    def _check_if_one_job_completed_successfully(self, search_unit, log_file_pattern, job_type, failure_dict=None):
+    def _find_log_and_check_job(self, search_unit, log_file_pattern, job_type, failure_dict=None):
         log_files = glob.glob(os.path.join(self.path_to_logs_dir, log_file_pattern))
         report_text = ""
         if log_files:
             # check if job completed successfully
-            if not self.check_if_job_completed_successfully(log_files[0], job_type):
+            if not self._did_job_complete_successfully_from_log(log_files[0], job_type):
                 report_text += f"{job_type} failed job/step : {self.get_failed_job_or_step_name(log_files[0])}"
                 job_passed = False
             else:
@@ -397,10 +397,10 @@ class EloadQC(Eload):
             missing files: {missing_files if missing_files else 'None'}"""
 
     def clustering_check_report(self, target_assembly):
-        clustering_check_pass, clustering_error = self._check_if_one_job_completed_successfully(
+        clustering_check_pass, clustering_error = self._find_log_and_check_job(
             target_assembly, f'{target_assembly}_clustering.log', 'clustering'
         )
-        clustering_qc_check_pass, clustering_qc_error = self._check_if_one_job_completed_successfully(
+        clustering_qc_check_pass, clustering_qc_error = self._find_log_and_check_job(
             target_assembly, f'{target_assembly}_clustering_qc.log', 'clustering_qc'
         )
 
@@ -422,10 +422,10 @@ class EloadQC(Eload):
             vcf_extractor_result = remapping_ingestion_result = 'SKIP'
             vcf_extractor_error = remapping_ingestion_error = ""
             if assembly_accession != target_assembly:
-                vcf_extractor_pass, vcf_extractor_error = self._check_if_one_job_completed_successfully(
+                vcf_extractor_pass, vcf_extractor_error = self._find_log_and_check_job(
                     assembly_accession, f"{assembly_accession}_vcf_extractor.log", "vcf_extractor"
                 )
-                remapping_ingestion_pass, remapping_ingestion_error = self._check_if_one_job_completed_successfully(
+                remapping_ingestion_pass, remapping_ingestion_error = self._find_log_and_check_job(
                     assembly_accession, f"{assembly_accession}_eva_remapped.vcf_ingestion.log", "remapping_ingestion"
                 )
                 vcf_extractor_result = 'PASS' if vcf_extractor_pass else 'FAIL'
@@ -459,7 +459,7 @@ class EloadQC(Eload):
         for analysis_data in self.analyses.values():
             assembly_accession = analysis_data['assembly_accession']
             if assembly_accession != target_assembly:
-                backpropagation_pass, backpropagation_error = self._check_if_one_job_completed_successfully(
+                backpropagation_pass, backpropagation_error = self._find_log_and_check_job(
                     assembly_accession, f"{target_assembly}_backpropagate_to_{assembly_accession}.log", "backpropagation"
                 )
                 asm_res[assembly_accession]['result'] = 'PASS' if backpropagation_pass else 'FAIL'
