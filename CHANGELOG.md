@@ -1,11 +1,11 @@
 Changelog for eva-submission
 ============================
 
-## 1.15.2 (unreleased)
+## 1.15.2 (2024-01-29)
 ----------------------
 
-- Nothing changed yet.
-
+- Ensure annotation & statistics calculation are run per analysis
+- Update qc_submission to check the new split variant load logs
 
 ## 1.15.1 (2024-01-16)
 ----------------------
