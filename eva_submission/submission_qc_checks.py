@@ -39,6 +39,18 @@ class EloadQC(Eload):
                 {'Job: [FlowJob: [name=genotyped-vcf-job]] completed',
                  'Job: [FlowJob: [name=aggregated-vcf-job]] completed'}
             ),
+            'load_vcf': (
+                {'Job: [FlowJob: [name=load-vcf-job]] launched'},
+                {'Job: [FlowJob: [name=load-vcf-job]] completed'}
+            ),
+            'annotate_variants': (
+                {'Job: [FlowJob: [name=annotate-variants-job]] launched'},
+                {'Job: [FlowJob: [name=annotate-variants-job]] completed'}
+            ),
+            'calculate_statistics': (
+                {'Job: [FlowJob: [name=calculate-statistics-job]] launched'},
+                {'Job: [FlowJob: [name=calculate-statistics-job]] completed'}
+            ),
             'acc_import': (
                 {'Job: [SimpleJob: [name=accession-import-job]] launched'},
                 {'Job: [SimpleJob: [name=accession-import-job]] completed'}
@@ -176,7 +188,7 @@ class EloadQC(Eload):
         ftp.cwd(f'pub/databases/eva/{project_accession}')
         return ftp.nlst()
 
-    def check_if_job_completed_successfully(self, file_path, job_type):
+    def _did_job_complete_successfully_from_log(self, file_path, job_type):
         with open(file_path, 'r') as f:
             job_status = 'FAILED'
             job_launched_str, job_completed_str = self.job_launched_and_completed_text_map[job_type]
@@ -220,7 +232,7 @@ class EloadQC(Eload):
             accessioning_log_files = glob.glob(f"{self.path_to_logs_dir}/accessioning.*{file}*.log")
             if accessioning_log_files:
                 # check if accessioning job completed successfully
-                if not self.check_if_job_completed_successfully(accessioning_log_files[0], 'accession'):
+                if not self._did_job_complete_successfully_from_log(accessioning_log_files[0], 'accession'):
                     failed_files[
                         file] = f"failed job/step : {self.get_failed_job_or_step_name(accessioning_log_files[0])}"
             else:
@@ -240,63 +252,112 @@ class EloadQC(Eload):
 
     def check_if_variant_load_completed_successfully(self, vcf_files):
         failed_files = defaultdict(dict)
-        for file in vcf_files:
-            variant_load_log_files = glob.glob(f"{self.path_to_logs_dir}/pipeline.*{file}*.log")
-            acc_import_log_files = glob.glob(f"{self.path_to_logs_dir}/acc_import.*{file}*.log")
-
-            variant_load_error = ""
-            if variant_load_log_files:
-                # check if variant load job completed successfully
-                if not self.check_if_job_completed_successfully(variant_load_log_files[0], 'variant_load'):
-                    variant_load_error += f"variant load failed job/step : {self.get_failed_job_or_step_name(variant_load_log_files[0])}"
-                    variant_load_result = "FAIL"
-                else:
-                    variant_load_result = "PASS"
-            else:
-                variant_load_error += f"variant load error : No variant load log file found for {file}"
-                variant_load_result = "FAIL"
-
-            acc_import_error = ""
-            if acc_import_log_files:
-                # check if variant load job completed successfully
-                if not self.check_if_job_completed_successfully(acc_import_log_files[0], 'acc_import'):
-                    acc_import_error += f"accession import failed job/step : {self.get_failed_job_or_step_name(acc_import_log_files[0])}"
-                    acc_import_result = "FAIL"
-                else:
-                    acc_import_result = "PASS"
-            else:
-                acc_import_error += f"accession import error : No acc import file found for {file}"
-                acc_import_result = "FAIL"
-
-            if variant_load_result == 'FAIL':
-                failed_files[file]['variant_load'] = variant_load_error
-            if acc_import_result == 'FAIL':
-                failed_files[file]['acc_import'] = acc_import_error
-
-        self._variant_load_job_check_result = "PASS"
+        for file_name in vcf_files:
+            self._find_log_and_check_job(
+                file_name, f"pipeline.*{file_name}*.log", "variant_load", failed_files
+            )
+            self._find_log_and_check_job(
+                file_name, f"load_variants.*{file_name}*.log", "load_vcf", failed_files
+            )
+            self._find_log_and_check_job(
+                file_name, f"acc_import.*{file_name}*.log", "acc_import", failed_files
+            )
+        self._load_vcf_job_check_result = "PASS"
         self._acc_import_job_check_result = "PASS"
-
         if failed_files:
-            for file, errors in failed_files.items():
-                if 'variant_load' in errors:
-                    self._variant_load_job_check_result = "FAIL"
+            for file_name in list(failed_files):
+                errors = failed_files[file_name]
+                if 'load_vcf' in errors and 'variant_load' in errors:
+                    self._load_vcf_job_check_result = "FAIL"
+                elif 'load_vcf' in errors and 'variant_load' not in errors:
+                    # We can remove the load_vcf error because it is covered by variant_load
+                    errors.pop('load_vcf')
                 if 'acc_import' in errors:
                     self._acc_import_job_check_result = "FAIL"
+                if not errors:
+                    # If there are no more error we can remove the file completely
+                    failed_files.pop(file_name)
+
+        failed_analysis = defaultdict(dict)
+        analysis_to_file_names = {}
+        for analysis_alias, analysis_accession in self.eload_cfg.query('brokering', 'ena', 'ANALYSIS').items():
+            # Find the files associated with this analysis
+            analysis_to_file_names[analysis_accession] = [
+                os.path.basename(f) for f in self.analyses.get(analysis_alias).get('vcf_files')
+            ]
+
+            self._find_log_and_check_job(
+                analysis_accession, f"annotation.*{analysis_accession}*.log", "annotate_variants", failed_analysis
+            )
+            self._find_log_and_check_job(
+                analysis_accession, f"statistics.*{analysis_accession}*.log", "calculate_statistics", failed_analysis
+            )
+        self._annotation_job_check_result = "PASS"
+        self._statistics_job_check_result = "PASS"
+        if failed_analysis:
+            for analysis_accession in list(failed_analysis):
+                errors = failed_analysis[analysis_accession]
+                # Check that the variant_load step didn't run the annotation and calculate statistics
+                variant_load_error = any(
+                    'variant_load' in failed_files.get(f, {}) for f in analysis_to_file_names[analysis_accession]
+                )
+                if 'annotate_variants' in errors and variant_load_error:
+                    self._annotation_job_check_result = "FAIL"
+                elif 'annotate_variants' in errors and not variant_load_error:
+                    # We can remove the annotate_variants error because it is covered by variant_load
+                    errors.pop('annotate_variants')
+                if 'calculate_statistics' in errors and variant_load_error:
+                    self._statistics_job_check_result = "FAIL"
+                elif 'calculate_statistics' in errors and not variant_load_error:
+                    # We can remove the calculate_statistics error because it is covered by variant_load
+                    errors.pop('calculate_statistics')
+                if not errors:
+                    # If there are no more error we can remove the analysis completely
+                    failed_analysis.pop(analysis_accession)
 
         report = f"""
-                variant load result: {self._variant_load_job_check_result}
+                vcf load result: {self._load_vcf_job_check_result}
+                annotation result: {self._annotation_job_check_result}
+                statistics result: {self._statistics_job_check_result}
                 accession import result: {self._acc_import_job_check_result}"""
         if failed_files:
+            # For the report the variant_load does not needs to be reported because any new run will be done
+            # with the new load_vcf method. Remove the variant_load from the failed files
+            for file_name in failed_files:
+                failed_files[file_name].pop('variant_load', None)
             report += f"""
                     Failed Files:"""
-            for file, error_txt in failed_files.items():
-                variant_load_error = error_txt['variant_load'] if 'variant_load' in error_txt else ""
-                acc_import_error = error_txt['acc_import'] if 'acc_import' in error_txt else ""
+            for file_name, error_txt in failed_files.items():
                 report += f"""
-                        {file}: 
-                            {variant_load_error}
-                            {acc_import_error}"""
+                        {file_name}: 
+                            {error_txt.get("load_vcf", "")}
+                            {error_txt.get("acc_import", "")}"""
+        if failed_analysis:
+            report += f"""
+                    Failed Analysis:"""
+            for analysis_accession, error_txt in failed_analysis.items():
+                report += f"""
+                        {analysis_accession}: 
+                            {error_txt.get('annotate_variants', "")}
+                            {error_txt.get('calculate_statistics', "")}"""
         return report
+
+    def _find_log_and_check_job(self, search_unit, log_file_pattern, job_type, failure_dict=None):
+        log_files = glob.glob(os.path.join(self.path_to_logs_dir, log_file_pattern))
+        report_text = ""
+        if log_files:
+            # check if job completed successfully
+            if not self._did_job_complete_successfully_from_log(log_files[0], job_type):
+                report_text += f"{job_type} failed job/step : {self.get_failed_job_or_step_name(log_files[0])}"
+                job_passed = False
+            else:
+                job_passed = True
+        else:
+            report_text += f"{job_type} error : No {job_type} log file found for {search_unit}"
+            job_passed = False
+        if not job_passed and failure_dict is not None:
+            failure_dict[search_unit][job_type] = report_text
+        return job_passed, report_text
 
     def check_if_variants_were_skipped_while_accessioning(self, vcf_files):
         failed_files = {}
@@ -336,41 +397,22 @@ class EloadQC(Eload):
             missing files: {missing_files if missing_files else 'None'}"""
 
     def clustering_check_report(self, target_assembly):
-        clustering_log_file = glob.glob(f"{self.path_to_logs_dir}/{target_assembly}_clustering.log")
-        clustering_qc_log_file = glob.glob(
-            f"{self.path_to_logs_dir}/{target_assembly}_clustering_qc.log")
+        clustering_check_pass, clustering_error = self._find_log_and_check_job(
+            target_assembly, f'{target_assembly}_clustering.log', 'clustering'
+        )
+        clustering_qc_check_pass, clustering_qc_error = self._find_log_and_check_job(
+            target_assembly, f'{target_assembly}_clustering_qc.log', 'clustering_qc'
+        )
 
-        clustering_error = ""
-        if clustering_log_file:
-            if not self.check_if_job_completed_successfully(clustering_log_file[0], 'clustering'):
-                clustering_error += f"failed job/step : {self.get_failed_job_or_step_name(clustering_log_file[0])}"
-                clustering_check_result = "FAIL"
-            else:
-                clustering_check_result = "PASS"
-        else:
-            clustering_error += f"Clustering Error : No clustering file found for {target_assembly}_clustering.log"
-            clustering_check_result = "FAIL"
-
-        clustering_qc_error = ""
-        if clustering_qc_log_file:
-            if not self.check_if_job_completed_successfully(clustering_qc_log_file[0], 'clustering_qc'):
-                clustering_qc_error += f"failed job/step : {self.get_failed_job_or_step_name(clustering_qc_log_file[0])}"
-                clustering_qc_check_result = "FAIL"
-            else:
-                clustering_qc_check_result = "PASS"
-        else:
-            clustering_qc_error += f"Clustering QC Error : No clustering qc file found for {target_assembly}_clustering_qc.log"
-            clustering_qc_check_result = "FAIL"
-
-        if clustering_check_result == 'FAIL' or clustering_qc_check_result == 'FAIL':
-            self._clustering_check_result = 'FAIL'
-        else:
+        if clustering_check_pass and clustering_qc_check_pass:
             self._clustering_check_result = 'PASS'
+        else:
+            self._clustering_check_result = 'FAIL'
 
-        return f"""Clustering Job: {clustering_check_result}        
-                        {clustering_error if clustering_check_result == 'FAIL' else ""}
-                    Clustering QC Job: {clustering_qc_check_result}
-                        {clustering_qc_error if clustering_qc_check_result == 'FAIL' else ""}
+        return f"""Clustering Job: {'PASS' if clustering_check_pass else "FAIL"}        
+                        {clustering_error if not clustering_check_pass else ""}
+                    Clustering QC Job: {'PASS' if clustering_qc_check_pass else "FAIL"}
+                        {clustering_qc_error if not clustering_qc_check_pass else ""}
         """
 
     def remapping_check_report(self, target_assembly):
@@ -380,31 +422,14 @@ class EloadQC(Eload):
             vcf_extractor_result = remapping_ingestion_result = 'SKIP'
             vcf_extractor_error = remapping_ingestion_error = ""
             if assembly_accession != target_assembly:
-                vcf_extractor_log_file = glob.glob(
-                    f"{self.path_to_logs_dir}/{assembly_accession}_vcf_extractor.log")
-                remapped_ingestion_log_file = glob.glob(
-                    f"{self.path_to_logs_dir}/{assembly_accession}_eva_remapped.vcf_ingestion.log")
-
-                if vcf_extractor_log_file:
-                    if not self.check_if_job_completed_successfully(vcf_extractor_log_file[0], 'vcf_extractor'):
-                        vcf_extractor_error += f"failed job/step : {self.get_failed_job_or_step_name(vcf_extractor_log_file[0])}"
-                        vcf_extractor_result = "FAIL"
-                    else:
-                        vcf_extractor_result = "PASS"
-                else:
-                    vcf_extractor_error += f"VCF Extractor Error: No vcf extractor file found for {assembly_accession}_vcf_extractor.log"
-                    vcf_extractor_result = "FAIL"
-
-                if remapped_ingestion_log_file:
-                    if not self.check_if_job_completed_successfully(remapped_ingestion_log_file[0], 'remapping_ingestion'):
-                        remapping_ingestion_error += f"failed job/step : {self.get_failed_job_or_step_name(remapped_ingestion_log_file[0])}"
-                        remapping_ingestion_result = "FAIL"
-                    else:
-                        remapping_ingestion_result = "PASS"
-                else:
-                    remapping_ingestion_error += f"Remapping Ingestion Error: No remapping ingestion file found for {assembly_accession}_eva_remapped.vcf_ingestion.log"
-                    remapping_ingestion_result = "FAIL"
-
+                vcf_extractor_pass, vcf_extractor_error = self._find_log_and_check_job(
+                    assembly_accession, f"{assembly_accession}_vcf_extractor.log", "vcf_extractor"
+                )
+                remapping_ingestion_pass, remapping_ingestion_error = self._find_log_and_check_job(
+                    assembly_accession, f"{assembly_accession}_eva_remapped.vcf_ingestion.log", "remapping_ingestion"
+                )
+                vcf_extractor_result = 'PASS' if vcf_extractor_pass else 'FAIL'
+                remapping_ingestion_result = 'PASS' if remapping_ingestion_pass else 'FAIL'
             asm_res[assembly_accession]['vcf_extractor_result'] = vcf_extractor_result
             asm_res[assembly_accession]['vcf_extractor_error'] = vcf_extractor_error
             asm_res[assembly_accession]['remapping_ingestion_result'] = remapping_ingestion_result
@@ -433,24 +458,15 @@ class EloadQC(Eload):
         asm_res = defaultdict(dict)
         for analysis_data in self.analyses.values():
             assembly_accession = analysis_data['assembly_accession']
-            backpropagation_result = "SKIP"
-            backpropagation_error = ""
             if assembly_accession != target_assembly:
-                back_propagation_log_file = glob.glob(
-                    f"{self.path_to_logs_dir}/{target_assembly}_backpropagate_to_{assembly_accession}.log")
-
-                if back_propagation_log_file:
-                    if not self.check_if_job_completed_successfully(back_propagation_log_file[0], 'backpropagation'):
-                        backpropagation_error += f"failed job/step : {self.get_failed_job_or_step_name(back_propagation_log_file[0])}"
-                        backpropagation_result = "FAIL"
-                    else:
-                        backpropagation_result = "PASS"
-                else:
-                    backpropagation_error += f"Backpropagation Error: No backpropagation file found for {target_assembly}_backpropagate_to_{assembly_accession}.log"
-                    backpropagation_result = "FAIL"
-
-            asm_res[assembly_accession]['result'] = backpropagation_result
-            asm_res[assembly_accession]['error'] = backpropagation_error
+                backpropagation_pass, backpropagation_error = self._find_log_and_check_job(
+                    assembly_accession, f"{target_assembly}_backpropagate_to_{assembly_accession}.log", "backpropagation"
+                )
+                asm_res[assembly_accession]['result'] = 'PASS' if backpropagation_pass else 'FAIL'
+                asm_res[assembly_accession]['error'] = backpropagation_error
+            else:
+                asm_res[assembly_accession]['result'] = "SKIP"
+                asm_res[assembly_accession]['error'] = ""
 
         self._backpropagation_check_result = 'PASS'
 
@@ -529,7 +545,9 @@ class EloadQC(Eload):
         Accessioning job check: {self._accessioning_job_check_result}
         Variants Skipped accessioning check: {self._variants_skipped_accessioning_check_result}
         Variant load and Accession Import check:
-            Variant load check: {self._variant_load_job_check_result}
+            Variant load check: {self._load_vcf_job_check_result}
+            Annotation check: {self._annotation_job_check_result}
+            Statistics check: {self._statistics_job_check_result}
             Accession Import check: {self._acc_import_job_check_result}
         Remapping and Clustering Check:
             Clustering check: {self._clustering_check_result} 
