@@ -290,7 +290,7 @@ class EloadQC(Eload):
                 analysis_accession, f"annotation.*{analysis_accession}*.log", "annotate_variants", failed_analysis
             )
             # Statistics is only run if the aggregation is set to none
-            if self.eload_cfg.query('ingestion', 'aggregation', analysis_accession) == 'none':
+            if self.eload_cfg.query('ingestion', 'aggregation', analysis_accession, ret_default='none') == 'none':
                 self._find_log_and_check_job(
                     analysis_accession, f"statistics.*{analysis_accession}*.log", "calculate_statistics", failed_analysis
                 )
