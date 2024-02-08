@@ -14,8 +14,11 @@ from eva_submission.biosample_submission.biosamples_communicators import AAPHALC
 from eva_submission.eload_utils import cast_list, check_existing_project_in_ena, check_project_format
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
-not_provided_check_list = ['not provided']
-
+# Values coming from https://www.ebi.ac.uk/ena/browser/view/ERC000011
+not_provided_check_list = ['not provided', 'not collected', 'restricted access', 'missing: control sample',
+                           'missing: sample group', 'missing: synthetic construct', 'missing: lab stock',
+                           'missing: third party data', 'missing: data agreement established pre-2023',
+                           'missing: endangered species', 'missing: human-identifiable']
 
 class EvaXlsxValidator(AppLogger):
 
@@ -221,6 +224,16 @@ class EvaXlsxValidator(AppLogger):
             datetime.datetime.strptime(d, "%Y-%m-%d")
             return True
         except ValueError:
+            pass
+        try:
+            datetime.datetime.strptime(d, "%Y-%m")
+            return True
+        except ValueError:
+            pass
+        try:
+            datetime.datetime.strptime(d, "%Y")
+            return True
+        except ValueError:
             return False
 
     def _validate_existing_biosample(self, sample_data, row_num, accession):
@@ -235,8 +248,7 @@ class EvaXlsxValidator(AppLogger):
                 f'In row {row_num}, existing sample accession {accession} does not have a valid collection date')
         found_geo_loc = False
         for key in ['geographic location (country and/or sea)']:
-            if key in sample_data['characteristics'] and \
-                    self._check_date(sample_data['characteristics'][key][0]['text']):
+            if key in sample_data['characteristics'] and sample_data['characteristics'][key][0]['text']:
                 found_geo_loc = True
         if not found_geo_loc:
             self.error_list.append(
