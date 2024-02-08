@@ -14,6 +14,7 @@ from eva_submission.biosample_submission.biosamples_communicators import AAPHALC
 from eva_submission.eload_utils import cast_list, check_existing_project_in_ena, check_project_format
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
+# Values coming from https://www.ebi.ac.uk/ena/browser/view/ERC000011
 not_provided_check_list = ['not provided', 'not collected', 'restricted access', 'missing: control sample',
                            'missing: sample group', 'missing: synthetic construct', 'missing: lab stock',
                            'missing: third party data', 'missing: data agreement established pre-2023',
