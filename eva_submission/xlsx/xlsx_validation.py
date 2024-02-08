@@ -233,7 +233,7 @@ class EvaXlsxValidator(AppLogger):
             datetime.datetime.strptime(d, "%Y")
             return True
         except ValueError:
-            False
+            return False
 
     def _validate_existing_biosample(self, sample_data, row_num, accession):
         """This function only check if the existing sample has the expected fields present"""
