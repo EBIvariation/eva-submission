@@ -1,11 +1,11 @@
 Changelog for eva-submission
 ============================
 
-## 1.15.3 (unreleased)
+## 1.15.3 (2024-02-09)
 ----------------------
 
-- Nothing changed yet.
-
+- qc_submission support optional statistic calculation
+- Improve collection date and geographic location check for pre-submitted samples 
 
 ## 1.15.2 (2024-01-29)
 ----------------------
