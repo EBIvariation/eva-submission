@@ -44,7 +44,7 @@ Analysis:
       Analysis Alias: {      type: 'string',  nullable: False, required: True}
       Description: {         type: 'string',  nullable: False, required: True}
       Project Title: {       type: 'string',  nullable: False, required: True}
-      Experiment Type: {     type: 'string',  nullable: False, required: True, allowed: ['Whole genome sequencing', 'Whole transcriptome sequencing','Exome sequencing', 'Genotyping by array', 'Curation', 'Genotyping by sequencing', 'Target sequencing'] }
+      Experiment Type: {     type: 'string',  nullable: False, required: True, allowed: ['Whole genome sequencing', 'Whole transcriptome sequencing','Exome sequencing', 'Genotyping by array', 'Curation', 'Genotyping by sequencing', 'Target sequencing', 'transcriptomics'] }
       Reference: {           type: 'string',  nullable: False, required: True}
       Platform: {            type: 'string',  nullable: True}
       Software: {            type: 'string',  nullable: True}
