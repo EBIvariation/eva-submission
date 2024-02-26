@@ -44,9 +44,9 @@ Analysis:
       Analysis Alias: {      type: 'string',  nullable: False, required: True}
       Description: {         type: 'string',  nullable: False, required: True}
       Project Title: {       type: 'string',  nullable: False, required: True}
-      Experiment Type: {     type: 'string',  nullable: False, required: True, allowed: ['Whole genome sequencing', 'Whole transcriptome sequencing','Exome sequencing', 'Genotyping by array', 'Curation', 'Genotyping by sequencing', 'Target sequencing'] }
+      Experiment Type: {     type: 'string',  nullable: False, required: True, allowed: ['Whole genome sequencing', 'Whole transcriptome sequencing','Exome sequencing', 'Genotyping by array', 'Curation', 'Genotyping by sequencing', 'Target sequencing', 'transcriptomics'] }
       Reference: {           type: 'string',  nullable: False, required: True}
-      Platform: {            type: 'string',  nullable: True, allowed: ['454 GS', '454 GS 20', '454 GS FLX', '454 GS FLX Titanium', '454 GS FLX+', '454 GS Junior', 'AB 3130 Genetic Analyzer', 'AB 3300 Genetic Analyzer', 'AB 3730xl', 'AB 3730xl', 'AB 5500 Genetic Analyzer', 'AB 5500xl Genetic Analyzer', 'AB SOLiD 3 Plus System', 'AB SOLiD 4 System', 'AB SOLiD 4hq System', 'AB SOLiD PI System', 'AB SOLiD System', 'AB SOLiD System 2.0', 'AB SOLiD System 3.0', 'ABI 3500 Genetic Analyzer', 'ABI PRISM 310 Genetic Analyzer', 'Affymetrix', 'BGISEQ-500', 'Bio-Rad CFX96', 'Complete Genomics', 'Illumina', 'Illumina CanineHD', 'Illumina Genome Analyzer', 'Illumina Genome Analyzer II', 'Illumina Genome Analyzer IIx', 'Illumina HiScanSQ', 'Illumina HiSeq 1000', 'Illumina HiSeq 2000', 'Illumina HiSeq 2500', 'Illumina HiSeq 3500', 'Illumina HiSeq 4000', 'Illumina HiSeq X Ten', 'Illumina Hiseq Xten', 'Illumina iScan', 'Illumina MiniSeq', 'Illumina MiSeq', 'Illumina NextSeq 500', 'Illumina NovaSeq 6000', 'Ion Personal Genome Machine (PGM) System v2', 'Ion S5XL', 'Ion Torrent PGM', 'Ion Torrent Proton', 'MGISEQ-2000', 'Nimblegen 4.2M Probe Custom DNA Microarray', 'Oxford Nanopore PromethION', 'unspecified']}
+      Platform: {            type: 'string',  nullable: True}
       Software: {            type: 'string',  nullable: True}
       Pipeline Description: {type: 'string',  nullable: True}
       Imputation: {          type: 'string',  nullable: True}
