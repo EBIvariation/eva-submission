@@ -285,10 +285,11 @@ class EloadQC(Eload):
             analysis_to_file_names[analysis_accession] = [
                 os.path.basename(f) for f in self.analyses.get(analysis_alias).get('vcf_files')
             ]
-
-            self._find_log_and_check_job(
-                analysis_accession, f"annotation.*{analysis_accession}*.log", "annotate_variants", failed_analysis
-            )
+            assembly_accession = self.eload_cfg.query('brokering', 'analyses', analysis_alias, 'assembly_accession')
+            if self.eload_cfg.query('ingestion', 'vep', assembly_accession, 'cache_version', ret_default=None) == None:
+                self._find_log_and_check_job(
+                    analysis_accession, f"annotation.*{analysis_accession}*.log", "annotate_variants", failed_analysis
+                )
             # Statistics is only run if the aggregation is set to none
             if self.eload_cfg.query('ingestion', 'aggregation', analysis_accession, ret_default='none') == 'none':
                 self._find_log_and_check_job(
