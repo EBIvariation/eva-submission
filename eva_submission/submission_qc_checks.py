@@ -285,8 +285,9 @@ class EloadQC(Eload):
             analysis_to_file_names[analysis_accession] = [
                 os.path.basename(f) for f in self.analyses.get(analysis_alias).get('vcf_files')
             ]
+            # annotation only happens if a VEP cache can be found
             assembly_accession = self.eload_cfg.query('brokering', 'analyses', analysis_alias, 'assembly_accession')
-            if self.eload_cfg.query('ingestion', 'vep', assembly_accession, 'cache_version', ret_default=None) == None:
+            if self.eload_cfg.query('ingestion', 'vep', assembly_accession, 'cache_version') == None:
                 self._find_log_and_check_job(
                     analysis_accession, f"annotation.*{analysis_accession}*.log", "annotate_variants", failed_analysis
                 )
