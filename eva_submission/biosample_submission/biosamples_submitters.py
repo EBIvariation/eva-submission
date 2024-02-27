@@ -70,6 +70,9 @@ class BioSamplesSubmitter(AppLogger):
 
     def validate_in_bsd(self, samples_data):
         for sample in samples_data:
+            if self.can_overwrite(sample):
+                sample = self.create_sample_to_overwrite(sample)
+
             # If we're only retrieving don't need to validate.
             if self.can_create(sample) or self.can_overwrite(sample):
                 sample.update(self.default_communicator.communicator_attributes)
@@ -441,7 +444,8 @@ class SampleMetadataSubmitter(SampleSubmitter):
             ])
 
     def all_sample_names(self):
-        return [s.get('name') for s in self.sample_data]
+        # We need to get back to the reader to get all the names that were present in the spreadsheet
+        return [sample_row.get('Sample Name') or sample_row.get('Sample ID') for sample_row in self.reader.samples]
 
 
 class SampleReferenceSubmitter(SampleSubmitter):
