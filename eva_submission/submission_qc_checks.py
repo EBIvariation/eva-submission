@@ -285,10 +285,12 @@ class EloadQC(Eload):
             analysis_to_file_names[analysis_accession] = [
                 os.path.basename(f) for f in self.analyses.get(analysis_alias).get('vcf_files')
             ]
-
-            self._find_log_and_check_job(
-                analysis_accession, f"annotation.*{analysis_accession}*.log", "annotate_variants", failed_analysis
-            )
+            # annotation only happens if a VEP cache can be found
+            assembly_accession = self.eload_cfg.query('brokering', 'analyses', analysis_alias, 'assembly_accession')
+            if self.eload_cfg.query('ingestion', 'vep', assembly_accession, 'cache_version') == None:
+                self._find_log_and_check_job(
+                    analysis_accession, f"annotation.*{analysis_accession}*.log", "annotate_variants", failed_analysis
+                )
             # Statistics is only run if the aggregation is set to none
             if self.eload_cfg.query('ingestion', 'aggregation', analysis_accession, ret_default='none') == 'none':
                 self._find_log_and_check_job(
@@ -429,7 +431,7 @@ class EloadQC(Eload):
                     assembly_accession, f"{assembly_accession}_vcf_extractor.log", "vcf_extractor"
                 )
                 remapping_ingestion_pass, remapping_ingestion_error = self._find_log_and_check_job(
-                    assembly_accession, f"{assembly_accession}_eva_remapped.vcf_ingestion.log", "remapping_ingestion"
+                    assembly_accession, f"{assembly_accession}*_eva_remapped.vcf_ingestion.log", "remapping_ingestion"
                 )
                 vcf_extractor_result = 'PASS' if vcf_extractor_pass else 'FAIL'
                 remapping_ingestion_result = 'PASS' if remapping_ingestion_pass else 'FAIL'
