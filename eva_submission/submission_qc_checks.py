@@ -431,7 +431,7 @@ class EloadQC(Eload):
                     assembly_accession, f"{assembly_accession}_vcf_extractor.log", "vcf_extractor"
                 )
                 remapping_ingestion_pass, remapping_ingestion_error = self._find_log_and_check_job(
-                    assembly_accession, f"{assembly_accession}_eva_remapped.vcf_ingestion.log", "remapping_ingestion"
+                    assembly_accession, f"{assembly_accession}*_eva_remapped.vcf_ingestion.log", "remapping_ingestion"
                 )
                 vcf_extractor_result = 'PASS' if vcf_extractor_pass else 'FAIL'
                 remapping_ingestion_result = 'PASS' if remapping_ingestion_pass else 'FAIL'
