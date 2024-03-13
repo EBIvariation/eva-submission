@@ -1,11 +1,18 @@
 Changelog for eva-submission
 ============================
 
-## 1.15.4 (unreleased)
+## 1.15.4 (2024-03-13)
 ----------------------
 
-- Nothing changed yet.
+### Validation 
+ - Remove platform restriction and add experiment type value
 
+### Brokering 
+ - confirm samples brokering using existing and novel sample names
+
+## ingestion QC 
+ - Skip check for VEP if not run
+ - Fix remapping ingestion log file name
 
 ## 1.15.3 (2024-02-09)
 ----------------------
