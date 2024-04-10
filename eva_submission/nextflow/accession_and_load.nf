@@ -127,7 +127,7 @@ workflow {
             sort_and_compress_vcf(accession_vcf.out.accession_done)
             csi_vcfs = sort_and_compress_vcf.out.compressed_vcf
             accessioned_files_to_rm = accession_vcf.out.accessioned_filenames
-            all_accession_complete = sort_and_compress_vcf.out.compressed_vcf
+            all_accession_complete = sort_and_compress_vcf.out.compressed_vcf.collect()
         }
         csi_index_vcf(csi_vcfs)
         copy_to_ftp(csi_index_vcf.out.csi_indexed_vcf.toList(), accessioned_files_to_rm.toList())
@@ -155,8 +155,8 @@ workflow {
                     .splitCsv(header:true)
                     .map{row -> tuple(file(row.vcf_file), row.db_name)}
             // the vcf_files_dbname give the link between input file and all_accession_complete is to ensure the
-            // accessioning has been completed
-            if (all_accession_complete){
+            // accessioning has been completed for all input files
+            if (all_accession_complete) {
                 import_accession(vcf_files_dbname, all_accession_complete, load_variants_vcf.out.variant_load_complete)
             }
         }
