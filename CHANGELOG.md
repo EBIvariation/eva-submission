@@ -1,10 +1,13 @@
 Changelog for eva-submission
 ============================
 
-## 1.15.5 (unreleased)
+## 1.15.5 (2024-04-12)
 ----------------------
 
-- Nothing changed yet.
+Allow insert_new_assembly.py to insert a new taxonomy only
+
+## ingestion
+- Wait for all the accessioning to be complete before ingesting accessioning report in the variant warehouse
 
 
 ## 1.15.4 (2024-03-13)
