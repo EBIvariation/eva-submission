@@ -20,7 +20,7 @@ from argparse import ArgumentParser
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from ebi_eva_internal_pyutils.metadata_utils import get_metadata_connection_handle, \
-    insert_new_assembly_and_taxonomy
+    insert_new_assembly_and_taxonomy, ensure_taxonomy_is_in_evapro
 
 from eva_submission.submission_config import load_config
 
@@ -31,7 +31,7 @@ def main():
     argparse = ArgumentParser(description='Insert an assembly with the provided name if it does not exist already. '
                                           'Associate it with a taxonomy that will be inserted as well if it does not '
                                           'exist')
-    argparse.add_argument('--assembly_accession', required=True, type=str, help='The assembly accession to add')
+    argparse.add_argument('--assembly_accession', type=str, help='The assembly accession to add')
     argparse.add_argument('--taxonomy_id', required=True, type=int, help='The taxonomy id to associate with the '
                                                                          'assembly')
     argparse.add_argument('--debug', action='store_true', default=False,
@@ -48,12 +48,15 @@ def main():
     assembly_accession = args.assembly_accession
     taxon_id = args.taxonomy_id
     with get_metadata_connection_handle(cfg['maven']['environment'], cfg['maven']['settings_file']) as conn:
-        # warns but doesn't crash if assembly set already exists
-        insert_new_assembly_and_taxonomy(
-            metadata_connection_handle=conn,
-            assembly_accession=assembly_accession,
-            taxonomy_id=taxon_id
-        )
+        if assembly_accession and taxon_id:
+            # warns but doesn't crash if assembly set already exists
+            insert_new_assembly_and_taxonomy(
+                metadata_connection_handle=conn,
+                assembly_accession=assembly_accession,
+                taxonomy_id=taxon_id
+            )
+        elif taxon_id:
+            ensure_taxonomy_is_in_evapro(conn, taxon_id)
 
 
 if __name__ == "__main__":
