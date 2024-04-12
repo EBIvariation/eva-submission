@@ -53,7 +53,8 @@ def main():
             insert_new_assembly_and_taxonomy(
                 metadata_connection_handle=conn,
                 assembly_accession=assembly_accession,
-                taxonomy_id=taxon_id
+                taxonomy_id=taxon_id,
+                ncbi_api_key=cfg['eutils_api_key']
             )
         elif taxon_id:
             ensure_taxonomy_is_in_evapro(conn, taxon_id)
