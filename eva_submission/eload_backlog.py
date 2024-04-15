@@ -1,6 +1,7 @@
 import os
 import urllib
 
+import requests
 from cached_property import cached_property
 from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query
 
@@ -118,14 +119,34 @@ class EloadBacklog(Eload):
             raise FileNotFoundError(f'File not found: {full_path}')
         return full_path
 
+    def _get_files_from_ena_analysis(self, analysis_accession):
+        """Find the location of the file submitted with an analysis"""
+        analyses_url = (
+            f"https://www.ebi.ac.uk/ena/portal/api/filereport?result=analysis&accession={analysis_accession}"
+            f"&format=json&fields=submitted_ftp"
+        )
+        response = requests.get(analyses_url)
+        response.raise_for_status()
+        data = response.json()
+        if data:
+            return data[0].get('submitted_ftp').split(';')
+        else:
+            return {}
+
     def find_file_on_ena(self, fn, analysis):
         basename = os.path.basename(fn)
         full_path = os.path.join(self._get_dir('vcf'), basename)
         if not os.path.exists(full_path):
             try:
                 self.info(f'Retrieve {basename} in {analysis} from ENA ftp')
-                url = f'https://ftp.sra.ebi.ac.uk/vol1/{analysis[:6]}/{analysis}/{basename}'
-                download_file(url, full_path)
+                ftp_urls = self._get_files_from_ena_analysis(analysis)
+                urls = [ftp_url for ftp_url in ftp_urls if ftp_url.endswith(fn)]
+                if len(urls) == 1:
+                    url = urls[0].replace('ftp', 'https')
+                    download_file(url, full_path)
+                else:
+                    self.error(f'Could find {fn} in analysis {analysis} on ENA: most likely does not exist')
+                    raise FileNotFoundError(f'File not found: {full_path}')
             except urllib.error.URLError:
                 self.error(f'Could not access {url} on ENA: most likely does not exist')
                 raise FileNotFoundError(f'File not found: {full_path}')
