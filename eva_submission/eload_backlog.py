@@ -142,7 +142,7 @@ class EloadBacklog(Eload):
                 ftp_urls = self._get_files_from_ena_analysis(analysis)
                 urls = [ftp_url for ftp_url in ftp_urls if ftp_url.endswith(fn)]
                 if len(urls) == 1:
-                    url = urls[0].replace('ftp', 'https')
+                    url = 'https://' + urls[0]
                     download_file(url, full_path)
                 else:
                     self.error(f'Could find {fn} in analysis {analysis} on ENA: most likely does not exist')
