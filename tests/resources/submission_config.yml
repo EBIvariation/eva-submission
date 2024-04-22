@@ -45,5 +45,3 @@ ena:
   ftpport: 22
   username: demo
   password: password
-
-eutils_api_key: test
