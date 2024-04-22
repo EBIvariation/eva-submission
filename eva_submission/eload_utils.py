@@ -54,7 +54,7 @@ def resolve_accession_from_text(reference_text):
     if NCBIAssembly.is_assembly_accession_format(reference_text):
         return [reference_text]
     # Search for a reference genome that resolve this text
-    accession = retrieve_genbank_assembly_accessions_from_ncbi(reference_text)
+    accession = retrieve_genbank_assembly_accessions_from_ncbi(reference_text, api_key=cfg['eutils_api_key'])
     if accession:
         return accession
 

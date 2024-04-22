@@ -139,7 +139,7 @@ def get_species_and_assembly(assembly_acc):
     Returns None if the taxonomy is not known.
     """
     # We first need to search for the species associated with the assembly
-    assembly_dicts = get_ncbi_assembly_dicts_from_term(assembly_acc)
+    assembly_dicts = get_ncbi_assembly_dicts_from_term(assembly_acc, api_key=cfg['eutils_api_key'])
     taxid_and_assembly_name = set([
         (assembly_dict.get('taxid'), assembly_dict.get('assemblyname'))
         for assembly_dict in assembly_dicts
@@ -253,7 +253,7 @@ def recursive_nlst(ftp, root, pattern):
 
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3), logger=logger)
 def download_and_extract_vep_cache(ftp, vep_cache_file, taxonomy_id):
-    scientific_name = retrieve_species_scientific_name_from_tax_id_ncbi(taxonomy_id)
+    scientific_name = retrieve_species_scientific_name_from_tax_id_ncbi(taxonomy_id, api_key=cfg['eutils_api_key'])
     species_name = scientific_name.replace(' ', '_').lower()
 
     tmp_dir = tempfile.TemporaryDirectory()
