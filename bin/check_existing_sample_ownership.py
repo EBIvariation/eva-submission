@@ -27,7 +27,7 @@ from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 def main():
     arg_parser = argparse.ArgumentParser(
-        description='query Biosamples accessions from a file')
+        description='Check ownership of existing Biosamples accessions from a metadata file')
     arg_parser.add_argument('--metadata_file', required=True,
                             help='Spreadsheet file containing the sample information. '
                                  'It should contains some pre-existing BioSample accession')
