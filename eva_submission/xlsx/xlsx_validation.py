@@ -107,7 +107,7 @@ class EvaXlsxValidator(AppLogger):
         """Check if the references can be retrieved"""
         references = set([row['Reference'] for row in self.metadata['Analysis'] if row['Reference']])
         for reference in references:
-            accessions = retrieve_genbank_assembly_accessions_from_ncbi(reference, api_key=cfg['eutils_api_key'])
+            accessions = retrieve_genbank_assembly_accessions_from_ncbi(reference, api_key=cfg.get('eutils_api_key'))
             if len(accessions) == 0:
                 self.error_list.append(f'In Analysis, Reference {reference} did not resolve to any accession')
             elif len(accessions) > 1:
