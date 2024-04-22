@@ -46,7 +46,6 @@ def main():
                                       cfg.query('biosamples', 'domain'))
     with open(args.output, 'w') as open_ouptut:
         sample_attrs = ['accession', 'name', 'domain', 'webinSubmissionAccountId', 'status']
-        other_fields = ['accession', 'name', 'domain', 'webinSubmissionAccountId', 'status']
         writer = csv.DictWriter(open_ouptut, fieldnames=sample_attrs + ['owner'])
         writer.writeheader()
         for sample_row in metadata_reader.samples:
