@@ -206,7 +206,7 @@ class EloadIngestion(Eload):
                     metadata_connection_handle=conn,
                     assembly_accession=assembly,
                     taxonomy_id=self.taxonomy,
-                    ncbi_api_key=cfg['eutils_api_key']
+                    ncbi_api_key=cfg.get('eutils_api_key')
                 )
 
         for db_info in assembly_to_db_name.values():

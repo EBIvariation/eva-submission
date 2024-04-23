@@ -26,14 +26,14 @@ def get_reference_fasta_and_report(species_name, reference_accession, output_dir
     if NCBIAssembly.is_assembly_accession_format(reference_accession):
         assembly = NCBIAssembly(
             reference_accession, species_name, output_directory,
-            eutils_api_key=cfg['eutils_api_key']
+            eutils_api_key=cfg.get('eutils_api_key')
         )
         if not os.path.isfile(assembly.assembly_fasta_path) or not os.path.isfile(assembly.assembly_report_path) or overwrite:
             assembly.download_or_construct(overwrite=overwrite)
         return assembly.assembly_fasta_path, assembly.assembly_report_path
     elif NCBISequence.is_genbank_accession_format(reference_accession):
         reference = NCBISequence(reference_accession, species_name, output_directory,
-                                 eutils_api_key=cfg['eutils_api_key'])
+                                 eutils_api_key=cfg.get('eutils_api_key'))
         if not os.path.isfile(reference.sequence_fasta_path) or overwrite:
             reference.download_contig_sequence_from_ncbi(genbank_only=True)
         return reference.sequence_fasta_path, None
@@ -54,7 +54,7 @@ def resolve_accession_from_text(reference_text):
     if NCBIAssembly.is_assembly_accession_format(reference_text):
         return [reference_text]
     # Search for a reference genome that resolve this text
-    accession = retrieve_genbank_assembly_accessions_from_ncbi(reference_text, api_key=cfg['eutils_api_key'])
+    accession = retrieve_genbank_assembly_accessions_from_ncbi(reference_text, api_key=cfg.get('eutils_api_key'))
     if accession:
         return accession
 

@@ -23,8 +23,12 @@ class TestEloadBacklog(TestCase):
         self.eload = EloadBacklog(44)
 
     def tearDown(self):
-        if os.path.exists(os.path.join(self.eload._get_dir('ena'), 'IRIS_313-8755.snp.vcf.gz.tbi')):
-            os.remove(os.path.join(self.eload._get_dir('ena'), 'IRIS_313-8755.snp.vcf.gz.tbi'))
+        for f in [
+            os.path.join(self.eload._get_dir('ena'), 'IRIS_313-8755.snp.vcf.gz.tbi'),
+            os.path.join(self.eload._get_dir('vcf'), 'IRIS_313-8755.snp.vcf.gz.tbi')
+        ]:
+            if os.path.exists(f):
+                os.remove(f)
         # necessary because test instances are retained during a run and content is a class variable
         from eva_submission.submission_config import EloadConfig
         EloadConfig.content = {}
