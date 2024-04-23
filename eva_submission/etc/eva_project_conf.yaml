@@ -118,7 +118,8 @@ Sample:
   cast:
     Sample ID: string
     Sample Name: string
-
+    Title: string
+    cultivar: string
 
 Files:
   required:

@@ -1,10 +1,11 @@
 Changelog for eva-submission
 ============================
 
-## 1.15.6 (unreleased)
+## 1.15.6 (2024-04-23)
 ----------------------
 
-- Nothing changed yet.
+- Use NCBI eutils key whenever possible.
+- New script to test sample ownership.
 
 
 ## 1.15.5 (2024-04-12)
