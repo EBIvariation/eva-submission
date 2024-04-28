@@ -9,7 +9,8 @@ from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission.submission_config import load_config
 from eva_submission.vep_utils import recursive_nlst, get_vep_and_vep_cache_version_from_ensembl, \
-    get_vep_and_vep_cache_version, download_and_extract_vep_cache, get_ftp_connection, get_species_and_assembly
+    get_vep_and_vep_cache_version, download_and_extract_vep_cache, get_ftp_connection, get_species_and_assembly, \
+    get_releases, ensembl_ftp_url, ensembl_genome_ftp_url, ensembl_genome_dirs
 
 
 class TestVepUtils(TestCase):
@@ -149,3 +150,11 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
         for assembly in assemblies2results:
             res = get_species_and_assembly(assembly)
             assert res == assemblies2results.get(assembly)
+
+    def test_get_releases(self):
+        with get_ftp_connection(ensembl_ftp_url) as ftp:
+            assert get_releases(ftp, 'pub', current_only=True) == {112: 'pub/release-112'}
+
+        with get_ftp_connection(ensembl_genome_ftp_url) as ftp:
+            assert get_releases(ftp, ensembl_genome_dirs[0], current_only=True) == {58: 'ensemblgenomes/pub/plants/release-58'}
+
