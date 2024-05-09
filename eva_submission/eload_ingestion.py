@@ -21,7 +21,8 @@ from ebi_eva_internal_pyutils.spring_properties import SpringPropertiesGenerator
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import provision_new_database_for_variant_warehouse, check_project_exists_in_evapro
+from eva_submission.eload_utils import provision_new_database_for_variant_warehouse, check_project_exists_in_evapro, \
+    get_nextflow_config_flag
 from eva_submission.submission_config import EloadConfig
 from eva_submission.vep_utils import get_vep_and_vep_cache_version
 
@@ -684,7 +685,8 @@ class EloadIngestion(Eload):
                     cfg['executable']['nextflow'], nextflow_script,
                     '-params-file', params_file,
                     '-work-dir', work_dir,
-                    '-resume' if resume else ''
+                    '-resume' if resume else '',
+                    get_nextflow_config_flag()
                 ))
             )
             shutil.rmtree(work_dir)
