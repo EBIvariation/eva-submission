@@ -62,6 +62,7 @@ workflow {
 * Compress the VCF file
 */
 process compress_vcf {
+    label 'default_time', 'small_mem'
 
     input:
     path vcf_file
@@ -85,6 +86,7 @@ process compress_vcf {
 * Index the compressed VCF file
 */
 process csi_index_vcf {
+    label 'default_time', 'small_mem'
 
     input:
     tuple val(input_vcf), path(compressed_vcf)
@@ -101,6 +103,7 @@ process csi_index_vcf {
 * Convert the genome to the same naming convention as the VCF
 */
 process prepare_genome {
+    label 'default_time', 'med_mem'
 
     input:
     tuple path(fasta), path(report), val(assembly_accession), path(vcf_files)
@@ -122,6 +125,8 @@ process prepare_genome {
 * Normalise the VCF files
 */
 process normalise_vcf {
+    label 'default_time', 'med_mem'
+
     publishDir "$params.output_dir",
             overwrite: false,
             mode: "copy",
@@ -148,6 +153,7 @@ process normalise_vcf {
 * md5 the compressed vcf and its index
 */
 process md5_vcf_and_index {
+    label 'short_time', 'small_mem'
 
     publishDir "$params.output_dir",
             overwrite: true,
