@@ -266,11 +266,11 @@ def create_assembly_report_from_fasta(assembly_fasta_path):
 
 def get_nextflow_config_flag():
     """
-    Return the commandline flag for Nextflow to use the config provided in environment variable NEXTFLOWCONFIG.
+    Return the commandline flag for Nextflow to use the config provided in environment variable SUBMISSION_NEXTFLOW_CONFIG.
     If not provided, return an empty string, which allows Nextflow to use the default precedence as described here:
     https://www.nextflow.io/docs/latest/config.html
     """
-    env_val = os.getenv('NEXTFLOWCONFIG')
+    env_val = os.getenv('SUBMISSION_NEXTFLOW_CONFIG')
     if env_val:
         return f'-c {env_val}'
     return ''

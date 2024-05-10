@@ -238,7 +238,7 @@ process accession_vcf {
 
 
     """
-    (java -Xmx${task.memory.toGiga()}G -jar $params.jar.accession_pipeline --spring.config.location=file:$params.accession_job_props $pipeline_parameters) || \
+    (java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.accession_pipeline --spring.config.location=file:$params.accession_job_props $pipeline_parameters) || \
     # If accessioning fails due to missing variants, but the only missing variants are structural variants,
     # then we should treat this as a success from the perspective of the automation.
     # TODO revert once accessioning pipeline properly registers structural variants
@@ -344,7 +344,7 @@ process load_variants_vcf {
     pipeline_parameters += " --spring.data.mongodb.database=" + db_name.toString()
 
     """
-    java -Xmx${task.memory.toGiga()}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
     """
 }
 
@@ -386,7 +386,7 @@ process run_vep_on_variants {
     pipeline_parameters += " --app.vep.cache.species=" + vep_species.toString()
 
     """
-    java -Xmx${task.memory.toGiga()}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
     """
 }
 
@@ -426,7 +426,7 @@ process calculate_statistics_vcf {
     pipeline_parameters += " --spring.data.mongodb.database=" + db_name.toString()
 
     """
-    java -Xmx${task.memory.toGiga()}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
     """
 }
 
@@ -456,6 +456,6 @@ process import_accession {
     pipeline_parameters += " --spring.data.mongodb.database=" + db_name.toString()
 
     """
-    java -Xmx${task.memory.toGiga()}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.acc_import_job_props --parameters.path=$params.acc_import_job_props $pipeline_parameters
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.acc_import_job_props --parameters.path=$params.acc_import_job_props $pipeline_parameters
     """
 }

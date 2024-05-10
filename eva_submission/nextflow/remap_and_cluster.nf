@@ -136,7 +136,7 @@ process extract_vcf_from_mongo {
     publishDir "$params.logs_dir", overwrite: true, mode: "copy", pattern: "*.log*"
 
     """
-    java -Xmx${task.memory.toGiga()}G -jar $params.jar.vcf_extractor \
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.vcf_extractor \
         --spring.config.location=file:${params.extraction_properties} \
         --parameters.assemblyAccession=${source_assembly_accession} \
         --parameters.fasta=${source_fasta} \
@@ -200,7 +200,7 @@ process ingest_vcf_into_mongo {
 
     script:
     """
-    java -Xmx${task.memory.toGiga()}G -jar $params.jar.vcf_ingestion \
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.vcf_ingestion \
         --spring.config.location=file:${params.ingestion_properties} \
         --parameters.remappedFrom=${source_assembly_accession} \
         --parameters.vcf=${remapped_vcf} \
@@ -226,7 +226,7 @@ process cluster_studies_from_mongo {
     publishDir "$params.logs_dir", overwrite: true, mode: "copy"
 
     """
-    java -Xmx${task.memory.toGiga()}G -jar $params.jar.clustering \
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.clustering \
         --spring.config.location=file:${params.clustering_properties} \
         --spring.batch.job.names=STUDY_CLUSTERING_JOB \
         > ${params.target_assembly_accession}_clustering.log
@@ -248,7 +248,7 @@ process qc_clustering {
     publishDir "$params.logs_dir", overwrite: true, mode: "copy", pattern: "*.log*"
 
     """
-    java -Xmx${task.memory.toGiga()}G -jar $params.jar.clustering \
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.clustering \
         --spring.config.location=file:${params.clustering_properties} \
         --spring.batch.job.names=NEW_CLUSTERED_VARIANTS_QC_JOB \
         > ${params.target_assembly_accession}_clustering_qc.log
@@ -272,7 +272,7 @@ process backpropagate_clusters {
     publishDir "$params.logs_dir", overwrite: true, mode: "copy", pattern: "*.log*"
 
     """
-    java -Xmx${task.memory.toGiga()}G -jar $params.jar.clustering \
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.clustering \
         --spring.config.location=file:${params.clustering_properties} \
         --parameters.remappedFrom=${source_assembly_accession} \
         --spring.batch.job.names=BACK_PROPAGATE_NEW_RS_JOB \
