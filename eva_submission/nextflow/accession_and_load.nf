@@ -168,6 +168,7 @@ workflow {
 * Convert the genome to the same naming convention as the VCF
 */
 process prepare_genome {
+    label 'default_time', 'med_mem'
 
     input:
     tuple path(fasta), path(report), val(assembly_accession), path(vcf_files)
@@ -189,6 +190,8 @@ process prepare_genome {
 * Normalise the VCF files
 */
 process normalise_vcf {
+    label 'default_time', 'med_mem'
+
     input:
     tuple val(vcf_filename), path(fasta), path(vcf_file), path(csi_file)
 
@@ -208,11 +211,10 @@ process normalise_vcf {
  * Accession VCFs
  */
 process accession_vcf {
-    clusterOptions "-g /accession/instance-${params.instance_id} \
-                    -o $params.logs_dir/${log_filename}.log \
-                    -e $params.logs_dir/${log_filename}.err"
+    label 'long_time', 'med_mem'
 
-    memory '6.7 GB'
+    clusterOptions "-o $params.logs_dir/${log_filename}.log \
+                    -e $params.logs_dir/${log_filename}.err"
 
     input:
     tuple val(vcf_filename), val(vcf_file), val(assembly_accession), val(aggregation), val(fasta), val(report)
@@ -236,7 +238,7 @@ process accession_vcf {
 
 
     """
-    (java -Xmx6g -jar $params.jar.accession_pipeline --spring.config.location=file:$params.accession_job_props $pipeline_parameters) || \
+    (java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.accession_pipeline --spring.config.location=file:$params.accession_job_props $pipeline_parameters) || \
     # If accessioning fails due to missing variants, but the only missing variants are structural variants,
     # then we should treat this as a success from the perspective of the automation.
     # TODO revert once accessioning pipeline properly registers structural variants
@@ -251,6 +253,8 @@ process accession_vcf {
  * Sort and compress accessioned VCFs
  */
 process sort_and_compress_vcf {
+    label 'default_time', 'med_mem'
+
     publishDir params.public_dir,
 	mode: 'copy'
 
@@ -269,6 +273,8 @@ process sort_and_compress_vcf {
 
 
 process csi_index_vcf {
+    label 'default_time', 'small_mem'
+
     publishDir params.public_dir,
 	mode: 'copy'
 
@@ -288,7 +294,7 @@ process csi_index_vcf {
  * Copy files from eva_public to FTP folder.
  */
  process copy_to_ftp {
-    label 'datamover'
+    label 'datamover', 'short_time', 'small_mem'
 
     input:
     // ensures that all indices are done before we copy
@@ -316,6 +322,8 @@ process csi_index_vcf {
  * Load into variant db.
  */
 process load_variants_vcf {
+    label 'long_time', 'med_mem'
+
     clusterOptions {
         return "-o $params.logs_dir/load_variants.${vcf_filename}.log \
                 -e $params.logs_dir/load_variants.${vcf_filename}.err"
@@ -327,8 +335,6 @@ process load_variants_vcf {
     output:
     val true, emit: variant_load_complete
 
-    memory '5 GB'
-
     script:
     def pipeline_parameters = " --spring.batch.job.names=load-vcf-job"
     pipeline_parameters += " --input.vcf.aggregation=" + aggregation.toString().toUpperCase()
@@ -338,7 +344,7 @@ process load_variants_vcf {
     pipeline_parameters += " --spring.data.mongodb.database=" + db_name.toString()
 
     """
-    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
     """
 }
 
@@ -347,6 +353,8 @@ process load_variants_vcf {
  * Run VEP using eva-pipeline.
  */
 process run_vep_on_variants {
+    label 'long_time', 'med_mem'
+
     clusterOptions {
         return "-o $params.logs_dir/annotation.${analysis_accession}.log \
                 -e $params.logs_dir/annotation.${analysis_accession}.err"
@@ -361,8 +369,6 @@ process run_vep_on_variants {
 
     output:
     val true, emit: vep_run_complete
-
-    memory '5 GB'
 
     script:
     def pipeline_parameters = ""
@@ -380,7 +386,7 @@ process run_vep_on_variants {
     pipeline_parameters += " --app.vep.cache.species=" + vep_species.toString()
 
     """
-    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
     """
 }
 
@@ -390,6 +396,8 @@ process run_vep_on_variants {
  * Calculate statistics using eva-pipeline.
  */
 process calculate_statistics_vcf {
+    label 'long_time', 'med_mem'
+
     clusterOptions {
         return "-o $params.logs_dir/statistics.${analysis_accession}.log \
                 -e $params.logs_dir/statistics.${analysis_accession}.err"
@@ -406,11 +414,8 @@ process calculate_statistics_vcf {
     output:
     val true, emit: statistics_calc_complete
 
-    memory '5 GB'
-
     script:
     def pipeline_parameters = ""
-
 
     pipeline_parameters += " --spring.batch.job.names=calculate-statistics-job"
 
@@ -421,7 +426,7 @@ process calculate_statistics_vcf {
     pipeline_parameters += " --spring.data.mongodb.database=" + db_name.toString()
 
     """
-    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
     """
 }
 
@@ -429,6 +434,8 @@ process calculate_statistics_vcf {
  * Import Accession Into Variant warehouse
  */
 process import_accession {
+    label 'default_time', 'med_mem'
+
     clusterOptions {
         log_filename = vcf_file.getFileName().toString()
         return "-o $params.logs_dir/acc_import.${log_filename}.log \
@@ -440,8 +447,6 @@ process import_accession {
     val all_accession_complete
     val variant_load_output
 
-    memory '5 GB'
-
     script:
     def pipeline_parameters = ""
 
@@ -451,6 +456,6 @@ process import_accession {
     pipeline_parameters += " --spring.data.mongodb.database=" + db_name.toString()
 
     """
-    java -Xmx4G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.acc_import_job_props --parameters.path=$params.acc_import_job_props $pipeline_parameters
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.acc_import_job_props --parameters.path=$params.acc_import_job_props $pipeline_parameters
     """
 }

@@ -592,8 +592,7 @@ class TestEloadIngestion(TestCase):
         command = (f'export NXF_OPTS="-Xms1g -Xmx8g";  '
                    f'/path/to/nextflow {nextflow_script} -params-file {self.eload.project_dir}/workflow_params.yaml '
                    f'-work-dir {work_dir} ')
-        if resume:
-            command += '-resume'
+        command += '-resume ' if resume else ' '
         m_run_command.assert_called_once_with('Nextflow workflow process', command)
         with open(os.path.join(self.eload.project_dir, 'workflow_params.yaml')) as open_file:
             params = yaml.safe_load(open_file)

@@ -25,7 +25,6 @@ def helpMessage() {
 params.source_assemblies = null
 params.target_assembly_accession = null
 params.species_name = null
-params.memory = 8
 params.logs_dir = null
 // help
 params.help = null
@@ -46,6 +45,8 @@ if (!params.taxonomy_id || !params.source_assemblies || !params.target_assembly_
 
 
 process retrieve_source_genome {
+    label 'short_time', 'med_mem'
+
     when:
     source_assembly_accession != params.target_assembly_accession
 
@@ -65,6 +66,7 @@ process retrieve_source_genome {
 
 
 process retrieve_target_genome {
+    label 'short_time', 'med_mem'
 
     input:
     val target_assembly_accession
@@ -82,6 +84,7 @@ process retrieve_target_genome {
 }
 
 process update_source_genome {
+    label 'short_time', 'med_mem'
 
     input:
     tuple val(source_assembly_accession), path(source_fasta), path(source_report)
@@ -96,6 +99,7 @@ process update_source_genome {
 }
 
 process update_target_genome {
+    label 'short_time', 'med_mem'
 
     input:
     path target_fasta
@@ -116,8 +120,7 @@ process update_target_genome {
  * Extract the submitted variants to remap from the accessioning warehouse and store them in a VCF file.
  */
 process extract_vcf_from_mongo {
-    memory "${params.memory}GB"
-    clusterOptions "-g /accession"
+    label 'long_time', 'med_mem'
 
     when:
     source_assembly_accession != params.target_assembly_accession
@@ -133,7 +136,7 @@ process extract_vcf_from_mongo {
     publishDir "$params.logs_dir", overwrite: true, mode: "copy", pattern: "*.log*"
 
     """
-    java -Xmx8G -jar $params.jar.vcf_extractor \
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.vcf_extractor \
         --spring.config.location=file:${params.extraction_properties} \
         --parameters.assemblyAccession=${source_assembly_accession} \
         --parameters.fasta=${source_fasta} \
@@ -147,7 +150,7 @@ process extract_vcf_from_mongo {
  * Variant remapping pipeline
  */
 process remap_variants {
-    memory "${params.memory}GB"
+    label 'long_time', 'med_mem'
 
     input:
     tuple val(source_assembly_accession), path(source_fasta), path(source_vcf)
@@ -184,8 +187,7 @@ process remap_variants {
  * Ingest the remapped submitted variants from a VCF file into the accessioning warehouse.
  */
 process ingest_vcf_into_mongo {
-    memory "${params.memory}GB"
-    clusterOptions "-g /accession"
+    label 'long_time', 'med_mem'
 
     input:
     tuple val(source_assembly_accession), path(remapped_vcf)
@@ -198,7 +200,7 @@ process ingest_vcf_into_mongo {
 
     script:
     """
-    java -Xmx8G -jar $params.jar.vcf_ingestion \
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.vcf_ingestion \
         --spring.config.location=file:${params.ingestion_properties} \
         --parameters.remappedFrom=${source_assembly_accession} \
         --parameters.vcf=${remapped_vcf} \
@@ -212,8 +214,7 @@ process ingest_vcf_into_mongo {
  * Cluster target assembly.
  */
 process cluster_studies_from_mongo {
-    memory "${params.memory}GB"
-    clusterOptions "-g /accession/instance-${params.clustering_instance}"
+    label 'long_time', 'med_mem'
 
     input:
     path ingestion_log
@@ -225,7 +226,7 @@ process cluster_studies_from_mongo {
     publishDir "$params.logs_dir", overwrite: true, mode: "copy"
 
     """
-    java -Xmx8G -jar $params.jar.clustering \
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.clustering \
         --spring.config.location=file:${params.clustering_properties} \
         --spring.batch.job.names=STUDY_CLUSTERING_JOB \
         > ${params.target_assembly_accession}_clustering.log
@@ -236,8 +237,7 @@ process cluster_studies_from_mongo {
  * Run clustering QC job
  */
 process qc_clustering {
-    memory "${params.memory}GB"
-    clusterOptions "-g /accession"
+    label 'long_time', 'med_mem'
 
     input:
     path rs_report
@@ -248,7 +248,7 @@ process qc_clustering {
     publishDir "$params.logs_dir", overwrite: true, mode: "copy", pattern: "*.log*"
 
     """
-    java -Xmx8G -jar $params.jar.clustering \
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.clustering \
         --spring.config.location=file:${params.clustering_properties} \
         --spring.batch.job.names=NEW_CLUSTERED_VARIANTS_QC_JOB \
         > ${params.target_assembly_accession}_clustering_qc.log
@@ -260,8 +260,7 @@ process qc_clustering {
  * Run Back propagation of new clustered RS only if the remapping was performed
  */
 process backpropagate_clusters {
-    memory "${params.memory}GB"
-    clusterOptions "-g /accession"
+    label 'long_time', 'med_mem'
 
     input:
     tuple val(source_assembly_accession), path(remapped_vcf)
@@ -273,7 +272,7 @@ process backpropagate_clusters {
     publishDir "$params.logs_dir", overwrite: true, mode: "copy", pattern: "*.log*"
 
     """
-    java -Xmx8G -jar $params.jar.clustering \
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.clustering \
         --spring.config.location=file:${params.clustering_properties} \
         --parameters.remappedFrom=${source_assembly_accession} \
         --spring.batch.job.names=BACK_PROPAGATE_NEW_RS_JOB \
@@ -286,7 +285,7 @@ workflow {
         species_name = params.species_name.toLowerCase().replace(" ", "_")
 
         remapping_required = params.source_assemblies.any {it != params.target_assembly_accession}
-        if (remapping_required){
+        if (remapping_required) {
             retrieve_source_genome(params.source_assemblies, species_name)
             retrieve_target_genome(params.target_assembly_accession, species_name)
             update_source_genome(retrieve_source_genome.out.source_assembly, params.remapping_config)
@@ -300,7 +299,7 @@ workflow {
             // to make sure it does not run out of values when multiple remapping are performed
             // See https://www.nextflow.io/docs/latest/process.html#multiple-input-channels
             backpropagate_clusters(remap_variants.out.remapped_vcfs, qc_clustering.out.clustering_qc_log_filename)
-        }else{
+        } else {
             // We're using params.genome_assembly_dir because cluster_studies_from_mongo needs to receive a file object
             cluster_studies_from_mongo(params.genome_assembly_dir)
             qc_clustering(cluster_studies_from_mongo.out.rs_report_filename)

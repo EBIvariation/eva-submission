@@ -45,6 +45,7 @@ def is_single_insdc_sequence(reference_accession):
     return not NCBIAssembly.is_assembly_accession_format(reference_accession) and \
            NCBISequence.is_genbank_accession_format(reference_accession)
 
+
 def resolve_accession_from_text(reference_text):
     """
     :param reference_text:
@@ -262,3 +263,14 @@ def create_assembly_report_from_fasta(assembly_fasta_path):
             open_file.write('\t'.join(['na', 'na', 'na', 'na', contig_name, '<>', 'na', 'na', str(seq_length), 'na']) + '\n')
     return assembly_report_path
 
+
+def get_nextflow_config_flag():
+    """
+    Return the commandline flag for Nextflow to use the config provided in environment variable SUBMISSION_NEXTFLOW_CONFIG.
+    If not provided, return an empty string, which allows Nextflow to use the default precedence as described here:
+    https://www.nextflow.io/docs/latest/config.html
+    """
+    env_val = os.getenv('SUBMISSION_NEXTFLOW_CONFIG')
+    if env_val:
+        return f'-c {env_val}'
+    return ''

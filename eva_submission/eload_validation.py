@@ -13,7 +13,7 @@ from eva_vcf_merge.utils import validate_aliases
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import resolve_single_file_path, detect_vcf_aggregation
+from eva_submission.eload_utils import resolve_single_file_path, detect_vcf_aggregation, get_nextflow_config_flag
 from eva_submission.samples_checker import compare_spreadsheet_and_vcf
 from eva_submission.xlsx.xlsx_validation import EvaXlsxValidator
 
@@ -254,8 +254,8 @@ class EloadValidation(Eload):
             'validation_tasks': validation_tasks
         }
         # run the validation
-        validation_confg_file = os.path.join(self.eload_dir, 'validation_confg_file.yaml')
-        with open(validation_confg_file, 'w') as open_file:
+        validation_config_file = os.path.join(self.eload_dir, 'validation_config_file.yaml')
+        with open(validation_config_file, 'w') as open_file:
             yaml.safe_dump(validation_config, open_file)
         validation_script = os.path.join(NEXTFLOW_DIR, 'validation.nf')
         try:
@@ -264,8 +264,9 @@ class EloadValidation(Eload):
                 ' '.join((
                     'export NXF_OPTS="-Xms1g -Xmx8g"; ',
                     cfg['executable']['nextflow'], validation_script,
-                    '-params-file', validation_confg_file,
-                    '-work-dir', output_dir
+                    '-params-file', validation_config_file,
+                    '-work-dir', output_dir,
+                    get_nextflow_config_flag()
                 ))
             )
         except subprocess.CalledProcessError:

@@ -54,6 +54,8 @@ workflow {
 * Validate the VCF file format
 */
 process check_vcf_valid {
+    label 'long_time', 'med_mem'
+
     publishDir "$params.output_dir",
             overwrite: false,
             mode: "copy"
@@ -80,6 +82,8 @@ process check_vcf_valid {
 * Validate the VCF reference allele
 */
 process check_vcf_reference {
+    label 'long_time', 'med_mem'
+
     publishDir "$params.output_dir",
             overwrite: true,
             mode: "copy"
@@ -106,6 +110,8 @@ process check_vcf_reference {
  * Detect the structural variant in VCF
  */
 process detect_sv {
+    label 'default_time', 'med_mem'
+
     publishDir "$params.output_dir",
             overwrite: false,
             mode: "copy"

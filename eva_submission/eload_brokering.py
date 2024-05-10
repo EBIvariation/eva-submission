@@ -12,7 +12,7 @@ from eva_submission import NEXTFLOW_DIR
 from eva_submission.ENA_submission.upload_to_ENA import ENAUploader, ENAUploaderAsync
 from eva_submission.biosample_submission.biosamples_submitters import SampleMetadataSubmitter, SampleReferenceSubmitter
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import read_md5
+from eva_submission.eload_utils import read_md5, get_nextflow_config_flag
 from eva_submission.submission_config import EloadConfig
 
 
@@ -169,7 +169,7 @@ class EloadBrokering(Eload):
             'output_dir': output_dir,
             'executable': cfg['executable']
         }
-        # run the validation
+        # run the brokering preparation
         brokering_config_file = os.path.join(self.eload_dir, 'brokering_config_file.yaml')
         with open(brokering_config_file, 'w') as open_file:
             yaml.safe_dump(brokering_config, open_file)
@@ -180,7 +180,8 @@ class EloadBrokering(Eload):
                 ' '.join((
                     cfg['executable']['nextflow'], brokering_script,
                     '-params-file', brokering_config_file,
-                    '-work-dir', output_dir
+                    '-work-dir', output_dir,
+                    get_nextflow_config_flag()
                 ))
             )
         except subprocess.CalledProcessError as e:

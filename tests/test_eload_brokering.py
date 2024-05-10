@@ -106,7 +106,7 @@ class TestEloadBrokering(TestCase):
             self.eload._run_brokering_prep_workflow()
         m_execute.assert_called_once_with(
             'Nextflow brokering preparation process',
-            f'path_to_nextflow {nf_script} -params-file {config_file} -work-dir {temp_dir}'
+            f'path_to_nextflow {nf_script} -params-file {config_file} -work-dir {temp_dir} '
         )
 
     def test_parse_bcftools_norm_report(self):
