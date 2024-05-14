@@ -199,8 +199,9 @@ def get_releases(ftp, subdir, current_only):
     """
     all_releases = {}
     for file in ftp.nlst(subdir):
-        if "release-" in file:
-            release_number = file[file.index("-") + 1:]
+        m = re.match(rf"^{subdir}/release-(\d+)$", file)
+        if m:
+            release_number = m.group(1)
             all_releases.update({int(release_number): file})
     if current_only:
         current = max(all_releases)
