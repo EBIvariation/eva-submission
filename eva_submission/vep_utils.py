@@ -158,12 +158,13 @@ def get_species_and_assembly(assembly_acc):
     # This endpoint returns 500 even if taxon id is valid but just not in Ensembl, to minimise user frustration
     # we'll assume the species is just not currently supported.
     if not response.ok:
-        logger.warning(f'Got {response.status_code} when trying to get species and assembly from Ensembl.')
+        logger.error(f'Got {response.status_code} when trying to get species and assembly from Ensembl with '
+                     f'taxonomy {taxonomy_id}.')
         return None, None, None, None
     # Sometime ensembl responds with a 200 but still has no data
     # See https://rest.ensembl.org/info/genomes/taxonomy/1010633?content-type=application/json
     elif not response.json():
-        logger.warning(f'Ensembl return empty list when trying to get species and assembly.')
+        logger.error(f'Ensembl return empty list when trying to get species and assembly.')
         return None, None, None, None
     # search through all the responses
     current = False
