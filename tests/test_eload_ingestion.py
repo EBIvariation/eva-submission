@@ -182,7 +182,7 @@ class TestEloadIngestion(TestCase):
             m_get_species.return_value = 'homo_sapiens'
             m_get_results.side_effect = default_db_results_for_ingestion()
             m_get_tax.return_value = ('name', '9090')
-            self.eload.ingest(1)
+            self.eload.ingest()
 
     def test_ingest_metadata_load(self):
         with self._patch_metadata_handle(), \
@@ -222,7 +222,6 @@ class TestEloadIngestion(TestCase):
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             m_get_results.side_effect = default_db_results_for_accession()
             self.eload.ingest(
-                instance_id=1,
                 tasks=['accession']
             )
             assert os.path.exists(

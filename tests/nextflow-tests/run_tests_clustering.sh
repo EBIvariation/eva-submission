@@ -17,7 +17,6 @@ nextflow run ${SOURCE_DIR}/remap_and_cluster.nf -params-file test_ingestion_no_r
 	 --extraction_properties ${SCRIPT_DIR}/template.properties \
 	 --ingestion_properties ${SCRIPT_DIR}/template.properties \
 	 --clustering_properties ${SCRIPT_DIR}/template.properties \
-	 --clustering_instance 1 \
 	 --output_dir ${SCRIPT_DIR}/output \
 	 --logs_dir ${SCRIPT_DIR}/output/logs \
 	 --remapping_config ${SCRIPT_DIR}/test_ingestion_config.yaml \

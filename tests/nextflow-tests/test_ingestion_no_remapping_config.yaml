@@ -1,5 +1,4 @@
 project_accession: PRJEB12345
-instance_id: 1
 public_ftp_dir: ../../ftp
 logs_dir: ../../../project/logs
 public_dir: ../../../project/public

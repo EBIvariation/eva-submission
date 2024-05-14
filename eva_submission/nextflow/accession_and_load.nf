@@ -12,7 +12,6 @@ def helpMessage() {
             --acc_import_job_props      properties file for accession import job
             --annotation_only           whether to only run annotation job
             --project_accession         project accession
-            --instance_id               instance id to run accessioning
             --accession_job_props       properties file for accessioning job
             --public_ftp_dir            public FTP directory
             --accessions_dir            accessions directory (for properties files)
@@ -24,7 +23,6 @@ def helpMessage() {
 
 params.valid_vcfs = null
 params.project_accession = null
-params.instance_id = null
 params.accession_job_props = null
 params.public_ftp_dir = null
 params.accessions_dir = null
@@ -48,12 +46,11 @@ params.help = null
 if (params.help) exit 0, helpMessage()
 
 // Test input files
-if (!params.valid_vcfs || !params.project_accession || !params.instance_id || !params.accession_job_props ||\
+if (!params.valid_vcfs || !params.project_accession || !params.accession_job_props ||\
     !params.public_ftp_dir || !params.accessions_dir || !params.public_dir || !params.logs_dir || !params.taxonomy || \
     !params.vep_path || !params.load_job_props || !params.acc_import_job_props || !params.project_dir) {
     if (!params.valid_vcfs) log.warn('Provide a csv file with the mappings (Provide a csv file with the mappings (vcf file, assembly accession, fasta, assembly report, analysis_accession, db_name) --valid_vcfs')
     if (!params.project_accession) log.warn('Provide a project accession using --project_accession')
-    if (!params.instance_id) log.warn('Provide an instance id using --instance_id')
     if (!params.accession_job_props) log.warn('Provide job-specific properties using --accession_job_props')
     if (!params.taxonomy) log.warn('Provide taxonomy id using --taxonomy')
     if (!params.public_ftp_dir) log.warn('Provide public FTP directory using --public_ftp_dir')

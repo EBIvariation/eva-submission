@@ -27,10 +27,6 @@ logger = log_cfg.get_logger(__name__)
 def main():
     argparse = ArgumentParser(description='Accession and ingest submission data into EVA')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission.')
-    argparse.add_argument('--instance', required=False, type=int, choices=range(1, 13), default=2,
-                          help='The instance id to use for accessioning. Only needed if running accessioning.')
-    argparse.add_argument('--clustering_instance', required=False, type=int, choices=range(1, 13), default=6,
-                          help='The instance id to use for clustering. Only needed if running clustering.')
     argparse.add_argument('--tasks', required=False, type=str, nargs='+',
                           default=EloadIngestion.all_tasks, choices=EloadIngestion.all_tasks,
                           help='Task or set of tasks to perform during ingestion.')
@@ -55,8 +51,6 @@ def main():
     with EloadIngestion(args.eload) as ingestion:
         ingestion.upgrade_config_if_needed()
         ingestion.ingest(
-            instance_id=args.instance,
-            clustering_instance_id=args.clustering_instance,
             tasks=args.tasks,
             vep_cache_assembly_name=args.vep_cache_assembly_name,
             resume=args.resume

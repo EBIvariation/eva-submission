@@ -57,8 +57,6 @@ class EloadIngestion(Eload):
 
     def ingest(
             self,
-            instance_id=None,
-            clustering_instance_id=None,
             tasks=None,
             vep_cache_assembly_name=None,
             resume=False
@@ -80,8 +78,6 @@ class EloadIngestion(Eload):
         do_accession = 'accession' in tasks
         do_variant_load = 'variant_load' in tasks
 
-        if instance_id:
-            self.eload_cfg.set(self.config_section, 'accession', 'instance_id', value=instance_id)
         if do_accession:
             self.update_config_with_hold_date(self.project_accession)
 
@@ -91,7 +87,6 @@ class EloadIngestion(Eload):
             self.run_accession_and_load_workflow(vcf_files_to_ingest, resume=resume, tasks=tasks)
 
         if 'optional_remap_and_cluster' in tasks:
-            self.eload_cfg.set(self.config_section, 'clustering', 'instance_id', value=clustering_instance_id)
             target_assembly = self._get_target_assembly()
             if target_assembly:
                 self.eload_cfg.set(self.config_section, 'remap_and_cluster', 'target_assembly', value=target_assembly)
@@ -310,10 +305,9 @@ class EloadIngestion(Eload):
         return vcf_files_to_ingest
 
     def run_accession_and_load_workflow(self, vcf_files_to_ingest, resume, tasks=None):
-        instance_id = self.eload_cfg.query(self.config_section, 'accession', 'instance_id')
         output_dir = os.path.join(self.project_dir, project_dirs['accessions'])
         accession_properties_file = self.create_accession_properties(
-            instance_id=instance_id, output_file_path=os.path.join(output_dir, 'accession.properties'))
+            output_file_path=os.path.join(output_dir, 'accession.properties'))
         variant_load_properties_file = self.create_variant_load_properties(
             output_file_path=os.path.join(self.project_dir, 'variant_load.properties'))
         accession_import_properties_file = self.create_accession_import_properties(
@@ -322,7 +316,6 @@ class EloadIngestion(Eload):
         accession_config = {
             'valid_vcfs': vcf_files_to_ingest,
             'project_accession': self.project_accession,
-            'instance_id': instance_id,
             'vep_path': cfg['vep_path'],
             'project_dir': str(self.project_dir),
             'public_ftp_dir': cfg['public_ftp_dir'],
@@ -340,7 +333,6 @@ class EloadIngestion(Eload):
         self.run_nextflow('accession_and_load', accession_config, resume, tasks)
 
     def run_remap_and_cluster_workflow(self, target_assembly, resume):
-        clustering_instance = self.eload_cfg.query(self.config_section, 'clustering', 'instance_id')
         scientific_name = self.eload_cfg.query('submission', 'scientific_name')
         # this is where all the output will get stored - logs, properties, work dirs...
         output_dir = os.path.join(self.project_dir, project_dirs['clustering'])
@@ -355,7 +347,6 @@ class EloadIngestion(Eload):
         )
         clustering_template_file = self.create_clustering_properties(
             output_file_path=os.path.join(output_dir, 'clustering_template.properties'),
-            clustering_instance=clustering_instance,
             target_assembly=target_assembly
         )
 
@@ -370,7 +361,6 @@ class EloadIngestion(Eload):
             'extraction_properties': extraction_properties_file,
             'ingestion_properties': ingestion_properties_file,
             'clustering_properties': clustering_template_file,
-            'clustering_instance': clustering_instance,
             'remapping_config': cfg.config_file
         }
         for part in ['executable', 'nextflow', 'jar']:
@@ -472,9 +462,8 @@ class EloadIngestion(Eload):
             open_file.write(properties)
         return output_file_path
 
-    def create_clustering_properties(self, output_file_path, clustering_instance, target_assembly):
+    def create_clustering_properties(self, output_file_path, target_assembly):
         properties = self.properties_generator.get_clustering_properties(
-            instance=clustering_instance,
             target_assembly=target_assembly,
             projects=self.project_accession,
             rs_report_path=f'{target_assembly}_rs_report.txt'
@@ -483,9 +472,8 @@ class EloadIngestion(Eload):
             open_file.write(properties)
         return output_file_path
 
-    def create_accession_properties(self, instance_id, output_file_path):
+    def create_accession_properties(self, output_file_path):
         properties = self.properties_generator.get_accessioning_properties(
-            instance=instance_id,
             project_accession=self.project_accession,
             taxonomy_accession=self.taxonomy
         )
