@@ -1,11 +1,14 @@
 Changelog for eva-submission
 ============================
 
-## 1.15.7 (unreleased)
+## 1.15.7 (2024-05-15)
 ----------------------
 
-- Nothing changed yet.
+Add label to nextflow process to better support SLURM
 
+## ingestion
+- Remove instance id for clustering and accessioning
+- Slight improvement in VEP cache retrieval 
 
 ## 1.15.6 (2024-04-23)
 ----------------------
