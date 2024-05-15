@@ -11,6 +11,7 @@ import pymongo
 import requests
 from ebi_eva_common_pyutils.ncbi_utils import get_ncbi_assembly_dicts_from_term, \
     retrieve_species_scientific_name_from_tax_id_ncbi
+from requests import HTTPError
 from retry import retry
 
 from ebi_eva_common_pyutils.config import cfg
@@ -128,6 +129,17 @@ def get_vep_cache_version_from_ftp(assembly_accession, ensembl_assembly_name=Non
 
 
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
+def resolve_ensembl_supported_assemblies(taxonomy_id):
+    # Now resolve the currently supported assembly for this species in Ensembl
+    url = f'https://rest.ensembl.org/info/genomes/taxonomy/{taxonomy_id}?content-type=application/json'
+    response = requests.get(url)
+    # This endpoint returns 500 even if taxon id is valid but just not in Ensembl, to minimise user frustration
+    # we'll assume the species is just not currently supported.
+    response.raise_for_status()
+    return response
+
+
+@retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
 def get_species_and_assembly(assembly_acc):
     """
     For the provided assembly, search for the assembly name and the associated species name in Ensembl (via the
@@ -153,17 +165,17 @@ def get_species_and_assembly(assembly_acc):
     taxonomy_id, assembly_name = taxid_and_assembly_name.pop()
 
     # Now resolve the currently supported assembly for this species in Ensembl
-    url = f'https://rest.ensembl.org/info/genomes/taxonomy/{taxonomy_id}?content-type=application/json'
-    response = requests.get(url)
-    # This endpoint returns 500 even if taxon id is valid but just not in Ensembl, to minimise user frustration
-    # we'll assume the species is just not currently supported.
-    if not response.ok:
-        logger.warning(f'Got {response.status_code} when trying to get species and assembly from Ensembl.')
+    try:
+        response = resolve_ensembl_supported_assemblies(taxonomy_id)
+    except HTTPError as e:
+        # This endpoint returns 500 even if taxon id is valid but just not in Ensembl, to minimise user frustration
+        # we'll assume the species is just not currently supported.
+        logger.error(f'Got {e.response.status_code} when trying to get species and assembly from Ensembl with '
+                     f'taxonomy {taxonomy_id}.')
         return None, None, None, None
     # Sometime ensembl responds with a 200 but still has no data
-    # See https://rest.ensembl.org/info/genomes/taxonomy/1010633?content-type=application/json
-    elif not response.json():
-        logger.warning(f'Ensembl return empty list when trying to get species and assembly.')
+    if not response.json():
+        logger.error(f'Ensembl return empty list when trying to get species and assembly.')
         return None, None, None, None
     # search through all the responses
     current = False

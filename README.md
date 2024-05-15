@@ -96,13 +96,10 @@ By default, the script will run all of these tasks, though you may specify a sub
 Note that as some steps are long-running the script is best run in a screen/tmux session.
 
 ```bash
-# To run everything - defaults to instance 1 for accessioning
+# To run everything 
 python ingest_submission.py --eload 765
 
-# Only accessioning - can specify instance if necessary
-python ingest_submission.py --eload 765 --instance 1 --tasks accession
-
-# Only variant load - accession instance id not needed
+# Only variant load 
 python ingest_submission.py --eload 765 --tasks variant_load
 
 # Only run VEP annotation - note this assumes variant load has been run
