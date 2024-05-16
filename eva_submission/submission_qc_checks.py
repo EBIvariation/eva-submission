@@ -287,7 +287,7 @@ class EloadQC(Eload):
             ]
             # annotation only happens if a VEP cache can be found
             assembly_accession = self.eload_cfg.query('brokering', 'analyses', analysis_alias, 'assembly_accession')
-            if self.eload_cfg.query('ingestion', 'vep', assembly_accession, 'cache_version') == None:
+            if self.eload_cfg.query('ingestion', 'vep', assembly_accession, 'cache_version') is not None:
                 self._find_log_and_check_job(
                     analysis_accession, f"annotation.*{analysis_accession}*.log", "annotate_variants", failed_analysis
                 )
