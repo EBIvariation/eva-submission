@@ -120,6 +120,7 @@ Sample:
     Sample Name: string
     Title: string
     cultivar: string
+    Description: string
 
 Files:
   required:
