@@ -173,15 +173,17 @@ class BioSamplesSubmitter(AppLogger):
         skipped_attributes = ['SRA accession']
         if self.can_derive(sample):
             derived_sample = deepcopy(sample)
-            current_sample = self._get_existing_sample(derived_sample.get('accession'))
-            self._update_samples_with(current_sample, derived_sample)
-            # Remove the accession of previous samples
-            accession = derived_sample.pop('accession')
-            # Remove the SRA accession if it is there
-            if 'SRA accession' in derived_sample['characteristics']:
-                derived_sample['characteristics'].pop('SRA accession')
+            # There can be multiple source samples
+            source_accessions = derived_sample.get('accession').split(',')
+            for current_sample in self._get_existing_sample(source_accessions):
+                self._update_samples_with(current_sample, derived_sample)
+                # Remove the accession of previous samples
+                derived_sample.pop('accession')
+                # Remove the SRA accession if it is there
+                if 'SRA accession' in derived_sample['characteristics']:
+                    derived_sample['characteristics'].pop('SRA accession')
             derived_sample['release'] = _now
-            return derived_sample, accession
+            return derived_sample, source_accessions
 
     def submit_biosamples_to_bsd(self, samples_data):
         """
@@ -213,17 +215,18 @@ class BioSamplesSubmitter(AppLogger):
                 )
                 sample_json = sample
             elif self.can_derive(sample):
-                derived_sample, original_accession = self.create_derived_sample(sample)
+                derived_sample, original_accessions = self.create_derived_sample(sample)
                 sample_json = self.default_communicator.follows_link('samples', method='POST', json=derived_sample)
                 if 'relationships' not in sample_json:
                     sample_json['relationships'] = []
-                sample_json['relationships'].append(
-                    {'type': "derived from", 'target': original_accession, 'source': sample_json['accession']}
-                )
+                for original_accession in original_accessions:
+                    sample_json['relationships'].append(
+                        {'type': "derived from", 'target': original_accession, 'source': sample_json['accession']}
+                    )
                 sample_json = self.default_communicator.follows_link('samples', method='PUT',
                                                                      join_url=sample_json.get('accession'), json=sample_json)
                 self.debug(f'Accession sample {sample.get("name")} as {sample_json.get("accession")} derived from'
-                           f' {original_accession}')
+                           f' {original_accessions}')
             # Otherwise Keep the sample as is and retrieve the name so that list of sample to accession is complete
             else:
                 sample_json = self._get_existing_sample(sample.get('accession'))
