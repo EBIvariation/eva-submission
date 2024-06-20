@@ -35,6 +35,8 @@ def ENA_Project(project):
 
 
 def main():
+    # Load the config_file from default location
+    load_config()
     argparse = ArgumentParser(description='Broker validated ELOAD to BioSamples and ENA')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
     argparse.add_argument('--debug', action='store_true', default=False,
@@ -61,8 +63,6 @@ def main():
     if args.debug:
         log_cfg.set_log_level(logging.DEBUG)
 
-    # Load the config_file from default location
-    load_config()
     # Optionally Set the valid VCF and metadata file
     with EloadBrokering(args.eload, args.vcf_files, args.metadata_file) as brokering:
         brokering.upgrade_config_if_needed()
