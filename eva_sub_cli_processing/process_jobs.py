@@ -8,7 +8,7 @@ from retry import retry
 
 
 def _url_build(*args, **kwargs):
-    url = cfg.query('submissions', 'ws_url') + '/' + '/'.join(args)
+    url = cfg.query('submissions', 'webservice', 'url') + '/' + '/'.join(args)
     if kwargs:
         return url + '?' + '&'.join(f'{k}={v}' for k, v in kwargs.items())
     else:
@@ -17,7 +17,7 @@ def _url_build(*args, **kwargs):
 
 @retry(tries=5, backoff=2, jitter=.5)
 def _get_submission_api(url):
-    auth = (cfg.query('submissions', 'ws_admin_username'), cfg.query('submissions', 'ws_admin_password'))
+    auth = (cfg.query('submissions', 'webservice', 'admin_username'), cfg.query('submissions', 'webservice', 'admin_password'))
     response = requests.get(url, auth=auth)
     response.raise_for_status()
     return response.json()
@@ -25,7 +25,7 @@ def _get_submission_api(url):
 
 @retry(tries=5, backoff=2, jitter=.5)
 def _put_submission_api(url):
-    auth = (cfg.query('submissions', 'ws_admin_username'), cfg.query('submissions', 'ws_admin_password'))
+    auth = (cfg.query('submissions', 'webservice', 'admin_username'), cfg.query('submissions', 'webservice', 'admin_password'))
     response = requests.put(url, auth=auth)
     response.raise_for_status()
     return response.json()
@@ -52,7 +52,7 @@ def _process_submission(submission):
 
 class SubmissionScanner(AppLogger):
 
-    statuses = ['UPLOADED', 'PROCESSING']
+    statuses = []
 
     def scan(self):
         submissions = []
@@ -74,7 +74,13 @@ class SubmissionScanner(AppLogger):
         pretty_print(header, lines)
 
 
+class NewSubmissionScanner(SubmissionScanner):
+
+    statuses = ['UPLOADED']
+
+
 class Submission(AppLogger):
+
     def __init__(self, submission_id, submission_status, uploaded_time):
         self.submission_id = submission_id
         self.submission_status = submission_status
@@ -87,3 +93,7 @@ class Submission(AppLogger):
     def submit_pipeline(self):
         # TODO: Actually submit a job for this submission
         pass
+
+    def __repr__(self):
+        return f'Submission(submission_id={self.submission_id}, submission_status={self.submission_status}, ' \
+               f'uploaded_time={self.uploaded_time})'
