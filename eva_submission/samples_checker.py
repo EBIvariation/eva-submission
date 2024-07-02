@@ -1,3 +1,4 @@
+import gzip
 import os
 
 import pysam
@@ -9,13 +10,38 @@ from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 logger = log_cfg.get_logger(__name__)
 
 
-def get_samples_from_vcf(vcf_file):
+def get_samples_from_vcf_manual(vcf_file):
+    """
+    Get the list of samples present in a single VCF file
+    """
+    if vcf_file.endswith('.gz'):
+        open_file = gzip.open(vcf_file, 'r')
+    else:
+        open_file = open(vcf_file, 'r')
+    try:
+        for line in open_file:
+            if line.startswith('#CHROM'):
+                sp_line = line.split('\t')
+                if len(sp_line) > 9:
+                    return sp_line[9:]
+    finally:
+        open_file.close()
+
+
+def get_samples_from_vcf_pysam(vcf_file):
     """
     Get the list of samples present in a single VCF file
     """
     with pysam.VariantFile(vcf_file, 'r') as vcf_in:
         samples = list(vcf_in.header.samples)
     return samples
+
+
+def get_samples_from_vcf(vcf_file):
+    try:
+        return get_samples_from_vcf_pysam(vcf_file)
+    except Exception:
+        return get_samples_from_vcf_manual(vcf_file)
 
 
 def get_sample_names(sample_rows):

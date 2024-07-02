@@ -211,26 +211,30 @@ def detect_vcf_aggregation(vcf_file):
     in every line checked.
     Otherwise it returns None meaning that the aggregation type could not be determined.
     """
-    with pysam.VariantFile(vcf_file, 'r') as vcf_in:
-        samples = list(vcf_in.header.samples)
-        # check that the first 10 lines have genotypes for all the samples present and if they have allele frequency
-        nb_line_checked = 0
-        max_line_check = 10
-        gt_in_format = True
-        af_in_info = True
-        for vcf_rec in vcf_in:
-            gt_in_format = gt_in_format and all('GT' in vcf_rec.samples.get(sample, {}) for sample in samples)
-            af_in_info = af_in_info and ('AF' in vcf_rec.info or ('AC' in vcf_rec.info and 'AN' in vcf_rec.info))
-            nb_line_checked += 1
-            if nb_line_checked >= max_line_check:
-                break
-        if len(samples) > 0 and gt_in_format:
-            return 'none'
-        elif len(samples) == 0 and af_in_info:
-            return 'basic'
-        else:
-            logger.error(f'Aggregation type could not be detected for {vcf_file}')
-            return None
+    try:
+        with pysam.VariantFile(vcf_file, 'r') as vcf_in:
+            samples = list(vcf_in.header.samples)
+            # check that the first 10 lines have genotypes for all the samples present and if they have allele frequency
+            nb_line_checked = 0
+            max_line_check = 10
+            gt_in_format = True
+            af_in_info = True
+            for vcf_rec in vcf_in:
+                gt_in_format = gt_in_format and all('GT' in vcf_rec.samples.get(sample, {}) for sample in samples)
+                af_in_info = af_in_info and ('AF' in vcf_rec.info or ('AC' in vcf_rec.info and 'AN' in vcf_rec.info))
+                nb_line_checked += 1
+                if nb_line_checked >= max_line_check:
+                    break
+    except Exception:
+        logger.error(f"Pysam Failed to open and read {vcf_file}")
+        return None
+    if len(samples) > 0 and gt_in_format:
+        return 'none'
+    elif len(samples) == 0 and af_in_info:
+        return 'basic'
+    else:
+        logger.error(f'Aggregation type could not be detected for {vcf_file}')
+        return None
 
 
 def create_assembly_report_from_fasta(assembly_fasta_path):
