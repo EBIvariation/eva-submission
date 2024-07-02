@@ -18,6 +18,9 @@ ingestion:
   project_dir: tests/resources/projects/PRJEB44444
   remap_and_cluster:
     target_assembly: GCA_000247795.2
+  vep:
+    GCA_000003205.6:
+      cache_version: 1
 submission:
   analyses:
     Analysis alias test:
