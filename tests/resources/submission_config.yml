@@ -45,3 +45,9 @@ ena:
   ftpport: 22
   username: demo
   password: password
+
+submissions:
+  webservice:
+    admin_username: admin
+    admin_password: password
+    url: https://test.com
