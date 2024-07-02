@@ -46,7 +46,7 @@ def process_submissions():
 
 
 def _process_submission(submission):
-    # Create submission processing directory
+    # TODO: Create submission processing directory
     submission.start()
 
 
