@@ -33,13 +33,13 @@ def _put_submission_api(url):
 
 def process_submissions():
 
-    scanner = SubmissionScanner()
+    scanner = NewSubmissionScanner()
     ready_submissions = scanner.scan()
 
     if not ready_submissions:
         return 0
     else:
-        # Only process the first new dataset found. Run through Cron, this will result in one new pipeline
+        # Process a defined set of new dataset found. Run through Cron, this will result in one new pipeline
         # being kicked off per interval.
         for ready_submission in ready_submissions:
             return _process_submission(ready_submission)
