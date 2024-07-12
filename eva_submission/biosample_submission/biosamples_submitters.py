@@ -17,10 +17,10 @@ from copy import deepcopy
 from datetime import datetime, date
 from functools import lru_cache
 
+from ebi_eva_common_pyutils.biosamples_communicators import AAPHALCommunicator, WebinHALCommunicator
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 
-from eva_submission.biosample_submission.biosamples_communicators import AAPHALCommunicator, WebinHALCommunicator
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 _now = datetime.now().isoformat()
@@ -175,7 +175,7 @@ class BioSamplesSubmitter(AppLogger):
             derived_sample = deepcopy(sample)
             # There can be multiple source samples
             source_accessions = derived_sample.get('accession').split(',')
-            for current_sample in self._get_existing_sample(source_accessions):
+            for current_sample in [self._get_existing_sample(sa) for sa in source_accessions]:
                 self._update_samples_with(current_sample, derived_sample)
                 # Remove the accession of previous samples
                 derived_sample.pop('accession')
