@@ -54,6 +54,7 @@ def main():
                 sample_row['Sample ID'] = sample_row.get('Sample ID')
             elif sample_row.get('Sample ID') in sample_name_to_accession:
                 sample_row['Sample Accession'] = sample_name_to_accession[sample_row.get('Sample ID')]
+            sample_rows.append(sample_row)
         eva_xls_writer.set_samples(sample_rows)
         eva_xls_writer.save()
 
