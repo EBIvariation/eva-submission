@@ -62,7 +62,7 @@ workflow {
 * Compress the VCF file
 */
 process compress_vcf {
-    label 'default_time', 'small_mem'
+    label 'long_time', 'small_mem'
 
     input:
     path vcf_file
@@ -125,7 +125,7 @@ process prepare_genome {
 * Normalise the VCF files
 */
 process normalise_vcf {
-    label 'default_time', 'med_mem'
+    label 'long_time', 'med_mem'
 
     publishDir "$params.output_dir",
             overwrite: false,

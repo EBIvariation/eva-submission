@@ -1,10 +1,21 @@
 Changelog for eva-submission
 ============================
 
-## 1.15.8 (unreleased)
+## 1.15.8 (2024-07-19)
 ----------------------
 
-- Nothing changed yet.
+## Validation
+ - Fallback on manual VCF file parsing when running sample check as pysam fails sometime 
+
+## Brokering 
+ - Allow derive sample from multiple sample accessions 
+
+## QC 
+ - Check that VEP has been run  before QC
+
+## Other
+ - Refactor biosamples communicators into pyutils 
+ - Initial version of an orchestrator for submission processing 
 
 
 ## 1.15.7 (2024-05-15)
