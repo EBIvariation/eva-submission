@@ -34,18 +34,24 @@ if (!params.vcf_files_mapping || !params.output_dir) {
 
 
 workflow {
-    vcf_channel = Channel.fromPath(params.vcf_files_mapping)
+    vcf_info_ch = Channel.fromPath(params.vcf_files_mapping)
         .splitCsv(header:true)
         .map{row -> tuple(file(row.vcf), file(row.fasta), file(row.report))}
+    vcf_info_acc_ch = Channel.fromPath(params.vcf_files_mapping)
+        .splitCsv(header:true)
+        .map{row -> tuple(file(row.vcf), val(row.assembly_accession)}
 
     if ("vcf_check" in params.validation_tasks) {
-        check_vcf_valid(vcf_channel)
+        check_vcf_valid(vcf_info_ch)
     }
     if ("assembly_check" in params.validation_tasks) {
-        check_vcf_reference(vcf_channel)
+        check_vcf_reference(vcf_info_ch)
     }
     if ("structural_variant_check" in params.validation_tasks) {
-        detect_sv(vcf_channel)
+        detect_sv(vcf_info_ch)
+    }
+    if ("naming_convention_check" in params.validation_tasks) {
+        detect_naming_convention(vcf_info_acc_ch)
     }
 }
 
@@ -133,5 +139,33 @@ process detect_sv {
     > sv_check/${vcf_file.getSimpleName()}_sv_check.log 2>&1
     $params.executable.bgzip -c sv_check/${vcf_file.getSimpleName()}_sv_list.vcf > sv_check/${vcf_file.getSimpleName()}_sv_list.vcf.gz
     rm sv_check/${vcf_file.getSimpleName()}_sv_list.vcf
+    """
+}
+
+
+
+/*
+ * Detect the naming convention in VCF
+ */
+process detect_naming_convention {
+    label 'default_time', 'med_mem'
+
+    publishDir "$params.output_dir",
+            overwrite: false,
+            mode: "copy"
+
+    input:
+    tuple path(vcf_file), path(accession)
+
+    output:
+    path "naming_convention_check/*_naming_convention.yml", emit: nc_check_yml
+
+    script:
+    """
+    mkdir -p naming_convention_check
+
+    export PYTHONPATH="$params.executable.python.script_path"
+    $params.executable.python.interpreter -m eva_submission.steps.detect_contigs_naming_convention.py \
+    --vcf_files $vcf_file --assembly_accession $accession --output_yaml naming_convention_check/${vcf_file.getSimpleName()}_naming_convention.yml
     """
 }

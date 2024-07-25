@@ -91,6 +91,7 @@ Assembly check: PASS
 Sample names check: PASS
 Aggregation check: PASS
 Structural variant check: PASS
+Naming convention check: PASS
 ----------------------------------
 
 Metadata check:
@@ -140,6 +141,12 @@ VCF merge:
 
 Structural variant check:
   * test.vcf has structural variants
+
+----------------------------------
+
+Naming convention check:
+  * Naming convention: enaSequenceName
+    * test.vcf: enaSequenceName
 
 ----------------------------------
 '''
