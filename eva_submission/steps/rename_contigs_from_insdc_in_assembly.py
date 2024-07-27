@@ -17,6 +17,7 @@ from csv import DictReader, excel_tab
 
 import requests
 from cached_property import cached_property
+from ebi_eva_common_pyutils.contig_alias.contig_alias import ContigAliasClient
 from ebi_eva_common_pyutils.logger import AppLogger
 from retry import retry
 
@@ -30,6 +31,7 @@ class RenameContigsInAssembly(AppLogger):
         self.assembly_accession = assembly_accession
         self.assembly_fasta_path = assembly_fasta_path
         self.assembly_report_path = assembly_report_path
+        self.contig_alias_client = ContigAliasClient()
 
     @cached_property
     def contigs_found_in_vcf(self):
@@ -79,38 +81,16 @@ class RenameContigsInAssembly(AppLogger):
                     assembly_report_map[row['GenBank-Accn']] = row[header]
         return assembly_report_map
 
-    @retry(tries=3, delay=2, backoff=1.2, jitter=(1, 3))
-    def _contig_alias_assembly_get(self, page=0, size=10):
-        """queries the contig alias to retrieve the list of chromosome associated with the assembly"""
-        url = (f'https://www.ebi.ac.uk/eva/webservices/contig-alias/v1/assemblies/{self.assembly_accession}/'
-               f'chromosomes?page={page}&size={size}')
-        response = requests.get(url, headers={'accept': 'application/json'})
-        response.raise_for_status()
-        response_json = response.json()
-        return response_json
-
-    @staticmethod
-    def _add_chromosomes_to_map(assembly_data, contig_alias_map_tmp):
-        """Add non-INSDC to INSDC accession mapping based on the contig alias response."""
-        for entity in assembly_data.get('chromosomeEntities', []):
-            for naming_convention in ['refseq', 'enaSequenceName', 'genbankSequenceName', 'ucscName']:
-                if naming_convention in entity and entity[naming_convention]:
-                    contig_alias_map_tmp[entity[naming_convention]] = entity['insdcAccession']
-
     @cached_property
     def contig_alias_map(self):
         """
         Dictionary of INSDC accession to naming convention used in the VCF constructed based on the contig alias.
         """
         contig_alias_map_tmp = {}
-        page = 0
-        size = 1000
-        response_json = self._contig_alias_assembly_get(page=page, size=size)
-        self._add_chromosomes_to_map(response_json.get('_embedded', {}), contig_alias_map_tmp)
-        while 'next' in response_json['_links']:
-            page += 1
-            response_json = self._contig_alias_assembly_get(page=page, size=size)
-            self._add_chromosomes_to_map(response_json.get('_embedded', {}), contig_alias_map_tmp)
+        for entity in self.contig_alias_client.assembly_contig_iter(self.assembly_accession):
+            for naming_convention in ['refseq', 'enaSequenceName', 'genbankSequenceName', 'ucscName']:
+                if naming_convention in entity and entity[naming_convention]:
+                    contig_alias_map_tmp[entity[naming_convention]] = entity['insdcAccession']
         contig_alias_map = {}
         # Reverse the map to get the INSDC to Non-INSDC name found in the VCF files
         for contig in self.contigs_found_in_vcf:
