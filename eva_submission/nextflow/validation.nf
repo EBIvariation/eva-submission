@@ -155,7 +155,7 @@ process detect_naming_convention {
             mode: "copy"
 
     input:
-    tuple path(vcf_file), path(accession)
+    tuple path(vcf_file), val(accession)
 
     output:
     path "naming_convention_check/*_naming_convention.yml", emit: nc_check_yml

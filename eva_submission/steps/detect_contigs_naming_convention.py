@@ -71,7 +71,7 @@ class ContigsNamimgConventionChecker(AppLogger):
         self.contig_alias = ContigAliasClient()
 
     def naming_convention_map_for_vcf(self, input_vcf):
-        """Provides a set of contigs names present in the VCF file"""
+        """Provides a set of contigs names present in the VCF file for each compatible naming convention"""
         naming_convention_map = defaultdict(list)
         if input_vcf.endswith('.gz'):
             vcf_in = gzip.open(input_vcf, mode="rt")
@@ -91,13 +91,13 @@ class ContigsNamimgConventionChecker(AppLogger):
         """
         contig_conventions_map_tmp = defaultdict(list)
         for entity in self.contig_alias.assembly(self.assembly_accession):
-            for naming_convention in ['insdcAccession', 'refseq', 'enaSequenceName', 'genbankSequenceName', 'ucscName']:
+            for naming_convention in naming_convention_priority.keys():
                 if naming_convention in entity and entity[naming_convention]:
                     contig_conventions_map_tmp[entity[naming_convention]].append(naming_convention)
         return contig_conventions_map_tmp
 
     def get_contig_convention(self, contig_name):
-        naming_connventions = self._contig_conventions_map.get(contig_name)
+        naming_conventions = self._contig_conventions_map.get(contig_name)
         if not naming_connventions:
             return 'Not found'
         # prioritise naming conventions and take the highest priority one
