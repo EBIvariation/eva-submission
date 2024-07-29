@@ -93,8 +93,7 @@ class ContigsNamimgConventionChecker(AppLogger):
 
 
 def main():
-    argparse = ArgumentParser(description='Convert a genome file from INSDC accession to the naming convention '
-                                          'used in the VCFs')
+    argparse = ArgumentParser(description='Detect the naming convention used in the VCF files provided.')
     argparse.add_argument('--assembly_accession', required=True, type=str,
                           help='The assembly accession of this genome')
     argparse.add_argument('--vcf_files', required=True, type=str, nargs='+',
