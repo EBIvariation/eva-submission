@@ -39,7 +39,7 @@ workflow {
         .map{row -> tuple(file(row.vcf), file(row.fasta), file(row.report))}
     vcf_info_acc_ch = Channel.fromPath(params.vcf_files_mapping)
         .splitCsv(header:true)
-        .map{row -> tuple(file(row.vcf), val(row.assembly_accession))}
+        .map{row -> tuple(file(row.vcf), row.assembly_accession)}
 
     if ("vcf_check" in params.validation_tasks) {
         check_vcf_valid(vcf_info_ch)
@@ -155,7 +155,7 @@ process detect_naming_convention {
             mode: "copy"
 
     input:
-    tuple path(vcf_file), val(accession)
+    tuple path(vcf_file), accession
 
     output:
     path "naming_convention_check/*_naming_convention.yml", emit: nc_check_yml
