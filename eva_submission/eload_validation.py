@@ -21,7 +21,7 @@ from eva_submission.xlsx.xlsx_validation import EvaXlsxValidator
 class EloadValidation(Eload):
 
     all_validation_tasks = ['metadata_check', 'assembly_check', 'aggregation_check', 'vcf_check', 'sample_check',
-                            'structural_variant_check']
+                            'structural_variant_check', 'naming_convention_check']
 
     def validate(self, validation_tasks=None, set_as_valid=False, merge_per_analysis=False):
         if not validation_tasks:
@@ -40,7 +40,7 @@ class EloadValidation(Eload):
         if 'aggregation_check' in validation_tasks:
             self._validate_genotype_aggregation()
         if set(validation_tasks).intersection(
-                {'vcf_check', 'assembly_check', 'structural_variant_check'}
+                {'vcf_check', 'assembly_check', 'structural_variant_check', 'naming_convention_check'}
         ):
             output_dir = self._run_validation_workflow(validation_tasks)
             self._collect_validation_workflow_results(output_dir, validation_tasks)
@@ -231,14 +231,15 @@ class EloadValidation(Eload):
         vcf_files_mapping_csv = os.path.join(self.eload_dir, 'validation_vcf_files_mapping.csv')
         with open(vcf_files_mapping_csv, 'w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(['vcf', 'fasta', 'report'])
+            writer.writerow(['vcf', 'fasta', 'report', 'assembly'])
             analyses = self.eload_cfg.query('submission', 'analyses')
             for analysis_alias, analysis_data in analyses.items():
                 fasta = analysis_data['assembly_fasta']
                 report = analysis_data['assembly_report']
+                assembly = analysis_data['assembly_accession']
                 if analysis_data['vcf_files']:
                     for vcf_file in analysis_data['vcf_files']:
-                        writer.writerow([vcf_file, fasta, report])
+                        writer.writerow([vcf_file, fasta, report, assembly])
                 else:
                     self.warning(f"VCF files for analysis {analysis_alias} not found")
         return vcf_files_mapping_csv
@@ -290,6 +291,9 @@ class EloadValidation(Eload):
             self._collect_assembly_check_results(vcf_files, output_dir)
         if 'structural_variant_check' in validation_tasks:
             self._collect_structural_variant_check_results(vcf_files, output_dir)
+        if 'naming_convention_check' in validation_tasks:
+            self._collect_naming_convention_check_results(vcf_files, output_dir)
+
 
     def _collect_vcf_check_results(self, vcf_files, output_dir):
         total_error = 0
@@ -409,6 +413,30 @@ class EloadValidation(Eload):
                                    value={'has_structural_variant': nb_sv > 0, 'number_sv': nb_sv})
         self.eload_cfg.set('validation', 'structural_variant_check', 'pass', value=True)
 
+    def _collect_naming_convention_check_results(self, vcf_files, output_dir):
+        naming_conventions = set()
+        for vcf_file in vcf_files:
+            vcf_name = os.path.basename(vcf_file)
+
+            tmp_nc_check_yml = resolve_single_file_path(
+                os.path.join(output_dir, 'naming_convention_check',  vcf_name + '_naming_convention.yml')
+            )
+            # move the output files
+            nc_check_yml = self._move_file(
+                tmp_nc_check_yml,
+                os.path.join(self._get_dir('naming_convention_check'), vcf_name + '_naming_convention.yml')
+            )
+            if nc_check_yml:
+                with open(nc_check_yml) as open_yaml:
+                    data = yaml.safe_load(open_yaml)
+                self.eload_cfg.set('validation', 'naming_convention_check', 'files', os.path.basename(vcf_file),
+                                   value=data)
+                naming_conventions.add(data['naming_convention'])
+        if len(naming_conventions) == 1:
+            self.eload_cfg.set('validation', 'naming_convention_check', 'naming_convention',
+                               value=naming_conventions.pop())
+        self.eload_cfg.set('validation', 'naming_convention_check', 'pass', value=True)
+
     def _metadata_check_report(self):
         reports = []
 
@@ -522,6 +550,18 @@ class EloadValidation(Eload):
                     reports.append(f'  * {vcf_file} does not have structural variants')
         return '\n'.join(reports)
 
+    def _naming_convention_check_report(self):
+        nc_list = self.eload_cfg.query('validation', 'naming_convention_check', 'files')
+        reports = []
+        if nc_list:
+            reports.append(
+                f"  * Naming convention: "
+                f"{self.eload_cfg.query('validation', 'naming_convention_check', 'naming_convention')}"
+            )
+            for nc_dict in nc_list:
+                reports.append(f"    * {nc_dict['vcf_file']}: {nc_dict['naming_convention']}")
+        return '\n'.join(reports)
+
     def report(self):
         """Collect information from the config and write the report."""
 
@@ -534,13 +574,16 @@ class EloadValidation(Eload):
             'aggregation_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'aggregation_check')),
             'structural_variant_check': self._check_pass_or_fail(self.eload_cfg.query('validation',
                                                                                       'structural_variant_check')),
+            'naming_convention_check': self._check_pass_or_fail(self.eload_cfg.query('validation',
+                                                                                      'naming_convention_check')),
             'metadata_check_report': self._metadata_check_report(),
             'vcf_check_report': self._vcf_check_report(),
             'assembly_check_report': self._assembly_check_report(),
             'sample_check_report': self._sample_check_report(),
             'vcf_merge_report': self._vcf_merge_report(),
             'aggregation_report': self._aggregation_report(),
-            'structural_variant_check_report': self._structural_variant_check_report()
+            'structural_variant_check_report': self._structural_variant_check_report(),
+            'naming_convention_check_report': self._naming_convention_check_report()
         }
 
         report = """Validation performed on {validation_date}
@@ -550,6 +593,7 @@ Assembly check: {assembly_check}
 Sample names check: {sample_check}
 Aggregation check: {aggregation_check}
 Structural variant check: {structural_variant_check}
+Naming convention check: {naming_convention_check}
 ----------------------------------
 
 Metadata check:
@@ -580,6 +624,11 @@ VCF merge:
 
 Structural variant check:
 {structural_variant_check_report}
+
+----------------------------------
+
+Naming convention check:
+{naming_convention_check_report}
 
 ----------------------------------
 """

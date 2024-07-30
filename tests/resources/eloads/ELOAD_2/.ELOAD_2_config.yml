@@ -59,3 +59,11 @@ validation:
         normalisation_log: /path/to/report
         normalised_vcf: normalised_test.vcf.gz
     pass: true
+  naming_convention_check:
+    pass: true
+    naming_convention: enaSequenceName
+    files:
+      - {
+          vcf_file: test.vcf,
+          naming_convention: enaSequenceName
+      }
