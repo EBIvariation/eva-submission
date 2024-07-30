@@ -560,6 +560,8 @@ class EloadValidation(Eload):
             )
             for vcf_file in vcf_files_2_naming_conv:
                 reports.append(f"    * {vcf_file}: {vcf_files_2_naming_conv[vcf_file]['naming_convention']}")
+                if not vcf_files_2_naming_conv[vcf_file]['naming_convention']:
+                    reports.append(f"    * {vcf_file}: {vcf_files_2_naming_conv[vcf_file]['naming_convention_map']}")
         return '\n'.join(reports)
 
     def report(self):

@@ -63,7 +63,6 @@ validation:
     pass: true
     naming_convention: enaSequenceName
     files:
-      - {
-          vcf_file: test.vcf,
-          naming_convention: enaSequenceName
-      }
+      test.vcf:
+        vcf_file: test.vcf
+        naming_convention: enaSequenceName
