@@ -73,7 +73,7 @@ class EloadValidation(Eload):
     def _get_vcf_files(self):
         vcf_files = []
         for analysis_alias in self.eload_cfg.query('submission', 'analyses'):
-            files = self.eload_cfg.query('submission', 'analyses', self._unique_alias(analysis_alias), 'vcf_files')
+            files = self.eload_cfg.query('submission', 'analyses', analysis_alias, 'vcf_files')
             vcf_files.extend(files) if files else None
         return vcf_files
 
@@ -224,14 +224,17 @@ class EloadValidation(Eload):
 
     def parse_sv_check_log(self, sv_check_log):
         with open(sv_check_log) as open_file:
-            nb_sv = int(open_file.readline().split()[0])
-        return nb_sv
+            nb_sv = open_file.readline().split()
+        if nb_sv:
+            return int(nb_sv[0])
+        else:
+            return 0
 
     def _generate_csv_mappings(self):
         vcf_files_mapping_csv = os.path.join(self.eload_dir, 'validation_vcf_files_mapping.csv')
         with open(vcf_files_mapping_csv, 'w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(['vcf', 'fasta', 'report', 'assembly'])
+            writer.writerow(['vcf', 'fasta', 'report', 'assembly_accession'])
             analyses = self.eload_cfg.query('submission', 'analyses')
             for analysis_alias, analysis_data in analyses.items():
                 fasta = analysis_data['assembly_fasta']
@@ -293,7 +296,6 @@ class EloadValidation(Eload):
             self._collect_structural_variant_check_results(vcf_files, output_dir)
         if 'naming_convention_check' in validation_tasks:
             self._collect_naming_convention_check_results(vcf_files, output_dir)
-
 
     def _collect_vcf_check_results(self, vcf_files, output_dir):
         total_error = 0
@@ -388,15 +390,14 @@ class EloadValidation(Eload):
     def _collect_structural_variant_check_results(self, vcf_files, output_dir):
         # detect output files for structural variant check
         for vcf_file in vcf_files:
-            vcf_name = os.path.basename(vcf_file)
+            vcf_name, ext = os.path.splitext(os.path.basename(vcf_file))
 
             tmp_sv_check_log = resolve_single_file_path(
                 os.path.join(output_dir, 'sv_check',  vcf_name + '_sv_check.log')
             )
             tmp_sv_check_sv_vcf = resolve_single_file_path(
-                os.path.join(output_dir, 'sv_check', vcf_name + '_sv_list.vcf')
+                os.path.join(output_dir, 'sv_check', vcf_name + '_sv_list.vcf.gz')
             )
-
             # move the output files
             sv_check_log = self._move_file(
                 tmp_sv_check_log,
@@ -404,7 +405,7 @@ class EloadValidation(Eload):
             )
             sv_check_sv_vcf = self._move_file(
                 tmp_sv_check_sv_vcf,
-                os.path.join(self._get_dir('sv_check'), vcf_name + '_sv_list.vcf')
+                os.path.join(self._get_dir('sv_check'), vcf_name + '_sv_list.vcf.gz')
             )
 
             if sv_check_log and sv_check_sv_vcf:
@@ -416,8 +417,7 @@ class EloadValidation(Eload):
     def _collect_naming_convention_check_results(self, vcf_files, output_dir):
         naming_conventions = set()
         for vcf_file in vcf_files:
-            vcf_name = os.path.basename(vcf_file)
-
+            vcf_name, ext = os.path.splitext(os.path.basename(vcf_file))
             tmp_nc_check_yml = resolve_single_file_path(
                 os.path.join(output_dir, 'naming_convention_check',  vcf_name + '_naming_convention.yml')
             )
@@ -430,8 +430,8 @@ class EloadValidation(Eload):
                 with open(nc_check_yml) as open_yaml:
                     data = yaml.safe_load(open_yaml)
                 self.eload_cfg.set('validation', 'naming_convention_check', 'files', os.path.basename(vcf_file),
-                                   value=data)
-                naming_conventions.add(data['naming_convention'])
+                                   value=data[0])
+                naming_conventions.add(data[0]['naming_convention'])
         if len(naming_conventions) == 1:
             self.eload_cfg.set('validation', 'naming_convention_check', 'naming_convention',
                                value=naming_conventions.pop())
@@ -551,15 +551,15 @@ class EloadValidation(Eload):
         return '\n'.join(reports)
 
     def _naming_convention_check_report(self):
-        nc_list = self.eload_cfg.query('validation', 'naming_convention_check', 'files')
+        vcf_files_2_naming_conv = self.eload_cfg.query('validation', 'naming_convention_check', 'files')
         reports = []
-        if nc_list:
+        if vcf_files_2_naming_conv:
             reports.append(
                 f"  * Naming convention: "
                 f"{self.eload_cfg.query('validation', 'naming_convention_check', 'naming_convention')}"
             )
-            for nc_dict in nc_list:
-                reports.append(f"    * {nc_dict['vcf_file']}: {nc_dict['naming_convention']}")
+            for vcf_file in vcf_files_2_naming_conv:
+                reports.append(f"    * {vcf_file}: {vcf_files_2_naming_conv[vcf_file]['naming_convention']}")
         return '\n'.join(reports)
 
     def report(self):

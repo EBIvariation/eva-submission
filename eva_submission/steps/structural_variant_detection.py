@@ -20,7 +20,6 @@ def detect_structural_variant(vcf_file, output_vcf):
         ctx = gzip.open(vcf_file, mode="rt")
     else:
         ctx = open(vcf_file, mode="r")
-    has_sv_in_vcf = False
     with ctx as open_input, open(output_vcf, 'w') as open_output:
         for line in open_input:
             if line.startswith("#"):
@@ -33,10 +32,8 @@ def detect_structural_variant(vcf_file, output_vcf):
                 if re.search(sv_regex, alternate_allele):
                     open_output.write(line)
                     nb_sv += 1
-                    has_sv_in_vcf = True
                     break
-    if has_sv_in_vcf:
-        print(f'{nb_sv} lines containing structural variants')
+    print(f'{nb_sv} lines containing structural variants')
 
 
 def main():
