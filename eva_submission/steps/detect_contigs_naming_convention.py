@@ -76,7 +76,7 @@ class ContigsNamimgConventionChecker(AppLogger):
         results = []
         for input_vcf in vcf_files:
             naming_convention_to_contigs = self.naming_convention_map_for_vcf(input_vcf)
-            if len(naming_convention_to_contigs) == 1:
+            if len(naming_convention_to_contigs) == 1 and 'Not found' not in naming_convention_to_contigs:
                 naming_convention = list(naming_convention_to_contigs)[0]
                 naming_convention_map = None
             else:
