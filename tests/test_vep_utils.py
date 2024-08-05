@@ -120,6 +120,13 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
             with self.assertRaises(ValueError):
                 get_vep_and_vep_cache_version('fake_mongo', 'fake_db', 'fake_assembly')
 
+    def test_get_vep_and_vep_cache_version_with_vep_download(self):
+        with patch('eva_submission.vep_utils.get_vep_and_vep_cache_version_from_db') as m_get_db, \
+                patch('eva_submission.vep_utils.command_utils.run_command_with_output'):
+            m_get_db.return_value = (112, 59)
+            get_vep_and_vep_cache_version('fake_mongo', 'fake_db', 'fake_assembly')
+            assert os.path.exists(os.path.join(cfg['vep_path'], 'ensembl-vep-release-112'))
+
     def test_download_and_extract_vep_cache(self):
         with patch('eva_submission.vep_utils.retrieve_species_scientific_name_from_tax_id_ncbi') as m_get_scf_name:
             m_get_scf_name.return_value = 'whatever_species_name'

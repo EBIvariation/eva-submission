@@ -5,10 +5,13 @@ import re
 import shutil
 import tarfile
 import tempfile
+import zipfile
 from fnmatch import fnmatch
 
 import pymongo
 import requests
+import wget
+from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.ncbi_utils import get_ncbi_assembly_dicts_from_term, \
     retrieve_species_scientific_name_from_tax_id_ncbi
 from requests import HTTPError
@@ -47,12 +50,10 @@ def get_vep_and_vep_cache_version(mongo_uri, db_name, assembly_accession, vep_ca
         vep_version, vep_cache_version = get_vep_and_vep_cache_version_from_ensembl(
             assembly_accession, ensembl_assembly_name=vep_cache_assembly_name
         )
-    if check_vep_version_installed(vep_version):
-        return vep_version, vep_cache_version
-    raise ValueError(
-        f'Found VEP cache version {vep_cache_version} for assembly {assembly_accession}, '
-        f'but compatible VEP version {vep_version} is not installed.'
-    )
+    if not check_vep_version_installed(vep_version):
+        download_and_install_vep_version(vep_version)
+
+    return vep_version, vep_cache_version
 
 
 def get_vep_and_vep_cache_version_from_db(mongo_uri, db_name):
@@ -291,3 +292,22 @@ def download_and_extract_vep_cache(ftp, vep_cache_file, taxonomy_id):
     os.makedirs(os.path.join(cfg['vep_cache_path'], species_name), exist_ok=True)
     shutil.move(sources[0], copy_destination)
     tmp_dir.cleanup()
+
+
+@retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3), logger=logger)
+def download_and_install_vep_version(vep_version):
+    file_download_url = f'https://github.com/Ensembl/ensembl-vep/archive/release/{vep_version}.zip'
+
+    # Download the Vep version
+    tmp_dir = tempfile.TemporaryDirectory()
+    destination = os.path.join(tmp_dir.name, f'{vep_version}.zip')
+    wget.download(file_download_url, destination)
+
+    # Unzip the Vep version
+    with zipfile.ZipFile(destination, 'r') as zip_ref:
+        zip_ref.extractall(cfg['vep_path'])
+
+    # Install Vep version
+    installation_dir = os.path.join(cfg['vep_path'], f'ensembl-vep-release-{vep_version}')
+    installation_command = f"cd {installation_dir} && perl INSTALL.pl"
+    command_utils.run_command_with_output(f'Install Vep Version {vep_version}', installation_command)
