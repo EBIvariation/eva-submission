@@ -229,11 +229,19 @@ def search_releases(ftp, all_releases, species, assembly, taxonomy_id):
         for f in all_species_files:
             if species in f and assembly in f and f'vep_{release}' in os.path.basename(f):
                 logger.info(f'Found vep_cache_version for {species} and {assembly}: file {f}, release {release}')
-                # TODO assume if we get here we need to download the cache... is this correct?
-                #  e.g. what if we've downloaded the cache for another study but VEP annotation step failed...
-                download_and_extract_vep_cache(ftp, f, taxonomy_id)
+                if not vep_cache_version_downloaded(taxonomy_id, release, assembly):
+                    download_and_extract_vep_cache(ftp, f, taxonomy_id)
                 return release
     return None
+
+
+def vep_cache_version_downloaded(taxonomy_id, release, assembly):
+    scientific_name = retrieve_species_scientific_name_from_tax_id_ncbi(taxonomy_id, api_key=cfg.get('eutils_api_key'))
+    species_name = scientific_name.replace(' ', '_').lower()
+    if os.path.exists(os.path.join(cfg['vep_cache_path'], species_name, f'{release}_{assembly}')):
+        return True
+    else:
+        return False
 
 
 def get_all_species_files(ftp, release):
