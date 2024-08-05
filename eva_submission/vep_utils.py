@@ -10,7 +10,6 @@ from fnmatch import fnmatch
 
 import pymongo
 import requests
-import wget
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.ncbi_utils import get_ncbi_assembly_dicts_from_term, \
     retrieve_species_scientific_name_from_tax_id_ncbi
@@ -301,7 +300,13 @@ def download_and_install_vep_version(vep_version):
     # Download the Vep version
     tmp_dir = tempfile.TemporaryDirectory()
     destination = os.path.join(tmp_dir.name, f'{vep_version}.zip')
-    wget.download(file_download_url, destination)
+    response = requests.get(file_download_url, stream=True)
+    if response.status_code == 200:
+        with open(destination, 'wb') as file:
+            for chunk in response.iter_content(chunk_size=8192):
+                file.write(chunk)
+    else:
+        raise (f'Error downloading Vep installation files for vep version {vep_version}')
 
     # Unzip the Vep version
     with zipfile.ZipFile(destination, 'r') as zip_ref:

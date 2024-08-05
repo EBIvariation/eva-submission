@@ -12,4 +12,3 @@ pyyaml
 requests
 retry
 packaging
-wget
