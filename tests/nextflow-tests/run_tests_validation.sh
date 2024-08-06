@@ -11,8 +11,8 @@ cd ${SCRIPT_DIR}
 printf "\e[32m===== VALIDATION PIPELINE =====\e[0m\n"
 nextflow run "${SOURCE_DIR}/validation.nf" -params-file test_validation_config.yaml
 
-ls output/sv_check/test1_sv_check.log \
-output/sv_check/test1_sv_list.vcf.gz \
+ls output/sv_check/test1.vcf_sv_check.log \
+output/sv_check/test1.vcf_sv_list.vcf.gz \
 output/assembly_check/test1.vcf.gz.assembly_check.log \
 output/assembly_check/test1.vcf.gz.text_assembly_report \
 output/assembly_check/test1.vcf.gz.valid_assembly_report

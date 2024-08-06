@@ -135,13 +135,12 @@ process detect_sv {
 
     export PYTHONPATH="$params.executable.python.script_path"
     $params.executable.python.interpreter -m eva_submission.steps.structural_variant_detection \
-    --vcf_file $vcf_file --output_vcf_file_with_sv sv_check/${vcf_file.getSimpleName()}_sv_list.vcf \
-    > sv_check/${vcf_file.getSimpleName()}_sv_check.log 2>&1
-    $params.executable.bgzip -c sv_check/${vcf_file.getSimpleName()}_sv_list.vcf > sv_check/${vcf_file.getSimpleName()}_sv_list.vcf.gz
-    rm sv_check/${vcf_file.getSimpleName()}_sv_list.vcf
+    --vcf_file $vcf_file --output_vcf_file_with_sv sv_check/${vcf_file.getBaseName()}_sv_list.vcf \
+    > sv_check/${vcf_file.getBaseName()}_sv_check.log 2>&1
+    $params.executable.bgzip -c sv_check/${vcf_file.getBaseName()}_sv_list.vcf > sv_check/${vcf_file.getBaseName()}_sv_list.vcf.gz
+    rm sv_check/${vcf_file.getBaseName()}_sv_list.vcf
     """
 }
-
 
 
 /*
@@ -155,7 +154,7 @@ process detect_naming_convention {
             mode: "copy"
 
     input:
-    tuple path(vcf_file), accession
+    tuple path(vcf_file), val(accession)
 
     output:
     path "naming_convention_check/*_naming_convention.yml", emit: nc_check_yml
@@ -165,7 +164,7 @@ process detect_naming_convention {
     mkdir -p naming_convention_check
 
     export PYTHONPATH="$params.executable.python.script_path"
-    $params.executable.python.interpreter -m eva_submission.steps.detect_contigs_naming_convention.py \
-    --vcf_files $vcf_file --assembly_accession $accession --output_yaml naming_convention_check/${vcf_file.getSimpleName()}_naming_convention.yml
+    $params.executable.python.interpreter -m eva_submission.steps.detect_contigs_naming_convention \
+    --vcf_files $vcf_file --assembly_accession $accession --output_yaml naming_convention_check/${vcf_file.getBaseName()}_naming_convention.yml
     """
 }

@@ -41,7 +41,7 @@ class ContigsNamimgConventionChecker(AppLogger):
 
     def naming_convention_map_for_vcf(self, input_vcf):
         """Provides a set of contigs names present in the VCF file for each compatible naming convention"""
-        naming_convention_map = defaultdict(list)
+        naming_convention_map = defaultdict(set)
         if input_vcf.endswith('.gz'):
             vcf_in = gzip.open(input_vcf, mode="rt")
         else:
@@ -50,8 +50,8 @@ class ContigsNamimgConventionChecker(AppLogger):
             if line.startswith("#"):
                 continue
             contig_name = line.split('\t')[0]
-            naming_convention_map[self.get_contig_convention(contig_name)].append(contig_name)
-        return dict(naming_convention_map)
+            naming_convention_map[self.get_contig_convention(contig_name)].add(contig_name)
+        return dict((nc, list(sorted(set_contig))) for nc, set_contig in naming_convention_map.items())
 
     @cached_property
     def _contig_conventions_map(self):
@@ -76,7 +76,7 @@ class ContigsNamimgConventionChecker(AppLogger):
         results = []
         for input_vcf in vcf_files:
             naming_convention_to_contigs = self.naming_convention_map_for_vcf(input_vcf)
-            if len(naming_convention_to_contigs) == 1:
+            if len(naming_convention_to_contigs) == 1 and 'Not found' not in naming_convention_to_contigs:
                 naming_convention = list(naming_convention_to_contigs)[0]
                 naming_convention_map = None
             else:
