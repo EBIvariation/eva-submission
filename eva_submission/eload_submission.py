@@ -11,7 +11,8 @@ from ebi_eva_internal_pyutils.metadata_utils import get_metadata_connection_hand
 from packaging import version
 
 from eva_submission import __version__
-from eva_submission.config_migration import upgrade_version_0_1, upgrade_version_1_14_to_1_15
+from eva_submission.config_migration import upgrade_version_0_1, upgrade_version_1_14_to_1_15, \
+    upgrade_version_1_15_to_1_16
 from eva_submission.eload_utils import get_hold_date_from_ena
 from eva_submission.submission_config import EloadConfig
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
@@ -92,22 +93,27 @@ class Eload(AppLogger):
             log_cfg.add_file_handler(logfile_name)
             eload_logging_files.add(logfile_name)
 
-    def upgrade_config_if_needed(self, analysis_alias=None):
+    def upgrade_to_new_version_if_needed(self, analysis_alias=None):
         """
-        Upgrades configs to the current version, it supports:
+        Upgrades configs or directory structure to the current version, it supports:
          - making a backup
          - using the provided analysis alias for all vcf files (pre version 1)
          - reformat nextflow directories in the config (pre version 1.15)
+         - link project subdirectories  to the eload directories and update the config (pre version 1.16)
         """
         if 'version' not in self.eload_cfg:
             self.debug(f'No version found in config, upgrading to version {__version__}.')
             self.eload_cfg.backup()
             upgrade_version_0_1(self.eload_cfg, analysis_alias)
             upgrade_version_1_14_to_1_15(self.eload_cfg)
+            upgrade_version_1_15_to_1_16(self.eload_cfg, self.eload_dir)
         elif version.parse(self.eload_cfg.query('version')) < version.parse("1.15"):
             self.debug(f'Pre version 1.15, upgrading to version from {version} to {__version__}.')
             self.eload_cfg.backup()
             upgrade_version_1_14_to_1_15(self.eload_cfg)
+            upgrade_version_1_15_to_1_16(self.eload_cfg, self.eload_dir)
+        elif version.parse(self.eload_cfg.query('version')) < version.parse("1.16"):
+            upgrade_version_1_15_to_1_16(self.eload_cfg, self.eload_dir)
         else:
             self.debug(f"Config is version {self.eload_cfg.query('version')}, not upgrading.")
 

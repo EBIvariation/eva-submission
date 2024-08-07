@@ -42,7 +42,7 @@ def main():
     load_config()
 
     with Eload(args.eload) as eload:
-        eload.upgrade_config_if_needed(args.analysis_alias)
+        eload.upgrade_to_new_version_if_needed(args.analysis_alias)
 
 
 if __name__ == "__main__":

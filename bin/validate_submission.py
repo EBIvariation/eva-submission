@@ -52,7 +52,7 @@ def main():
     load_config()
 
     with EloadValidation(args.eload) as eload:
-        eload.upgrade_config_if_needed()
+        eload.upgrade_to_new_version_if_needed()
         if not args.report:
             eload.validate(args.validation_tasks, args.set_as_valid, args.merge_per_analysis)
         eload.report()

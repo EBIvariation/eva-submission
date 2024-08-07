@@ -1,3 +1,4 @@
+import os
 from copy import deepcopy
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
@@ -7,6 +8,27 @@ from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 
 logger = log_cfg.get_logger(__name__)
+
+
+def upgrade_version_1_15_to_1_16(eload_cfg, eload_dir):
+    """
+    Upgrades a version 1.15 directory structure to version 1.16 to change the path to ingestion nextflow directories
+    """
+    project_dir = eload_cfg.query('ingestion', 'project_dir')
+    if not project_dir:
+        # This ELOAD never went through ingestion so there are no need to change anything
+        return
+
+    for sub_dir_or_file in os.listdir(project_dir):
+        source = os.path.join(project_dir, sub_dir_or_file)
+        dest = os.path.join(eload_dir, sub_dir_or_file)
+        if os.path.exists(dest):
+            if os.path.islink(dest) and os.readlink(dest) == source:
+                logger.debug(f'symbolic link {dest} already exist and is correct')
+            else:
+                raise ValueError(f'Attempting to create a link from {source} to {dest} but {source} already exist')
+        else:
+            os.symlink(source, dest)
 
 
 def upgrade_version_1_14_to_1_15(eload_cfg):

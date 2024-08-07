@@ -68,24 +68,24 @@ class TestEload(TestCase):
 
     def test_upgrade_config(self):
         """Tests config upgrade for a post-brokering config."""
-        self.eload.upgrade_config_if_needed('analysis alias')
+        self.eload.upgrade_to_new_version_if_needed('analysis alias')
         self.assertEqual(self.updated_v1_config.content, self.eload.eload_cfg.content)
 
     def test_upgrade_config_no_analysis_alias_passed(self):
         """If no analysis alias is passed, it should retrieve from metadata when possible."""
         with patch('eva_submission.config_migration.EvaXlsxReader') as mock_reader:
             mock_reader.return_value.analysis = [{'Analysis Alias': 'analysis alias'}]
-            self.eload.upgrade_config_if_needed(analysis_alias=None)
+            self.eload.upgrade_to_new_version_if_needed(analysis_alias=None)
             self.assertEqual(self.updated_v1_config.content, self.eload.eload_cfg.content)
 
     def test_upgrade_config_already_updated(self):
         """An already up-to-date config shouldn't get modified."""
         original_content = deepcopy(self.updated_v1_config.content)
-        self.eload.upgrade_config_if_needed('analysis alias')
+        self.eload.upgrade_to_new_version_if_needed('analysis alias')
         self.assertEqual(original_content, self.updated_v1_config.content)
 
     def test_upgrade_config_v1_15(self):
         """Tests config upgrade for a post-brokering config."""
         self.eload.eload_cfg.content = deepcopy(self.original_v1_14_config.content)
-        self.eload.upgrade_config_if_needed()
+        self.eload.upgrade_to_new_version_if_needed()
         self.assertEqual(self.updated_v1_15_config.content, self.eload.eload_cfg.content)

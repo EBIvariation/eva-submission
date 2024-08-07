@@ -235,33 +235,32 @@ class EloadIngestion(Eload):
             self.eload_cfg.set(self.config_section, 'ena_load', value='failure')
             raise e
 
-    def _copy_file(self, source_path, target_dir):
+    def _hardlink_file(self, source_path, target_dir):
         target_path = target_dir.joinpath(source_path.name)
-        if not target_path.exists():
-            shutil.copyfile(source_path, target_path)
-        else:
-            self.warning(f'{source_path.name} already exists in {target_dir}, not copying.')
+        if target_path.exists():
+            self.warning(f'{source_path.name} already exists in {target_dir}. Remove then hard link again')
+            os.remove(target_path)
+        os.link(source_path, target_path)
 
     def setup_project_dir(self):
         """
         Sets up project directory and copies VCF files from the eload directory.
         """
-        project_dir = Path(cfg['projects_dir'], self.project_accession)
-        os.makedirs(project_dir, exist_ok=True)
+        project_dir = Path(self.eload_dir)
         for v in project_dirs.values():
             os.makedirs(project_dir.joinpath(v), exist_ok=True)
-        # copy valid vcfs + index to 'valid' folder and 'public' folder
+        # Link valid vcfs + index to 'valid' folder and 'public' folder
         valid_dir = project_dir.joinpath(project_dirs['valid'])
         public_dir = project_dir.joinpath(project_dirs['public'])
         analyses = self.eload_cfg.query('brokering', 'analyses')
         for analysis_alias, analysis_data in analyses.items():
             for vcf_file, vcf_file_info in analysis_data['vcf_files'].items():
                 vcf_path = Path(vcf_file)
-                self._copy_file(vcf_path, valid_dir)
-                self._copy_file(vcf_path, public_dir)
+                self._hardlink_file(vcf_path, valid_dir)
+                self._hardlink_file(vcf_path, public_dir)
                 csi_path = Path(vcf_file_info['csi'])
-                self._copy_file(csi_path, valid_dir)
-                self._copy_file(csi_path, public_dir)
+                self._hardlink_file(csi_path, valid_dir)
+                self._hardlink_file(csi_path, public_dir)
         self.eload_cfg.set(self.config_section, 'project_dir', value=str(project_dir))
         return project_dir
 

@@ -225,7 +225,7 @@ class TestEloadIngestion(TestCase):
                 tasks=['accession']
             )
             assert os.path.exists(
-                os.path.join(self.resources_folder, 'projects', 'PRJEB12345', 'accession_and_load_params.yaml')
+                os.path.join(self.eload.eload_dir, 'accession_and_load_params.yaml')
             )
 
     def test_ingest_variant_load(self):
@@ -246,7 +246,7 @@ class TestEloadIngestion(TestCase):
             m_get_results.side_effect = default_db_results_for_accession()
             self.eload.ingest(tasks=['variant_load'])
             assert os.path.exists(
-                os.path.join(self.resources_folder, 'projects/PRJEB12345/accession_and_load_params.yaml')
+                os.path.join(self.eload.eload_dir, 'accession_and_load_params.yaml')
             )
 
     def test_insert_browsable_files(self):

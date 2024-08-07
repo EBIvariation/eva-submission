@@ -40,7 +40,7 @@ def main():
     load_config()
 
     with EloadIngestion(args.eload) as ingestion:
-        ingestion.upgrade_config_if_needed()
+        ingestion.upgrade_to_new_version_if_needed()
         ingestion.update_assembly_set_in_analysis()
         ingestion.insert_browsable_files()
         ingestion.update_browsable_files_with_date()

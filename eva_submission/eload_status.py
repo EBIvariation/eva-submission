@@ -304,7 +304,7 @@ class EloadStatus(AppLogger):
         Given a study, find the accessioning report path for that study on codon and the FTP.
         Look for files ending with accessioned.vcf.gz.
         """
-        local_files = glob.glob(os.path.join(cfg['projects_dir'], self.project, '60_eva_public', '*accessioned.vcf.gz'))
+        local_files = glob.glob(os.path.join(self.eload_config_file.query('project_dir'), '60_eva_public', '*accessioned.vcf.gz'))
         ftp_files = glob.glob(os.path.join(cfg['public_ftp_dir'], self.project, '*accessioned.vcf.gz'))
         local_file_base_names = [os.path.basename(f) for f in local_files]
         # remove duplicates based on file base names

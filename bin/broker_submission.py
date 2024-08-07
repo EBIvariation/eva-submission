@@ -65,7 +65,7 @@ def main():
     load_config()
     # Optionally Set the valid VCF and metadata file
     with EloadBrokering(args.eload, args.vcf_files, args.metadata_file) as brokering:
-        brokering.upgrade_config_if_needed()
+        brokering.upgrade_to_new_version_if_needed()
         if not args.report:
             brokering.broker(brokering_tasks_to_force=args.force, existing_project=args.project_accession,
                              async_upload=args.use_async_upload, dry_ena_upload=args.dry_ena_upload)

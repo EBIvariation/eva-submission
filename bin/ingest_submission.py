@@ -49,7 +49,7 @@ def main():
     load_config()
 
     with EloadIngestion(args.eload) as ingestion:
-        ingestion.upgrade_config_if_needed()
+        ingestion.upgrade_to_new_version_if_needed()
         ingestion.ingest(
             tasks=args.tasks,
             vep_cache_assembly_name=args.vep_cache_assembly_name,
