@@ -5,10 +5,12 @@ import re
 import shutil
 import tarfile
 import tempfile
+import zipfile
 from fnmatch import fnmatch
 
 import pymongo
 import requests
+from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.ncbi_utils import get_ncbi_assembly_dicts_from_term, \
     retrieve_species_scientific_name_from_tax_id_ncbi
 from requests import HTTPError
@@ -47,12 +49,10 @@ def get_vep_and_vep_cache_version(mongo_uri, db_name, assembly_accession, vep_ca
         vep_version, vep_cache_version = get_vep_and_vep_cache_version_from_ensembl(
             assembly_accession, ensembl_assembly_name=vep_cache_assembly_name
         )
-    if check_vep_version_installed(vep_version):
-        return vep_version, vep_cache_version
-    raise ValueError(
-        f'Found VEP cache version {vep_cache_version} for assembly {assembly_accession}, '
-        f'but compatible VEP version {vep_version} is not installed.'
-    )
+    if not check_vep_version_installed(vep_version):
+        download_and_install_vep_version(vep_version)
+
+    return vep_version, vep_cache_version
 
 
 def get_vep_and_vep_cache_version_from_db(mongo_uri, db_name):
@@ -229,11 +229,19 @@ def search_releases(ftp, all_releases, species, assembly, taxonomy_id):
         for f in all_species_files:
             if species in f and assembly in f and f'vep_{release}' in os.path.basename(f):
                 logger.info(f'Found vep_cache_version for {species} and {assembly}: file {f}, release {release}')
-                # TODO assume if we get here we need to download the cache... is this correct?
-                #  e.g. what if we've downloaded the cache for another study but VEP annotation step failed...
-                download_and_extract_vep_cache(ftp, f, taxonomy_id)
+                if not vep_cache_version_downloaded(taxonomy_id, release, assembly):
+                    download_and_extract_vep_cache(ftp, f, taxonomy_id)
                 return release
     return None
+
+
+def vep_cache_version_downloaded(taxonomy_id, release, assembly):
+    scientific_name = retrieve_species_scientific_name_from_tax_id_ncbi(taxonomy_id, api_key=cfg.get('eutils_api_key'))
+    species_name = scientific_name.replace(' ', '_').lower()
+    if os.path.exists(os.path.join(cfg['vep_cache_path'], species_name, f'{release}_{assembly}')):
+        return True
+    else:
+        return False
 
 
 def get_all_species_files(ftp, release):
@@ -283,3 +291,28 @@ def download_and_extract_vep_cache(ftp, vep_cache_file, taxonomy_id):
     os.makedirs(os.path.join(cfg['vep_cache_path'], species_name), exist_ok=True)
     shutil.move(sources[0], copy_destination)
     tmp_dir.cleanup()
+
+
+@retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3), logger=logger)
+def download_and_install_vep_version(vep_version):
+    file_download_url = f'https://github.com/Ensembl/ensembl-vep/archive/release/{vep_version}.zip'
+
+    # Download the Vep version
+    tmp_dir = tempfile.TemporaryDirectory()
+    destination = os.path.join(tmp_dir.name, f'{vep_version}.zip')
+    response = requests.get(file_download_url, stream=True)
+    if response.status_code == 200:
+        with open(destination, 'wb') as file:
+            for chunk in response.iter_content(chunk_size=8192):
+                file.write(chunk)
+    else:
+        raise (f'Error downloading Vep installation files for vep version {vep_version}')
+
+    # Unzip the Vep version
+    with zipfile.ZipFile(destination, 'r') as zip_ref:
+        zip_ref.extractall(cfg['vep_path'])
+
+    # Install Vep version
+    installation_dir = os.path.join(cfg['vep_path'], f'ensembl-vep-release-{vep_version}')
+    installation_command = f"cd {installation_dir} && perl INSTALL.pl"
+    command_utils.run_command_with_output(f'Install Vep Version {vep_version}', installation_command)
