@@ -1,5 +1,5 @@
 eloads_dir: /usr/local/test_eva_submission/submissions/
-projects_dir: /usr/local/test_eva_submission/data/
+projects_dir: /usr/local/test_eva_submission/submissions/
 
 ftp_dir: /usr/local/eva/ftp/
 public_ftp_dir: /usr/local/eva/public_ftp/
