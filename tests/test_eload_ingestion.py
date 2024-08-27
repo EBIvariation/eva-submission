@@ -202,7 +202,7 @@ class TestEloadIngestion(TestCase):
             analysis_accession = 'ERZ2499196'
             self.eload.load_from_ena_from_project_or_analysis(analysis_accession)
             command = ('perl /path/to/load_from_ena_script -p PRJEB12345 -c submitted -v 1 -l '
-                       f'{self.eload._get_dir("scratch")} -e 33 -A -a ERZ2499196')
+                       f'{self.eload._get_dir("scratch")} -e 33 -A 1 -a ERZ2499196')
             mockrun.assert_called_once_with('Load metadata from ENA to EVAPRO', command)
 
     def test_ingest_accession(self):
