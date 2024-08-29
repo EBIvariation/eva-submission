@@ -559,7 +559,7 @@ class EloadQC(Eload):
             res = bckp_result['result']
             err = 'No Error' if bckp_result['error'] == '' else bckp_result['error']
             if res == 'FAIL':
-                bckp_result = 'FAIL'
+                result = 'FAIL'
             report_lines.append(f"""Backpropagation result to {asm}: {res} - {err}""")
 
         return result, '\n            '.join(report_lines)
