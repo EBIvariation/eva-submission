@@ -78,18 +78,23 @@ class TestSubmissionQC(TestCase):
                 patch('eva_submission.submission_qc_checks.FTP.cwd'), \
                 patch('eva_submission.submission_qc_checks.FTP.nlst') as m_ftp_nlst, \
                 patch('eva_submission.submission_qc_checks.requests.get') as m_get, \
-                patch('eva_submission.submission_qc_checks.get_all_results_for_query') as m_get_browsable_files:
-            m_get_browsable_files.side_effect = [[['test1.vcf.gz'], ['test2.vcf.gz']], [[['Homo Sapiens']]]]
+                patch('eva_submission.submission_qc_checks.get_all_results_for_query') as m_get_all_results_for_query:
+            m_get_all_results_for_query.side_effect = [[['test1.vcf.gz'], ['test2.vcf.gz']], [['ecaballus_30']], [['ecaballus_30']]]
+            json_with_id = {
+                "response": [{"numResults": 1, "numTotalResults": 1, "result": [{"id": "PRJEB33333"}]}]
+            }
+            json_with_project_id = {
+                "response": [{"numResults": 1, "numTotalResults": 1, "result": [{"studyId": "PRJEB33333"}]}]
+            }
             m_get.side_effect = [
-                self._mock_response(json_data={
-                    "response": [{"numResults": 1, "numTotalResults": 1, "result": [{"id": "PRJEB33333"}]}]
-                }),
-                self._mock_response(json_data={
-                    "response": [{"numResults": 1, "numTotalResults": 1, "result": [{"studyId": "PRJEB33333"}]}]
-                })
+                self._mock_response(json_data=json_with_id),
+                self._mock_response(json_data=json_with_project_id),
+                self._mock_response(json_data=json_with_project_id)
             ]
             m_ftp_nlst.return_value = ['test1.vcf.gz', 'test1.vcf.gz.csi', 'test1.vcf.csi', 'test1.accessioned.vcf.gz',
-                                       'test1.accessioned.vcf.gz.csi', 'test1.accessioned.vcf.csi']
+                                       'test1.accessioned.vcf.gz.csi', 'test1.accessioned.vcf.csi', 'test2.vcf.gz',
+                                       'test2.vcf.gz.csi', 'test2.vcf.csi', 'test2.accessioned.vcf.gz',
+                                       'test2.accessioned.vcf.gz.csi', 'test2.accessioned.vcf.csi']
             self.assertEqual(self.expected_report_of_eload_103(), self.eload.run_qc_checks_for_submission())
 
     def test_submission_qc_checks_missing_files(self):
@@ -114,6 +119,14 @@ class TestSubmissionQC(TestCase):
                                        'test1.accessioned.vcf.gz.csi', 'test1.accessioned.vcf.csi']
             self.assertEqual(self.expected_report_of_eload_104(), self.eload.run_qc_checks_for_submission())
 
+
+    def test_check_if_variant_load_completed_successfully(self):
+        self.eload = EloadQC(103)
+        result, report = self.eload.check_if_variant_load_completed_successfully()
+        print(report)
+        assert result == 'PASS'
+        assert report == 'Success: PASS'
+
     def expected_report_of_eload_101(self):
         return """
         QC Result Summary:
@@ -124,82 +137,82 @@ class TestSubmissionQC(TestCase):
         Variant load and Accession Import check:
             Variant load check: FAIL
             Annotation check: FAIL
-            Statistics check: FAIL
+            Variant Statistics check: FAIL
+            Study Statistics check: FAIL
             Accession Import check: FAIL
         Remapping and Clustering Check:
-            Clustering check: FAIL 
-            Remapping check: FAIL
-            Back-propogation check: FAIL
+            Remapping check: DID NOT RUN
+            Clustering check: DID NOT RUN 
+            Back-propogation check: DID NOT RUN
         FTP check: FAIL
         Study check: FAIL
         Study metadata check: FAIL
+        
+        QC Details:
         ----------------------------------
-
         Browsable files check:
-        
-            pass : FAIL
-            expected files: ['test1.vcf.gz', 'test2.vcf.gz']
-            missing files: {'test2.vcf.gz'}
+            Success : FAIL
+            Expected files: ['test1.vcf.gz', 'test2.vcf.gz']
+            Missing files: {'test2.vcf.gz'}
         ---------------------------------
-        
         Accessioning job check:
-        
+            
                 pass: FAIL
                 failed_files:
                     test1.vcf.gz - Accessioning Error : No accessioning file found for test1.vcf.gz
                     test2.vcf.gz - Accessioning Error : No accessioning file found for test2.vcf.gz
         ----------------------------------
-        
         Variants skipped check:
-        
-                pass: PASS with Warning (Manual Check Required)
-                failed_files:
+            
+                Success: PASS with Warning (Manual Check Required)
+                Failures:
                     test1.vcf.gz - Accessioning Error : No accessioning file found for test1.vcf.gz
                     test2.vcf.gz - Accessioning Error : No accessioning file found for test2.vcf.gz
         ----------------------------------
-        
         Variant load check:
-        
-                vcf load result: FAIL
-                annotation result: FAIL
-                statistics result: FAIL
-                accession import result: FAIL
-                    Failed Files:
-                        test1.vcf.gz: 
-                            load_vcf error : No load_vcf log file found for test1.vcf.gz
-                            acc_import error : No acc_import log file found for test1.vcf.gz
-                        test2.vcf.gz: 
-                            load_vcf error : No load_vcf log file found for test2.vcf.gz
-                            acc_import error : No acc_import log file found for test2.vcf.gz
-                    Failed Analysis:
-                        ERZ2499196: 
-                            annotate_variants error : No annotate_variants log file found for ERZ2499196
-                            calculate_statistics error : No calculate_statistics log file found for ERZ2499196
+            Success: FAIL
+            Errors:
+                test1.vcf.gz - load_vcf error : No load_vcf log file found for test1.vcf.gz
+                test2.vcf.gz - load_vcf error : No load_vcf log file found for test2.vcf.gz
         ----------------------------------
-
-        Remapping and Clustering check:
-        
-                clustering check: FAIL
-                remapping check: FAIL    
-                backpropagation check: FAIL
-                Remapping and clustering have not run for this study (or eload configuration file is missing taxonomy)
-                Note: This results might not be accurate for older studies. It is advisable to checks those manually
-                
+        Annotation check: 
+            Success: FAIL
+            Errors:
+                ERZ2499196 - annotate_variants error : No annotate_variants log file found for ERZ2499196
         ----------------------------------
-        
+        Variant Statistics check: 
+            Success: FAIL
+            Errors:
+                ERZ2499196 - variant-stats error : No variant-stats log file found for ERZ2499196
+        ----------------------------------
+        Study Statistics check: 
+            Success: FAIL
+            Errors:
+                ERZ2499196 - variant-stats error : No variant-stats log file found for ERZ2499196
+        ----------------------------------
+        Accession Import check: 
+            Success: FAIL
+            Errors:
+                test1.vcf.gz - load_vcf error : No load_vcf log file found for test1.vcf.gz
+                test2.vcf.gz - load_vcf error : No load_vcf log file found for test2.vcf.gz
+        ----------------------------------
+        Remapping Check:
+            N/A
+        ----------------------------------
+        Clustering check:
+            N/A
+        ----------------------------------
+        Backpropagation check:
+            N/A
+        ----------------------------------
         FTP check:
-        
-                Error: No files found in FTP for study PRJEB11111
+            Error: No files found in FTP for study PRJEB11111
         ----------------------------------
-        
         Study check:
-        
-                pass: FAIL
+            Success: FAIL
         ----------------------------------
-
         Study metadata check:
-        
-                pass: FAIL
+            Success: FAIL
                 missing assemblies: ["['Homo Sapiens'](GCA_000001000.1)"]
         ----------------------------------
         """
@@ -214,83 +227,83 @@ class TestSubmissionQC(TestCase):
         Variant load and Accession Import check:
             Variant load check: FAIL
             Annotation check: FAIL
-            Statistics check: FAIL
+            Variant Statistics check: FAIL
+            Study Statistics check: FAIL
             Accession Import check: FAIL
         Remapping and Clustering Check:
-            Clustering check: FAIL 
-            Remapping check: FAIL
-            Back-propogation check: FAIL
+            Remapping check: DID NOT RUN
+            Clustering check: DID NOT RUN 
+            Back-propogation check: DID NOT RUN
         FTP check: FAIL
         Study check: FAIL
         Study metadata check: FAIL
+        
+        QC Details:
         ----------------------------------
-
         Browsable files check:
-        
-            pass : PASS
-            expected files: ['test1.vcf.gz', 'test2.vcf.gz']
-            missing files: None
+            Success : PASS
+            Expected files: ['test1.vcf.gz', 'test2.vcf.gz']
+            Missing files: None
         ---------------------------------
-        
         Accessioning job check:
-        
+            
                 pass: FAIL
                 failed_files:
                     test1.vcf.gz - failed job/step : CREATE_SUBSNP_ACCESSION_STEP
                     test2.vcf.gz - Accessioning Error : No accessioning file found for test2.vcf.gz
         ----------------------------------
-        
         Variants skipped check:
-        
-                pass: PASS with Warning (Manual Check Required)
-                failed_files:
+            
+                Success: PASS with Warning (Manual Check Required)
+                Failures:
                     test2.vcf.gz - Accessioning Error : No accessioning file found for test2.vcf.gz
         ----------------------------------
-        
         Variant load check:
-        
-                vcf load result: FAIL
-                annotation result: FAIL
-                statistics result: FAIL
-                accession import result: FAIL
-                    Failed Files:
-                        test1.vcf.gz: 
-                            load_vcf error : No load_vcf log file found for test1.vcf.gz
-                            acc_import failed job/step : accession-import-step
-                        test2.vcf.gz: 
-                            load_vcf error : No load_vcf log file found for test2.vcf.gz
-                            acc_import error : No acc_import log file found for test2.vcf.gz
-                    Failed Analysis:
-                        ERZ2499196: 
-                            annotate_variants error : No annotate_variants log file found for ERZ2499196
-                            calculate_statistics error : No calculate_statistics log file found for ERZ2499196
+            Success: FAIL
+            Errors:
+                test1.vcf.gz - load_vcf error : No load_vcf log file found for test1.vcf.gz
+                test2.vcf.gz - load_vcf error : No load_vcf log file found for test2.vcf.gz
         ----------------------------------
-
-        Remapping and Clustering check:
-        
-                clustering check: FAIL
-                remapping check: FAIL    
-                backpropagation check: FAIL
-                Remapping and clustering have not run for this study (or eload configuration file is missing taxonomy)
-                Note: This results might not be accurate for older studies. It is advisable to checks those manually
-                
+        Annotation check: 
+            Success: FAIL
+            Errors:
+                ERZ2499196 - annotate_variants error : No annotate_variants log file found for ERZ2499196
         ----------------------------------
-        
+        Variant Statistics check: 
+            Success: FAIL
+            Errors:
+                ERZ2499196 - variant-stats error : No variant-stats log file found for ERZ2499196
+        ----------------------------------
+        Study Statistics check: 
+            Success: FAIL
+            Errors:
+                ERZ2499196 - variant-stats error : No variant-stats log file found for ERZ2499196
+        ----------------------------------
+        Accession Import check: 
+            Success: FAIL
+            Errors:
+                test1.vcf.gz - load_vcf error : No load_vcf log file found for test1.vcf.gz
+                test2.vcf.gz - load_vcf error : No load_vcf log file found for test2.vcf.gz
+        ----------------------------------
+        Remapping Check:
+            N/A
+        ----------------------------------
+        Clustering check:
+            N/A
+        ----------------------------------
+        Backpropagation check:
+            N/A
+        ----------------------------------
         FTP check:
-        
-                pass: FAIL 
-                missing files: ['test1.vcf.gz', 'test1.accessioned.vcf.gz', 'test2.vcf.gz', 'test2.vcf.gz.csi or test2.vcf.csi', 'test2.accessioned.vcf.gz', 'test2.accessioned.vcf.gz.csi or test2.accessioned.vcf.csi']
+            Success: FAIL 
+                Missing files: ['test1.vcf.gz', 'test1.accessioned.vcf.gz', 'test2.vcf.gz', 'test2.vcf.gz.csi or test2.vcf.csi', 'test2.accessioned.vcf.gz', 'test2.accessioned.vcf.gz.csi or test2.accessioned.vcf.csi']
         ----------------------------------
-        
         Study check:
-        
-                pass: FAIL
+            Success: FAIL
         ----------------------------------
-
         Study metadata check:
-        
-                pass: FAIL
-                missing assemblies: ["[\'Homo Sapiens\'](GCA_000001000.1)"]
+            Success: FAIL
+                missing assemblies: ["['Homo Sapiens'](GCA_000001000.1)"]
         ----------------------------------
         """
 
@@ -303,77 +316,73 @@ class TestSubmissionQC(TestCase):
         Variants Skipped accessioning check: PASS
         Variant load and Accession Import check:
             Variant load check: PASS
-            Annotation check: PASS
-            Statistics check: PASS
+            Annotation check: SKIP
+            Variant Statistics check: PASS
+            Study Statistics check: PASS
             Accession Import check: PASS
         Remapping and Clustering Check:
-            Clustering check: PASS 
             Remapping check: PASS
+            Clustering check: PASS 
             Back-propogation check: PASS
         FTP check: PASS
         Study check: PASS
         Study metadata check: PASS
+        
+        QC Details:
         ----------------------------------
-
         Browsable files check:
-        
-            pass : PASS
-            expected files: ['test1.vcf.gz']
-            missing files: None
+            Success : PASS
+            Expected files: ['test1.vcf.gz', 'test2.vcf.gz']
+            Missing files: None
         ---------------------------------
-        
         Accessioning job check:
-        
+            
                 pass: PASS
         ----------------------------------
-        
         Variants skipped check:
-        
-                pass: PASS
+            
+                Success: PASS
         ----------------------------------
-        
         Variant load check:
-        
-                vcf load result: PASS
-                annotation result: PASS
-                statistics result: PASS
-                accession import result: PASS
+            Success: PASS
         ----------------------------------
-
-        Remapping and Clustering check:
-        
-                clustering check: PASS
-                    Clustering Job: PASS        
-                        
-                    Clustering QC Job: PASS
-                        
-        
-                remapping check: PASS
-                    remapping result of assemblies:
-                        GCA_000003205.6:
-                            - vcf_extractor_result : PASS - No Error
-                            - remapping_ingestion_result: PASS - No Error
-                    
-                backpropagation check: PASS
-                    backpropagation result of assemblies:
-                        GCA_000003205.6: PASS - No Error
-                
+        Annotation check: 
+            annotation result - SKIPPED
         ----------------------------------
-        
+        Variant Statistics check: 
+            Success: PASS
+        ----------------------------------
+        Study Statistics check: 
+            Success: PASS
+        ----------------------------------
+        Accession Import check: 
+            Success: PASS
+        ----------------------------------
+        Remapping Check:
+            Source assembly GCA_000003205.6:
+                - vcf_extractor_result : PASS - No Error
+                - remapping_ingestion_result: PASS - No Error
+            Source assembly GCA_000003205.1:
+                - vcf_extractor_result : PASS - No Error
+                - remapping_ingestion_result: PASS - No Error
+        ----------------------------------
+        Clustering check:
+            Clustering Job: PASS - No error
+            Clustering QC Job: PASS - No error
+        ----------------------------------
+        Backpropagation check:
+            Backpropagation result to GCA_000003205.6: PASS - No Error
+            Backpropagation result to GCA_000003205.1: PASS - No Error
+        ----------------------------------
         FTP check:
-        
-                pass: PASS 
-                missing files: None
+            Success: PASS 
+                Missing files: None
         ----------------------------------
-        
         Study check:
-        
-                pass: PASS
+            Success: PASS
         ----------------------------------
-
         Study metadata check:
-        
-                pass: PASS
+            Success: PASS
                 missing assemblies: None
         ----------------------------------
         """
@@ -388,88 +397,82 @@ class TestSubmissionQC(TestCase):
         Variant load and Accession Import check:
             Variant load check: FAIL
             Annotation check: FAIL
-            Statistics check: FAIL
+            Variant Statistics check: FAIL
+            Study Statistics check: FAIL
             Accession Import check: FAIL
         Remapping and Clustering Check:
-            Clustering check: FAIL 
             Remapping check: FAIL
+            Clustering check: FAIL 
             Back-propogation check: FAIL
         FTP check: PASS
         Study check: PASS
         Study metadata check: PASS
+        
+        QC Details:
         ----------------------------------
-
         Browsable files check:
-        
-            pass : PASS
-            expected files: ['test1.vcf.gz']
-            missing files: None
+            Success : PASS
+            Expected files: ['test1.vcf.gz']
+            Missing files: None
         ---------------------------------
-        
         Accessioning job check:
-        
+            
                 pass: FAIL
                 failed_files:
                     test1.vcf.gz - Accessioning Error : No accessioning file found for test1.vcf.gz
         ----------------------------------
-        
         Variants skipped check:
-        
-                pass: PASS with Warning (Manual Check Required)
-                failed_files:
+            
+                Success: PASS with Warning (Manual Check Required)
+                Failures:
                     test1.vcf.gz - Accessioning Error : No accessioning file found for test1.vcf.gz
         ----------------------------------
-        
         Variant load check:
-        
-                vcf load result: FAIL
-                annotation result: FAIL
-                statistics result: FAIL
-                accession import result: FAIL
-                    Failed Files:
-                        test1.vcf.gz: 
-                            load_vcf error : No load_vcf log file found for test1.vcf.gz
-                            acc_import error : No acc_import log file found for test1.vcf.gz
-                    Failed Analysis:
-                        ERZ2499196: 
-                            annotate_variants error : No annotate_variants log file found for ERZ2499196
-                            calculate_statistics error : No calculate_statistics log file found for ERZ2499196
+            Success: FAIL
+            Errors:
+                test1.vcf.gz - load_vcf error : No load_vcf log file found for test1.vcf.gz
         ----------------------------------
-
-        Remapping and Clustering check:
-        
-                clustering check: FAIL
-                    Clustering Job: FAIL        
-                        clustering error : No clustering log file found for GCA_000247795.2
-                    Clustering QC Job: FAIL
-                        clustering_qc error : No clustering_qc log file found for GCA_000247795.2
-        
-                remapping check: FAIL
-                    remapping result of assemblies:
-                        GCA_000003205.6:
-                            - vcf_extractor_result : FAIL - vcf_extractor error : No vcf_extractor log file found for GCA_000003205.6
-                            - remapping_ingestion_result: FAIL - remapping_ingestion error : No remapping_ingestion log file found for GCA_000003205.6
-                    
-                backpropagation check: FAIL
-                    backpropagation result of assemblies:
-                        GCA_000003205.6: FAIL - backpropagation error : No backpropagation log file found for GCA_000003205.6
-                
+        Annotation check: 
+            Success: FAIL
+            Errors:
+                ERZ2499196 - annotate_variants error : No annotate_variants log file found for ERZ2499196
         ----------------------------------
-        
+        Variant Statistics check: 
+            Success: FAIL
+            Errors:
+                ERZ2499196 - variant-stats error : No variant-stats log file found for ERZ2499196
+        ----------------------------------
+        Study Statistics check: 
+            Success: FAIL
+            Errors:
+                ERZ2499196 - variant-stats error : No variant-stats log file found for ERZ2499196
+        ----------------------------------
+        Accession Import check: 
+            Success: FAIL
+            Errors:
+                test1.vcf.gz - load_vcf error : No load_vcf log file found for test1.vcf.gz
+        ----------------------------------
+        Remapping Check:
+            Source assembly GCA_000003205.6:
+                - vcf_extractor_result : FAIL - vcf_extractor error : No vcf_extractor log file found for GCA_000003205.6
+                - remapping_ingestion_result: FAIL - remapping_ingestion error : No remapping_ingestion log file found for GCA_000003205.6
+        ----------------------------------
+        Clustering check:
+            Clustering Job: FAIL - clustering error : No clustering log file found for GCA_000247795.2
+            Clustering QC Job: FAIL - clustering_qc error : No clustering_qc log file found for GCA_000247795.2
+        ----------------------------------
+        Backpropagation check:
+            Backpropagation result to GCA_000003205.6: FAIL - backpropagation error : No backpropagation log file found for GCA_000003205.6
+        ----------------------------------
         FTP check:
-        
-                pass: PASS 
-                missing files: None
+            Success: PASS 
+                Missing files: None
         ----------------------------------
-        
         Study check:
-        
-                pass: PASS
+            Success: PASS
         ----------------------------------
-
         Study metadata check:
-        
-                pass: PASS
+            Success: PASS
                 missing assemblies: None
         ----------------------------------
         """
