@@ -119,11 +119,9 @@ class TestSubmissionQC(TestCase):
                                        'test1.accessioned.vcf.gz.csi', 'test1.accessioned.vcf.csi']
             self.assertEqual(self.expected_report_of_eload_104(), self.eload.run_qc_checks_for_submission())
 
-
     def test_check_if_variant_load_completed_successfully(self):
         self.eload = EloadQC(103)
         result, report = self.eload.check_if_variant_load_completed_successfully()
-        print(report)
         assert result == 'PASS'
         assert report == 'Success: PASS'
 
