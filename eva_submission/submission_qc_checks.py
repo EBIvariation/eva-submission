@@ -2,7 +2,7 @@ import glob
 import os
 from collections import defaultdict
 from ftplib import FTP
-from functools import cached_property
+from functools import cached_property, lru_cache
 from pathlib import Path
 
 import requests
@@ -77,6 +77,7 @@ job_launched_and_completed_text_map = {
 }
 
 
+@lru_cache(maxsize=None)
 def _did_job_complete_successfully_from_log(file_path, job_type):
     with open(file_path, 'r') as f:
         job_status = 'FAILED'
@@ -197,21 +198,27 @@ class EloadQC(Eload):
             return variants_skipped
 
     def _check_multiple_logs(self, search_unit, log_patterns, job_types):
+        """
+        Go through the list of provided logs and search for the given job types.
+        It returns a positive results if at least one if these jobs is found to pass similar ro any() function.
+        The search_unit is group for which this search is perform, typically a file name or analysis accession
+        Returns a tuple with the test result as boolean and the last error message if none of the jobs are found.
+        """
         assert len(log_patterns) == len(job_types)
         any_pass = False
         last_error = f'No log checked for {search_unit}'
         for log_pattern, job_type in zip(log_patterns, job_types):
-            check_pass, last_error = self._find_log_and_check_job(search_unit, log_pattern, job_types[idx])
+            check_pass, last_error = self._find_log_and_check_job(search_unit, log_pattern, job_type)
             any_pass = any_pass or check_pass
             if any_pass:
                 break
         return any_pass, last_error
 
-    def _find_log_and_check_job(self, search_unit, log_file_pattern, job_type, failure_dict=None):
+    def _find_log_and_check_job(self, search_unit, log_file_pattern, job_type):
         """
         Find a log file using the provided log_file_pattern and check if the specified job_type was run successfully.
+        The search_unit is group for which this search is perform, typically a file name or analysis accession
         Returns a tuple with the test result as boolean and optional error message
-        If a dict is passed for the failure_dict then the failure are recorded there
         """
         log_files = glob.glob(os.path.join(self.path_to_logs_dir, log_file_pattern))
         report_text = ""
@@ -225,8 +232,6 @@ class EloadQC(Eload):
         else:
             report_text += f"{job_type} error : No {job_type} log file found for {search_unit}"
             job_passed = False
-        if not job_passed and failure_dict is not None:
-            failure_dict[search_unit][job_type] = report_text
         return job_passed, report_text
 
     ###
@@ -240,7 +245,7 @@ class EloadQC(Eload):
         return result, report
 
     @staticmethod
-    def _report_for_log(failed_unit, report_header):
+    def _report_for_log(failed_unit):
         """Create a result string and a detailed report based on the error reported in failed unit"""
         result = "PASS" if not failed_unit else "FAIL"
         report = f"""Success: {result}"""
@@ -359,18 +364,18 @@ class EloadQC(Eload):
                 ["variant_load", "load_vcf"])
             if not file_pass:
                 failed_files[file_name] = last_error
-        return self._report_for_log(failed_files, 'vcf load result')
+        return self._report_for_log(failed_files)
 
     def check_if_acc_load_completed_successfully(self):
         failed_files = {}
         for file_name in self.vcf_files:
             file_pass, last_error = self._check_multiple_logs(
                 file_name,
-                [f"pipeline.*{file_name}*.log", f"load_variants.*{file_name}*.log"],
-                ["variant_load", "load_vcf"])
+                [f"pipeline.*{file_name}*.log", f"acc_import.*{file_name}*.log"],
+                ["variant_load", "acc_import"])
             if not file_pass:
                 failed_files[file_name] = last_error
-        return self._report_for_log(failed_files, 'acc load result')
+        return self._report_for_log(failed_files)
 
     def check_if_vep_completed_successfully(self):
         failed_analysis = {}
@@ -391,7 +396,7 @@ class EloadQC(Eload):
                 if not analysis_pass:
                     failed_analysis[analysis_accession] = last_error
         if any_vep_run:
-            return self._report_for_log(failed_analysis, 'annotation result')
+            return self._report_for_log(failed_analysis)
         else:
             return 'SKIP', f"""annotation result - SKIPPED"""
 
@@ -411,7 +416,7 @@ class EloadQC(Eload):
             analysis_pass, last_error = self._check_multiple_logs(analysis_accession, logs_to_check, jobs_to_check)
             if not analysis_pass:
                 failed_analysis[analysis_accession] = last_error
-        return self._report_for_log(failed_analysis, 'variant statistic result')
+        return self._report_for_log(failed_analysis)
 
     def study_statistic_check_report(self):
         failed_analysis = {}
@@ -427,7 +432,7 @@ class EloadQC(Eload):
             analysis_pass, last_error = self._check_multiple_logs(analysis_accession, logs_to_check, jobs_to_check)
             if not analysis_pass:
                 failed_analysis[analysis_accession] = last_error
-        return self._report_for_log(failed_analysis, 'variant statistic result')
+        return self._report_for_log(failed_analysis)
 
     def check_if_variants_were_skipped_while_accessioning(self):
         # No accessioning check is required for human
