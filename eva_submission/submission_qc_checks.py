@@ -200,7 +200,7 @@ class EloadQC(Eload):
         assert len(log_patterns) == len(job_types)
         any_pass = False
         last_error = f'No log checked for {search_unit}'
-        for idx, log_pattern in enumerate(log_patterns):
+        for log_pattern, job_type in zip(log_patterns, job_types):
             check_pass, last_error = self._find_log_and_check_job(search_unit, log_pattern, job_types[idx])
             any_pass = any_pass or check_pass
             if any_pass:
@@ -210,7 +210,7 @@ class EloadQC(Eload):
     def _find_log_and_check_job(self, search_unit, log_file_pattern, job_type, failure_dict=None):
         """
         Find a log file using the provided log_file_pattern and check if the specified job_type was run successfully.
-        returns a tuple with the test result as boolean an optional error message
+        Returns a tuple with the test result as boolean and optional error message
         If a dict is passed for the failure_dict then the failure are recorded there
         """
         log_files = glob.glob(os.path.join(self.path_to_logs_dir, log_file_pattern))
@@ -229,9 +229,9 @@ class EloadQC(Eload):
             failure_dict[search_unit][job_type] = report_text
         return job_passed, report_text
 
-        ###
-        # Reporting methods
-        ###
+    ###
+    # Reporting methods
+    ###
 
     @staticmethod
     def _report_for_human():
@@ -340,7 +340,7 @@ class EloadQC(Eload):
 
         result = "PASS" if not failed_files else "FAIL"
         report = f"""
-                pass: {result}"""
+                Success: {result}"""
         if failed_files:
             report += f"""
                 failed_files:"""
