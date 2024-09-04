@@ -154,18 +154,16 @@ class TestSubmissionQC(TestCase):
             Missing files: {'test2.vcf.gz'}
         ---------------------------------
         Accessioning job check:
-            
-                pass: FAIL
-                failed_files:
-                    test1.vcf.gz - Accessioning Error : No accessioning file found for test1.vcf.gz
-                    test2.vcf.gz - Accessioning Error : No accessioning file found for test2.vcf.gz
+            Success: FAIL
+            failed_files:
+                test1.vcf.gz - Accessioning Error : No accessioning file found for test1.vcf.gz
+                test2.vcf.gz - Accessioning Error : No accessioning file found for test2.vcf.gz
         ----------------------------------
         Variants skipped check:
-            
-                Success: PASS with Warning (Manual Check Required)
-                Failures:
-                    test1.vcf.gz - Accessioning Error : No accessioning file found for test1.vcf.gz
-                    test2.vcf.gz - Accessioning Error : No accessioning file found for test2.vcf.gz
+            Success: PASS with Warning (Manual Check Required)
+            Failures:
+                test1.vcf.gz - Accessioning Error : No accessioning file found for test1.vcf.gz
+                test2.vcf.gz - Accessioning Error : No accessioning file found for test2.vcf.gz
         ----------------------------------
         Variant load check:
             Success: FAIL
@@ -191,8 +189,8 @@ class TestSubmissionQC(TestCase):
         Accession Import check: 
             Success: FAIL
             Errors:
-                test1.vcf.gz - load_vcf error : No load_vcf log file found for test1.vcf.gz
-                test2.vcf.gz - load_vcf error : No load_vcf log file found for test2.vcf.gz
+                test1.vcf.gz - acc_import error : No acc_import log file found for test1.vcf.gz
+                test2.vcf.gz - acc_import error : No acc_import log file found for test2.vcf.gz
         ----------------------------------
         Remapping Check:
             N/A
@@ -244,17 +242,15 @@ class TestSubmissionQC(TestCase):
             Missing files: None
         ---------------------------------
         Accessioning job check:
-            
-                pass: FAIL
-                failed_files:
-                    test1.vcf.gz - failed job/step : CREATE_SUBSNP_ACCESSION_STEP
-                    test2.vcf.gz - Accessioning Error : No accessioning file found for test2.vcf.gz
+            Success: FAIL
+            failed_files:
+                test1.vcf.gz - failed job/step : CREATE_SUBSNP_ACCESSION_STEP
+                test2.vcf.gz - Accessioning Error : No accessioning file found for test2.vcf.gz
         ----------------------------------
         Variants skipped check:
-            
-                Success: PASS with Warning (Manual Check Required)
-                Failures:
-                    test2.vcf.gz - Accessioning Error : No accessioning file found for test2.vcf.gz
+            Success: PASS with Warning (Manual Check Required)
+            Failures:
+                test2.vcf.gz - Accessioning Error : No accessioning file found for test2.vcf.gz
         ----------------------------------
         Variant load check:
             Success: FAIL
@@ -280,8 +276,8 @@ class TestSubmissionQC(TestCase):
         Accession Import check: 
             Success: FAIL
             Errors:
-                test1.vcf.gz - load_vcf error : No load_vcf log file found for test1.vcf.gz
-                test2.vcf.gz - load_vcf error : No load_vcf log file found for test2.vcf.gz
+                test1.vcf.gz - acc_import failed job/step : accession-import-step
+                test2.vcf.gz - acc_import error : No acc_import log file found for test2.vcf.gz
         ----------------------------------
         Remapping Check:
             N/A
@@ -334,12 +330,10 @@ class TestSubmissionQC(TestCase):
             Missing files: None
         ---------------------------------
         Accessioning job check:
-            
-                pass: PASS
+            Success: PASS
         ----------------------------------
         Variants skipped check:
-            
-                Success: PASS
+            Success: PASS
         ----------------------------------
         Variant load check:
             Success: PASS
@@ -414,16 +408,14 @@ class TestSubmissionQC(TestCase):
             Missing files: None
         ---------------------------------
         Accessioning job check:
-            
-                pass: FAIL
-                failed_files:
-                    test1.vcf.gz - Accessioning Error : No accessioning file found for test1.vcf.gz
+            Success: FAIL
+            failed_files:
+                test1.vcf.gz - Accessioning Error : No accessioning file found for test1.vcf.gz
         ----------------------------------
         Variants skipped check:
-            
-                Success: PASS with Warning (Manual Check Required)
-                Failures:
-                    test1.vcf.gz - Accessioning Error : No accessioning file found for test1.vcf.gz
+            Success: PASS with Warning (Manual Check Required)
+            Failures:
+                test1.vcf.gz - Accessioning Error : No accessioning file found for test1.vcf.gz
         ----------------------------------
         Variant load check:
             Success: FAIL
@@ -448,7 +440,7 @@ class TestSubmissionQC(TestCase):
         Accession Import check: 
             Success: FAIL
             Errors:
-                test1.vcf.gz - load_vcf error : No load_vcf log file found for test1.vcf.gz
+                test1.vcf.gz - acc_import error : No acc_import log file found for test1.vcf.gz
         ----------------------------------
         Remapping Check:
             Source assembly GCA_000003205.6:

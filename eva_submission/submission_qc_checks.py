@@ -344,14 +344,13 @@ class EloadQC(Eload):
                 failed_files[file] = f"Accessioning Error : No accessioning file found for {file}"
 
         result = "PASS" if not failed_files else "FAIL"
-        report = f"""
-                Success: {result}"""
+        report = f"""Success: {result}"""
         if failed_files:
             report += f"""
-                failed_files:"""
+            failed_files:"""
             for file, value in failed_files.items():
                 report += f"""
-                    {file} - {value}"""
+                {file} - {value}"""
 
         return result, report
 
@@ -453,14 +452,13 @@ class EloadQC(Eload):
                 failed_files[file] = f"Accessioning Error : No accessioning file found for {file}"
 
         result = "PASS" if not failed_files else "PASS with Warning (Manual Check Required)"
-        report = f"""
-                Success: {result}"""
+        report = f"""Success: {result}"""
         if failed_files:
             report += f"""
-                Failures:"""
+            Failures:"""
             for file, value in failed_files.items():
                 report += f"""
-                    {file} - {value}"""
+                {file} - {value}"""
 
         return result, report
 
