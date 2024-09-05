@@ -200,7 +200,7 @@ class EloadQC(Eload):
     def _check_multiple_logs(self, search_unit, log_patterns, job_types):
         """
         Go through the list of provided logs and search for the given job types.
-        It returns a positive results if at least one if these jobs is found to pass similar ro any() function.
+        It returns a positive result if at least one if these jobs is found to pass, similar to the any() function.
         The search_unit is group for which this search is perform, typically a file name or analysis accession
         Returns a tuple with the test result as boolean and the last error message if none of the jobs are found.
         """
