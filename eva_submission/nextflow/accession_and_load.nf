@@ -145,7 +145,8 @@ workflow {
                    .groupTuple(by: [3, 4, 8])  // group by analysis_accession, db_name, aggregation
                    .map{tuple(it[3], it[4], it[8], it[1])} // analysis_accession, db_name, aggregation, grouped normalised_vcf_files
 
-        calculate_statistics_vcf(stats_ch, load_variants_vcf.out.variant_load_complete.collect())
+        calculate_variant_statistics_vcf(stats_ch, load_variants_vcf.out.variant_load_complete.collect())
+        calculate_study_statistics_vcf(stats_ch, load_variants_vcf.out.variant_load_complete.collect())
 
         if (!is_human_study) {
             vcf_files_dbname = Channel.fromPath(params.valid_vcfs)
@@ -390,14 +391,14 @@ process run_vep_on_variants {
 
 
 /*
- * Calculate statistics using eva-pipeline.
+ * Calculate variant statistics using eva-pipeline.
  */
-process calculate_statistics_vcf {
+process calculate_variant_statistics_vcf {
     label 'long_time', 'med_mem'
 
     clusterOptions {
-        return "-o $params.logs_dir/statistics.${analysis_accession}.log \
-                -e $params.logs_dir/statistics.${analysis_accession}.err"
+        return "-o $params.logs_dir/variant.statistics.${analysis_accession}.log \
+                -e $params.logs_dir/variant.statistics.${analysis_accession}.err"
     }
 
     when:
@@ -409,12 +410,51 @@ process calculate_statistics_vcf {
     val variant_load_complete
 
     output:
-    val true, emit: statistics_calc_complete
+    val true, emit: variant_statistics_calc_complete
 
     script:
     def pipeline_parameters = ""
 
-    pipeline_parameters += " --spring.batch.job.names=calculate-statistics-job"
+    pipeline_parameters += " --spring.batch.job.names=variant-stats-job"
+
+    pipeline_parameters += " --input.vcf.aggregation=" + aggregation.toString().toUpperCase()
+    pipeline_parameters += " --input.vcf=" + file(vcf_files[0]).toRealPath().toString() // If there are multiple file only use the first
+    pipeline_parameters += " --input.vcf.id=" + analysis_accession.toString()
+
+    pipeline_parameters += " --spring.data.mongodb.database=" + db_name.toString()
+
+    """
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
+    """
+}
+
+
+/*
+ * Calculate study statistics using eva-pipeline.
+ */
+process calculate_study_statistics_vcf {
+    label 'long_time', 'med_mem'
+
+    clusterOptions {
+        return "-o $params.logs_dir/study.statistics.${analysis_accession}.log \
+                -e $params.logs_dir/study.statistics.${analysis_accession}.err"
+    }
+
+    when:
+    // Statistics calculation is not required for Already aggregated analysis/study
+    aggregation.toString() == "none"
+
+    input:
+    tuple val(analysis_accession), val(db_name), val(aggregation), val(vcf_files)
+    val variant_load_complete
+
+    output:
+    val true, emit: study_statistics_calc_complete
+
+    script:
+    def pipeline_parameters = ""
+
+    pipeline_parameters += " --spring.batch.job.names=file-stats-job"
 
     pipeline_parameters += " --input.vcf.aggregation=" + aggregation.toString().toUpperCase()
     pipeline_parameters += " --input.vcf=" + file(vcf_files[0]).toRealPath().toString() // If there are multiple file only use the first
