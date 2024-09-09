@@ -106,7 +106,7 @@ class EloadBrokering(Eload):
             sample_name_to_accession = sample_metadata_submitter.already_submitted_sample_names_to_accessions()
             self.eload_cfg.set('brokering', 'Biosamples', 'Samples', value=sample_name_to_accession)
         elif (
-            self.eload_cfg.query('brokering', 'Biosamples', 'Samples')
+                self.eload_cfg.query('brokering', 'Biosamples', 'Samples')
             and self.eload_cfg.query('brokering', 'Biosamples', 'pass')
         ):
             self.info('BioSamples brokering is already done, Skip!')
@@ -124,7 +124,9 @@ class EloadBrokering(Eload):
             if not passed:
                 raise ValueError(f'Not all samples were successfully brokered to BioSamples! '
                                  f'Found {len(sample_name_to_accession)} and expected '
-                                 f'{len(sample_metadata_submitter.all_sample_names())}')
+                                 f'{len(sample_metadata_submitter.all_sample_names())}. '
+                                 f'Missing samples are '
+                                 f'{[sample_name for sample_name in sample_metadata_submitter.all_sample_names() if sample_name not in sample_name_to_accession]}')
 
     def update_biosamples_with_study(self, force=False):
         if not self.eload_cfg.query('brokering', 'Biosamples', 'backlinks') or force:

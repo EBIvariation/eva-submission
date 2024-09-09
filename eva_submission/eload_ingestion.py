@@ -226,7 +226,7 @@ class EloadIngestion(Eload):
         command = (f"perl {cfg['executable']['load_from_ena']} -p {self.project_accession} -c submitted -v 1 "
                    f"-l {self._get_dir('scratch')} -e {str(self.eload_num)}")
         if analysis_accession:
-            command += f' -A -a {analysis_accession}'
+            command += f' -A 1 -a {analysis_accession}'
         try:
             command_utils.run_command_with_output('Load metadata from ENA to EVAPRO', command)
             self.eload_cfg.set(self.config_section, 'ena_load', value='success')
@@ -555,7 +555,7 @@ class EloadIngestion(Eload):
                 execute_query(conn, ftp_update)
 
     def update_loaded_assembly_in_browsable_files(self):
-        # find assembly associated with each browseable file and copy it to the browsable file table
+        # find assembly associated with each browsable file and copy it to the browsable file table
         query = ('select bf.file_id, a.vcf_reference_accession '
                  'from analysis a '
                  'join analysis_file af on a.analysis_accession=af.analysis_accession '
@@ -564,7 +564,8 @@ class EloadIngestion(Eload):
         with self.metadata_connection_handle as conn:
             rows = get_all_results_for_query(conn, query)
             if len(rows) == 0:
-                raise ValueError('Something went wrong with loading from ENA')
+                raise ValueError(f'No files found associated with project {self.project_accession}. '
+                                 f'Something went wrong with loading from ENA')
 
             # Update each file with its associated assembly accession
             for file_id, assembly_accession in rows:
