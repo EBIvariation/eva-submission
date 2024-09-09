@@ -15,7 +15,7 @@ def get_samples_from_vcf_manual(vcf_file):
     Get the list of samples present in a single VCF file
     """
     if vcf_file.endswith('.gz'):
-        open_file = gzip.open(vcf_file, 'r')
+        open_file = gzip.open(vcf_file, 'rt')
     else:
         open_file = open(vcf_file, 'r')
     try:
