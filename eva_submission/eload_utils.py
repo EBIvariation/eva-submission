@@ -245,8 +245,8 @@ def _assess_vcf_aggregation_manual(vcf_file):
                 if len(sp_line) > 9:
                     samples = sp_line[9:]
             if not line.startswith('#'):
-                gt_in_format = gt_in_format and 'GT' in sp_line[8]
-                af_in_info = af_in_info and (sp_line[9].find('AF=') or (sp_line[9].find('AC=') and sp_line[9].find('AN=')))
+                gt_in_format = gt_in_format and len(sp_line) > 8 and 'GT' in sp_line[8]
+                af_in_info = af_in_info and (sp_line[7].find('AF=') or (sp_line[7].find('AC=') and sp_line[7].find('AN=')))
             if nb_line_checked >= max_line_check:
                 break
         return samples, af_in_info, gt_in_format

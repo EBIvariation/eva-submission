@@ -44,7 +44,13 @@ class TestEloadUtils(TestCase):
             os.path.join(self.resources_folder, 'vcf_files', 'file_basic_aggregation.vcf')
         ) == 'basic'
         assert detect_vcf_aggregation(
+            os.path.join(self.resources_folder, 'vcf_files', 'file_basic_aggregation.vcf.gz')
+        ) == 'basic'
+        assert detect_vcf_aggregation(
             os.path.join(self.resources_folder, 'vcf_files', 'file_no_aggregation.vcf')
+        ) == 'none'
+        assert detect_vcf_aggregation(
+            os.path.join(self.resources_folder, 'vcf_files', 'file_no_aggregation.vcf.gz')
         ) == 'none'
         assert detect_vcf_aggregation(
             os.path.join(self.resources_folder, 'vcf_files', 'file_undetermined_aggregation.vcf')
