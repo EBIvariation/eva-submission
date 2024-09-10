@@ -21,7 +21,7 @@ def get_samples_from_vcf_manual(vcf_file):
     try:
         for line in open_file:
             if line.startswith('#CHROM'):
-                sp_line = line.split('\t')
+                sp_line = line.strip().split('\t')
                 if len(sp_line) > 9:
                     return sp_line[9:]
     finally:
