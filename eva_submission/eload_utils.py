@@ -217,8 +217,11 @@ def detect_vcf_aggregation(vcf_file):
         samples, af_in_info, gt_in_format = _assess_vcf_aggregation_with_pysam(vcf_file)
     except Exception:
         logger.error(f"Pysam Failed to open and read {vcf_file}")
-        samples, af_in_info, gt_in_format = _assess_vcf_aggregation_manual(vcf_file)
-
+        try:
+            samples, af_in_info, gt_in_format = _assess_vcf_aggregation_manual(vcf_file)
+        except Exception:
+            logger.error(f"Manual parsing Failed to open or read {vcf_file}")
+            return None
     if len(samples) > 0 and gt_in_format:
         return 'none'
     elif len(samples) == 0 and af_in_info:
@@ -229,11 +232,12 @@ def detect_vcf_aggregation(vcf_file):
 
 
 def _assess_vcf_aggregation_manual(vcf_file):
-    if vcf_file.endswith('.gz'):
-        open_file = gzip.open(vcf_file, 'rt')
-    else:
-        open_file = open(vcf_file, 'r')
     try:
+        if vcf_file.endswith('.gz'):
+            open_file = gzip.open(vcf_file, 'rt')
+        else:
+            open_file = open(vcf_file, 'r')
+
         nb_line_checked = 0
         max_line_check = 10
         gt_in_format = True
