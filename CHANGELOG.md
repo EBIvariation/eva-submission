@@ -1,11 +1,27 @@
 Changelog for eva-submission
 ============================
 
-## 1.15.9 (unreleased)
+## 1.16 (2024-09-11)
 ----------------------
 
-- Nothing changed yet.
+## All
+ - Move the data/project directories to the eload directory
 
+## Validation
+ - Detect contig naming convention in VCF file 
+ - Fallback on manual VCF file parsing when running sample check as pysam fails sometime 
+ - Fix validation output file renaming in SV and naming convention 
+ - Fix aggregation check 
+
+## Brokering 
+ - Fix: ENA platform and Imputation attributes
+ - Actually keep the samples that were created
+
+## Ingestion 
+ - Fix import of metadata for analysis only  
+ - Fix Async upload to ENA
+ - Run new statistic calculation step 
+ - Install Vep version if not available 
 
 ## 1.15.8 (2024-07-19)
 ----------------------
