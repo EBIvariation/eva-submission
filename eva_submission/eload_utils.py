@@ -1,4 +1,5 @@
 import glob
+import gzip
 import os
 import re
 import urllib
@@ -211,7 +212,53 @@ def detect_vcf_aggregation(vcf_file):
     in every line checked.
     Otherwise it returns None meaning that the aggregation type could not be determined.
     """
+
     try:
+        samples, af_in_info, gt_in_format = _assess_vcf_aggregation_with_pysam(vcf_file)
+    except Exception:
+        logger.error(f"Pysam Failed to open and read {vcf_file}")
+        try:
+            samples, af_in_info, gt_in_format = _assess_vcf_aggregation_manual(vcf_file)
+        except Exception:
+            logger.error(f"Manual parsing Failed to open or read {vcf_file}")
+            return None
+    if len(samples) > 0 and gt_in_format:
+        return 'none'
+    elif len(samples) == 0 and af_in_info:
+        return 'basic'
+    else:
+        logger.error(f'Aggregation type could not be detected for {vcf_file}')
+        return None
+
+
+def _assess_vcf_aggregation_manual(vcf_file):
+    try:
+        if vcf_file.endswith('.gz'):
+            open_file = gzip.open(vcf_file, 'rt')
+        else:
+            open_file = open(vcf_file, 'r')
+
+        nb_line_checked = 0
+        max_line_check = 10
+        gt_in_format = True
+        af_in_info = True
+        samples = []
+        for line in open_file:
+            sp_line = line.strip().split('\t')
+            if line.startswith('#CHROM'):
+                if len(sp_line) > 9:
+                    samples = sp_line[9:]
+            if not line.startswith('#'):
+                gt_in_format = gt_in_format and len(sp_line) > 8 and 'GT' in sp_line[8]
+                af_in_info = af_in_info and (sp_line[7].find('AF=') or (sp_line[7].find('AC=') and sp_line[7].find('AN=')))
+            if nb_line_checked >= max_line_check:
+                break
+        return samples, af_in_info, gt_in_format
+    finally:
+        open_file.close()
+
+
+def _assess_vcf_aggregation_with_pysam(vcf_file):
         with pysam.VariantFile(vcf_file, 'r') as vcf_in:
             samples = list(vcf_in.header.samples)
             # check that the first 10 lines have genotypes for all the samples present and if they have allele frequency
@@ -225,16 +272,7 @@ def detect_vcf_aggregation(vcf_file):
                 nb_line_checked += 1
                 if nb_line_checked >= max_line_check:
                     break
-    except Exception:
-        logger.error(f"Pysam Failed to open and read {vcf_file}")
-        return None
-    if len(samples) > 0 and gt_in_format:
-        return 'none'
-    elif len(samples) == 0 and af_in_info:
-        return 'basic'
-    else:
-        logger.error(f'Aggregation type could not be detected for {vcf_file}')
-        return None
+            return samples, af_in_info, gt_in_format
 
 
 def create_assembly_report_from_fasta(assembly_fasta_path):
