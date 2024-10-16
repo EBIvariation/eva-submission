@@ -28,7 +28,8 @@ _now = datetime.now().isoformat()
 
 class BioSamplesSubmitter(AppLogger):
 
-    valid_actions = ('create', 'overwrite', 'curate', 'derive')
+    valid_actions = ('create', 'overwrite', 'override', 'curate', 'derive')
+    characteristics_allowed_to_override = ('collection_date', 'geographic location (country and/or sea)')
 
     def __init__(self, communicators, submit_type=('create',), allow_removal=False):
         assert len(communicators) > 0, 'Specify at least one communicator object to BioSamplesSubmitter'
@@ -39,27 +40,35 @@ class BioSamplesSubmitter(AppLogger):
         self.submit_type = submit_type
         self.allow_removal = allow_removal
 
-    @lru_cache
-    def _get_existing_sample(self, accession):
-        return self.default_communicator.follows_link('samples', method='GET', join_url=accession)
+    @lru_cache(maxsize=0)
+    def _get_existing_sample(self, accession, include_curation=False):
+        if include_curation:
+            append_to_url = accession
+        else:
+            append_to_url = accession + '?curationdomain='
+        return self.default_communicator.follows_link('samples', method='GET', join_url=append_to_url)
 
     def can_create(self, sample):
         return 'create' in self.submit_type and 'accession' not in sample
 
     def can_overwrite(self, sample):
-        """ We should overwrite a samples when it is owned by a domain supported current uploader"""
-        return 'overwrite' in self.submit_type and \
-            'accession' in sample and \
-            self._get_communicator_for_sample(sample)
+        """ We should overwrite a samples when it is owned by a domain supported current uploader
+        or when we use a superuser to override the original sample"""
+        return 'accession' in sample and (
+            'overwrite' in self.submit_type and self._get_communicator_for_sample(sample) or
+            'override' in self.submit_type and self._allowed_to_override(sample)
+        )
 
     def can_curate(self, sample):
-        """ We can curate a samples if it has an existing accessionr"""
+        """ We can curate a samples if it has an existing accession"""
         return 'curate' in self.submit_type and 'accession' in sample
 
     def can_derive(self, sample):
         return 'derive' in self.submit_type and 'accession' in sample
 
     def _get_communicator_for_sample(self, sample):
+        if 'override' in self.submit_type:
+            return self.communicators[0]
         sample_data = self._get_existing_sample(sample.get('accession'))
         # This check If one of the account own the BioSample by checking if the 'domain' or 'webinSubmissionAccountId'
         # are the same as the one who submitted the sample
@@ -68,6 +77,12 @@ class BioSamplesSubmitter(AppLogger):
                 return communicator
         return None
 
+    def _allowed_to_override(self, sample):
+        if sample.get('accession', '').startswith('SAMN'):
+            return True
+        else:
+            self.warning(f'Sample {sample.get("accession")} cannot be overridden because it is not an NCBI sample ')
+
     def validate_in_bsd(self, samples_data):
         for sample in samples_data:
             if self.can_overwrite(sample):
@@ -75,12 +90,13 @@ class BioSamplesSubmitter(AppLogger):
 
             # If we're only retrieving don't need to validate.
             if self.can_create(sample) or self.can_overwrite(sample):
-                sample.update(self.default_communicator.communicator_attributes)
+                if self.can_create(sample):
+                    sample.update(self.default_communicator.communicator_attributes)
                 self.default_communicator.follows_link('samples', join_url='validate', method='POST', json=sample)
 
     def convert_sample_data_to_curation_object(self, future_sample):
         """Curation object can only change 3 attributes characteristics, externalReferences and relationships"""
-        current_sample = self._get_existing_sample(future_sample.get('accession'))
+        current_sample = self._get_existing_sample(future_sample.get('accession'), include_curation=True)
         #FIXME: Remove this hack when this is fixed on BioSample's side
         # remove null values in externalReferences that causes crash when POSTing the curation object
         if 'externalReferences' in current_sample:
@@ -149,6 +165,13 @@ class BioSamplesSubmitter(AppLogger):
 
     def _update_samples_with(self, sample_source, sample_dest):
         """Update a BioSample object with the value of another"""
+        if 'override' in self.submit_type:
+            # Ensure that override only change geographic location and collection date
+            tmp_sample_source = {'characteristics': {}}
+            for attribute in self.characteristics_allowed_to_override:
+                if attribute in sample_source['characteristics']:
+                    tmp_sample_source['characteristics'][attribute] = sample_source['characteristics'][attribute]
+            sample_source = tmp_sample_source
         for attribute in sample_source['characteristics']:
             if attribute not in sample_dest['characteristics']:
                 sample_dest['characteristics'][attribute] = sample_source['characteristics'][attribute]
@@ -165,9 +188,9 @@ class BioSamplesSubmitter(AppLogger):
         # We only add existing characteristics if we do not want to remove anything
         if self.can_overwrite(sample) and not self.allow_removal:
             # retrieve the sample without any curation and add the new data on top
-            current_sample = self._get_existing_sample(sample.get('accession'))
-            self._update_samples_with(current_sample, sample)
-        return sample
+            destination_sample = self._get_existing_sample(sample.get('accession'))
+            self._update_samples_with(sample, destination_sample)
+        return destination_sample
 
     def create_derived_sample(self, sample):
         skipped_attributes = ['SRA accession']
@@ -196,19 +219,20 @@ class BioSamplesSubmitter(AppLogger):
         Then it returns a map of sample name to sample accession.
         """
         for sample in samples_data:
-            sample.update(self.default_communicator.communicator_attributes)
             if self.can_create(sample):
+                sample.update(self.default_communicator.communicator_attributes)
                 sample_json = self.default_communicator.follows_link('samples', method='POST', json=sample)
-                self.debug('Accession sample ' + sample.get('name') + ' as ' + sample_json.get('accession'))
+                self.debug('Accession sample ' + sample.get('name', '') + ' as ' + sample_json.get('accession'))
             elif self.can_overwrite(sample):
                 sample_to_overwrite = self.create_sample_to_overwrite(sample)
-                self.debug('Overwrite sample ' + sample.get('name') + ' with accession ' + sample.get('accession'))
+
+                self.debug('Overwrite sample ' + sample_to_overwrite.get('name', '') + ' with accession ' + sample_to_overwrite.get('accession'))
                 # Use the communicator that can own the sample to overwrite it.
                 communicator = self._get_communicator_for_sample(sample)
                 sample_json = communicator.follows_link('samples', method='PUT', join_url=sample.get('accession'),
                                                                      json=sample_to_overwrite)
             elif self.can_curate(sample):
-                self.debug('Update sample ' + sample.get('name') + ' with accession ' + sample.get('accession'))
+                self.debug('Update sample ' + sample.get('name', '') + ' with accession ' + sample.get('accession'))
                 curation_object = self.convert_sample_data_to_curation_object(sample)
                 curation_json = self.default_communicator.follows_link(
                     'samples', method='POST', join_url=sample.get('accession')+'/curationlinks', json=curation_object
@@ -241,6 +265,14 @@ class SampleSubmitter(AppLogger):
 
     def __init__(self, submit_type):
         communicators = []
+
+        if 'override' in submit_type:
+            assert len(submit_type) == 1, f'override can only be used as a single action'
+            communicators.append(AAPHALCommunicator(
+                cfg.query('biosamples', 'aap_url'), cfg.query('biosamples', 'bsd_url'),
+                cfg.query('biosamples', 'aap_super_user'), cfg.query('biosamples', 'aap_super_password'),
+                cfg.query('biosamples', 'aap_super_domain')
+            ))
         # If the config has the credential for using webin with BioSamples use webin first
         if cfg.query('biosamples', 'webin_url') and cfg.query('biosamples', 'webin_username') and \
                 cfg.query('biosamples', 'webin_password'):
@@ -253,6 +285,7 @@ class SampleSubmitter(AppLogger):
             cfg.query('biosamples', 'username'), cfg.query('biosamples', 'password'),
             cfg.query('biosamples', 'domain')
         ))
+
         self.submitter = BioSamplesSubmitter(communicators, submit_type)
         self.sample_data = None
 
@@ -433,6 +466,7 @@ class SampleMetadataSubmitter(SampleSubmitter):
             self.apply_mapping(bsd_sample_entry, 'organization', organisations)
 
             bsd_sample_entry['release'] = _now
+            bsd_sample_entry['last_updated_by'] = 'EVA'
             payloads.append(bsd_sample_entry)
 
         return payloads

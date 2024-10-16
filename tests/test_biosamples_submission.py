@@ -1,3 +1,4 @@
+import copy
 import os
 from copy import deepcopy
 from unittest import TestCase
@@ -182,7 +183,7 @@ class TestBSDSubmitter(BSDTestCase):
         self.submitter.sample_name_to_accession.clear()
         with patch.object(HALCommunicator, 'follows_link', wraps=self.submitter.default_communicator.follows_link) as mock_fl:
             self.submitter.submit_biosamples_to_bsd([{'accession': accession}])
-        mock_fl.assert_called_once_with('samples', method='GET', join_url=accession)
+        mock_fl.assert_called_once_with('samples', method='GET', join_url=accession + '?curationdomain=')
         self.assertEqual(self.submitter.sample_name_to_accession, {'LH1': accession})
 
 
@@ -203,8 +204,10 @@ class TestSampleMetadataSubmitter(BSDTestCase):
     def test_map_metadata_to_bsd_data(self):
         now = '2020-07-06T19:09:29.090Z'
         biosamples_submitters._now = now
+
         expected_payload = [
             {'name': 'S%s' % (i + 1), 'taxId': 9606, 'release': now,
+             'last_updated_by': 'EVA',
              'contact': [{'LastName': 'John', 'FirstName': 'Doe', 'E-mail': 'john.doe@example.com'},
                          {'LastName': 'Jane', 'FirstName': 'Doe', 'E-mail': 'jane.doe@example.com'}],
              'organization': [{'Name': 'GPE', 'Address': 'The place to be'},
@@ -235,6 +238,7 @@ class TestSampleMetadataSubmitter(BSDTestCase):
         ]
         organizations = [{'Name': 'GPE', 'Address': 'The place to be'}, {'Name': 'GPE', 'Address': 'The place to be'}]
         updated_samples = [{
+            'last_updated_by': 'EVA',
             'accession': 'SAMD1234' + str(567 + i),
             'name': 'S%s' % (i + 1), 'taxId': 9606, 'release': now,
             'contact': contacts, 'organization': organizations,
@@ -245,12 +249,13 @@ class TestSampleMetadataSubmitter(BSDTestCase):
             }
         } for i in range(10)]
         existing_samples = [{
+            'last_updated_by': 'EVA',
             'accession': 'SAMD1234' + str(567 + i),
             'contact': contacts, 'organization': organizations,
             'characteristics': {},
             'release': now
         } for i in range(10, 20)]
-        new_samples = [{'name': 'S%s' % (i + 1), 'taxId': 9606, 'release': now,
+        new_samples = [{'last_updated_by': 'EVA', 'name': 'S%s' % (i + 1), 'taxId': 9606, 'release': now,
                         'contact': contacts, 'organization': organizations,
                         'characteristics': {
                             'Organism': [{'text': 'Homo sapiens'}],
@@ -284,3 +289,75 @@ class TestSampleReferenceSubmitter(BSDTestCase):
             {'name': 'FakeSample1', 'accession': 'SAME001', 'domain': 'self.ExampleDomain', 'externalReferences': [{'url': 'test_url'}, {'url': 'https://www.ebi.ac.uk/eva/?eva-study=PRJEB001'}]},
             {'name': 'FakeSample2', 'accession': 'SAME002', 'domain': 'self.ExampleDomain', 'externalReferences': [{'url': 'https://www.ebi.ac.uk/eva/?eva-study=PRJEB001'}]}
         ]
+
+
+class TestSampleMetadataOverwritter(BSDTestCase):
+    samples = {
+        # NCBI samples
+        'SAMN1234567': {
+            'accession': 'SAMN1234567',
+            'name': 'Sample1',
+            'characteristics': {
+                'description': [{'text': 'Sample 1'}],
+                'scientific name': [{'text': 'Larimichthys polyactis'}],
+            },
+            'release': '2020-07-06T19:09:29.090Z'},
+        'SAMN1234568': {
+            'accession': 'SAMN1234568',
+            'name': 'Sample2',
+            'characteristics': {
+                'description': [{'text': 'Sample 2'}],
+                'scientific name': [{'text': 'Larimichthys polyactis'}],
+            },
+            'release': '2020-07-06T19:09:29.090Z'},
+        # EBI samples
+        'SAME1234567': {
+            'accession': 'SAMN1234567',
+            'name': 'Sample1',
+            'characteristics': {
+                'description': [{'text': 'Sample 1'}],
+                'scientific name': [{'text': 'Larimichthys polyactis'}],
+            },
+            'release': '2020-07-06T19:09:29.090Z'},
+        'SAME1234568': {
+            'accession': 'SAMN1234568',
+            'name': 'Sample2',
+            'characteristics': {
+                'description': [{'text': 'Sample 2'}],
+                'scientific name': [{'text': 'Larimichthys polyactis'}],
+            },
+            'release': '2020-07-06T19:09:29.090Z'}
+    }
+
+    @staticmethod
+    def _get_fake_sample(accession, include_curation=False):
+        return TestSampleMetadataOverwritter.samples.get(accession)
+
+    def setUp(self) -> None:
+        brokering_folder = os.path.join(ROOT_DIR, 'tests', 'resources', 'brokering')
+        self.metadata_file_ncbi = os.path.join(brokering_folder, 'metadata_sheet_ncbi.xlsx')
+        self.metadata_file_ebi = os.path.join(brokering_folder, 'metadata_sheet_ebi.xlsx')
+
+    def test_override_samples(self):
+        with patch.object(BioSamplesSubmitter, '_get_existing_sample', side_effect=self._get_fake_sample), \
+                patch.object(HALCommunicator, 'follows_link') as m_follows_link:
+            sample1 = copy.copy(self.samples.get('SAMN1234567'))
+            sample1['characteristics']['collection_date'] = [{'text': '1920-12-24'}]
+            sample1['characteristics']['geographic location (country and/or sea)'] = [{'text': 'USA'}]
+            sample2 = copy.copy(self.samples.get('SAMN1234568'))
+            sample2['characteristics']['collection_date'] = [{'text': '1920-12-24'}]
+            sample2['characteristics']['geographic location (country and/or sea)'] = [{'text': 'USA'}]
+
+            sample_submitter = SampleMetadataSubmitter(self.metadata_file_ncbi, submit_type=('override',))
+            sample_submitter.submit_to_bioSamples()
+
+            m_follows_link.assert_any_call('samples', method='PUT', join_url='SAMN1234567', json=sample1)
+            m_follows_link.assert_any_call('samples', method='PUT', join_url='SAMN1234568', json=sample2)
+
+    def test_not_override_samples(self):
+        with patch.object(BioSamplesSubmitter, '_get_existing_sample', side_effect=self._get_fake_sample), \
+                patch.object(HALCommunicator, 'follows_link') as m_follows_link:
+            sample_submitter = SampleMetadataSubmitter(self.metadata_file_ebi, submit_type=('override',))
+            sample_submitter.submit_to_bioSamples()
+        m_follows_link.assert_not_called()
+
