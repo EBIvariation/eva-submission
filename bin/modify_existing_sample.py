@@ -32,8 +32,8 @@ def main():
     arg_parser.add_argument('--action', required=True, choices=('overwrite', 'curate', 'derive', 'override'),
                             help='Type of modification of the BioSamples that should be made. '
                                  '"overwrite" and "override" will both change the original sample (precuration) with '
-                                 'the modifed sample defined in the spreadhseet. overwrite will use the EVA credentials '
-                                 'where overide will use superuser credential. overwrite require that EVA owns the '
+                                 'the modified sample defined in the spreadsheet. overwrite will use EVA credentials '
+                                 'where override will use superuser credentials. overwrite require that EVA owns the '
                                  'BioSample entity. override requires that the samples are from NCBI.'
                                   '"curate" will create curation object on top of the BioSample. These are not '
                                  'used by ENA. '

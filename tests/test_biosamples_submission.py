@@ -168,7 +168,7 @@ class TestBSDSubmitter(BSDTestCase):
         submitter_curate = BioSamplesSubmitter([self.communicator], ('curate',), allow_removal=True)
         self._test_submit_to_bsd_with_update(submitter_curate, change_original=False, allow_removal=True)
 
-    @pytest.mark.skip(reason='PUT function in de        v server does not work')
+    @pytest.mark.skip(reason='PUT function in dev server does not work')
     def test_submit_to_bsd_overwrite(self):
         submitter_overwrite = BioSamplesSubmitter([self.communicator], ('overwrite',))
         self._test_submit_to_bsd_with_update(submitter_overwrite, change_original=True, allow_removal=False)

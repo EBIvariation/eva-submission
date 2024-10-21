@@ -52,7 +52,7 @@ class BioSamplesSubmitter(AppLogger):
         return 'create' in self.submit_type and 'accession' not in sample
 
     def can_overwrite(self, sample):
-        """ We should overwrite a samples when it is owned by a domain supported current uploader
+        """ We should overwrite a sample when it is owned by a domain supported by the current uploader
         or when we use a superuser to override the original sample"""
         return 'accession' in sample and (
             'overwrite' in self.submit_type and self._get_communicator_for_sample(sample) or
