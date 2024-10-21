@@ -292,7 +292,7 @@ class TestSampleReferenceSubmitter(BSDTestCase):
         ]
 
 
-class TestSampleMetadataOverwritter(BSDTestCase):
+class TestSampleMetadataOverrider(BSDTestCase):
     samples = {
         # NCBI samples
         'SAMN1234567': {
@@ -332,7 +332,7 @@ class TestSampleMetadataOverwritter(BSDTestCase):
 
     @staticmethod
     def _get_fake_sample(accession, include_curation=False):
-        return TestSampleMetadataOverwritter.samples.get(accession)
+        return TestSampleMetadataOverrider.samples.get(accession)
 
     def setUp(self) -> None:
         brokering_folder = os.path.join(ROOT_DIR, 'tests', 'resources', 'brokering')
@@ -342,15 +342,16 @@ class TestSampleMetadataOverwritter(BSDTestCase):
     def test_override_samples(self):
         with patch.object(BioSamplesSubmitter, '_get_existing_sample', side_effect=self._get_fake_sample), \
                 patch.object(HALCommunicator, 'follows_link') as m_follows_link:
-            sample1 = copy.copy(self.samples.get('SAMN1234567'))
-            sample1['characteristics']['collection_date'] = [{'text': '1920-12-24'}]
-            sample1['characteristics']['geographic location (country and/or sea)'] = [{'text': 'USA'}]
-            sample2 = copy.copy(self.samples.get('SAMN1234568'))
-            sample2['characteristics']['collection_date'] = [{'text': '1920-12-24'}]
-            sample2['characteristics']['geographic location (country and/or sea)'] = [{'text': 'USA'}]
 
             sample_submitter = SampleMetadataSubmitter(self.metadata_file_ncbi, submit_type=('override',))
             sample_submitter.submit_to_bioSamples()
+
+            sample1 = copy.deepcopy(self.samples.get('SAMN1234567'))
+            sample1['characteristics']['collection_date'] = [{'text': '2020-12-24'}]
+            sample1['characteristics']['geographic location (country and/or sea)'] = [{'text': 'United Kingdom'}]
+            sample2 = copy.deepcopy(self.samples.get('SAMN1234568'))
+            sample2['characteristics']['collection_date'] = [{'text': '1920-12-24'}]
+            sample2['characteristics']['geographic location (country and/or sea)'] = [{'text': 'USA'}]
 
             m_follows_link.assert_any_call('samples', method='PUT', join_url='SAMN1234567', json=sample1)
             m_follows_link.assert_any_call('samples', method='PUT', join_url='SAMN1234568', json=sample2)
