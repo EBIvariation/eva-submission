@@ -173,6 +173,7 @@ class TestBSDSubmitter(BSDTestCase):
         submitter_overwrite = BioSamplesSubmitter([self.communicator], ('overwrite',))
         self._test_submit_to_bsd_with_update(submitter_overwrite, change_original=True, allow_removal=False)
 
+    @pytest.skip(reason='POST on samples method returns 403')
     def test_submit_to_bsd_derive(self):
         submitter_derive = BioSamplesSubmitter([self.communicator], ('derive',))
         self._test_submit_to_bsd_with_update(submitter_derive, change_original=False, allow_removal=False)

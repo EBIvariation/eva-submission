@@ -78,14 +78,13 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
     @pytest.mark.skip(reason='Too slow to run as is, which makes deployment difficult')
     def test_get_vep_versions_from_ensembl_older_version(self):
         # Older version of assembly using NCBI assembly code isn't found successfully
-        vep_version, cache_version, vep_species = get_vep_and_vep_cache_version_from_ensembl('GCA_000002765.1')
+        vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('GCA_000002765.1')
         self.assertEqual(vep_version, None)
         self.assertEqual(cache_version, None)
         # If we magically knew the Ensembl assembly code was EPr1 we could find it!
-        vep_version, cache_version, vep_species = get_vep_and_vep_cache_version_from_ensembl('GCA_000002765.1', 'EPr1')
+        vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('GCA_000002765.1', 'EPr1')
         self.assertEqual(vep_version, 44 + 53)
         self.assertEqual(cache_version, 44)
-        self.assertEqual(vep_species, 'plasmodium_falciparum')
 
     def test_get_vep_versions(self):
         with patch('eva_submission.vep_utils.get_vep_and_vep_cache_version_from_db') as m_get_db, \
