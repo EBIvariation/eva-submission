@@ -239,6 +239,7 @@ class BioSamplesSubmitter(AppLogger):
                 )
                 sample_json = sample
             elif self.can_derive(sample):
+                sample.update(self.default_communicator.communicator_attributes)
                 derived_sample, original_accessions = self.create_derived_sample(sample)
                 sample_json = self.default_communicator.follows_link('samples', method='POST', json=derived_sample)
                 if 'relationships' not in sample_json:
