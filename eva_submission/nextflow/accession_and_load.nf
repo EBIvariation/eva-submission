@@ -179,7 +179,7 @@ process prepare_genome {
     export PYTHONPATH="$params.executable.python.script_path"
     $params.executable.python.interpreter -m eva_submission.steps.rename_contigs_from_insdc_in_assembly \
     --assembly_accession $assembly_accession --assembly_fasta $fasta --custom_fasta ${fasta.getSimpleName()}_custom.fa \
-    --assembly_report $report --vcf_files $vcf_files
+    --assembly_report $report   --vcf_files $vcf_files
     """
 }
 
@@ -188,7 +188,7 @@ process prepare_genome {
 * Normalise the VCF files
 */
 process normalise_vcf {
-    label 'default_time', 'med_mem'
+    label 'long_time', 'med_mem'
 
     input:
     tuple val(vcf_filename), path(fasta), path(vcf_file), path(csi_file)

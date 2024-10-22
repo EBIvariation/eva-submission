@@ -29,10 +29,13 @@ def main():
                     'The spreadsheet needs to contain a Sheet called Sample.')
     arg_parser.add_argument('--metadata_file', required=True,
                             help='Spreadsheet file containing the sample information')
-    arg_parser.add_argument('--action', required=True, choices=('overwrite', 'curate', 'derive'),
+    arg_parser.add_argument('--action', required=True, choices=('overwrite', 'curate', 'derive', 'override'),
                             help='Type of modification of the BioSamples that should be made. '
-                                 '"overwrite" require that EVA owns the BioSample entity. '
-                                 '"curate" will create curation object on top of the BioSample. These are not '
+                                 '"overwrite" and "override" will both change the original sample (precuration) with '
+                                 'the modified sample defined in the spreadsheet. overwrite will use EVA credentials '
+                                 'where override will use superuser credentials. overwrite require that EVA owns the '
+                                 'BioSample entity. override requires that the samples are from NCBI.'
+                                  '"curate" will create curation object on top of the BioSample. These are not '
                                  'used by ENA. '
                                  '"derive" will create a new BioSample derived from the old one.')
     args = arg_parser.parse_args()

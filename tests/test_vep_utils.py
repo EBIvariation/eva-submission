@@ -65,10 +65,10 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
 
     def test_get_vep_versions_from_ensembl(self):
         vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('GCA_000827895.1')
-        self.assertEqual(vep_version, 112)
-        self.assertEqual(cache_version, 59)
+        self.assertEqual(vep_version, 113)
+        self.assertEqual(cache_version, 60)
         assert os.path.exists(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei'))
-        assert os.listdir(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei')) == ['59_ASM82789v1']
+        assert os.listdir(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei')) == ['60_ASM82789v1']
 
     def test_get_vep_versions_from_ensembl_not_found(self):
         vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('GCA_015220235.1')
@@ -78,14 +78,13 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
     @pytest.mark.skip(reason='Too slow to run as is, which makes deployment difficult')
     def test_get_vep_versions_from_ensembl_older_version(self):
         # Older version of assembly using NCBI assembly code isn't found successfully
-        vep_version, cache_version, vep_species = get_vep_and_vep_cache_version_from_ensembl('GCA_000002765.1')
+        vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('GCA_000002765.1')
         self.assertEqual(vep_version, None)
         self.assertEqual(cache_version, None)
         # If we magically knew the Ensembl assembly code was EPr1 we could find it!
-        vep_version, cache_version, vep_species = get_vep_and_vep_cache_version_from_ensembl('GCA_000002765.1', 'EPr1')
+        vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('GCA_000002765.1', 'EPr1')
         self.assertEqual(vep_version, 44 + 53)
         self.assertEqual(cache_version, 44)
-        self.assertEqual(vep_species, 'plasmodium_falciparum')
 
     def test_get_vep_versions(self):
         with patch('eva_submission.vep_utils.get_vep_and_vep_cache_version_from_db') as m_get_db, \
@@ -117,9 +116,9 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
     def test_get_vep_and_vep_cache_version_with_vep_download(self):
         with patch('eva_submission.vep_utils.get_vep_and_vep_cache_version_from_db') as m_get_db, \
                 patch('eva_submission.vep_utils.command_utils.run_command_with_output'):
-            m_get_db.return_value = (112, 59)
+            m_get_db.return_value = (113, 60)
             get_vep_and_vep_cache_version('fake_mongo', 'fake_db', 'fake_assembly')
-            assert os.path.exists(os.path.join(cfg['vep_path'], 'ensembl-vep-release-112'))
+            assert os.path.exists(os.path.join(cfg['vep_path'], 'ensembl-vep-release-113'))
 
     def test_download_and_extract_vep_cache(self):
         with patch('eva_submission.vep_utils.retrieve_species_scientific_name_from_tax_id_ncbi') as m_get_scf_name:
@@ -157,5 +156,5 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
             assert get_releases(ftp, 'pub', current_only=True) == {113: 'pub/release-113'}
 
         with get_ftp_connection(ensembl_genome_ftp_url) as ftp:
-            assert get_releases(ftp, ensembl_genome_dirs[0], current_only=True) == {59: 'ensemblgenomes/pub/plants/release-59'}
+            assert get_releases(ftp, ensembl_genome_dirs[0], current_only=True) == {60: 'ensemblgenomes/pub/plants/release-60'}
 
