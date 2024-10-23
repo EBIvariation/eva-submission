@@ -240,7 +240,9 @@ process accession_vcf {
     # If accessioning fails due to missing variants, but the only missing variants are structural variants,
     # then we should treat this as a success from the perspective of the automation.
     # TODO revert once accessioning pipeline properly registers structural variants
-        [[ \$(grep -o 'Skipped processing structural variant' ${params.logs_dir}/${log_filename}.log | wc -l) \
+    # First grep finds the "Structural variant" reported by the accessioning process, remove the duplicates and count
+    # Second grep count the reported number of missing variants in the Accessioning report
+        [[ \$(grep 'Skipped processing structural variant' ${params.logs_dir}/${log_filename}.log | cut -d ' ' -f 10- | sort -u| wc -l) \
            == \$(grep -oP '\\d+(?= unaccessioned variants need to be checked)' ${params.logs_dir}/${log_filename}.log) ]]
     echo "done" > ${accessioned_filename}.tmp
     """
