@@ -154,16 +154,16 @@ class BioSamplesSubmitter(AppLogger):
         return dict(curation=curation_object, sample=future_sample.get('accession'))
 
     @staticmethod
-    def _update_from_array(key, sample_source, sample_dest):
+    def _update_from_array(key, sample_source, sample_dest, allow_overwrite=False):
         """Add the element of an array stored in specified key from source to destination"""
         if key in sample_source:
             if key not in sample_dest:
                 sample_dest[key] = []
-            for element in sample_source[key]:
+            for element in sample_source[key] or allow_overwrite:
                 if element not in sample_dest[key]:
                     sample_dest[key].append(element)
 
-    def _update_samples_with(self, sample_source, sample_dest):
+    def _update_samples_with(self, sample_source, sample_dest, allow_overwrite=False):
         """Update a BioSample object with the value of another"""
         if 'override' in self.submit_type:
             # Ensure that override only change geographic location and collection date
@@ -173,12 +173,12 @@ class BioSamplesSubmitter(AppLogger):
                     tmp_sample_source['characteristics'][attribute] = sample_source['characteristics'][attribute]
             sample_source = tmp_sample_source
         for attribute in sample_source['characteristics']:
-            if attribute not in sample_dest['characteristics']:
+            if attribute not in sample_dest['characteristics'] or allow_overwrite:
                 sample_dest['characteristics'][attribute] = sample_source['characteristics'][attribute]
-        self._update_from_array('externalReferences', sample_source, sample_dest)
-        self._update_from_array('relationships', sample_source, sample_dest)
-        self._update_from_array('contact', sample_source, sample_dest)
-        self._update_from_array('organization', sample_source, sample_dest)
+        self._update_from_array('externalReferences', sample_source, sample_dest, allow_overwrite)
+        self._update_from_array('relationships', sample_source, sample_dest, allow_overwrite)
+        self._update_from_array('contact', sample_source, sample_dest, allow_overwrite)
+        self._update_from_array('organization', sample_source, sample_dest, allow_overwrite)
         for key in ['taxId', 'accession', 'name', 'release']:
             if key in sample_source and key not in sample_dest:
                 sample_dest[key] = sample_source[key]
@@ -189,7 +189,7 @@ class BioSamplesSubmitter(AppLogger):
         if self.can_overwrite(sample) and not self.allow_removal:
             # retrieve the sample without any curation and add the new data on top
             destination_sample = self._get_existing_sample(sample.get('accession'))
-            self._update_samples_with(sample, destination_sample)
+            self._update_samples_with(sample, destination_sample, allow_overwrite=True)
         return destination_sample
 
     def create_derived_sample(self, sample):

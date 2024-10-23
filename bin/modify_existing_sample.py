@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import argparse
+import logging
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
@@ -38,9 +39,12 @@ def main():
                                   '"curate" will create curation object on top of the BioSample. These are not '
                                  'used by ENA. '
                                  '"derive" will create a new BioSample derived from the old one.')
+    arg_parser.add_argument('--debug', action='store_true', default=False,
+                            help='Set the script to output logging information at debug level')
     args = arg_parser.parse_args()
 
-    log_cfg.add_stdout_handler()
+    if args.debug:
+        log_cfg.add_stdout_handler(level=logging.DEBUG)
 
     # Load the config_file from default location
     load_config()
