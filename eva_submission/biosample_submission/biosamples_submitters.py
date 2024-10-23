@@ -159,8 +159,8 @@ class BioSamplesSubmitter(AppLogger):
         if key in sample_source:
             if key not in sample_dest:
                 sample_dest[key] = []
-            for element in sample_source[key] or allow_overwrite:
-                if element not in sample_dest[key]:
+            for element in sample_source[key]:
+                if element not in sample_dest[key] or allow_overwrite:
                     sample_dest[key].append(element)
 
     def _update_samples_with(self, sample_source, sample_dest, allow_overwrite=False):
