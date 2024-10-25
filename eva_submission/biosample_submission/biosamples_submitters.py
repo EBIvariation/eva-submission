@@ -29,7 +29,8 @@ _now = datetime.now().isoformat()
 class BioSamplesSubmitter(AppLogger):
 
     valid_actions = ('create', 'overwrite', 'override', 'curate', 'derive')
-    characteristics_allowed_to_override = ('collection_date', 'geographic location (country and/or sea)')
+    characteristics_allowed_to_override = ('collection_date', 'geographic location (country and/or sea)',
+                                           'last_updated_by')
 
     def __init__(self, communicators, submit_type=('create',), allow_removal=False):
         assert len(communicators) > 0, 'Specify at least one communicator object to BioSamplesSubmitter'
@@ -467,7 +468,8 @@ class SampleMetadataSubmitter(SampleSubmitter):
             self.apply_mapping(bsd_sample_entry, 'organization', organisations)
 
             bsd_sample_entry['release'] = _now
-            bsd_sample_entry['last_updated_by'] = 'EVA'
+            # Custom attributes added to all the BioSample we create/modify
+            bsd_sample_entry['characteristics']['last_updated_by'] = [{'text': 'EVA'}]
             payloads.append(bsd_sample_entry)
 
         return payloads
