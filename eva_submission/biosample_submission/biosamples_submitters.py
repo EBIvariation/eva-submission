@@ -469,7 +469,7 @@ class SampleMetadataSubmitter(SampleSubmitter):
 
             bsd_sample_entry['release'] = _now
             # Custom attributes added to all the BioSample we create/modify
-            bsd_sample_entry['characteristics']['last_updated_by'] = 'EVA'
+            bsd_sample_entry['characteristics']['last_updated_by'] = [{'text': 'EVA'}]
             payloads.append(bsd_sample_entry)
 
         return payloads

@@ -218,7 +218,7 @@ class TestSampleMetadataSubmitter(BSDTestCase):
                 'scientific name': [{'text': 'Homo sapiens'}],
                 'collection_date': [{'text': '2020-01-15'}],
                 'geographic location (country and/or sea)': [{'text': 'not provided'}],
-                'last_updated_by': 'EVA'
+                'last_updated_by': [{'text': 'EVA'}]
             }}
             for i in range(100)
         ]
@@ -246,13 +246,13 @@ class TestSampleMetadataSubmitter(BSDTestCase):
                 'Organism': [{'text': 'Homo sapiens'}],
                 'description': [{'text': 'Sample %s' % (i + 1)}],
                 'scientific name': [{'text': 'Homo sapiens'}],
-                'last_updated_by': 'EVA'
+                'last_updated_by': [{'text': 'EVA'}]
             }
         } for i in range(10)]
         existing_samples = [{
             'accession': 'SAMD1234' + str(567 + i),
             'contact': contacts, 'organization': organizations,
-            'characteristics': {'last_updated_by': 'EVA'},
+            'characteristics': {'last_updated_by': [{'text': 'EVA'}]},
             'release': now
         } for i in range(10, 20)]
         new_samples = [{'name': 'S%s' % (i + 1), 'taxId': 9606, 'release': now,
@@ -261,7 +261,7 @@ class TestSampleMetadataSubmitter(BSDTestCase):
                             'Organism': [{'text': 'Homo sapiens'}],
                             'description': [{'text': 'Sample %s' % (i + 1)}],
                             'scientific name': [{'text': 'Homo sapiens'}],
-                            'last_updated_by': 'EVA'
+                            'last_updated_by': [{'text': 'EVA'}]
                         }} for i in range(20, 100)]
 
         expected_payload = updated_samples + existing_samples + new_samples
@@ -343,16 +343,16 @@ class TestSampleMetadataOverrider(BSDTestCase):
         with patch.object(BioSamplesSubmitter, '_get_existing_sample', side_effect=self._get_fake_sample), \
                 patch.object(HALCommunicator, 'follows_link') as m_follows_link:
 
-            sample_submitter = SampleMetadataSubmitter(self.metadata_file_ncbi, submit_type=('override',))
-            sample_submitter.submit_to_bioSamples()
-
             sample1 = copy.deepcopy(self.samples.get('SAMN1234567'))
             sample1['characteristics']['collection_date'] = [{'text': '2020-12-24'}]
             sample1['characteristics']['geographic location (country and/or sea)'] = [{'text': 'United Kingdom'}]
+            sample1['characteristics']['last_updated_by'] = [{'text': 'EVA'}]
             sample2 = copy.deepcopy(self.samples.get('SAMN1234568'))
             sample2['characteristics']['collection_date'] = [{'text': '1920-12-24'}]
             sample2['characteristics']['geographic location (country and/or sea)'] = [{'text': 'USA'}]
-
+            sample2['characteristics']['last_updated_by'] = [{'text': 'EVA'}]
+            sample_submitter = SampleMetadataSubmitter(self.metadata_file_ncbi, submit_type=('override',))
+            sample_submitter.submit_to_bioSamples()
             m_follows_link.assert_any_call('samples', method='PUT', join_url='SAMN1234567', json=sample1)
             m_follows_link.assert_any_call('samples', method='PUT', join_url='SAMN1234568', json=sample2)
 
