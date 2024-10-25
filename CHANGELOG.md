@@ -1,11 +1,11 @@
 Changelog for eva-submission
 ============================
 
-## 1.16.1 (unreleased)
+## 1.16.1 (2024-10-25)
 ----------------------
 
-- Nothing changed yet.
-
+## Validation
+ - New process to correct BioSamples imported from NCBI
 
 ## 1.16 (2024-09-11)
 ----------------------
