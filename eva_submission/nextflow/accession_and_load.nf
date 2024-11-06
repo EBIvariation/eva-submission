@@ -240,10 +240,13 @@ process accession_vcf {
     # If accessioning fails due to missing variants, but the only missing variants are structural variants,
     # then we should treat this as a success from the perspective of the automation.
     # TODO revert once accessioning pipeline properly registers structural variants
-    # First grep finds the "Structural variant" reported by the accessioning process, remove the duplicates and count
+    # First grep finds the "Structural variant" reported by the accessioning process, remove the duplicates, remove the * alleles and count
+    SV_IN_ACCESSION=\$(grep 'Skipped processing structural variant' ${params.logs_dir}/${log_filename}.log  | grep  -v "alternate='*'" | cut -d ' ' -f 10- | sort -u | wc -l)
     # Second grep count the reported number of missing variants in the Accessioning report
-        [[ \$(grep 'Skipped processing structural variant' ${params.logs_dir}/${log_filename}.log | cut -d ' ' -f 10- | sort -u| wc -l) \
-           == \$(grep -oP '\\d+(?= unaccessioned variants need to be checked)' ${params.logs_dir}/${log_filename}.log) ]]
+    SV_IN_QC_REPORT=\$(grep ' variants that were not found in the accession report' ${params.logs_dir}/${log_filename}.log | sed 's/, AbstractVariant/\n AbstractVariant/g' | grep  -v "alternate='*'" | wc -l)
+    echo "SV_IN_ACCESSION \$SV_IN_ACCESSION"
+    echo "SV_IN_QC_REPORT \$SV_IN_QC_REPORT"
+        [[ \$SV_IN_ACCESSION == \$SV_IN_QC_REPORT ]]
     echo "done" > ${accessioned_filename}.tmp
     """
 }
