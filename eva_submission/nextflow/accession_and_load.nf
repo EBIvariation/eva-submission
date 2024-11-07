@@ -236,7 +236,7 @@ process accession_vcf {
 
 
     """
-    (java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.accession_pipeline --spring.config.location=file:$params.accession_job_props $pipeline_parameters) || \
+    (java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.accession_pipeline --spring.config.location=file:$params.accession_job_props $pipeline_parameters) || true
     # If accessioning fails due to missing variants, but the only missing variants are structural variants,
     # then we should treat this as a success from the perspective of the automation.
     # TODO revert once accessioning pipeline properly registers structural variants
