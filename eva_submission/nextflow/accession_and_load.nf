@@ -243,7 +243,7 @@ process accession_vcf {
     # First grep finds the "Structural variant" reported by the accessioning process, remove the duplicates, remove the * alleles and count
     SV_IN_ACCESSION=\$(grep 'Skipped processing structural variant' ${params.logs_dir}/${log_filename}.log  | grep  -v "alternate='*'" | cut -d ' ' -f 10- | sort -u | wc -l)
     # Second grep count the reported number of missing variants in the Accessioning report
-    SV_IN_QC_REPORT=\$(grep ' variants that were not found in the accession report' ${params.logs_dir}/${log_filename}.log | sed 's/, AbstractVariant/\n AbstractVariant/g' | grep  -v "alternate='*'" | wc -l)
+    SV_IN_QC_REPORT=\$(grep ' variants that were not found in the accession report' ${params.logs_dir}/${log_filename}.log | sed 's/, AbstractVariant/\\n AbstractVariant/g' | grep  -v "alternate='*'" | wc -l)
     echo "SV_IN_ACCESSION \$SV_IN_ACCESSION"
     echo "SV_IN_QC_REPORT \$SV_IN_QC_REPORT"
         [[ \$SV_IN_ACCESSION == \$SV_IN_QC_REPORT ]]
