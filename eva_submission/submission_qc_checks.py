@@ -43,12 +43,12 @@ job_launched_and_completed_text_map = {
         {'Job: [FlowJob: [name=calculate-statistics-job]] completed'}
     ),
     'variant-stats': (
-        {'Job: [FlowJob: [name=variant-stats-job]] launched'},
-        {'Job: [FlowJob: [name=variant-stats-job]] completed'}
+        {'Job: [SimpleJob: [name=variant-stats-job]] launched'},
+        {'Job: [SimpleJob: [name=variant-stats-job]] completed'}
     ),
     'study-stats': (
-        {'Job: [FlowJob: [name=study-stats-job]] launched'},
-        {'Job: [FlowJob: [name=study-stats-job]] completed'}
+        {'Job: [SimpleJob: [name=study-stats-job]] launched'},
+        {'Job: [SimpleJob: [name=study-stats-job]] completed'}
     ),
     'acc_import': (
         {'Job: [SimpleJob: [name=accession-import-job]] launched'},
@@ -115,6 +115,9 @@ class EloadQC(Eload):
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
         self.path_to_data_dir = Path(cfg['projects_dir'], self.project_accession)
         self.path_to_logs_dir = os.path.join(self.path_to_data_dir, '00_logs')
+        # If the project folder does not exist then it is located in the eload folder
+        if not os.path.exists(self.path_to_logs_dir):
+            self.path_to_logs_dir = os.path.join(self.eload_dir, '00_logs')
         self.taxonomy = self.eload_cfg.query('submission', 'taxonomy_id')
         self.analyses = self.eload_cfg.query('brokering', 'analyses')
 
