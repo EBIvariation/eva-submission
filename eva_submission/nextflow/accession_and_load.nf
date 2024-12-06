@@ -214,6 +214,8 @@ process accession_vcf {
     clusterOptions "-o $params.logs_dir/${log_filename}.log \
                     -e $params.logs_dir/${log_filename}.err"
 
+    maxForks 1
+
     input:
     tuple val(vcf_filename), val(vcf_file), val(assembly_accession), val(aggregation), val(fasta), val(report)
 

@@ -121,6 +121,7 @@ Sample:
     Title: string
     cultivar: string
     Description: string
+    Subject: string
 
 Files:
   required:
