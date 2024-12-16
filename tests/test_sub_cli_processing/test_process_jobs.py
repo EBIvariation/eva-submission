@@ -34,10 +34,9 @@ class TestSubmissionScanner(TestCase):
         json_data = [
             {'submissionId': 'sub123', 'status': 'UPLOADED', 'uploadedTime': '2024-05-12'}
         ]
-
         with patch_get(json_data) as m_get, patch('builtins.print') as m_print:
             scanner.report()
             m_get.assert_called_once_with('https://test.com/admin/submissions/status/UPLOADED', auth=('admin', 'password'))
-        m_print.assert_any_call('| Submission Id | Submission status | Uploaded time |')
-        m_print.assert_any_call('|        sub123 |          UPLOADED |    2024-05-12 |')
+        m_print.assert_any_call('| Submission Id | Submission status | Processing step |    Processing status | Last updated time | Priority |')
+        m_print.assert_any_call('|        sub123 |          UPLOADED |      VALIDATION | READY_FOR_PROCESSING |        2024-05-12 |        5 |')
 
