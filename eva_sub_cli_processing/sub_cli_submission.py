@@ -9,11 +9,12 @@ from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from ebi_eva_internal_pyutils.metadata_utils import get_metadata_connection_handle
 
+from eva_sub_cli_processing.sub_cli_utils import sub_ws_url_build, get_from_sub_ws
 
 submission_logging_files = set()
 
 
-class SubCli(AppLogger):
+class SubCliProcess(AppLogger):
     def __init__(self, submission_id: str):
         self.submission_id = submission_id
         self.submission_dir = os.path.abspath(os.path.join(cfg['submission_dir'], self.submission_id))
@@ -22,11 +23,7 @@ class SubCli(AppLogger):
 
     @cached_property
     def submission_detail(self):
-        return _get_submission_api(_url_build('admin', 'submission', self.submission_id))
-
-    @property
-    def metadata_connection_handle(self):
-        return get_metadata_connection_handle(cfg['maven']['environment'], cfg['maven']['settings_file'])
+        return get_from_sub_ws(sub_ws_url_build('admin', 'submission', self.submission_id))
 
     def create_nextflow_temp_output_directory(self, base=None):
         random_string = ''.join(random.choice(string.ascii_letters) for i in range(6))
@@ -46,4 +43,7 @@ class SubCli(AppLogger):
         if logfile_name not in submission_logging_files:
             log_cfg.add_file_handler(logfile_name)
             submission_logging_files.add(logfile_name)
+
+    def start(self):
+        raise NotImplementedError
 

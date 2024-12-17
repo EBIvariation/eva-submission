@@ -1,11 +1,11 @@
 from ebi_eva_common_pyutils.common_utils import pretty_print
 from ebi_eva_common_pyutils.logger import AppLogger
 
-from eva_sub_cli_processing.sub_cli_brokering import SubCliBrokering
-from eva_sub_cli_processing.sub_cli_ingestion import SubCliIngestion
+from eva_sub_cli_processing.sub_cli_brokering import SubCliProcessBrokering
+from eva_sub_cli_processing.sub_cli_ingestion import SubCliProcessIngestion
 from eva_sub_cli_processing.sub_cli_utils import get_from_sub_ws, sub_ws_url_build, VALIDATION, READY_FOR_PROCESSING, \
     PROCESSING, BROKERING, INGESTION, SUCCESS, FAILURE, put_to_sub_ws
-from eva_sub_cli_processing.sub_cli_validation import SubCliValidation
+from eva_sub_cli_processing.sub_cli_validation import SubCliProcessValidation
 
 
 def process_submissions():
@@ -99,11 +99,12 @@ class SubmissionStep(AppLogger):
         assert self.processing_status == READY_FOR_PROCESSING
         # TODO: These jobs needs to be submitted as independent processes
         if self.processing_step == VALIDATION:
-            SubCliValidation(self.submission_id).validate()
+            process = SubCliProcessValidation(self.submission_id)
         elif self.processing_step == BROKERING:
-            SubCliBrokering(self.submission_id).broker()
+            process = SubCliProcessBrokering(self.submission_id)
         elif self.processing_step == INGESTION:
-            SubCliIngestion(self.submission_id).ingest()
+            process = SubCliProcessIngestion(self.submission_id)
+        process.start()
 
     def _set_next_step(self):
         if self.submission_status != PROCESSING and not self.processing_step:

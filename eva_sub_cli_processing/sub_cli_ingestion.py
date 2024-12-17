@@ -1,8 +1,8 @@
-from eva_sub_cli_processing.sub_cli_submission import SubCli
+from eva_sub_cli_processing.sub_cli_submission import SubCliProcess
 
 
-class SubCliIngestion(SubCli):
+class SubCliProcessIngestion(SubCliProcess):
 
-    def ingest(self):
+    def start(self):
         pass
 

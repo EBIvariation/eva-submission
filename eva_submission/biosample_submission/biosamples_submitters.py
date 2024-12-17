@@ -368,13 +368,6 @@ class SampleJSONSubmitter(SampleSubmitter):
         self.metadata_json = metadata_json
         self.sample_data = self._convert_json_to_bsd_json()
 
-    @staticmethod
-    def serialize(value):
-        """Create a text representation of the value provided"""
-        if isinstance(value, date):
-            return value.strftime('%Y-%m-%d')
-        return str(value)
-
     def _convert_json_to_bsd_json(self):
         payloads = []
         for sample in self.metadata_json.get('sample'):
@@ -410,7 +403,7 @@ class SampleJSONSubmitter(SampleSubmitter):
     def already_submitted_sample_names_to_accessions(self):
         if self.check_submit_done():
             return dict([
-                (sample_row.get('Sample ID'), sample_row.get('Sample Accession')) for sample_row in self.reader.samples
+                (sample_json.get('Sample ID'), sample_json.get('sampleAccession')) for sample_json in self.metadata_json.get('sample')
             ])
 
     def all_sample_names(self):

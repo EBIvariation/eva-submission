@@ -13,3 +13,6 @@ work
 *.jar
 *.log
 *.err
+
+# Might contain real credentials
+tests/resources/bsd_webin_submission.yaml

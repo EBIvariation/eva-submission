@@ -56,22 +56,24 @@ sample_data = [{
         'release': '2020-07-06T19:09:29.090Z'}
     ]
 
-
+# BioSamples does not support AAP login so we have to use credentials from Webin.
+@pytest.mark.skip(reason='You need to set a config file with correct Webin credential to run these test')
 class TestBSDSubmitter(BSDTestCase):
     """
     Integration tests that will contact a test server for BSD.
     """
 
     def setUp(self) -> None:
-        file_name = os.path.join(self.resources_folder, 'bsd_submission.yaml')
+        file_name = os.path.join(self.resources_folder, 'bsd_webin_submission.yaml')
         self.config = None
         if os.path.isfile(file_name):
             with open(file_name) as open_file:
                 self.config = yaml.safe_load(open_file)
         self.sample_data = deepcopy(sample_data)
-        self.communicator = AAPHALCommunicator(self.config.get('aap_url'), self.config.get('bsd_url'),
-                                       self.config.get('username'), self.config.get('password'),
-                                       self.config.get('domain'))
+
+        self.communicator = WebinHALCommunicator(self.config.get('webin_url'), self.config.get('bsd_url'),
+                                                       self.config.get('webin_username'),
+                                                       self.config.get('webin_password'))
         self.submitter = BioSamplesSubmitter([self.communicator])
 
     def test_validate_in_bsd(self):
