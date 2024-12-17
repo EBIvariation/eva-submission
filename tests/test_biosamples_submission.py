@@ -12,7 +12,7 @@ from ebi_eva_common_pyutils.biosamples_communicators import AAPHALCommunicator, 
 from eva_submission import ROOT_DIR
 from eva_submission.biosample_submission import biosamples_submitters
 from eva_submission.biosample_submission.biosamples_submitters import BioSamplesSubmitter, SampleMetadataSubmitter, \
-    SampleReferenceSubmitter
+    SampleReferenceSubmitter, SampleJSONSubmitter
 
 
 class BSDTestCase(TestCase):
@@ -56,22 +56,24 @@ sample_data = [{
         'release': '2020-07-06T19:09:29.090Z'}
     ]
 
-
+# BioSamples does not support AAP login so we have to use credentials from Webin.
+@pytest.mark.skip(reason='You need to set a config file with correct Webin credential to run these test')
 class TestBSDSubmitter(BSDTestCase):
     """
     Integration tests that will contact a test server for BSD.
     """
 
     def setUp(self) -> None:
-        file_name = os.path.join(self.resources_folder, 'bsd_submission.yaml')
+        file_name = os.path.join(self.resources_folder, 'bsd_webin_submission.yaml')
         self.config = None
         if os.path.isfile(file_name):
             with open(file_name) as open_file:
                 self.config = yaml.safe_load(open_file)
         self.sample_data = deepcopy(sample_data)
-        self.communicator = AAPHALCommunicator(self.config.get('aap_url'), self.config.get('bsd_url'),
-                                       self.config.get('username'), self.config.get('password'),
-                                       self.config.get('domain'))
+
+        self.communicator = WebinHALCommunicator(self.config.get('webin_url'), self.config.get('bsd_url'),
+                                                       self.config.get('webin_username'),
+                                                       self.config.get('webin_password'))
         self.submitter = BioSamplesSubmitter([self.communicator])
 
     def test_validate_in_bsd(self):
@@ -363,3 +365,30 @@ class TestSampleMetadataOverrider(BSDTestCase):
             sample_submitter.submit_to_bioSamples()
         m_follows_link.assert_not_called()
 
+class TestSampleJSONSubmitter(BSDTestCase):
+
+    def test_convert_json_tobsd_json(self):
+        bio_sample_object1 = {
+            'characteristics': {
+                'description': [{'text': 'yellow croaker sample 12'}],
+                'geographic location (country and/or sea)': [{'text': 'China'}],
+                'scientific name': [{'text': 'Larimichthys polyactis'}],
+                'geographic location (region and locality)': [{'text': 'East China Sea,Liuheng, Putuo, Zhejiang'}],
+                'submission title': [{
+                    'text': 'Characterization of a large dataset of SNPs in Larimichthys polyactis using high throughput 2b-RAD sequencing'}],
+                'database name': [{'text': 'PRJNA592281'}],
+            },
+            'name': 'LH1',
+            'taxId': '334908'
+        }
+        json_data = {'sample': [
+            {'analysisAlias': 'alias1', 'sampleInVCF': 'S1', 'bioSampleAccession': 'SAME000001'},
+            {'analysisAlias': 'alias1', 'sampleInVCF': 'S1', 'bioSampleObject': bio_sample_object1}
+        ], 'submitterDetails': [
+            {'lastName': 'Doe', 'firstName': 'Jane', 'email': 'jane.doe@example.com', 'laboratory': 'Lab',
+             'address': '5 common road' }
+        ]
+
+        }
+        self.submitter = SampleJSONSubmitter(json_data)
+        print(self.submitter._convert_json_to_bsd_json())

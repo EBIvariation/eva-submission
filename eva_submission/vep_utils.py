@@ -198,9 +198,13 @@ def get_species_and_assembly(assembly_acc):
 
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3), logger=logger)
 def get_ftp_connection(url):
-    ftp = ftplib.FTP(url)
-    ftp.login()
-    return ftp
+    try:
+        ftp = ftplib.FTP(url)
+        ftp.login()
+        return ftp
+    except Exception as e:
+        logger.error(f'There was an issue accessing {url}')
+        raise e
 
 
 @retry(tries=8, delay=2, backoff=1.2, jitter=(1, 3), logger=logger)
@@ -306,7 +310,7 @@ def download_and_install_vep_version(vep_version):
             for chunk in response.iter_content(chunk_size=8192):
                 file.write(chunk)
     else:
-        raise (f'Error downloading Vep installation files for vep version {vep_version}')
+        raise Exception(f'Error downloading Vep installation files for vep version {vep_version}')
 
     # Unzip the Vep version
     with zipfile.ZipFile(destination, 'r') as zip_ref:
