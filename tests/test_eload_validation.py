@@ -241,3 +241,38 @@ Naming convention check:
         expected = {'analyses': {'ELOAD_2_analysis_alias': {'vcf_files': ['test.vcf']}},
                     'metadata_spreadsheet': '/path/to/the/spreadsheet'}
         assert self.validation.eload_cfg.query('validation', 'valid') == expected
+
+    def test_validate_sample_names(self):
+        metadata_file = os.path.join(self.resources_folder, 'metadata_2_analysis_same_samples.xlsx')
+        self.validation.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata_file)
+        self.validation.eload_cfg.set('validation', 'sample_check', value={})
+        with patch.object(self.validation, '_get_dir', return_value=os.path.join(self.resources_folder, 'vcf_dir')):
+            self.validation._validate_sample_names()
+        expected_results = {
+            'ELOAD_2_GAE': {'difference_exists': False, 'in_VCF_not_in_metadata': [], 'in_metadata_not_in_VCF': []},
+            'ELOAD_2_GAE2': {'difference_exists': False, 'in_VCF_not_in_metadata': [], 'in_metadata_not_in_VCF': []}
+        }
+        assert self.validation.eload_cfg.query('validation', 'sample_check', 'analysis') == expected_results
+
+    def test_validate_sample_names_no_aggregation(self):
+        metadata_file = os.path.join(self.resources_folder, 'metadata_aggregated.xlsx')
+        self.validation.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata_file)
+        self.validation.eload_cfg.set('validation', 'sample_check', value={})
+        with patch.object(self.validation, '_get_dir', return_value=os.path.join(self.resources_folder, 'vcf_dir_aggregated')):
+            self.validation._validate_sample_names()
+        # Found difference because there are no Sample in the VCF
+        expected_results = {
+            'ELOAD_2_GAE': {'difference_exists': True, 'in_VCF_not_in_metadata': [], 'in_metadata_not_in_VCF': ['POP']}
+        }
+        assert self.validation.eload_cfg.query('validation', 'sample_check', 'analysis') == expected_results
+
+        # Now if the aggregation check is set
+        self.validation.eload_cfg.set('validation', 'aggregation_check', 'analyses', value={'ELOAD_2_GAE': 'basic'})
+        with patch.object(self.validation, '_get_dir', return_value=os.path.join(self.resources_folder, 'vcf_dir_aggregated')):
+            self.validation._validate_sample_names()
+
+        # Found no differences
+        expected_results = {
+            'ELOAD_2_GAE': {'difference_exists': False, 'in_VCF_not_in_metadata': [], 'in_metadata_not_in_VCF': ['POP']}
+        }
+        assert self.validation.eload_cfg.query('validation', 'sample_check', 'analysis') == expected_results
