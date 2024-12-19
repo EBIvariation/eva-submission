@@ -37,6 +37,7 @@ class TestSampleChecker(TestCase):
     def test_compare_spreadsheet_and_vcf(self):
         metadata_file = os.path.join(self.resources_folder, 'metadata_2_analysis_same_samples.xlsx')
         vcf_dir = os.path.join(self.resources_folder, 'vcf_dir')
-        overall_differences, results_per_analysis_alias = compare_spreadsheet_and_vcf(metadata_file, vcf_dir)
-        assert not overall_differences
+        results_per_analysis_alias = compare_spreadsheet_and_vcf(metadata_file, vcf_dir)
         assert results_per_analysis_alias == {'GAE': (False, [], []), 'GAE2': (False, [], [])}
+
+
