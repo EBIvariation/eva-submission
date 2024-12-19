@@ -111,7 +111,6 @@ def compare_spreadsheet_and_vcf(eva_files_sheet, vcf_dir):
     eva_xls_reader = EvaXlsxReader(eva_files_sheet)
     samples_per_analysis = eva_xls_reader.samples_per_analysis
     files_per_analysis = eva_xls_reader.files_per_analysis
-    overall_differences = False
     results_per_analysis_alias = {}
     if len(samples_per_analysis) == 1 and None in samples_per_analysis or \
        len(files_per_analysis) == 1 and None in files_per_analysis:
@@ -130,8 +129,4 @@ def compare_spreadsheet_and_vcf(eva_files_sheet, vcf_dir):
             diff_submitted_file_submission,
             diff_submission_submitted_file
         )
-        overall_differences = overall_differences or has_differences
-    if not overall_differences:
-        logger.info('No differences found between the samples in the Metadata sheet and the submitted VCF file(s)!')
-    logger.info('Samples checking completed!')
-    return overall_differences, results_per_analysis_alias
+    return results_per_analysis_alias
