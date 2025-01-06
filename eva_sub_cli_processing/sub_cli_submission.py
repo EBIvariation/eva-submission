@@ -9,7 +9,8 @@ from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from ebi_eva_internal_pyutils.metadata_utils import get_metadata_connection_handle
 
-from eva_sub_cli_processing.sub_cli_utils import sub_ws_url_build, get_from_sub_ws, FAILURE, put_to_sub_ws, SUCCESS
+from eva_sub_cli_processing.sub_cli_utils import sub_ws_url_build, get_from_sub_ws, FAILURE, put_to_sub_ws, SUCCESS, \
+    RUNNING
 
 submission_logging_files = set()
 
@@ -49,6 +50,8 @@ class SubCliProcess(AppLogger):
     def start(self):
         """Start the processing while monitoring for exception"""
         try:
+            put_to_sub_ws(sub_ws_url_build('admin', 'submission-process', self.submission_id, self.processing_step,
+                                           RUNNING))
             self._start()
         except Exception as e:
             put_to_sub_ws(sub_ws_url_build('admin', 'submission-process', self.submission_id, self.processing_step,
