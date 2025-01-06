@@ -401,14 +401,17 @@ class SampleJSONSubmitter(SampleSubmitter):
         return payloads
 
     def already_submitted_sample_names_to_accessions(self):
+        """Provide a dict of name to BioSamples accession for pre-submitted samples."""
         if self.check_submit_done():
             return dict([
-                (sample_json.get('Sample ID'), sample_json.get('sampleAccession')) for sample_json in self.metadata_json.get('sample')
+                (sample_json.get('sampleInVCF'), sample_json.get('bioSampleAccession'))
+                for sample_json in self.metadata_json.get('sample')
+                if 'bioSampleAccession' in sample_json
             ])
 
     def all_sample_names(self):
-        # We need to get back to the reader to get all the names that were present in the spreadsheet
-        return [sample_row.get('Sample Name') or sample_row.get('Sample ID') for sample_row in self.reader.samples]
+        """This provides all the sample names regardless of their submission status"""
+        return [sample_json.get('sampleInVCF') for sample_json in self.metadata_json.get('sample')]
 
 
 class SampleMetadataSubmitter(SampleSubmitter):

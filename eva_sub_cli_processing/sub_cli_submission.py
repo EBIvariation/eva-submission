@@ -9,12 +9,14 @@ from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from ebi_eva_internal_pyutils.metadata_utils import get_metadata_connection_handle
 
-from eva_sub_cli_processing.sub_cli_utils import sub_ws_url_build, get_from_sub_ws
+from eva_sub_cli_processing.sub_cli_utils import sub_ws_url_build, get_from_sub_ws, FAILURE, put_to_sub_ws, SUCCESS
 
 submission_logging_files = set()
 
 
 class SubCliProcess(AppLogger):
+    processing_step = None  # Should be set in subclasses
+
     def __init__(self, submission_id: str):
         self.submission_id = submission_id
         self.submission_dir = os.path.abspath(os.path.join(cfg['submission_dir'], self.submission_id))
@@ -45,5 +47,16 @@ class SubCliProcess(AppLogger):
             submission_logging_files.add(logfile_name)
 
     def start(self):
+        """Start the processing while monitoring for exception"""
+        try:
+            self._start()
+        except Exception as e:
+            put_to_sub_ws(sub_ws_url_build('admin', 'submission-process', self.submission_id, self.processing_step,
+                                           FAILURE))
+            raise e
+        put_to_sub_ws(sub_ws_url_build('admin', 'submission-process', self.submission_id, self.processing_step,
+                                       SUCCESS))
+
+    def _start(self):
         raise NotImplementedError
 

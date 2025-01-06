@@ -3,8 +3,8 @@ from ebi_eva_common_pyutils.logger import AppLogger
 
 from eva_sub_cli_processing.sub_cli_brokering import SubCliProcessBrokering
 from eva_sub_cli_processing.sub_cli_ingestion import SubCliProcessIngestion
-from eva_sub_cli_processing.sub_cli_utils import get_from_sub_ws, sub_ws_url_build, VALIDATION, READY_FOR_PROCESSING, \
-    PROCESSING, BROKERING, INGESTION, SUCCESS, FAILURE, put_to_sub_ws
+from eva_sub_cli_processing.sub_cli_utils import get_from_sub_ws, put_to_sub_ws, sub_ws_url_build, VALIDATION, \
+    READY_FOR_PROCESSING, PROCESSING, BROKERING, INGESTION, SUCCESS, FAILURE, UPLOADED
 from eva_sub_cli_processing.sub_cli_validation import SubCliProcessValidation
 
 
@@ -29,12 +29,13 @@ def _process_submission(submission):
 
 class SubmissionScanner(AppLogger):
 
-    statuses = []
-    step_statuses = []
+    submission_statuses = []
+    submission_processing_statuses = []
 
-    def _scan_per_status(self):
+    def _scan_for_new_per_submission_status(self):
+        """This scanner looks for submission that have never been processed"""
         submissions = []
-        for status in self.statuses:
+        for status in self.submission_statuses:
             for submission_data in get_from_sub_ws(sub_ws_url_build('admin', 'submissions', 'status', status)):
                 submissions.append(SubmissionStep(
                     submission_id=submission_data.get('submissionId'),
@@ -46,14 +47,16 @@ class SubmissionScanner(AppLogger):
                 ))
         return submissions
 
-    def _scan_per_step_status(self):
+    def _scan_per_processing_status(self):
+        """This scanner looks for submissions that have started the processing and needs to be moved to the nex step."""
         submissions = []
-        for step, status in self.step_statuses:
-            for submission_step_data in get_from_sub_ws(sub_ws_url_build('admin', 'submission-processes', step, status)):
+        for processing_step, status in self.submission_processing_statuses:
+            for submission_step_data in get_from_sub_ws(sub_ws_url_build('admin', 'submission-processes',
+                                                                         processing_step, status)):
                 submissions.append(SubmissionStep(
                     submission_id=submission_step_data.get('submissionId'),
                     status=PROCESSING,
-                    processing_step=step,
+                    processing_step=processing_step,
                     processing_status=status,
                     last_update_time=submission_step_data.get('lastUpdateTime'),
                     priority=submission_step_data.get('priority')
@@ -61,7 +64,7 @@ class SubmissionScanner(AppLogger):
         return submissions
 
     def scan(self):
-        return self._scan_per_status() + self._scan_per_step_status()
+        return self._scan_for_new_per_submission_status() + self._scan_per_processing_status()
 
     def report(self):
         header = ['Submission Id', 'Submission status', 'Processing step', 'Processing status', 'Last updated time',
@@ -76,9 +79,19 @@ class SubmissionScanner(AppLogger):
 
 class NewSubmissionScanner(SubmissionScanner):
 
-    statuses = ['UPLOADED']
-    step_statuses = []
+    submission_statuses = [UPLOADED]
+    submission_processing_statuses = [(VALIDATION, FAILURE)]
 
+
+class BrokeringSubmissionScanner(SubmissionScanner):
+
+    submission_statuses = []
+    submission_processing_statuses = [(VALIDATION, SUCCESS), (BROKERING, FAILURE)]
+
+class IngestionSubmissionScanner(SubmissionScanner):
+
+    submission_statuses = []
+    submission_processing_statuses = [(BROKERING, SUCCESS), (INGESTION, FAILURE)]
 
 class SubmissionStep(AppLogger):
 
@@ -94,6 +107,7 @@ class SubmissionStep(AppLogger):
         self._set_next_step()
         self._update_submission_ws()
         self.submit_pipeline()
+
 
     def submit_pipeline(self):
         assert self.processing_status == READY_FOR_PROCESSING
@@ -123,7 +137,7 @@ class SubmissionStep(AppLogger):
 
     def _update_submission_ws(self):
         put_to_sub_ws(sub_ws_url_build('admin', 'submission', self.submission_id, 'status', self.submission_status))
-        put_to_sub_ws('admin', 'submission-process', self.submission_id, self.processing_step, self.processing_status)
+        put_to_sub_ws(sub_ws_url_build('admin', 'submission-process', self.submission_id, self.processing_step, self.processing_status))
 
     def __repr__(self):
         return f'Submission(submission_id={self.submission_id}, submission_status={self.submission_status}, ' \

@@ -1,16 +1,13 @@
-import csv
-import os
-import shutil
-
-from eva_submission.ENA_submission.upload_to_ENA import ENAUploader, ENAUploaderAsync
-from eva_submission.biosample_submission.biosamples_submitters import SampleReferenceSubmitter, \
-    SampleSubmitter, SampleJSONSubmitter
+from eva_sub_cli_processing.sub_cli_utils import BROKERING
+from eva_submission.biosample_submission.biosamples_submitters import SampleJSONSubmitter
 from eva_sub_cli_processing.sub_cli_submission import SubCliProcess
 
 
 class SubCliProcessBrokering(SubCliProcess):
 
-    def start(self):
+    processing_step = BROKERING
+
+    def _start(self):
         """Run the brokering process"""
         self.upload_to_bioSamples()
 
