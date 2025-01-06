@@ -166,7 +166,7 @@ class EloadIngestion(Eload):
         """
         # query EVAPRO for db name based on taxonomy id and accession
         with self.metadata_connection_handle as conn:
-            db_name = resolve_variant_warehouse_db_name(conn, assembly_accession, self.taxonomy)
+            db_name = resolve_variant_warehouse_db_name(conn, assembly_accession, self.taxonomy, ncbi_api_key=cfg.get('eutils_api_key'))
             if not db_name:
                 raise ValueError(f'Database name for taxid:{self.taxonomy} and assembly {assembly_accession} '
                                  f'could not be retrieved or constructed')
