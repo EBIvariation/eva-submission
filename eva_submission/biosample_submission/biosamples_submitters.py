@@ -331,16 +331,14 @@ class SampleSubmitter(AppLogger):
             elif map_key:
                 bsd_data[map_key] = value
 
-    def _group_across_fields(self, grouped_data, header, values_to_group):
-        """Populate the grouped_data with the values. The grouped_data variable will be changed by this function"""
-        groupname = self.map_project_key(header.split()[0].lower())
-        if groupname not in grouped_data:
-            grouped_data[groupname] = []
-            for i, value in enumerate(values_to_group.split('\t')):
-                grouped_data[groupname].append({self.map_project_key(header): value})
-        else:
-            for i, value in enumerate(values_to_group.split('\t')):
-                grouped_data[groupname][i][self.map_project_key(header)] = value
+    def check_submit_done(self):
+        return all((s.get("accession") for s in self.sample_data))
+
+    def already_submitted_sample_names_to_accessions(self):
+        raise NotImplementedError()
+
+    def all_sample_names(self):
+        raise NotImplementedError()
 
     def submit_to_bioSamples(self):
         # Check that the data exists
@@ -351,6 +349,69 @@ class SampleSubmitter(AppLogger):
             self.submitter.submit_biosamples_to_bsd(self.sample_data)
 
         return self.submitter.sample_name_to_accession
+
+
+class SampleJSONSubmitter(SampleSubmitter):
+    submitter_mapping = {
+        'email': 'E-mail',
+        'firstName': 'FirstName',
+        'lastName': 'LastName'
+    }
+
+    organisation_mapping = {
+        'laboratory': 'Name',
+        'address': 'Address',
+    }
+
+    def __init__(self, metadata_json, submit_type=('create',)):
+        super().__init__(submit_type=submit_type)
+        self.metadata_json = metadata_json
+        self.sample_data = self._convert_json_to_bsd_json()
+
+    def _convert_json_to_bsd_json(self):
+        payloads = []
+        for sample in self.metadata_json.get('sample'):
+            bsd_sample_entry = {'characteristics': {}}
+
+            if 'sampleAccession' in sample:
+                bsd_sample_entry['accession'] = sample['sampleAccession']
+            if 'bioSampleObject' in sample:
+                bsd_sample_entry.update(sample['bioSampleObject'])
+                if 'submitterDetails' in self.metadata_json:
+                    # add the submitter information to each BioSample
+                    contacts = []
+                    organisations = []
+                    for submitter in self.metadata_json.get('submitterDetails'):
+                        contact = {}
+                        organisation = {}
+                        for key in submitter:
+                            self.apply_mapping(contact, self.submitter_mapping.get(key), submitter[key])
+                            self.apply_mapping(organisation, self.organisation_mapping.get(key), submitter[key])
+                        if contact:
+                            contacts.append(contact)
+                        if organisation:
+                            organisations.append(organisation)
+                    self.apply_mapping(bsd_sample_entry, 'contact', contacts)
+                    self.apply_mapping(bsd_sample_entry, 'organization', organisations)
+            bsd_sample_entry['release'] = _now
+            # Custom attributes added to all the BioSample we create/modify
+            bsd_sample_entry['characteristics']['last_updated_by'] = [{'text': 'EVA'}]
+            payloads.append(bsd_sample_entry)
+
+        return payloads
+
+    def already_submitted_sample_names_to_accessions(self):
+        """Provide a dict of name to BioSamples accession for pre-submitted samples."""
+        if self.check_submit_done():
+            return dict([
+                (sample_json.get('sampleInVCF'), sample_json.get('bioSampleAccession'))
+                for sample_json in self.metadata_json.get('sample')
+                if 'bioSampleAccession' in sample_json
+            ])
+
+    def all_sample_names(self):
+        """This provides all the sample names regardless of their submission status"""
+        return [sample_json.get('sampleInVCF') for sample_json in self.metadata_json.get('sample')]
 
 
 class SampleMetadataSubmitter(SampleSubmitter):
