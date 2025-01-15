@@ -27,7 +27,7 @@ Project:
       Parent Project(s): {   type: 'string',  nullable: True}
       Child Project(s): {    type: 'string',  nullable: True}
       Peer Project(s): {     type: 'string',  nullable: True}
-      Link(s): {             type: 'string',  nullable: True, regex: '(^(ftp:|http:|file:|https:):\w+)|(\w+:\w+(:\w+)?)'}
+      Link(s): {             type: 'string',  nullable: True, regex: '(^(ftp:|http:|file:|https:)[^|]+\|.+)|(\w+:\w+(:\w+)?)'}
       Hold Date: {           type: 'date',    nullable: True}
       Collaborator(s): {     type: 'string',  nullable: True}
       Strain: {              type: 'string',  nullable: True}
