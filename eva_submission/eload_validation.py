@@ -35,10 +35,10 @@ class EloadValidation(Eload):
 
         if 'metadata_check' in validation_tasks:
             self._validate_metadata_format()
-        if 'sample_check' in validation_tasks:
-            self._validate_sample_names()
         if 'aggregation_check' in validation_tasks:
             self._validate_genotype_aggregation()
+        if 'sample_check' in validation_tasks:
+            self._validate_sample_names()
         if set(validation_tasks).intersection(
                 {'vcf_check', 'assembly_check', 'structural_variant_check', 'naming_convention_check'}
         ):
@@ -93,18 +93,28 @@ class EloadValidation(Eload):
         self.eload_cfg['validation']['metadata_check']['pass'] = len(validator.error_list) == 0
 
     def _validate_sample_names(self):
-        overall_differences, results_per_analysis_alias = compare_spreadsheet_and_vcf(
+        results_per_analysis_alias = compare_spreadsheet_and_vcf(
             eva_files_sheet=self.eload_cfg['submission']['metadata_spreadsheet'],
             vcf_dir=self._get_dir('vcf')
         )
+        overall_differences = False
         for analysis_alias in results_per_analysis_alias:
-            has_difference, diff_submitted_file_submission, diff_submission_submitted_file = results_per_analysis_alias[analysis_alias]
+            has_differences, diff_submitted_file_submission, diff_submission_submitted_file = results_per_analysis_alias[analysis_alias]
             analysis_alias = self._unique_alias(analysis_alias)
+            if self.eload_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias) == 'basic':
+                # When genotypes are aggregated then there will be no samples in the VCF to validate against
+                # we expect to find sample in the metadata but not in the VCF
+                if diff_submission_submitted_file and not diff_submitted_file_submission:
+                    has_differences = False
+                    self.warning(f'for analysis {analysis_alias}, Sample differences between metadata and VCF will be ignored because the VCF has aggregated genotypes')
             self.eload_cfg.set('validation', 'sample_check', 'analysis', analysis_alias, value={
-                'difference_exists': has_difference,
+                'difference_exists': has_differences,
                 'in_VCF_not_in_metadata': diff_submitted_file_submission,
                 'in_metadata_not_in_VCF': diff_submission_submitted_file
             })
+            overall_differences = overall_differences or has_differences
+        if not overall_differences:
+            self.info('No differences found between the samples in the Metadata sheet and the submitted VCF file(s)!')
         self.eload_cfg.set('validation', 'sample_check', 'pass', value=not overall_differences)
 
     def _validate_genotype_aggregation(self):
