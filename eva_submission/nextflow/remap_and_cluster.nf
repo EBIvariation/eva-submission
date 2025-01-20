@@ -255,6 +255,26 @@ process qc_clustering {
     """
 }
 
+/*
+ * Run clustering QC job for detecting duplicate RS accessions
+ */
+process qc_clustering_duplicate_rs_acc {
+    label 'long_time', 'med_mem'
+
+    input:
+    path rs_report
+
+    publishDir "$params.logs_dir", overwrite: true, mode: "copy", pattern: "*.log*"
+
+    """
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.clustering \
+         --spring.config.location=file:${params.clustering_properties} \
+         --spring.batch.job.names=DUPLICATE_RS_ACC_QC_JOB \
+         > ${params.target_assembly_accession}_clustering_qc_duplicate_rs_acc.log
+    """
+}
+
+
 
 /*
  * Run Back propagation of new clustered RS only if the remapping was performed
@@ -295,6 +315,7 @@ workflow {
             ingest_vcf_into_mongo(remap_variants.out.remapped_vcfs, update_target_genome.out.updated_target_report)
             cluster_studies_from_mongo(ingest_vcf_into_mongo.out.ingestion_log_filename.collect())
             qc_clustering(cluster_studies_from_mongo.out.rs_report_filename)
+            qc_clustering_duplicate_rs_acc(cluster_studies_from_mongo.out.rs_report_filename)
             // The `qc_clustering.out.clustering_qc_log_filename` had to be put in a value channel
             // to make sure it does not run out of values when multiple remapping are performed
             // See https://www.nextflow.io/docs/latest/process.html#multiple-input-channels
@@ -303,6 +324,7 @@ workflow {
             // We're using params.genome_assembly_dir because cluster_studies_from_mongo needs to receive a file object
             cluster_studies_from_mongo(params.genome_assembly_dir)
             qc_clustering(cluster_studies_from_mongo.out.rs_report_filename)
+            qc_clustering_duplicate_rs_acc(cluster_studies_from_mongo.out.rs_report_filename)
         }
 
 }
