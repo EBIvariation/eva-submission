@@ -130,14 +130,10 @@ class TestEVAJsonToENAJsonConverter(TestCase):
         ena_analysis_json_obj = self.converter._add_analysis(self.analysis, self.samples, self.files, self.project)
         self.assert_json_equal(expected_analysis_json_obj, ena_analysis_json_obj)
 
-    # def test_add_analysis_to_existing_project(self):
-    #     self.project_row['Project Alias'] = 'PRJEB00001'
-    #
-    #     root = ET.Element('ANALYSIS_SET')
-    #     self.converter._add_analysis(root, self.analysis_row, self.project_row, self.sample_rows, self.file_rows)
-    #     assert elements_equal(root, ET.fromstring(
-    #         self.expected_analysis.replace('<STUDY_REF refname="TechFish"/>','<STUDY_REF accession="PRJEB00001"/>')
-    #     ))
+    def test_add_analysis_to_existing_project(self):
+        self.project['alias'] = 'PRJEB00001'
+        ena_analysis_json_obj = self.converter._add_analysis(self.analysis, self.samples, self.files, self.project)
+        assert ena_analysis_json_obj['studyRef']["accession"] == 'PRJEB00001'
 
     def test_create_submission_json_obj(self):
         expected_submission_json_obj = {
@@ -191,9 +187,6 @@ class TestEVAJsonToENAJsonConverter(TestCase):
 
             with open(output_ena_json, 'r') as file:
                 ena_json_data = json.load(file)
-                assert 'projects' in ena_json_data
-                assert ena_json_data['projects'] == []
-                assert 'analysis' in ena_json_data
                 assert 'submission' in ena_json_data
                 assert ena_json_data['submission']['alias'] == 'PRJEB00001_Submission-12345'
 

@@ -1,6 +1,7 @@
 import json
 import os.path
 import re
+from collections import defaultdict
 from datetime import datetime, timedelta
 from functools import cached_property
 
@@ -126,10 +127,13 @@ class EnaJsonConverter(AppLogger):
 
         return ena_project_obj
 
-    def _create_ena_analysis_json_obj(self):
+    def _create_ena_analysis_json_obj(self, ):
+        samples_per_analysis = self._samples_per_analysis(self.eva_json_data.get('sample', []))
+        files_per_analysis = self._files_per_analysis(self.eva_json_data.get('files', []))
+
         for analysis in self.eva_json_data['analysis']:
-            samples = self._get_samples_for_analysis_alias(analysis, self.eva_json_data['samples'])
-            files = self._get_files_for_analysis_alias(analysis, self.eva_json_data['files'])
+            samples = samples_per_analysis[analysis.get('analysisAlias')]
+            files = files_per_analysis[analysis.get('analysisAlias')]
 
             self._add_analysis(analysis, samples, files, self.eva_json_data['project'])
 
@@ -152,8 +156,8 @@ class EnaJsonConverter(AppLogger):
 
         def get_samples_refs(samples):
             # TODO: sample id ??
-            return [{"sampleAccession": sample['bioSampleAccession'], "sampleId": sample['sampleId']} for sample in
-                    samples]
+            return [{"sampleAccession": sample['bioSampleAccession'], "sampleId": sample.get('sampleId')}
+                    for sample in samples]
 
         def get_run_refs(analysis):
             return analysis.get('runAccessions', [])
@@ -228,11 +232,18 @@ class EnaJsonConverter(AppLogger):
 
         return analysis_json_obj
 
-    def _get_samples_for_analysis_alias(self, samples, analysis_alias):
-        pass
+    def _samples_per_analysis(self, samples_data):
+        samples_per_analysis = defaultdict(list)
+        for sample in samples_data:
+            for analysis_alias in sample.get('analysisAlias', []):
+                samples_per_analysis[analysis_alias.strip()].append(sample)
+        return samples_per_analysis
 
-    def _get_files_for_analysis_alias(self, files, analysis_alias):
-        pass
+    def _files_per_analysis(self, files_data):
+        files_per_analysis = defaultdict(list)
+        for file in files_data:
+            files_per_analysis[file.get('analysisAlias', '').strip()].append(file)
+        return files_per_analysis
 
     def _create_ena_submission_json_obj(self, project_data, submission_id):
         centre = project_data.get('centre')
