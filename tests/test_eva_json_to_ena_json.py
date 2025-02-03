@@ -43,11 +43,11 @@ class TestEVAJsonToENAJsonConverter(TestCase):
         }
 
         self.samples = [
-            {'analysisAlias': 'GRM', 'sampleId': '201903VIBRIO1185679118', 'bioSampleAccession': 'SAMEA7851610'},
-            {'analysisAlias': 'GRM', 'sampleId': '201903VIBRIO1185679119', 'bioSampleAccession': 'SAMEA7851611'},
-            {'analysisAlias': 'GRM', 'sampleId': '201903VIBRIO1185679120', 'bioSampleAccession': 'SAMEA7851612'},
-            {'analysisAlias': 'GRM', 'sampleId': '201903VIBRIO1185679121', 'bioSampleAccession': 'SAMEA7851613'},
-            {'analysisAlias': 'GRM', 'sampleId': '201903VIBRIO1185679122', 'bioSampleAccession': 'SAMEA7851614'},
+            {'analysisAlias': 'GRM', 'sampleInVCF': '201903VIBRIO1185679118', 'bioSampleAccession': 'SAMEA7851610'},
+            {'analysisAlias': 'GRM', 'sampleInVCF': '201903VIBRIO1185679119', 'bioSampleAccession': 'SAMEA7851611'},
+            {'analysisAlias': 'GRM', 'sampleInVCF': '201903VIBRIO1185679120', 'bioSampleAccession': 'SAMEA7851612'},
+            {'analysisAlias': 'GRM', 'sampleInVCF': '201903VIBRIO1185679121', 'bioSampleAccession': 'SAMEA7851613'},
+            {'analysisAlias': 'GRM', 'sampleInVCF': '201903VIBRIO1185679122', 'bioSampleAccession': 'SAMEA7851614'},
         ]
 
         self.files = [
@@ -71,7 +71,7 @@ class TestEVAJsonToENAJsonConverter(TestCase):
             'alias': 'Submission-12345',
             'title': 'Example Project',
             'description': 'An example project for demonstration purposes',
-            'centre': 'University of Example',
+            'centreName': 'University of Example',
             'publicationLinks': [
                 {'xrefLink': {'db': 'PubMed', 'id': '123456'}},
                 {'xrefLink': {'db': 'PubMed', 'id': '789012'}}
@@ -103,24 +103,28 @@ class TestEVAJsonToENAJsonConverter(TestCase):
         expected_analysis_json_obj = {
             'title': 'Genomic Relationship Matrix',
             'description': 'A genomic relationship matrix (GRM) was computed',
-            'centre': 'University of Example',
-            'studyRef': {'refname': 'Example Project'},
-            'samplesRef': [
-                {'sampleAccession': 'SAMEA7851610', 'sampleId': '201903VIBRIO1185679118'},
-                {'sampleAccession': 'SAMEA7851611', 'sampleId': '201903VIBRIO1185679119'},
-                {'sampleAccession': 'SAMEA7851612', 'sampleId': '201903VIBRIO1185679120'},
-                {'sampleAccession': 'SAMEA7851613', 'sampleId': '201903VIBRIO1185679121'},
-                {'sampleAccession': 'SAMEA7851614', 'sampleId': '201903VIBRIO1185679122'}],
-            'runRefs': [],
-            'analysisType': {'sequenceVariation': {'assembly': {'custom': {'urlLink': 'http://abc.com'}}},
-                             'experimentType': ['Genotyping by array'],
-                             'software': 'software package GCTA, Burrows-Wheeler Alignment tool (BWA), HTSeq-python package',
-                             'platform': 'BGISEQ-500',
-                             'imputation': '1'},
+            'centreName': 'University of Example',
+            'study': {'alias': 'Example Project'},
+            'samples': [
+                {'accession': 'SAMEA7851610', 'alias': '201903VIBRIO1185679118'},
+                {'accession': 'SAMEA7851611', 'alias': '201903VIBRIO1185679119'},
+                {'accession': 'SAMEA7851612', 'alias': '201903VIBRIO1185679120'},
+                {'accession': 'SAMEA7851613', 'alias': '201903VIBRIO1185679121'},
+                {'accession': 'SAMEA7851614', 'alias': '201903VIBRIO1185679122'}],
+            'runs': [],
+            'analysisType': 'SEQUENCE_VARIATION',
+            'assemblies': [{"assembly": {"custom": {"urlLink": "http://abc.com"}}}],
+            'experiments': ['Genotyping by array'],
+            "attributes": [
+                {'tag': 'SOFTWARE',
+                 'value': 'software package GCTA, Burrows-Wheeler Alignment tool (BWA), HTSeq-python package'},
+                {'tag': 'PLATFORM', 'value': 'BGISEQ-500'},
+                {'tag': 'IMPUTATION', 'value': '1'}
+            ],
             'files': [
                 {'fileName': 'Vibrio.chrom.fix2.final.debug.gwassnps.vcf.gz', 'fileType': 'vcf'},
                 {'fileName': 'Vibrio.chrom.fix2.final.debug.gwassnps.vcf.gz.tbi', 'fileType': 'tabix'}],
-            'analysisLinks': [
+            'links': [
                 {'urlLink': {'label': 'abc', 'url': 'http://www.abc.com'}},
                 {'urlLink': {'label': 'http://xyz.com', 'url': 'http://xyz.com'}},
                 {'xrefLink': {'db': 'PubMed', 'id': '123456'}},
@@ -133,12 +137,12 @@ class TestEVAJsonToENAJsonConverter(TestCase):
     def test_add_analysis_to_existing_project(self):
         self.project['alias'] = 'PRJEB00001'
         ena_analysis_json_obj = self.converter._add_analysis(self.analysis, self.samples, self.files, self.project)
-        assert ena_analysis_json_obj['studyRef']["accession"] == 'PRJEB00001'
+        assert ena_analysis_json_obj['study']["accession"] == 'PRJEB00001'
 
     def test_create_submission_json_obj(self):
         expected_submission_json_obj = {
             "alias": 'Submission-12345',
-            'centre': 'University of Example',
+            'centerName': 'University of Example',
             "actions": [
                 {
                     "type": "ADD"
@@ -160,7 +164,7 @@ class TestEVAJsonToENAJsonConverter(TestCase):
         self.project['holdDate'] = "2023-06-25"
         expected_submission_json_obj = {
             "alias": 'Submission-12345',
-            'centre': 'University of Example',
+            'centerName': 'University of Example',
             "actions": [
                 {
                     "type": "ADD"

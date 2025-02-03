@@ -30,30 +30,6 @@ class EnaJsonConverter(AppLogger):
     def create_ena_submission(self):
         ena_json_data = {}
 
-        if not self.is_existing_project:
-            ena_projects_json_obj = [
-                self._create_ena_project_json_obj(self.eva_json_data['project'], self.submission_id)]
-        else:
-            # TODO: if existing project - should the projects field in json be empty or should not exist at all
-            ena_projects_json_obj = []
-
-        ena_analysis_json_obj = self._create_ena_analysis_json_obj()
-        ena_submission_json_obj = self._create_ena_submission_json_obj(self.eva_json_data['project'],
-                                                                       self.submission_id)
-
-        ena_json_data.update({
-            'submission': ena_submission_json_obj,
-            'projects': ena_projects_json_obj,
-            'analysis': ena_analysis_json_obj
-        })
-
-        self.write_to_json(ena_json_data, self.output_ena_json_file)
-
-        return self.output_ena_json_file
-
-    def create_ena_submission(self):
-        ena_json_data = {}
-
         ena_projects_json_obj = (
             [self._create_ena_project_json_obj(self.eva_json_data['project'], self.submission_id)]
             if not self.is_existing_project else []
@@ -84,7 +60,7 @@ class EnaJsonConverter(AppLogger):
         project_accession = self.existing_project
         project_title = project_data.get("title", "Unknown Title")
         project_description = project_data.get("description", "No description provided")
-        project_centre = project_data.get("centre", "Unknown Centre")
+        project_centre_name = project_data.get("centre", "Unknown Centre")
 
         publication_links = [
             {"xrefLink": {"db": pub.split(":")[0], "id": pub.split(":")[1]}}
@@ -114,7 +90,7 @@ class EnaJsonConverter(AppLogger):
             "alias": project_alias,
             "title": project_title,
             "description": project_description,
-            "centre": project_centre,
+            "centreName": project_centre_name,
             "publicationLinks": publication_links,
             "sequencingProject": {},
             "organism": {
@@ -146,54 +122,47 @@ class EnaJsonConverter(AppLogger):
             title = project.get('title', '')
             if re.match(r'^PRJ(EB|NA)', alias):
                 return {"accession": alias}
-            if re.match(r'^PRJ(EB|NA)', title):
+            elif re.match(r'^PRJ(EB|NA)', title):
                 return {"accession": title}
-            if alias:
-                return {"refname": alias}
-            if title:
-                return {"refname": title}
+            elif alias:
+                return {"alias": alias}
+            elif title:
+                return {"alias": title}
             return {}
 
-        def get_samples_refs(samples):
-            # TODO: sample id ??
-            return [{"sampleAccession": sample['bioSampleAccession'], "sampleId": sample.get('sampleId')}
+        def get_samples(samples):
+            return [{"accession": sample['bioSampleAccession'], "alias": sample.get('sampleInVCF')}
                     for sample in samples]
 
-        def get_run_refs(analysis):
+        def get_runs(analysis):
             return analysis.get('runAccessions', [])
 
-        def get_analysis_type(analysis):
+        def get_assemblies(analysis):
             reference_genome = analysis.get('referenceGenome', '').strip()
-            seq_asm = {}
             if is_single_insdc_sequence(reference_genome):
-                seq_asm["sequence"] = reference_genome
+                return [{"assembly": {"accession": reference_genome}}]
             else:
                 assembly = {}
                 if reference_genome.split(':')[0] in ['file', 'http', 'ftp']:
                     assembly["custom"] = {"urlLink": reference_genome}
                 else:
                     assembly["standard"] = reference_genome
-                seq_asm["assembly"] = assembly
+                return [{"assembly": assembly}]
 
-            experiment_types = [
-                experiment.strip().capitalize()
-                for experiment in analysis.get('experimentType', '').split(':')
-            ]
+        def get_experiments(analysis):
+            return [experiment.strip().capitalize()
+                    for experiment in analysis.get('experimentType', '').split(':')]
 
-            analysis_type = {
-                "sequenceVariation": seq_asm,
-                "experimentType": experiment_types,
-            }
-
-            # Add optional fields
+        def get_analyses_attributes(analysis):
+            analysis_attributes = []
             if analysis.get('software'):
-                analysis_type['software'] = analysis['software'].strip()
+                analysis_attributes.append({"tag": "SOFTWARE", "value": analysis['software'].strip()})
             if analysis.get('platform'):
-                analysis_type['platform'] = analysis['platform'].strip()
+                analysis_attributes.append({"tag": "PLATFORM", "value": analysis['platform'].strip()})
             if str(analysis.get('imputation', '')).strip() == '1':
-                analysis_type['imputation'] = "1"
+                analysis_attributes.append({"tag": "IMPUTATION", "value": "1"})
 
-            return analysis_type
+            return analysis_attributes
 
         def get_file_objs(files):
             return [
@@ -217,13 +186,16 @@ class EnaJsonConverter(AppLogger):
         analysis_json_obj = {
             "title": analysis['analysisTitle'],
             "description": analysis['description'],
-            "centre": get_centre(analysis, project),
-            "studyRef": get_study_attr(project),
-            "samplesRef": get_samples_refs(samples),
-            "runRefs": get_run_refs(analysis),
-            "analysisType": get_analysis_type(analysis),
+            "centreName": get_centre(analysis, project),
+            "study": get_study_attr(project),
+            "samples": get_samples(samples),
+            "runs": get_runs(analysis),
+            "analysisType": "SEQUENCE_VARIATION",
+            "assemblies": get_assemblies(analysis),
+            "experiments": get_experiments(analysis),
+            "attributes": get_analyses_attributes(analysis),
             "files": get_file_objs(files),
-            "analysisLinks": get_analysis_links(analysis),
+            "links": get_analysis_links(analysis),
         }
 
         attributes = get_attributes(analysis)
@@ -246,7 +218,7 @@ class EnaJsonConverter(AppLogger):
         return files_per_analysis
 
     def _create_ena_submission_json_obj(self, project_data, submission_id):
-        centre = project_data.get('centre')
+        centreName = project_data.get('centre')
 
         submission_alias = (
             f"{self.existing_project}_{submission_id}" if self.is_existing_project else submission_id
@@ -260,7 +232,7 @@ class EnaJsonConverter(AppLogger):
 
         ena_submission_obj = {
             "alias": submission_alias,
-            "centre": centre,
+            "centerName": centreName,
             "actions": [
                 {"type": "ADD"},
                 {"type": "HOLD", "holdUntilDate": self.hold_date},
