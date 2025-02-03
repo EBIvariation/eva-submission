@@ -19,8 +19,9 @@ from argparse import ArgumentParser
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.submission_config import load_config
+from eva_sub_cli_processing.sub_cli_to_eload_converter.sub_cli_to_eload_converter import SubCLIToEloadConverter
 from eva_submission.eload_preparation import EloadPreparation
+from eva_submission.submission_config import load_config
 
 logger = log_cfg.get_logger(__name__)
 
@@ -32,6 +33,9 @@ def main():
                           help='box number where the data should have been uploaded. Required to copy the data from the FTP')
     argparse.add_argument('--submitter', required=False, type=str,
                           help='the name of the directory for that submitter. Required to copy the data from the FTP')
+    argparse.add_argument('--submission_account_id', required=False, type=str,
+                          help='submission account id of the user which is generally "userId_loginType"')
+    argparse.add_argument('--submission_id', required=False, type=str, help='The Submission Id of the submission')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
     argparse.add_argument('--taxid', required=False, type=str,
                           help='Override and replace the taxonomy id provided in the metadata spreadsheet.')
@@ -49,10 +53,16 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    with EloadPreparation(args.eload) as eload:
-        if args.ftp_box and args.submitter:
-            eload.copy_from_ftp(args.ftp_box, args.submitter)
-        eload.detect_all(args.taxid, args.reference)
+    if args.submission_account_id and args.submission_id:
+        with SubCLIToEloadConverter(args.eload) as sub_cli_eload:
+            sub_cli_eload.retrieve_vcf_files_from_sub_cli_ftp_dir(args.submission_account_id, args.submission_id)
+            sub_cli_eload.download_metadata_json_and_convert_to_xlsx(args.submission_id)
+            sub_cli_eload.detect_all(args.taxid, args.reference)
+    else:
+        with EloadPreparation(args.eload) as eload:
+            if args.ftp_box and args.submitter:
+                eload.copy_from_ftp(args.ftp_box, args.submitter)
+            eload.detect_all(args.taxid, args.reference)
 
 
 if __name__ == "__main__":

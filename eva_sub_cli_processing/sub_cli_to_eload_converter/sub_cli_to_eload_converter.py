@@ -1,11 +1,10 @@
-import json
 import os
 import shutil
 
-import requests
 from ebi_eva_common_pyutils.config import cfg
 
 from eva_sub_cli_processing.sub_cli_to_eload_converter.json_to_xlsx_converter import JsonToXlsxConverter
+from eva_sub_cli_processing.sub_cli_utils import download_metadata_json_file_for_submission_id
 from eva_submission.eload_preparation import EloadPreparation
 from eva_submission.eload_submission import directory_structure
 
@@ -31,28 +30,6 @@ class SubCLIToEloadConverter(EloadPreparation):
         metadata_json_file_path = os.path.join(metadata_dir, "metadata_json.json")
         metadata_xlsx_file_path = os.path.join(metadata_dir, "metadata_xlsx.xlsx")
         # download metadata json
-        self.download_metadata_json(submission_id, metadata_json_file_path)
+        download_metadata_json_file_for_submission_id(submission_id, metadata_json_file_path)
         # convert metadata json to metadata xlsx
         JsonToXlsxConverter().convert_json_to_xlsx(metadata_json_file_path, metadata_xlsx_file_path)
-
-    def download_metadata_json(self, submission_id, metadata_json_file_path):
-        url = f"{cfg['submissions']['webservice']['url']}/admin/submission/{submission_id}"
-        username = cfg['submissions']['webservice']['admin_username']
-        password = cfg['submissions']['webservice']['admin_password']
-        response = requests.get(url, auth=(username, password))
-        if response.status_code == 200:
-            try:
-                response_data = response.json()
-                metadata_json_data = response_data['metadataJson']
-                if metadata_json_data:
-                    with open(metadata_json_file_path, "w", encoding="utf-8") as file:
-                        json.dump(metadata_json_data, file, indent=4)
-
-                    self.info(f"Metadata JSON file downloaded successfully: {metadata_json_file_path}")
-                else:
-                    raise ValueError("Metadata json file download: missing metadata_json field in the response")
-            except Exception as e:
-                raise Exception(f"Metadata json file download: Error processing response from the server: {e}")
-        else:
-            raise Exception(f"Failed to download metadata json file for submission id {submission_id}. "
-                            f"Status code: {response.status_code}")

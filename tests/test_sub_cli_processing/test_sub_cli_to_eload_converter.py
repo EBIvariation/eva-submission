@@ -69,31 +69,6 @@ class TestSubCliToEloadConverter(TestCase):
         assert os.listdir(os.path.join(self.cli_to_eload.eload_dir, '10_submitted', 'vcf_files')) == ['data.vcf.gz']
 
     @patch("requests.get")
-    def test_download_metadata_json(self, mock_requests):
-        mock_response = mock_requests.return_value
-        mock_response.status_code = 200
-        input_json_file = os.path.join(self.resources_folder, 'input_json_for_json_to_xlsx_converter.json')
-        with open(input_json_file) as json_file:
-            input_json_data = json.load(json_file)
-        mock_response.json.return_value = {"metadataJson": input_json_data}
-
-        submission_id = "submission123"
-        metadata_json_file_path = os.path.join(self.cli_to_eload.eload_dir, '10_submitted', 'metadata_file',
-                                               'metadata_json.json')
-        self.cli_to_eload.download_metadata_json(submission_id, metadata_json_file_path)
-
-        # Check if requests.get was called with the correct URL
-        mock_requests.assert_called_once_with(f"{cfg['submissions']['webservice']['url']}/admin/submission/{submission_id}",
-                                              auth=(cfg['submissions']['webservice']['admin_username'],
-                                                    cfg['submissions']['webservice']['admin_password']))
-
-        # Check if file was written correctly
-        assert os.path.exists(metadata_json_file_path)
-        with open(metadata_json_file_path) as json_file:
-            json_data = json.load(json_file)
-        self.assertEquals(input_json_data, json_data)
-
-    @patch("requests.get")
     def test_download_metadata_json_and_convert_to_xlsx(self, mock_requests):
         mock_response = mock_requests.return_value
         mock_response.status_code = 200
@@ -106,9 +81,10 @@ class TestSubCliToEloadConverter(TestCase):
         self.cli_to_eload.download_metadata_json_and_convert_to_xlsx(submission_id)
 
         # Check if requests.get was called with the correct URL
-        mock_requests.assert_called_once_with(f"{cfg['submissions']['webservice']['url']}/admin/submission/{submission_id}",
-                                              auth=(cfg['submissions']['webservice']['admin_username'],
-                                                    cfg['submissions']['webservice']['admin_password']))
+        mock_requests.assert_called_once_with(
+            f"{cfg['submissions']['webservice']['url']}/admin/submission/{submission_id}",
+            auth=(cfg['submissions']['webservice']['admin_username'],
+                  cfg['submissions']['webservice']['admin_password']))
 
         # Check if json file was written correctly and converted to xlsx without any error
         metadata_json_file_path = os.path.join(self.cli_to_eload.eload_dir, '10_submitted', 'metadata_file',
