@@ -1,5 +1,6 @@
 import datetime
 import os
+from collections import Counter
 
 import yaml
 from cerberus import Validator
@@ -72,6 +73,12 @@ class EvaXlsxValidator(AppLogger):
         This function adds error statements to the errors attribute
         """
         analysis_aliases = [analysis_row['Analysis Alias'] for analysis_row in self.metadata['Analysis']]
+        # Ensure analysis alias are unique in the Analysis sheet
+        if len(set(analysis_aliases)) != len(analysis_aliases):
+            counter = Counter(analysis_aliases)
+            for analysis_alias in counter:
+                if counter[analysis_alias] > 1:
+                    self.error_list.append(f'Analysis alias {analysis_alias} is present {counter.get(analysis_alias)} times in the Analysis Sheet')
         self.same_set(
             analysis_aliases,
             [analysis_alias.strip() for sample_row in self.metadata['Sample'] for analysis_alias in sample_row['Analysis Alias'].split(',')],
