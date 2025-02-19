@@ -53,7 +53,7 @@ Analysis:
       Phasing: {             type: 'string',  nullable: True}
       Centre: {              type: 'string',  nullable: True}
       Date: {                type: 'date',    nullable: True}
-      Link(s): {             type: 'string',  nullable: True}
+      Link(s): {             type: 'string',  nullable: True, regex: '(^(ftp:|http:|file:|https:)[^|]+\|.+)|(\w+:\w+(:\w+)?)'}
       Run Accession(s): {    type: 'string',  nullable: True}
 
 Sample:
