@@ -12,3 +12,4 @@ pyyaml
 requests
 retry
 packaging
+oracledb
