@@ -11,7 +11,8 @@ version = open(join(base_dir, 'eva_submission', 'VERSION')).read().strip()
 setup(
     name='eva_submission',
     packages=['eva_submission', 'eva_submission.ENA_submission', 'eva_submission.xlsx', 'eva_submission.steps',
-              'eva_submission.biosample_submission'],
+              'eva_submission.biosample_submission', 'eva_sub_cli_processing',
+              'eva_sub_cli_processing.sub_cli_to_eload_converter'],
     package_data={'eva_submission': ['nextflow/*', 'etc/*', 'VERSION']},
     version=version,
     license='Apache',
