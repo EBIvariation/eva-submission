@@ -1,11 +1,15 @@
 Changelog for eva-submission
 ============================
 
-## 1.16.2 (unreleased)
+## 1.17.0 (2025-02-26)
 ----------------------
-
-- Nothing changed yet.
-
+- Do not need to count star * allele when checking accessioning QC
+- Validate sample check when VCF contains aggregated genotypes
+- Initial processing code for eva-sub-cli
+- Automation for new clustering QC job
+- Check for duplicate analysis alias during validation
+- Sort after normalisation
+- Various other bugfixes
 
 ## 1.16.1 (2024-10-25)
 ----------------------
