@@ -153,7 +153,7 @@ class EnaProjectFinder():
             f"and (study_id in (select study_id from era.study where project_id='{project_accession}') "
             f"or study_id='{project_accession}' or bioproject_id='{project_accession}')"
         )
-        with (self.era_cursor() as cursor):
+        with self.era_cursor() as cursor:
             for results in cursor.execute(era_analysis_query):
                 (
                     analysis_id, analysis_title, analysis_alias, analysis_type, center_name, first_created,
