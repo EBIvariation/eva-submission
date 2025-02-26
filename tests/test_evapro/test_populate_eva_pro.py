@@ -29,7 +29,7 @@ class TestEvaProjectLoader(TestCase):
         metadata.create_all(engine)
         return patch.object(self.loader, '_evapro_engine', side_effect=PropertyMock(return_value=engine))
 
-    # @pytest.mark.skip(reason='Needs access to ERA database')
+    @pytest.mark.skip(reason='Needs access to ERA database')
     def test_load_project_from_ena(self):
         project = 'PRJEB66443'
 
