@@ -1,6 +1,12 @@
 Changelog for eva-submission
 ============================
 
+## 1.17.1 (unreleased)
+----------------------
+
+- Nothing changed yet.
+
+
 ## 1.17.0 (2025-02-26)
 ----------------------
 - Do not need to count star * allele when checking accessioning QC
