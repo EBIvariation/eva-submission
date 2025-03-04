@@ -4,7 +4,6 @@ from unittest import TestCase
 from unittest.mock import patch, PropertyMock, Mock
 
 import pytest
-from pysam.bcftools import query
 from sqlalchemy import create_engine, select
 
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
@@ -32,7 +31,7 @@ class TestEvaProjectLoader(TestCase):
     @pytest.mark.skip(reason='Needs access to ERA database')
     def test_load_project_from_ena(self):
         project = 'PRJEB66443'
-
+        eload = 101
         engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
         with self.patch_evapro_engine(engine):
             metadata.create_all(engine)
@@ -41,7 +40,7 @@ class TestEvaProjectLoader(TestCase):
             self.loader.eva_session.add(platform)
             self.loader.eva_session.commit()
 
-            self.loader.load_project_from_ena(project)
+            self.loader.load_project_from_ena(project, eload)
             session = self.loader.eva_session
 
             # Loaded project
@@ -91,6 +90,7 @@ class TestEvaProjectLoader(TestCase):
     def test_load_project_without_ERA(self):
         engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
         project = 'PRJEB36082'
+        eload = 101
         project_info = (
             'ERP119220', 'PRJEB36082', 'ERA2336002',
             'Shanghai Jiao Tong University Affiliated Sixth People’s Hospital', 'CTSK', 'Other',
@@ -130,7 +130,7 @@ class TestEvaProjectLoader(TestCase):
                 find_samples_in_ena=Mock(return_value=samples_info),
                 find_files_in_ena=Mock(return_value=files_info)
             )
-            self.loader.load_project_from_ena(project)
+            self.loader.load_project_from_ena(project, eload)
             session = self.loader.eva_session
             # Loaded project
             result = session.execute(select(Project)).fetchone()
