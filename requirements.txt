@@ -12,3 +12,5 @@ pyyaml
 requests
 retry
 packaging
+oracledb
+sqlalchemy
