@@ -20,7 +20,6 @@ class TestEnaProjectFinder(unittest.TestCase):
 
 
     def test_find_project_from_ena_database(self):
-
         project = 'PRJEB36082'
         result = self.finder.find_project_from_ena_database(project)
         expected_results = ('ERP119220', 'PRJEB36082', 'ERA2336002',
@@ -38,7 +37,6 @@ class TestEnaProjectFinder(unittest.TestCase):
 
     def test_find_ena_submission(self):
         project = 'PRJEB66443'
-        # for project in all_projects[700:800]:
         expected_actions = [
             ('ERA27275681', 'ELOAD_1194', datetime.datetime(2023, 9, 28, 15, 54, 7),
              '2023-10-01', {'type': 'ADD', 'schema': 'project', 'source': 'ELOAD_1194.Project.xml'})
