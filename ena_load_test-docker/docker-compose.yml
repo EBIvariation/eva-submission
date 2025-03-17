@@ -1,0 +1,41 @@
+services:
+  ena_perl_loader:
+    image: ena_perl_loader
+    build:
+      context: ./
+      dockerfile: perl_loader_docker/Dockerfile
+    container_name: ena_perl_loader
+    command: tail -f /dev/null
+    depends_on:
+      - python_postgres
+      - perl_postgres
+
+
+  python_postgres:
+    image: postgres_db
+    container_name: python_postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=root_user
+      - POSTGRES_PASSWORD=root_pass
+    ports:
+      - 5432:5432
+    depends_on:
+      - perl_postgres
+
+
+  perl_postgres:
+    image: postgres_db
+    build: ../eva-submission-docker/postgres_docker/.
+    container_name: perl_postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=root_user
+      - POSTGRES_PASSWORD=root_pass
+    ports:
+      - 5433:5432
+
+networks:
+  default:
+    name: ena_test_network
+    driver: bridge
