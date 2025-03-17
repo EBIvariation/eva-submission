@@ -295,12 +295,12 @@ class Analysis(Base):
     assembly_set_id = Column(ForeignKey('assembly_set.assembly_set_id'))
 
     assembly_set = relationship('AssemblySet')
-    files = relationship('File', secondary='analysis_file')
+    files = relationship('File', secondary='analysis_file', backref='analyses')
     platforms = relationship('Platform', secondary='analysis_platform')
     sequences = relationship('EvaReferencedSequence', secondary='analysis_sequence')
     submissions = relationship('Submission', secondary='analysis_submission', backref='analyses')
     experiment_types = relationship('ExperimentType', secondary='analysis_experiment_type')
-    project = relationship('Project', secondary='project_analysis')
+    project = relationship('Project', secondary='project_analysis', backref='analyses')
 
 
 class AnalysisAttribute(Base):

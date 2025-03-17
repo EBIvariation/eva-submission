@@ -118,10 +118,9 @@ class EnaProjectFinder():
     @staticmethod
     def _parse_study_description_from_xml(study_xml):
         root = ET.fromstring(study_xml)
-
         # Extract Study Description
-        doc = root.find(".//STUDY_DESCRIPTION")
-        if doc:
+        doc = root.find("./STUDY/DESCRIPTOR/STUDY_DESCRIPTION")
+        if doc is not None:
             return doc.text
         else:
             return ''

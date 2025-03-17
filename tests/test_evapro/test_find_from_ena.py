@@ -7,7 +7,7 @@ import pytest
 from eva_submission.evapro.populate_evapro import EnaProjectFinder
 from eva_submission.submission_config import load_config
 
-@pytest.mark.skip(reason='Needs access to ERA database')
+# @pytest.mark.skip(reason='Needs access to ERA database')
 class TestEnaProjectFinder(unittest.TestCase):
 
     def setUp(self):
@@ -19,13 +19,25 @@ class TestEnaProjectFinder(unittest.TestCase):
         self.finder = EnaProjectFinder()
 
 
+    def test_find_project_from_ena_database2(self):
+        project = 'PRJEB82556'
+        result = self.finder.find_project_from_ena_database(project)
+        print(result)
+        (study_id, project_accession, submission_id, center_name, project_alias, study_type, first_created,
+         project_title, taxonomy_id, scientific_name, common_name, study_description) = result
+        print(study_type)
+
+
     def test_find_project_from_ena_database(self):
         project = 'PRJEB36082'
         result = self.finder.find_project_from_ena_database(project)
-        expected_results = ('ERP119220', 'PRJEB36082', 'ERA2336002',
-                            'Shanghai Jiao Tong University Affiliated Sixth People’s Hospital', 'CTSK', 'Other',
-                            datetime.datetime(2020, 1, 8, 11, 23, 31),
-                            'CTSK gene polymorphism',  '9606', 'Homo sapiens', None, '')
+        expected_results = (
+            'ERP119220', 'PRJEB36082', 'ERA2336002', 'Shanghai Jiao Tong University Affiliated Sixth People’s Hospital',
+            'CTSK', 'Other',datetime.datetime(2020, 1, 8, 11, 23, 31),
+            'CTSK gene polymorphism',  '9606', 'Homo sapiens', None,
+            'Associations of Serum cathepsin K and Polymorphisms in the CTSK Gene With Bone Mineral Density and Markers '
+            'of Bone Metabolism in Postmenopausal Chinese Women'
+        )
         (study_id, project_accession, submission_id, center_name, project_alias, study_type, first_created,
         project_title, taxonomy_id, scientific_name, common_name, study_description) = result
         assert result == expected_results

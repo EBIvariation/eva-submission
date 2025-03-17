@@ -151,7 +151,7 @@ class TestEloadBacklog(TestCase):
                 [('ERZ9997',), ('ERZ9998',), ('ERZ9999',)]  # self.analysis_accessions
             ]
             assert eload.project_accession == 'PRJEB9999'
-            assert m_get_results.call_args[0][1] == ("select project_accession from evapro.project "
+            assert m_get_results.call_args[0][1] == ("select project_accession from evapro.sql.project "
                                                      "where project_accession='PRJEB9999';")
             m_get_results.reset_mock()
             assert eload.analysis_accessions == ['ERZ9997', 'ERZ9998', 'ERZ9999']
