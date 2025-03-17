@@ -7,7 +7,7 @@ import pytest
 from eva_submission.evapro.populate_evapro import EnaProjectFinder
 from eva_submission.submission_config import load_config
 
-# @pytest.mark.skip(reason='Needs access to ERA database')
+@pytest.mark.skip(reason='Needs access to ERA database')
 class TestEnaProjectFinder(unittest.TestCase):
 
     def setUp(self):
@@ -17,15 +17,6 @@ class TestEnaProjectFinder(unittest.TestCase):
         else:
             print(f'Config file {config_file} is not present. Add the config file to run the tests using ERA')
         self.finder = EnaProjectFinder()
-
-
-    def test_find_project_from_ena_database2(self):
-        project = 'PRJEB82556'
-        result = self.finder.find_project_from_ena_database(project)
-        print(result)
-        (study_id, project_accession, submission_id, center_name, project_alias, study_type, first_created,
-         project_title, taxonomy_id, scientific_name, common_name, study_description) = result
-        print(study_type)
 
 
     def test_find_project_from_ena_database(self):
