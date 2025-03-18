@@ -45,13 +45,27 @@ class EnaProjectFinder():
             else:
                 return parent_project[0]
 
-    def find_ena_submission(self, project_accession):
+    def find_ena_submission_for_project(self, project_accession):
         era_submission_query = (
             "select submission.submission_id, xmltype.getclobval(SUBMISSION_XML) submission_xml, "
             "submission.last_updated UPDATED "
             "from era.submission "
             "left outer join era.study on submission.submission_id=study.submission_id "
             f"where study.project_id='{project_accession}' and study.submission_id like 'ERA%'"
+        )
+        with self.era_cursor() as cursor:
+            for results in cursor.execute(era_submission_query):
+                (submission_id, submission_xml, last_updated) = results
+                alias, hold_date, action = self._parse_actions_and_alias_from_submission_xml(str(submission_xml))
+                yield submission_id, alias, last_updated, hold_date, action
+
+    def find_ena_submission_for_analysis(self, analysis_accession):
+        era_submission_query = (
+            "select sub.submission_id, sub.submission_xml, "
+            "sub.last_updated UPDATED "
+            "from era.submission sub "
+            "left outer join era.ANALYSIS a on sub.submission_id=a.submission_id "
+            f"where a.ANALYSIS_ID ='{analysis_accession}' and a.submission_id like 'ERA%'"
         )
         with self.era_cursor() as cursor:
             for results in cursor.execute(era_submission_query):

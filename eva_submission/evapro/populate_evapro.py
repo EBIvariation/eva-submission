@@ -71,7 +71,7 @@ class EvaProjectLoader(AppLogger):
         ###
         # LOAD SUBMISSIONS
         ###
-        for submission_info in self.ena_project_finder.find_ena_submission(project_accession=project_accession):
+        for submission_info in self.ena_project_finder.find_ena_submission_for_project(project_accession=project_accession):
             submission_id, alias, last_updated, hold_date, action = submission_info
             # action {"type": ADD, "schema": project, "source": ELOAD.Project.xml}
             submission_obj = self.insert_ena_submission(ena_submission_accession=submission_id, action=action.get('type'),
@@ -94,6 +94,19 @@ class EvaProjectLoader(AppLogger):
                 assembly_set_id=assembly_set_obj.assembly_set_id, vcf_reference_accession=assembly)
             project_obj.analyses.append(analysis_obj)
 
+            ###
+            # LOAD SUBMISSIONS FOR ANALYSIS
+            ###
+            # This will likely retrieve the same submission as the one associated with the study but there might be
+            # some specific to an analysis when they are submitted separately
+            for submission_info in self.ena_project_finder.find_ena_submission_for_analysis(analysis_accession=analysis_accession):
+                submission_id, alias, last_updated, hold_date, action = submission_info
+                submission_obj = self.insert_ena_submission(ena_submission_accession=submission_id,
+                                                            action=action.get('type'),
+                                                            submission_alias=alias, submission_date=last_updated,
+                                                            brokered=1,
+                                                            submission_type=action.get('schema').upper())
+                analysis_obj.submissions.append(submission_obj)
             ###
             # LINK PLATFORMS (ASSUME NO NEW PLATFORM)
             ###
@@ -287,7 +300,6 @@ class EvaProjectLoader(AppLogger):
         if result:
             eva_submission_obj = result.EvaSubmission
         else:
-
             eva_submission_obj = EvaSubmission(eva_submission_id=eload, eva_submission_status_id=6)
             self.eva_session.add(eva_submission_obj)
         query = select(ProjectEvaSubmission).where(

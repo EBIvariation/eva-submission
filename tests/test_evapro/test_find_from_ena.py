@@ -45,7 +45,7 @@ class TestEnaProjectFinder(unittest.TestCase):
              '2023-10-01', {'type': 'ADD', 'schema': 'project', 'source': 'ELOAD_1194.Project.xml'})
         ]
         for project in [project]:
-            submission_actions = list(self.finder.find_ena_submission(project))
+            submission_actions = list(self.finder.find_ena_submission_for_project(project))
             assert submission_actions == expected_actions
 
     def test_find_analysis_in_ena(self):
