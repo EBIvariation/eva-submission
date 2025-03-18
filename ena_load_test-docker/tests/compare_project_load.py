@@ -16,7 +16,7 @@ from eva_submission.submission_config import load_config
 # @pytest.mark.skip(reason='Needs access to ERA database')
 class TestCompareProjectLoad(unittest.TestCase):
     compose_dir = os.path.dirname(os.path.dirname(__file__))
-    project_to_load = 'PRJEB82556'
+    project_to_load = 'PRJEB31129'
     eload = '3'
 
     @classmethod
@@ -24,12 +24,8 @@ class TestCompareProjectLoad(unittest.TestCase):
         os.chdir(cls.compose_dir)
         command = 'docker compose up -d --build'
         run_command_with_output('Start docker-compose in the background', command)
-
         # Wait for the postgres to be ready to accept command
         time.sleep(10)
-        command = ('docker exec ena_perl_loader perl /usr/local/software/modified_load_from_ena_postgres_or_file.pl '
-                   f'-c submitted -p {cls.project_to_load} -v 1 -e {cls.eload} ')
-        run_command_with_output(f'Load project {cls.project_to_load} with perl', command)
 
     @classmethod
     def tearDownClass(cls):
@@ -48,21 +44,37 @@ class TestCompareProjectLoad(unittest.TestCase):
             print(f'Config file {config_file} is not present. Add the config file to run the tests using ERA')
         self.loader = EvaProjectLoader()
 
+    def load_through_perl(self, project_accession, eload):
+        command = ('docker exec ena_perl_loader perl /usr/local/software/modified_load_from_ena_postgres_or_file.pl '
+                   f'-c submitted -p {project_accession} -v 1 -e {eload} ')
+        run_command_with_output(f'Load project {project_accession} with perl', command)
 
     def test_all_tables_contents(self):
-        '''Assess All table regardless of their contents and links'''
+        '''Assess All tables regardless of their contents and links'''
+        tables_to_tests = [
+            'analysis','analysis_experiment_type','analysis_file','analysis_platform',
+            'analysis_sequence','analysis_submission','assembly_set','browsable_file',
+            'custom_assembly','dbxref','eva_submission',
+            'experiment_type','file','linked_project','project','project_analysis','project_dbxref',
+            'project_ena_submission','project_eva_submission','project_samples_temp1',
+            'project_taxonomy','submission','taxonomy'
+        ]
+        projects = ['PRJEB31129', 'PRJEB82556', 'PRJEB58296', 'PRJEB61107']
 
-        self.loader.load_project_from_ena(self.project_to_load, self.eload)
+        for idx, project in enumerate(projects):
+            eload = idx + 3
+            self.load_through_perl(project, eload)
+            try:
+                self.loader.load_project_from_ena(project, eload)
+            except Exception as e:
+                print(f'Failed to load project {project} with python script: {e}')
         # All the tables that the perl script references
-        for table_name in ['analysis','analysis_experiment_type','analysis_file','analysis_platform',
-                           'analysis_sequence','analysis_submission','assembly_set','browsable_file',
-                           'custom_assembly','dbxref','eva_submission',
-                           'experiment_type','file','linked_project','project','project_analysis','project_dbxref',
-                           'project_ena_submission','project_eva_submission','project_samples_temp1',
-                           'project_taxonomy','submission','taxonomy']:
+        for table_name in tables_to_tests:
             query = f'select * from {table_name}'
-            print(f'===== Testing {table_name} content =====')
-            self._compare_perl_python_with_query(query)
+            report = self._compare_perl_python_with_query(query)
+            if report:
+                print(f'===== Error while Testing {table_name} content =====')
+                print('\n'.join(report))
 
     @pytest.mark.skip(reason='Not now')
     def test_project_same_in_perl_and_python_load(self):
@@ -136,29 +148,28 @@ class TestCompareProjectLoad(unittest.TestCase):
         self._compare_perl_python_in_table(fields=fields, table=from_and_join, where_clause=where_clause)
 
     def _difference_in_query_results(self, list1, list2, header_list=None):
-        has_differences = True
+        report = []
         for idx1 in range(max(len(list1), len(list2))):
             entry1 = None
             entry2 = None
             if idx1 < len(list1):
                 entry1 = list1[idx1]
             else:
-                print(f'List 1 is missing value {idx1 + 1} matching {list2[idx1]}')
+                report.append(f'List 1 is missing value {idx1 + 1} matching {list2[idx1]}')
             if idx1 < len(list2):
                 entry2 = list2[idx1]
             else:
-                print(f'List 2 is missing value {idx1 + 1} matching {list1[idx1]}')
+                report.append(f'List 2 is missing value {idx1 + 1} matching {list1[idx1]}')
             if entry1 and entry2:
                 if not header_list:
                     header_list = [f'field {i}' for i in range(max(len(entry1), len(entry2)))]
                 for idx2, header in enumerate(header_list):
                     if entry1[idx2] != entry2[idx2]:
-                        print(f'{header}: {entry1[idx2]} != {entry2[idx2]}')
-                        has_differences = True
+                        report.append(f'{header}: {entry1[idx2]} != {entry2[idx2]}')
                     else:
                         # print(f'{header}: {entry1[idx2]} ==> {entry2[idx2]}')
                         pass
-        return has_differences
+        return report
 
     def _compare_perl_python_in_table(self, fields, table, where_clause=None):
         query = f"select {','.join(fields)} from {table}"
@@ -177,23 +188,20 @@ class TestCompareProjectLoad(unittest.TestCase):
         return not self._difference_in_query_results(results_perl, results_python, fields)
 
     def _compare_perl_python_with_query(self, query):
-        print(query)
+        report = []
         with self._connect_python_postgresql() as python_cursor:
             try:
                 python_cursor.execute(query)
                 results_python = python_cursor.fetchall()
             except psycopg2.Error as e:
-                print('In python docker -- Error:' + str(e))
-                return False
-
+                return ['In python docker -- Error:' + str(e)]
         with self._connect_perl_postgresql() as python_cursor:
             try:
                 python_cursor.execute(query)
                 results_perl = python_cursor.fetchall()
             except psycopg2.Error as e:
-                print('In perl docker -- Error:' + str(e))
-                return False
-        return not self._difference_in_query_results(results_perl, results_python)
+                return ['In perl docker -- Error:' + str(e)]
+        return self._difference_in_query_results(results_perl, results_python)
 
     def _connect_perl_postgresql(self):
         pg_conn = psycopg2.connect(host='localhost', port=5433, dbname='metadata', user='root_user', password='root_pass')
