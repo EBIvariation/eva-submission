@@ -15,8 +15,15 @@ from eva_submission.submission_config import load_config
 # @pytest.mark.skip(reason='Needs access to ERA database')
 class TestCompareProjectLoad(unittest.TestCase):
     compose_dir = os.path.dirname(os.path.dirname(__file__))
-    project_to_load = 'PRJEB31129'
-    eload = '3'
+
+    tables_to_tests = [
+        'analysis', 'analysis_experiment_type', 'analysis_file', 'analysis_platform',
+        'analysis_sequence', 'analysis_submission', 'assembly_set', 'browsable_file',
+        'custom_assembly', 'dbxref', 'eva_submission',
+        'experiment_type', 'file', 'linked_project', 'project', 'project_analysis', 'project_dbxref',
+        'project_ena_submission', 'project_eva_submission', 'project_samples_temp1',
+        'project_taxonomy', 'submission', 'taxonomy'
+    ]
 
     @classmethod
     def setUpClass(cls):
@@ -58,31 +65,57 @@ class TestCompareProjectLoad(unittest.TestCase):
                    f'-c submitted -p {project_accession} -v 1 -e {eload} ')
         run_command_with_output(f'Load project {project_accession} with perl', command)
 
-    def test_all_tables_contents(self):
-        '''Assess All tables regardless of their contents and links'''
-        tables_to_tests = [
-            'analysis','analysis_experiment_type','analysis_file','analysis_platform',
-            'analysis_sequence','analysis_submission','assembly_set','browsable_file',
-            'custom_assembly','dbxref','eva_submission',
-            'experiment_type','file','linked_project','project','project_analysis','project_dbxref',
-            'project_ena_submission','project_eva_submission','project_samples_temp1',
-            'project_taxonomy','submission','taxonomy'
-        ]
-        table_2_fields = self.build_table_2_fields(tables_to_tests)
+    def test_all_table_single_load(self):
+
+        projects = ['PRJEB82679','PRJEB38067','PRJEB74769','PRJEB24835','PRJEB32975','PRJEB43243','PRJEB84388',
+                    'PRJEB27150']
+
+        table_2_fields = self.build_table_2_fields(self.tables_to_tests)
+
+        for idx, project in enumerate(projects):
+            eload = idx + 3
+            print(f'h2. {project}')
+            command = ('docker compose start python_postgres')
+            run_command_with_output(f'Start the python postgresql service', command)
+            command = ('docker compose start perl_postgres')
+            run_command_with_output(f'Start the perl postgresql service', command)
+            # Wait for the postgres to be ready to accept command
+            time.sleep(10)
+
+            self.load_one_project(project, eload)
+            self.check_all_tables(self.tables_to_tests, table_2_fields)
+
+            command = ('docker compose stop python_postgres')
+            run_command_with_output(f'Start the python postgresql service', command)
+            command = ('docker compose stop perl_postgres')
+            run_command_with_output(f'Start the perl postgresql service', command)
+
+    def test_all_tables_many_load(self):
+        '''Assess All tables after loading multiple projects.'''
+
+        table_2_fields = self.build_table_2_fields(self.tables_to_tests)
 
         projects = ['PRJEB5829']
 
         for idx, project in enumerate(projects):
             eload = idx + 3
-            try:
-                self.load_through_perl(project, eload)
-            except Exception as e:
-                print(f'Failed to load project {project} with perl script: {e}')
-            try:
-                self.loader.load_project_from_ena(project, eload)
-            except Exception as e:
-                print(f'Failed to load project {project} with python script: {e}')
+            self.load_one_project(project, eload)
         # All the tables that the perl script references
+        self.check_all_tables(self.tables_to_tests, table_2_fields)
+
+    def load_one_project(self, project, eload):
+        '''Load one project'''
+        try:
+            self.load_through_perl(project, eload)
+        except Exception as e:
+            print(f'Failed to load project {project} with perl script: {e}')
+        try:
+            self.loader.load_project_from_ena(project, eload)
+        except Exception as e:
+            print(f'Failed to load project {project} with python script: {e}')
+
+    def check_all_tables(self, tables_to_tests, table_2_fields):
+        '''Check all the table'''
         for table_name in tables_to_tests:
             query = f'select * from {table_name}'
             report, differences = self._compare_perl_python_with_query(query, fields=table_2_fields[table_name])
@@ -92,6 +125,8 @@ class TestCompareProjectLoad(unittest.TestCase):
                     pretty_print(table_2_fields[table_name], report)
                 else:
                     print('\n'.join(report))
+
+
 
     def _difference_in_query_results(self, list1, list2, header_list):
         report = []
