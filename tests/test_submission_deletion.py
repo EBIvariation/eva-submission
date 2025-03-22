@@ -62,7 +62,7 @@ class TestEloadDeletion(TestCase):
         if os.path.exists(config_file_path):
             os.remove(config_file_path)
 
-        data = {"brokering": {"ena": {"PROJECT": project_accession}}}
+        data = {"brokering": {"ena": {"PROJECT": project_accession}}, "version": '1.16'}
         with open(config_file_path, "w") as file:
             yaml.dump(data, file, default_flow_style=False)
 
@@ -160,15 +160,56 @@ class TestEloadDeletion(TestCase):
         assert not os.path.exists(
             os.path.join(self.sub_del_test_dir, 'ELOAD_1', '60_eva_public', 'test_2.accessioned.vcf'))
 
+    def test_delete_submission_with_old_version(self):
+        # setup test data
+        self.setup_test_eload_data(1, old_version=True)
+        self.setup_test_ftp_boxes_data(1, 'test_user')
+
+        # set config values for old_version
+        self.eload_deletion.eload_cfg.set('version', value='1.15')
+        self.eload_deletion.eload_cfg.set('ingestion', 'project_dir', value=self.eload_deletion.project_dir)
+
+        # call method
+        self.eload_deletion.delete_submission(1, 'test_user')
+
+        # assert ftp files are deleted
+        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ftp', 'eva-box-01', 'upload'))
+        assert not os.path.exists(os.path.join(self.sub_del_test_dir, 'ftp', 'eva-box-01', 'upload', 'test_user'))
+        # assert eload dir is deleted
+        assert not os.path.exists(os.path.join(self.eload_deletion.eload_dir))
+        # assert project dir is deleted
+        assert not os.path.exists(os.path.join(self.eload_deletion.project_dir))
+
+        # extract archived tar file
+        src_tar_file = os.path.join(cfg['eloads_lts_dir'], f"{self.eload_deletion.eload}.tar")
+        target_tar_file = os.path.join(self.sub_del_test_dir, f"{self.eload_deletion.eload}")
+        if os.path.exists(target_tar_file):
+            os.remove(target_tar_file)
+
+        with tarfile.open(src_tar_file, "r:*") as tar:
+            tar.extractall(path=target_tar_file)
+
+        # assert file copied
+        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '.ELOAD_1_config.yml'))
+        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', 'ELOAD_1_submission.log'))
+        assert os.path.exists(
+            os.path.join(self.sub_del_test_dir, 'ELOAD_1', '18_brokering', 'ena', 'metadata_spreadsheet.xlsx'))
+        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '18_brokering', 'ena', 'test_1.vcf.gz'))
+        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '18_brokering', 'ena', 'test_1.vcf.csi'))
+        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '00_logs', 'test_log_1.txt'))
+        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '00_logs', 'test_log_2.txt'))
+        assert os.path.exists(
+            os.path.join(self.sub_del_test_dir, 'ELOAD_1', '60_eva_public', 'test_1.accessioned.vcf.gz'))
+        # assert file not copied
+        assert not os.path.exists(
+            os.path.join(self.sub_del_test_dir, 'ELOAD_1', '60_eva_public', 'test_2.accessioned.vcf'))
+
     def setup_test_ftp_boxes_data(self, ftp_box, submitter):
         ftp_box_path = os.path.join(cfg['ftp_dir'], 'eva-box-%02d' % ftp_box, 'upload', submitter)
         os.makedirs(ftp_box_path, exist_ok=True)
         Path(f"{ftp_box_path}/test_1.vcf").touch()
 
-    def setup_test_eload_data(self, eload_number):
-        # create eload config file
-        self.create_eload_config_file(self.eload_deletion.eload_dir, eload_number, 'PRJEB11111')
-
+    def setup_test_eload_data(self, eload_number, old_version=False):
         # create eload submission logs
         Path(f"{self.eload_deletion.eload_dir}/ELOAD_{eload_number}_submission.log").touch()
 
@@ -179,14 +220,18 @@ class TestEloadDeletion(TestCase):
         Path(f"{self.eload_deletion.eload_dir}/18_brokering/ena/test_1.vcf.gz").touch()
         Path(f"{self.eload_deletion.eload_dir}/18_brokering/ena/test_1.vcf.csi").touch()
 
+        prj_eload_dir = self.eload_deletion.eload_dir
+        if old_version:
+            prj_eload_dir = self.eload_deletion.project_dir
+
         # create 00_log dir and files
-        log_dir = os.path.join(self.eload_deletion.eload_dir, '00_logs')
+        log_dir = os.path.join(prj_eload_dir, '00_logs')
         os.makedirs(log_dir, exist_ok=True)
         Path(f"{log_dir}/test_log_1.txt").touch()
         Path(f"{log_dir}/test_log_2.txt").touch()
 
         # create 60_eva_public dir and accessioned files
-        accessioned_files_dir = os.path.join(self.eload_deletion.eload_dir, '60_eva_public')
+        accessioned_files_dir = os.path.join(prj_eload_dir, '60_eva_public')
         os.makedirs(accessioned_files_dir, exist_ok=True)
         Path(f"{accessioned_files_dir}/test_1.accessioned.vcf.gz").touch()
         Path(f"{accessioned_files_dir}/test_2.accessioned.vcf").touch()

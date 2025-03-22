@@ -16,6 +16,7 @@ class EloadDeletion(Eload):
         self.project_dir = os.path.join(cfg['projects_dir'], self.project_accession)
 
     def delete_submission(self, ftp_box, submitter):
+        self.upgrade_to_new_version_if_needed()
         self.archive_eload()
 
         # delete
@@ -69,14 +70,16 @@ class EloadDeletion(Eload):
 
         # copy 00_logs
         src_log_dir = os.path.join(self.eload_dir, '00_logs')
+        real_src_log_dir = os.path.realpath(src_log_dir)
         archive_log_dir = os.path.join(archive_dir, '00_logs')
-        shutil.copytree(src_log_dir, archive_log_dir)
+        shutil.copytree(real_src_log_dir, archive_log_dir)
 
         # copy accessioned files from 60_eva_public
         src_accessioned_files_dir = os.path.join(self.eload_dir, "60_eva_public")
+        real_accessioned_files_dir = os.path.realpath(src_accessioned_files_dir)
         archive_accession_files_dir = os.path.join(archive_dir, "60_eva_public")
         os.makedirs(archive_accession_files_dir, exist_ok=True)
-        for file in Path(src_accessioned_files_dir).glob("*.accessioned.vcf.gz"):
+        for file in Path(real_accessioned_files_dir).glob("*.accessioned.vcf.gz"):
             shutil.copy(file, archive_accession_files_dir)
 
     def delete_ftp_dir(self, ftp_dir):
