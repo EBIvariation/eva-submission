@@ -9,7 +9,7 @@ from ebi_eva_common_pyutils.biosamples_communicators import AAPHALCommunicator
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.reference import NCBIAssembly
-from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
+from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl, get_scientific_name_from_taxonomy
 from requests import HTTPError
 
 from eva_submission import ETC_DIR
@@ -130,7 +130,7 @@ class EvaXlsxValidator(AppLogger):
         taxid_and_species_list = set([(row['Tax Id'], row['Scientific Name']) for row in self.metadata['Sample'] if row['Tax Id']])
         for taxid, species in taxid_and_species_list:
             try:
-                scientific_name = get_scientific_name_from_ensembl(int(taxid))
+                scientific_name = get_scientific_name_from_taxonomy(int(taxid))
                 if species != scientific_name:
                     if species.lower() == scientific_name.lower():
                         correct_taxid_sc_name[taxid] = scientific_name
