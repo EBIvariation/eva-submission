@@ -8,6 +8,7 @@ from ebi_eva_common_pyutils.assembly_utils import retrieve_genbank_assembly_acce
 from ebi_eva_common_pyutils.biosamples_communicators import AAPHALCommunicator
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
+from ebi_eva_common_pyutils.reference import NCBIAssembly
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 from requests import HTTPError
 
@@ -115,6 +116,9 @@ class EvaXlsxValidator(AppLogger):
         references = set([row['Reference'] for row in self.metadata['Analysis'] if row['Reference']])
         for reference in references:
             accessions = retrieve_genbank_assembly_accessions_from_ncbi(reference, api_key=cfg.get('eutils_api_key'))
+            # if the searched term is an actual genome GCA accession:
+            if NCBIAssembly.is_assembly_accession_format(reference) and reference in accessions:
+                accessions = {reference}
             if len(accessions) == 0:
                 self.error_list.append(f'In Analysis, Reference {reference} did not resolve to any accession')
             elif len(accessions) > 1:
