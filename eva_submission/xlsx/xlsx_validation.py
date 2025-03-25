@@ -9,7 +9,7 @@ from ebi_eva_common_pyutils.biosamples_communicators import AAPHALCommunicator
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.reference import NCBIAssembly
-from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl, get_scientific_name_from_taxonomy
+from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_taxonomy
 from requests import HTTPError
 
 from eva_submission import ETC_DIR
@@ -136,7 +136,7 @@ class EvaXlsxValidator(AppLogger):
                         correct_taxid_sc_name[taxid] = scientific_name
                     else:
                         self.error_list.append(
-                            f'In Samples, Taxonomy {taxid} and scientific name {species} are inconsistent')
+                            f'In Samples, Taxonomy {taxid} ({scientific_name}) and scientific name {species} are inconsistent')
             except ValueError as e:
                 self.error(str(e))
                 self.error_list.append(str(e))
