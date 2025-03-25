@@ -1,3 +1,4 @@
+import gzip
 import os
 import shutil
 import tarfile
@@ -14,8 +15,14 @@ class EloadDeletion(Eload):
         super().__init__(eload_number)
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
         self.project_dir = os.path.join(cfg['projects_dir'], self.project_accession)
+        self.lts_archive_file = os.path.join(cfg['eloads_lts_dir'], f'{self.eload}.tar')
 
-    def delete_submission(self, ftp_box, submitter):
+    def delete_submission(self, ftp_box, submitter, force_delete=False):
+        # check if already present in LTS
+        if os.path.exists(self.lts_archive_file) and not force_delete:
+            raise Exception(
+                f'File already exists in the LTS for the eload {self.eload_num}. LTS file: {self.lts_archive_file}')
+
         self.upgrade_to_new_version_if_needed()
         self.archive_eload()
 
@@ -31,24 +38,37 @@ class EloadDeletion(Eload):
 
     def archive_eload(self):
         archive_dir = os.path.join(self.eload_dir, 'archive_dir')
+        # delete if already exists
+        shutil.rmtree(archive_dir, ignore_errors=True)
         os.makedirs(archive_dir, exist_ok=True)
-        archive_file = os.path.join(self.eload_dir, f'{self.eload}.tar')
+
         # copy relevant files to the archive_dir
         self.copy_eload_files(archive_dir)
 
-        # archive eload
-        with tarfile.open(archive_file, "w:gz") as tar:
+        # gzip each file if they are not already compressed
+        for root, _, files in os.walk(archive_dir):
+            for file in files:
+                file_path = os.path.join(root, file)
+                if not self.is_compressed(file):
+                    gzip_path = f"{file_path}.gz"
+                    with open(file_path, 'rb') as f_in, gzip.open(gzip_path, 'wb') as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+                    os.remove(file_path)
+
+        # Create a tar archive of the entire archive_dir
+        archive_tar_file = os.path.join(self.eload_dir, f'{self.eload}.tar')
+        with tarfile.open(archive_tar_file, mode="w") as tar:
             for root, _, files in os.walk(archive_dir):
                 for file in files:
                     file_path = os.path.join(root, file)
-                    arcname = os.path.relpath(file_path, start=archive_dir)
-                    if self.is_compressed(file):
-                        tar.add(file_path, arcname=arcname, recursive=False, filter=lambda x: x)
-                    else:
-                        tar.add(file_path, arcname=arcname)
+                    arcname = os.path.relpath(file_path, start=archive_dir)  # Avoid nesting archive_dir
+                    tar.add(file_path, arcname=arcname)
 
-        # copy to lts
-        shutil.copy(archive_file, cfg['eloads_lts_dir'])
+        # copy to LTS
+        try:
+            shutil.copy(archive_tar_file, self.lts_archive_file)
+        except Exception as e:
+            print(f"Error copying archive to LTS: {e}")
 
     def copy_eload_files(self, archive_dir):
         # copy config file

@@ -120,6 +120,15 @@ class TestEloadDeletion(TestCase):
 
         assert not os.path.exists(os.path.join(archive_dir, '60_eva_public', 'test_2.accessioned.vcf'))
 
+    def test_delete_submission_already_existing_lts_no_force_delete(self):
+        # create existing lts file
+        os.makedirs(cfg['eloads_lts_dir'], exist_ok=True)
+        Path(f"{cfg['eloads_lts_dir']}/ELOAD_1.tar/").touch()
+
+        with self.assertRaises(Exception) as context:
+            self.eload_deletion.delete_submission(1, 'test_user')
+        self.assertIn("File already exists in the LTS", str(context.exception))
+
     def test_delete_submission(self):
         # setup test data
         self.setup_test_eload_data(1)
@@ -146,31 +155,35 @@ class TestEloadDeletion(TestCase):
             tar.extractall(path=target_tar_file)
 
         # assert file copied
-        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '.ELOAD_1_config.yml'))
-        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', 'ELOAD_1_submission.log'))
+        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '.ELOAD_1_config.yml.gz'))
+        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', 'ELOAD_1_submission.log.gz'))
         assert os.path.exists(
-            os.path.join(self.sub_del_test_dir, 'ELOAD_1', '18_brokering', 'ena', 'metadata_spreadsheet.xlsx'))
+            os.path.join(self.sub_del_test_dir, 'ELOAD_1', '18_brokering', 'ena', 'metadata_spreadsheet.xlsx.gz'))
         assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '18_brokering', 'ena', 'test_1.vcf.gz'))
-        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '18_brokering', 'ena', 'test_1.vcf.csi'))
-        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '00_logs', 'test_log_1.txt'))
-        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '00_logs', 'test_log_2.txt'))
+        assert os.path.exists(
+            os.path.join(self.sub_del_test_dir, 'ELOAD_1', '18_brokering', 'ena', 'test_1.vcf.csi.gz'))
+        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '00_logs', 'test_log_1.txt.gz'))
+        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '00_logs', 'test_log_2.txt.gz'))
         assert os.path.exists(
             os.path.join(self.sub_del_test_dir, 'ELOAD_1', '60_eva_public', 'test_1.accessioned.vcf.gz'))
         # assert file not copied
         assert not os.path.exists(
-            os.path.join(self.sub_del_test_dir, 'ELOAD_1', '60_eva_public', 'test_2.accessioned.vcf'))
+            os.path.join(self.sub_del_test_dir, 'ELOAD_1', '60_eva_public', 'test_2.accessioned.vcf.gz'))
 
     def test_delete_submission_with_old_version(self):
         # setup test data
         self.setup_test_eload_data(1, old_version=True)
         self.setup_test_ftp_boxes_data(1, 'test_user')
 
+        # create existing lts file
+        Path(f"{cfg['eloads_lts_dir']}/ELOAD_1.tar/").touch()
+
         # set config values for old_version
         self.eload_deletion.eload_cfg.set('version', value='1.15')
         self.eload_deletion.eload_cfg.set('ingestion', 'project_dir', value=self.eload_deletion.project_dir)
 
         # call method
-        self.eload_deletion.delete_submission(1, 'test_user')
+        self.eload_deletion.delete_submission(1, 'test_user', force_delete=True)
 
         # assert ftp files are deleted
         assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ftp', 'eva-box-01', 'upload'))
@@ -190,19 +203,20 @@ class TestEloadDeletion(TestCase):
             tar.extractall(path=target_tar_file)
 
         # assert file copied
-        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '.ELOAD_1_config.yml'))
-        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', 'ELOAD_1_submission.log'))
+        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '.ELOAD_1_config.yml.gz'))
+        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', 'ELOAD_1_submission.log.gz'))
         assert os.path.exists(
-            os.path.join(self.sub_del_test_dir, 'ELOAD_1', '18_brokering', 'ena', 'metadata_spreadsheet.xlsx'))
+            os.path.join(self.sub_del_test_dir, 'ELOAD_1', '18_brokering', 'ena', 'metadata_spreadsheet.xlsx.gz'))
         assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '18_brokering', 'ena', 'test_1.vcf.gz'))
-        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '18_brokering', 'ena', 'test_1.vcf.csi'))
-        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '00_logs', 'test_log_1.txt'))
-        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '00_logs', 'test_log_2.txt'))
+        assert os.path.exists(
+            os.path.join(self.sub_del_test_dir, 'ELOAD_1', '18_brokering', 'ena', 'test_1.vcf.csi.gz'))
+        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '00_logs', 'test_log_1.txt.gz'))
+        assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '00_logs', 'test_log_2.txt.gz'))
         assert os.path.exists(
             os.path.join(self.sub_del_test_dir, 'ELOAD_1', '60_eva_public', 'test_1.accessioned.vcf.gz'))
         # assert file not copied
         assert not os.path.exists(
-            os.path.join(self.sub_del_test_dir, 'ELOAD_1', '60_eva_public', 'test_2.accessioned.vcf'))
+            os.path.join(self.sub_del_test_dir, 'ELOAD_1', '60_eva_public', 'test_2.accessioned.vcf.gz'))
 
     def setup_test_ftp_boxes_data(self, ftp_box, submitter):
         ftp_box_path = os.path.join(cfg['ftp_dir'], 'eva-box-%02d' % ftp_box, 'upload', submitter)

@@ -31,6 +31,8 @@ def main():
     argparse.add_argument('--ftp_box', required=True, type=int, choices=range(1, 21),
                           help='box number where the data has been uploaded')
     argparse.add_argument('--submitter', required=True, type=str, help='the name of the directory for the submitter')
+    argparse.add_argument('-f', '--force_delete', action="store_true",
+                          help='force delete the existing eload tar file in LTS directory')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level.')
 
@@ -44,7 +46,7 @@ def main():
     load_config()
 
     with EloadDeletion(args.eload) as submission_deletion:
-        submission_deletion.delete_submission(args.ftp_box, args.submitter)
+        submission_deletion.delete_submission(args.ftp_box, args.submitter, args.force_delete)
 
 
 if __name__ == "__main__":
