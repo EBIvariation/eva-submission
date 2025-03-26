@@ -17,13 +17,13 @@ from sqlalchemy.orm import Session
 from eva_submission.evapro.find_from_ena import EnaProjectFinder
 from eva_submission.evapro.table import Project, Taxonomy, LinkedProject, Submission, ProjectEnaSubmission, \
     EvaSubmission, ProjectEvaSubmission, Analysis, AssemblySet, AccessionedAssembly, File, BrowsableFile, \
-    Platform, ExperimentType, Sample, SampleInFile
+    Platform, ExperimentType, Sample, SampleInFile, ProjectSampleTemp1
 from eva_submission.samples_checker import get_samples_from_vcf
 
 ena_ftp_file_prefix_path = "/ftp.sra.ebi.ac.uk/vol1"
 
-def get_ftp_path(filename, accession_id):
-    return f"{ena_ftp_file_prefix_path}/{accession_id[0:6]}/{accession_id}/{filename}"
+def get_ftp_path(filename, analysis_accession_id):
+    return f"{ena_ftp_file_prefix_path}/{analysis_accession_id[0:6]}/{analysis_accession_id}/{filename}"
 
 
 class EvaProjectLoader(AppLogger):
@@ -71,11 +71,11 @@ class EvaProjectLoader(AppLogger):
         ###
         # LOAD SUBMISSIONS
         ###
-        for submission_info in self.ena_project_finder.find_ena_submission(project_accession=project_accession):
+        for submission_info in self.ena_project_finder.find_ena_submission_for_project(project_accession=project_accession):
             submission_id, alias, last_updated, hold_date, action = submission_info
             # action {"type": ADD, "schema": project, "source": ELOAD.Project.xml}
             submission_obj = self.insert_ena_submission(ena_submission_accession=submission_id, action=action.get('type'),
-                                       submission_alias=alias, submission_date=last_updated, brokered=True,
+                                       submission_alias=alias, submission_date=last_updated, brokered=1,
                                        submission_type=action.get('schema').upper())
             self.insert_project_ena_submission(project_obj, submission_obj, eload)
             # TODO: Link analysis with submission
@@ -91,8 +91,22 @@ class EvaProjectLoader(AppLogger):
             analysis_obj = self.insert_analysis(
                 analysis_accession=analysis_accession, title=analysis_title,alias=analysis_alias,
                 description=analysis_description, center_name=center_name, date=first_created,
-                assembly_set_id=assembly_set_obj.assembly_set_id)
+                assembly_set_id=assembly_set_obj.assembly_set_id, vcf_reference_accession=assembly)
+            project_obj.analyses.append(analysis_obj)
 
+            ###
+            # LOAD SUBMISSIONS FOR ANALYSIS
+            ###
+            # This will likely retrieve the same submission as the one associated with the study but there might be
+            # some specific to an analysis when they are submitted separately
+            for submission_info in self.ena_project_finder.find_ena_submission_for_analysis(analysis_accession=analysis_accession):
+                submission_id, alias, last_updated, hold_date, action = submission_info
+                submission_obj = self.insert_ena_submission(ena_submission_accession=submission_id,
+                                                            action=action.get('type'),
+                                                            submission_alias=alias, submission_date=last_updated,
+                                                            brokered=1,
+                                                            submission_type=action.get('schema').upper())
+                analysis_obj.submissions.append(submission_obj)
             ###
             # LINK PLATFORMS (ASSUME NO NEW PLATFORM)
             ###
@@ -110,7 +124,7 @@ class EvaProjectLoader(AppLogger):
             ###
             for file_info in self.ena_project_finder.find_files_in_ena(analysis_accession=analysis_accession):
                 analysis_accession, submission_file_id, filename, file_md5, file_type, status_id = file_info
-                ftp_file = get_ftp_path(filename=filename, accession_id=submission_file_id)
+                ftp_file = get_ftp_path(filename=filename, analysis_accession_id=analysis_accession)
                 file_obj = self.insert_file(
                     project_accession=project_accession,
                     assembly_set_id=assembly_set_obj.assembly_set_id,
@@ -120,6 +134,7 @@ class EvaProjectLoader(AppLogger):
                     file_type=file_type,
                     ftp_file=ftp_file
                 )
+                analysis_obj.files.append(file_obj)
 
             ###
             # LOAD SAMPLE
@@ -145,6 +160,32 @@ class EvaProjectLoader(AppLogger):
                 return
             self.insert_sample_in_file(file_id=file_obj.file_id, sample_id=sample_obj.sample_id,
                                        name_in_file=sample_name)
+        self.eva_session.commit()
+
+    def update_project_samples_temp1(self, project_accession):
+        # This function assumes that all samples have been loaded to Sample/SampleFiles
+        # TODO: Remove this when Sample have been back-filled and this can be calculated on the fly
+        self.eva_session.begin()
+        query = (
+            select(Sample.biosample_accession).distinct()
+            .join(SampleInFile, Sample.files)
+            .join(File, SampleInFile.file)
+            .join(Analysis, File.analyses)
+            .join(Project, Analysis.projects)
+            .where(Project.project_accession == project_accession)
+        )
+        result = self.eva_session.execute(query).fetchall()
+        nb_samples = len(result)
+
+
+        query = select(ProjectSampleTemp1).where(ProjectSampleTemp1.project_accession == project_accession)
+        result = self.eva_session.execute(query).fetchone()
+        if result:
+            project_samples_temp_obj = result.ProjectSampleTemp1
+        else:
+            project_samples_temp_obj = ProjectSampleTemp1(project_accession=project_accession)
+            self.eva_session.add(project_samples_temp_obj)
+        project_samples_temp_obj.sample_count = nb_samples
         self.eva_session.commit()
 
 
@@ -199,7 +240,7 @@ class EvaProjectLoader(AppLogger):
 
     def insert_project_in_evapro(self, project_accession, center_name, project_alias, title, description,
                                  ena_study_type, ena_secondary_study_id, scope='multi-isolate', material='DNA',
-                                 type='other'):
+                                 study_type='Control Set'):
         query = select(Project).where(Project.project_accession == project_accession)
         result = self.eva_session.execute(query).fetchone()
         if result:
@@ -207,7 +248,7 @@ class EvaProjectLoader(AppLogger):
         else:
             project_obj = Project(
                 project_accession=project_accession, center_name=center_name, alias=project_alias, title=title,
-                description=description, scope=scope, material=material, type=type, study_type=ena_study_type,
+                description=description, scope=scope, material=material, type=ena_study_type, study_type=study_type,
                 secondary_study_id=ena_secondary_study_id
             )
             self.eva_session.add(project_obj)
@@ -250,7 +291,7 @@ class EvaProjectLoader(AppLogger):
             self.eva_session.add(linked_project_obj)
         return linked_project_obj
 
-    def insert_ena_submission(self, ena_submission_accession, action, submission_alias, submission_date, brokered=True, submission_type='PROJECT'):
+    def insert_ena_submission(self, ena_submission_accession, action, submission_alias, submission_date, brokered=1, submission_type='PROJECT'):
         query = select(Submission).where(Submission.submission_accession == ena_submission_accession)
         result = self.eva_session.execute(query).fetchone()
         if result:
@@ -270,7 +311,7 @@ class EvaProjectLoader(AppLogger):
         '''
         query = select(ProjectEnaSubmission).where(
             ProjectEnaSubmission.project_accession == project_obj.project_accession,
-            ProjectEnaSubmission.submission_id == submission_obj.submission_accession
+            ProjectEnaSubmission.submission_id == submission_obj.submission_id
         )
         result = self.eva_session.execute(query).fetchone()
         if result:
@@ -285,7 +326,6 @@ class EvaProjectLoader(AppLogger):
         if result:
             eva_submission_obj = result.EvaSubmission
         else:
-
             eva_submission_obj = EvaSubmission(eva_submission_id=eload, eva_submission_status_id=6)
             self.eva_session.add(eva_submission_obj)
         query = select(ProjectEvaSubmission).where(
@@ -300,7 +340,8 @@ class EvaProjectLoader(AppLogger):
             self.eva_session.add(project_eva_submission_obj)
 
 
-    def insert_analysis(self, analysis_accession, title, alias, description, center_name, date, assembly_set_id):
+    def insert_analysis(self, analysis_accession, title, alias, description, center_name, date, assembly_set_id,
+                        vcf_reference_accession=None):
         query = select(Analysis).where(Analysis.analysis_accession == analysis_accession)
         result = self.eva_session.execute(query).fetchone()
         if result:
@@ -308,6 +349,8 @@ class EvaProjectLoader(AppLogger):
         else:
             analysis_obj = Analysis(analysis_accession=analysis_accession, title=title, alias=alias, description=description,
                      center_name=center_name, date=date, assembly_set_id=assembly_set_id)
+            if vcf_reference_accession:
+                analysis_obj.vcf_reference_accession = vcf_reference_accession
             self.eva_session.add(analysis_obj)
         return analysis_obj
 
@@ -348,7 +391,7 @@ class EvaProjectLoader(AppLogger):
         return None
 
     def insert_file(self, project_accession, assembly_set_id, ena_submission_file_id, filename, file_md5, file_type,
-                    ftp_file, file_location=None, file_class='submitted', file_version=1, is_current=True):
+                    ftp_file, file_location=None, file_class='submitted', file_version=1, is_current=1):
         file_obj = self.get_file(file_md5)
         if not file_obj:
             file_obj = File(

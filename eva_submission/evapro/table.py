@@ -107,6 +107,7 @@ class Project(Base):
 
     url_links = relationship('UrlLink', secondary='project_url_link')
     taxonomies = relationship('Taxonomy', secondary='project_taxonomy', back_populates='projects')
+    analyses = relationship('Analysis', secondary='project_analysis', backref='projects')
 
 class ProjectEnaSubmission(Base):
     __tablename__ = 'project_ena_submission'
@@ -295,12 +296,11 @@ class Analysis(Base):
     assembly_set_id = Column(ForeignKey('assembly_set.assembly_set_id'))
 
     assembly_set = relationship('AssemblySet')
-    files = relationship('File', secondary='analysis_file')
+    files = relationship('File', secondary='analysis_file', backref='analyses')
     platforms = relationship('Platform', secondary='analysis_platform')
     sequences = relationship('EvaReferencedSequence', secondary='analysis_sequence')
     submissions = relationship('Submission', secondary='analysis_submission', backref='analyses')
     experiment_types = relationship('ExperimentType', secondary='analysis_experiment_type')
-    project = relationship('Project', secondary='project_analysis')
 
 
 class AnalysisAttribute(Base):
@@ -357,6 +357,14 @@ class AnalysisExperiment(Base):
     experiment_accession = Column(String(45), primary_key=True, nullable=False)
 
     analysis = relationship('Analysis')
+
+
+class ProjectSampleTemp1(Base):
+    __tablename__ = 'project_samples_temp1'
+
+    project_accession = Column(ForeignKey('project.project_accession'), primary_key=True, nullable=False, index=True)
+    sample_count = Column(Integer)
+    pro_samp1_id = Column(Integer, autoincrement=True)
 
 
 t_analysis_experiment_type = Table(

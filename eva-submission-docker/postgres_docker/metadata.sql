@@ -353,6 +353,35 @@ ALTER TABLE evapro.project_analysis ADD CONSTRAINT project_analysis_analysis_acc
 ALTER TABLE evapro.project_analysis ADD CONSTRAINT project_analysis_project_accession_fkey FOREIGN KEY (project_accession) REFERENCES evapro.project(project_accession);
 
 
+CREATE TABLE evapro.eva_referenced_sequence (
+	sequence_id serial4 NOT NULL,
+	sequence_accession varchar(45) NOT NULL,
+	"label" varchar(45) DEFAULT NULL::character varying NULL,
+	ref_name varchar(45) DEFAULT NULL::character varying NULL,
+	CONSTRAINT eva_referenced_sequence_pkey PRIMARY KEY (sequence_id)
+);
+
+ALTER TABLE evapro.eva_referenced_sequence OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.eva_referenced_sequence TO metadata_user;
+
+CREATE TABLE evapro.analysis_sequence (
+	analysis_accession varchar(45) NOT NULL,
+	sequence_id int4 NOT NULL,
+	CONSTRAINT analysis_sequence_pkey PRIMARY KEY (analysis_accession, sequence_id)
+);
+CREATE INDEX analysis_sequence_analysis_accession_idx ON evapro.analysis_sequence USING btree (analysis_accession);
+CREATE INDEX analysis_sequence_sequence_id_idx ON evapro.analysis_sequence USING btree (sequence_id);
+
+ALTER TABLE evapro.analysis_sequence OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.analysis_sequence TO metadata_user;
+
+
+-- evapro.analysis_sequence foreign keys
+
+ALTER TABLE evapro.analysis_sequence ADD CONSTRAINT analysis_sequence_analysis_accession_fkey FOREIGN KEY (analysis_accession) REFERENCES evapro.analysis(analysis_accession);
+ALTER TABLE evapro.analysis_sequence ADD CONSTRAINT fk_analysissequence_seuqnece_id FOREIGN KEY (sequence_id) REFERENCES evapro.eva_referenced_sequence(sequence_id) MATCH FULL;
+
+
 CREATE OR REPLACE FUNCTION evapro.eva_study_accession_trigfunc()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -374,12 +403,12 @@ $function$
 ALTER FUNCTION evapro.eva_study_accession_trigfunc() OWNER TO metadata_user;
 GRANT ALL ON FUNCTION evapro.eva_study_accession_trigfunc() TO metadata_user;
 
-create trigger eva_study_accession after
-insert
-    or
-update
-    on
-    evapro.project for each row execute procedure evapro.eva_study_accession_trigfunc();
+-- create trigger eva_study_accession after
+-- insert
+--     or
+-- update
+--     on
+--     evapro.project for each row execute procedure evapro.eva_study_accession_trigfunc();
 
 ALTER TABLE evapro.project OWNER TO metadata_user;
 GRANT ALL ON TABLE evapro.project TO metadata_user;
@@ -404,6 +433,38 @@ CREATE TABLE evapro.eva_submission_status_cv (
 
 ALTER TABLE evapro.eva_submission_status_cv OWNER TO metadata_user;
 GRANT ALL ON TABLE evapro.eva_submission_status_cv TO metadata_user;
+
+
+CREATE TABLE evapro.submission (
+	submission_id serial4 NOT NULL,
+	submission_accession varchar(45) NOT NULL,
+	"type" varchar(45) NOT NULL,
+	"action" varchar(45) NOT NULL,
+	title varchar(1000) DEFAULT NULL::character varying NULL,
+	notes varchar(1000) DEFAULT NULL::character varying NULL,
+	"date" timestamp DEFAULT 'now'::text::date NOT NULL,
+	brokered int2 DEFAULT 0::smallint NOT NULL,
+	CONSTRAINT submission_pkey PRIMARY KEY (submission_id),
+	CONSTRAINT submission_submission_accession_key UNIQUE (submission_accession)
+);
+
+ALTER TABLE evapro.submission OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.submission TO metadata_user;
+
+
+CREATE TABLE evapro.analysis_submission (
+	analysis_accession varchar(45) NOT NULL,
+	submission_id int4 NOT NULL,
+	CONSTRAINT analysis_submission_pkey PRIMARY KEY (analysis_accession, submission_id),
+	CONSTRAINT analysis_submission_analysis_accession_fkey FOREIGN KEY (analysis_accession) REFERENCES evapro.analysis(analysis_accession),
+	CONSTRAINT fk_analysissubmission_submission_id FOREIGN KEY (submission_id) REFERENCES evapro.submission(submission_id) MATCH FULL
+);
+
+CREATE INDEX analysis_submission_analysis_accession_idx ON evapro.analysis_submission USING btree (analysis_accession);
+CREATE INDEX analysis_submission_submission_id_idx ON evapro.analysis_submission USING btree (submission_id);
+
+ALTER TABLE evapro.analysis_submission OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.analysis_submission TO metadata_user;
 
 
 CREATE TABLE evapro.eva_submission (
@@ -431,6 +492,16 @@ CREATE TABLE evapro.project_eva_submission (
 ALTER TABLE evapro.project_eva_submission OWNER TO metadata_user;
 GRANT ALL ON TABLE evapro.project_eva_submission TO metadata_user;
 
+CREATE TABLE evapro.project_ena_submission (
+	project_accession varchar(45) NOT NULL,
+	submission_id int4 NOT NULL,
+	CONSTRAINT project_submission_pkey PRIMARY KEY (project_accession,submission_id)
+);
+CREATE INDEX project_submission_project_accession_idx ON evapro.project_ena_submission (project_accession);
+CREATE INDEX project_submission_submission_id_idx ON evapro.project_ena_submission (submission_id);
+
+ALTER TABLE evapro.project_ena_submission OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.project_ena_submission TO metadata_user;
 
 CREATE TABLE evapro.project_taxonomy (
 	project_accession varchar(45) NOT NULL,
@@ -522,6 +593,32 @@ CREATE SEQUENCE evapro.pro_samp1_seq
 
 ALTER SEQUENCE evapro.pro_samp1_seq OWNER TO metadata_user;
 GRANT ALL ON SEQUENCE evapro.pro_samp1_seq TO metadata_user;
+
+
+CREATE TABLE evapro.sample (
+	sample_id serial4 NOT NULL,
+	biosample_accession varchar(45) NOT NULL,
+	ena_accession varchar(45) NOT NULL,
+	CONSTRAINT sample_pkey PRIMARY KEY (sample_id)
+);
+
+ALTER TABLE evapro.sample OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.sample TO metadata_user;
+
+CREATE TABLE evapro.file_sample (
+	file_id int4 NOT NULL,
+    sample_id int4 NOT NULL,
+	name_in_file varchar(250) NOT NULL,
+	CONSTRAINT file_sample_pkey PRIMARY KEY (file_id, sample_id)
+);
+
+CREATE INDEX filesamp_fileid_idx ON evapro.file_sample USING btree (file_id);
+CREATE UNIQUE INDEX filesamp_filesamp_idx ON evapro.file_sample USING btree (file_id, sample_id);
+CREATE INDEX filesamp_sampleid_idx ON evapro.file_sample USING btree (sample_id);
+COMMENT ON TABLE evapro.file_sample IS 'Links sample to a file';
+
+ALTER TABLE evapro.file_sample OWNER TO metadata_user;
+GRANT ALL ON TABLE evapro.file_sample TO metadata_user;
 
 CREATE TABLE evapro.project_samples_temp1 (
 	project_accession varchar(15) NOT NULL,
@@ -878,13 +975,70 @@ VALUES (6);
 INSERT INTO evapro.project_eva_submission (project_accession, old_ticket_id, eload_id)
 VALUES ('PRJEB62432', 1, 42);
 
+INSERT INTO evapro.platform (platform_id, platform, manufacturer)
+VALUES ( 1,'Illumina HiSeq 2000','Illumina'),
+( 2,'Illumina HiSeq 2500','Illumina'),
+( 3,'AB SOLiD System','AB'),
+( 4,'AB SOLiD System 2.0','AB'),
+( 5,'454 GS FLX','454'),
+( 6,'Illumina Genome Analyzer II','Illumina'),
+( 7,'Illumina HiSeq 1000','Illumina'),
+( 8,'Illumina HiScanSQ','Illumina'),
+( 9,'Illumina MiSeq','Illumina'),
+(10,'Illumina Genome Analyzer','Illumina'),
+(11,'Illumina Genome Analyzer IIx','Illumina'),
+(12,'454 GS','454'),
+(13,'454 GS 20','454'),
+(14,'454 GS FLX+','454'),
+(15,'454 GS FLX Titanium','454'),
+(16,'454 GS Junior','454'),
+(17,'AB SOLiD System 3.0','AB'),
+(18,'AB SOLiD 3 Plus System','AB'),
+(19,'AB SOLiD 4 System','AB'),
+(20,'AB SOLiD 4hq System','AB'),
+(21,'AB SOLiD PI System','AB'),
+(22,'AB 5500 Genetic Analyzer','AB'),
+(23,'AB 5500xl Genetic Analyzer','AB'),
+(24,'Complete Genomics','Complete Genomics'),
+(25,'unspecified','unspecified'),
+(26,'Illumina','Illumina'),
+(27,'Ion Torrent PGM','ION_TORRENT'),
+(30,'Ion Torrent Proton','ION_TORRENT'),
+(31,'unspecified','ION_TORRENT'),
+(32,'Illumina HiSeq X Ten','Illumina'),
+(33,'Ion S5XL','ION_TORRENT'),
+(34,'Ion Personal Genome Machine (PGM) System v2','ION_TORRENT'),
+(35,'Affymetrix','Affymetrix'),
+(36,'Illumina HiSeq 4000','Illumina'),
+(37,'Illumina NextSeq 500','Illumina'),
+(38,'Illumina HiSeq 3500','Illumina'),
+(39,'Illumina NovaSeq 6000','Illumina'),
+(40,'Nimblegen 4.2M Probe Custom DNA Microarray','Roche'),
+(41,'AB 3300 Genetic Analyzer','AB'),
+(42,'Oxford Nanopore PromethION','Oxford Nanopore'),
+(43,'ABI PRISM 310 Genetic Analyzer','ABI'),
+(44,'Illumina Hiseq Xten','Illumina'),
+(45,'AB 3730xl','AB'),
+(46,'Illumina MiniSeq','Illumina'),
+(47,'MGISEQ-2000','MGI'),
+(48,'Illumina CanineHD','Illumina'),
+(49,'AB 3730xl','AB'),
+(50,'AB 3130 Genetic Analyzer','AB'),
+(51,'Bio-Rad CFX96','Bio-Rad'),
+(52,'ABI 3500 Genetic Analyzer','ABI'),
+(53,'Illumina iScan','Illumina'),
+(54,'BGISEQ-500','BGI'),
+(55,'MassARRAY iPLEX','AgenaBioscience'),
+(56,'Ion S5','ION_TORRENT');
+
 REFRESH MATERIALIZED VIEW evapro.study_browser;
 
 ------------------- Permission on Schema
 GRANT ALL ON SCHEMA evapro TO metadata_user;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA evapro TO metadata_user;
 
-ALTER DATABASE metadata SET search_path TO evapro, public, "$user";
+ALTER USER metadata_user SET SEARCH_PATH TO evapro;
+ALTER DATABASE metadata SET search_path TO  evapro, public, "$user";
 ------------------------------------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------------------------------------
 
