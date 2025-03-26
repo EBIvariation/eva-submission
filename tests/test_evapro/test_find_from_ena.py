@@ -22,10 +22,13 @@ class TestEnaProjectFinder(unittest.TestCase):
     def test_find_project_from_ena_database(self):
         project = 'PRJEB36082'
         result = self.finder.find_project_from_ena_database(project)
-        expected_results = ('ERP119220', 'PRJEB36082', 'ERA2336002',
-                            'Shanghai Jiao Tong University Affiliated Sixth People’s Hospital', 'CTSK', 'Other',
-                            datetime.datetime(2020, 1, 8, 11, 23, 31),
-                            'CTSK gene polymorphism',  '9606', 'Homo sapiens', None, '')
+        expected_results = (
+            'ERP119220', 'PRJEB36082', 'ERA2336002', 'Shanghai Jiao Tong University Affiliated Sixth People’s Hospital',
+            'CTSK', 'Other',datetime.datetime(2020, 1, 8, 11, 23, 31),
+            'CTSK gene polymorphism',  '9606', 'Homo sapiens', None,
+            'Associations of Serum cathepsin K and Polymorphisms in the CTSK Gene With Bone Mineral Density and Markers '
+            'of Bone Metabolism in Postmenopausal Chinese Women'
+        )
         (study_id, project_accession, submission_id, center_name, project_alias, study_type, first_created,
         project_title, taxonomy_id, scientific_name, common_name, study_description) = result
         assert result == expected_results
@@ -42,7 +45,7 @@ class TestEnaProjectFinder(unittest.TestCase):
              '2023-10-01', {'type': 'ADD', 'schema': 'project', 'source': 'ELOAD_1194.Project.xml'})
         ]
         for project in [project]:
-            submission_actions = list(self.finder.find_ena_submission(project))
+            submission_actions = list(self.finder.find_ena_submission_for_project(project))
             assert submission_actions == expected_actions
 
     def test_find_analysis_in_ena(self):
