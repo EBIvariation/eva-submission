@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from eva_submission.evapro.find_from_ena import EnaProjectFinder
 from eva_submission.evapro.table import Project, Taxonomy, LinkedProject, Submission, ProjectEnaSubmission, \
     EvaSubmission, ProjectEvaSubmission, Analysis, AssemblySet, AccessionedAssembly, File, BrowsableFile, \
-    Platform, ExperimentType, Sample, SampleInFile
+    Platform, ExperimentType, Sample, SampleInFile, ProjectSampleTemp1
 from eva_submission.samples_checker import get_samples_from_vcf
 
 ena_ftp_file_prefix_path = "/ftp.sra.ebi.ac.uk/vol1"
@@ -160,6 +160,32 @@ class EvaProjectLoader(AppLogger):
                 return
             self.insert_sample_in_file(file_id=file_obj.file_id, sample_id=sample_obj.sample_id,
                                        name_in_file=sample_name)
+        self.eva_session.commit()
+
+    def update_project_samples_temp1(self, project_accession):
+        # This function assumes that all samples have been loaded to Sample/SampleFiles
+        # TODO: Remove this when Sample have been back-filled and this can be calculated on the fly
+        self.eva_session.begin()
+        query = (
+            select(Sample.biosample_accession).distinct()
+            .join(SampleInFile, Sample.files)
+            .join(File, SampleInFile.file)
+            .join(Analysis, File.analyses)
+            .join(Project, Analysis.projects)
+            .where(Project.project_accession == project_accession)
+        )
+        result = self.eva_session.execute(query).fetchall()
+        nb_samples = len(result)
+
+
+        query = select(ProjectSampleTemp1).where(ProjectSampleTemp1.project_accession == project_accession)
+        result = self.eva_session.execute(query).fetchone()
+        if result:
+            project_samples_temp_obj = result.ProjectSampleTemp1
+        else:
+            project_samples_temp_obj = ProjectSampleTemp1(project_accession=project_accession)
+            self.eva_session.add(project_samples_temp_obj)
+        project_samples_temp_obj.sample_count = nb_samples
         self.eva_session.commit()
 
 

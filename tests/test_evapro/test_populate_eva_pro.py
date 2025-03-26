@@ -8,7 +8,7 @@ from sqlalchemy import create_engine, select
 
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
 from eva_submission.evapro.table import metadata, SampleInFile, Project, Analysis, Submission, LinkedProject, Platform, \
-    Taxonomy
+    Taxonomy, ProjectSampleTemp1
 from eva_submission.submission_config import load_config
 
 
@@ -205,3 +205,64 @@ class TestEvaProjectLoader(TestCase):
                 sample_in_file = result.SampleInFile
                 results.append((sample_in_file.name_in_file, sample_in_file.sample.biosample_accession, sample_in_file.file.filename))
             assert results == expected_results
+
+
+    def test_update_project_samples_temp1(self):
+        engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+        project_accession = 'prj000001'
+        vcf_file1_name = 'vcf_file1.vcf'
+        vcf_file2_name = 'vcf_file2.vcf'
+        vcf_file1_md5 = 'md5sum1'
+        vcf_file2_md5 = 'md5sum2'
+        biosample1 = 'SAME000001'
+        biosample2 = 'SAME000002'
+        with self.patch_evapro_engine(engine):
+            metadata.create_all(engine)
+            self.loader.eva_session.begin()
+            project_obj = self.loader.insert_project_in_evapro(
+                project_accession=project_accession, center_name='name', project_alias='alias', title='title',
+                description='description', ena_study_type='ena_study_type', ena_secondary_study_id='ena_secondary_study_id'
+            )
+            analysis_obj = self.loader.insert_analysis(
+                analysis_accession='analysis1', title='title', alias='alais', description='description',
+                center_name='name', date=datetime.date(year=2024, month=1, day=1), assembly_set_id=1,
+                vcf_reference_accession='GCA000001'
+            )
+            project_obj.analyses.append(analysis_obj)
+            file1_obj = self.loader.insert_file(
+                project_accession='project_accession', assembly_set_id=1, ena_submission_file_id=1, filename=vcf_file1_name,
+                file_md5=vcf_file1_md5, file_type='vcf', ftp_file='path/to/ftp'
+            )
+            file2_obj = self.loader.insert_file(
+                project_accession='project_accession', assembly_set_id=1, ena_submission_file_id=2, filename=vcf_file2_name,
+                file_md5=vcf_file2_md5, file_type='vcf', ftp_file='path/to/ftp'
+            )
+            analysis_obj.files.append(file1_obj)
+            analysis_obj.files.append(file2_obj)
+            sample1_obj = self.loader.insert_sample(biosample_accession=biosample1, ena_accession='ena_accession')
+            sample2_obj = self.loader.insert_sample(biosample_accession=biosample2, ena_accession='ena_accession')
+            self.loader.eva_session.commit()
+
+            self.loader.eva_session.begin()
+            self.loader.insert_sample_in_file(file_id=file1_obj.file_id, sample_id=sample1_obj.sample_id,
+                                       name_in_file='sample_name')
+            self.loader.insert_sample_in_file(file_id=file1_obj.file_id, sample_id=sample2_obj.sample_id,
+                                              name_in_file='sample_name')
+            self.loader.insert_sample_in_file(file_id=file2_obj.file_id, sample_id=sample1_obj.sample_id,
+                                              name_in_file='sample_name')
+            self.loader.eva_session.commit()
+
+            self.loader.update_project_samples_temp1(project_accession=project_accession)
+
+            query = select(ProjectSampleTemp1)
+
+            results = []
+            for result in self.loader.eva_session.execute(query).fetchall():
+                res = result.ProjectSampleTemp1
+                results.append((res.project_accession, res.sample_count))
+
+            # Only 2 samples because one sample is contained in two files
+            assert results == [('prj000001', 2)]
+
+
+
