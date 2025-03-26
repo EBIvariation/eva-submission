@@ -1,0 +1,15 @@
+<settings>
+
+    <profiles>
+        <profile>
+            <id>docker</id>
+            <properties>
+                <eva.evapro.jdbc.url>jdbc:postgresql://localhost:5432/metadata</eva.evapro.jdbc.url>
+                <eva.evapro.user>root_user</eva.evapro.user>
+                <eva.evapro.password>root_pass</eva.evapro.password>
+            </properties>
+        </profile>
+
+    </profiles>
+
+</settings>
