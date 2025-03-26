@@ -36,6 +36,9 @@ class EloadDeletion(Eload):
         compressed_exts = (".gz", ".xz", ".bz2", ".zip", ".rar", ".7z")
         return file_name.endswith(compressed_exts)
 
+    def is_compressed_or_index_file(self, file_name):
+        return self.is_compressed(file_name) or file_name.endswith(".csi")
+
     def archive_eload(self):
         archive_dir = os.path.join(self.eload_dir, 'archive_dir')
         # delete if already exists
@@ -49,7 +52,7 @@ class EloadDeletion(Eload):
         for root, _, files in os.walk(archive_dir):
             for file in files:
                 file_path = os.path.join(root, file)
-                if not self.is_compressed(file):
+                if not self.is_compressed_or_index_file(file):
                     gzip_path = f"{file_path}.gz"
                     with open(file_path, 'rb') as f_in, gzip.open(gzip_path, 'wb') as f_out:
                         shutil.copyfileobj(f_in, f_out)
@@ -85,8 +88,9 @@ class EloadDeletion(Eload):
         shutil.copy(os.path.join(src_ena_dir, 'metadata_spreadsheet.xlsx'), archive_ena_dir)
         for file in Path(src_ena_dir).glob("*.vcf.gz"):
             shutil.copy(file, archive_ena_dir)
-        for file in Path(src_ena_dir).glob("*.vcf.csi"):
-            shutil.copy(file, archive_ena_dir)
+        for file in Path(src_ena_dir).glob("*.csi"):
+            if file.name.endswith(".vcf.gz.csi") or file.name.endswith(".vcf.csi"):
+                shutil.copy(file, archive_ena_dir)
 
         # copy 00_logs
         src_log_dir = os.path.join(self.eload_dir, '00_logs')
@@ -99,8 +103,9 @@ class EloadDeletion(Eload):
         real_accessioned_files_dir = os.path.realpath(src_accessioned_files_dir)
         archive_accession_files_dir = os.path.join(archive_dir, "60_eva_public")
         os.makedirs(archive_accession_files_dir, exist_ok=True)
-        for file in Path(real_accessioned_files_dir).glob("*.accessioned.vcf.gz"):
-            shutil.copy(file, archive_accession_files_dir)
+        for file in Path(real_accessioned_files_dir).glob("*.accessioned.vcf.gz*"):
+            if file.name.endswith(".accessioned.vcf.gz") or file.name.endswith(".accessioned.vcf.gz.csi"):
+                shutil.copy(file, archive_accession_files_dir)
 
     def delete_ftp_dir(self, ftp_dir):
         self.info(f'Deleting FTP directory {ftp_dir}')
