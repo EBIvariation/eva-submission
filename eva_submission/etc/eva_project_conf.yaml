@@ -64,6 +64,9 @@ Analysis:
     - Date
     - Link(s)
     - Run Accession(s)
+  cast:
+    Imputation: string
+    Phasing: string
 
 Sample:
   header_row: 3
