@@ -19,7 +19,8 @@ json_to_xlsx_key_mapper = {
         "email": "Email Address",
         "laboratory": "Laboratory",
         "centre": "Center",
-        "address": "Address"
+        "address": "Address",
+        'DUMMY1': 'Telephone Number'
     },
 
     "project": {
@@ -36,7 +37,8 @@ json_to_xlsx_key_mapper = {
         "collaborators": "Collaborator(s)",
         "strain": "Strain",
         "breed": "Breed",
-        "broker": "Broker"
+        "broker": "Broker",
+        'DUMMY1': 'Project Alias'
     },
 
     "analysis": {
@@ -54,7 +56,8 @@ json_to_xlsx_key_mapper = {
         "centre": "Centre",
         "date": "Date",
         "links": "Link(s)",
-        "runAccessions": "Run Accession(s)"
+        "runAccessions": "Run Accession(s)",
+        'DUMMY1': 'Project Title'
     },
 
     "sample": {
@@ -106,7 +109,9 @@ json_to_xlsx_key_mapper = {
 
     "files": {
         "analysisAlias": "Analysis Alias",
-        "fileName": "File Name"
+        "fileName": "File Name",
+        'DUMMY1': 'MD5',
+        'DUMMY2': 'File Type'
     }
 }
 
@@ -118,6 +123,7 @@ class JsonToXlsxConverter:
             data = json.load(f)
 
         workbook = Workbook()
+        self.create_dummy_instructions_sheet(workbook)
         for worksheet_key in json_to_xlsx_key_mapper['worksheets']:
             worksheet_title = json_to_xlsx_key_mapper['worksheets'][worksheet_key]
             worksheet_data = data[worksheet_key]
@@ -150,6 +156,11 @@ class JsonToXlsxConverter:
             cell = workbook[worksheet_title].cell(column=header_col_index, row=header_row_index,
                                                   value=json_to_xlsx_key_mapper[worksheet_key][header_key])
             cell.font = openpyxl.styles.Font(bold=True)
+
+    def create_dummy_instructions_sheet(self, workbook):
+        worksheet_title = 'PLEASE READ FIRST'
+        workbook.create_sheet(worksheet_title)
+        workbook[worksheet_title].cell(column=1, row=3, value='V1.1.4 August 2020')
 
     def create_submitter_details_worksheet(self, workbook, worksheet_key, worksheet_title, submitter_details):
         row_index = 1
