@@ -68,7 +68,7 @@ class EloadPreparation(Eload):
             self.eload_cfg.backup()
             self.eload_cfg.clear()
 
-        self.convert
+        self.convert_new_spreadsheet_to_eload_spreadsheet_if_required()
         self.detect_submitted_metadata()
         if taxid or reference_accession:
             self.replace_values_in_metadata(taxid=taxid, reference_accession=reference_accession)
