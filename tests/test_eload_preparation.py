@@ -139,9 +139,7 @@ class TestEloadPreparation(TestCase):
             mockput.assert_called_once_with('host/v1/admin/assemblies/GCA_000001405.10', auth=('user', 'pass'))
 
     def test_convert_new_spreadsheet_to_eload_spreadsheet_if_required(self):
-        # TODO: use the example from eva-sub-cli when it is available
-        # metadata_example = os.path.join(eva_sub_cli.ETC_DIR , 'EVA_Submission_Example.xlsx')
-        metadata_example = os.path.join(self.resources_folder, 'eva-sub-cli_Submission_Example.xlsx')
+        metadata_example = os.path.join(eva_sub_cli.ETC_DIR , 'EVA_Submission_Example.xlsx')
         metadata_dir = self.eload._get_dir('metadata')
         metadata_dest = os.path.join(metadata_dir, os.path.basename(metadata_example))
         shutil.copyfile(metadata_example, metadata_dest)
