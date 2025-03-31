@@ -1,8 +1,8 @@
 cached-property
 cerberus
-ebi-eva-common-pyutils[eva-internal]==0.6.17
-eva-vcf-merge==0.0.8
-eva_sub_cli==0.4.4
+ebi-eva-common-pyutils[eva-internal]>=0.6.17, ==0.*
+eva-vcf-merge>=0.0.8
+eva_sub_cli>=0.4.6
 humanize
 lxml
 openpyxl
