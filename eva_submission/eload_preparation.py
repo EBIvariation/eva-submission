@@ -67,7 +67,7 @@ class EloadPreparation(Eload):
             self.debug('Config will be reset')
             self.eload_cfg.backup()
             self.eload_cfg.clear()
-
+        self.detect_submitted_metadata()
         self.convert_new_spreadsheet_to_eload_spreadsheet_if_required()
         self.detect_submitted_metadata()
         if taxid or reference_accession:
@@ -76,16 +76,13 @@ class EloadPreparation(Eload):
         self.detect_metadata_attributes()
         self.find_genome()
 
-    def find_submitted_metadata(self):
+    def detect_submitted_metadata(self):
         metadata_dir = os.path.join(self.eload_dir, directory_structure['metadata'])
         metadata_spreadsheets = glob.glob(os.path.join(metadata_dir, '*.xlsx'))
         if len(metadata_spreadsheets) != 1:
             self.critical('Found %s spreadsheet in %s', len(metadata_spreadsheets), metadata_dir)
-            raise ValueError('Found %s spreadsheet in %s'% (len(metadata_spreadsheets), metadata_dir))
-        return metadata_spreadsheets[0]
-
-    def detect_submitted_metadata(self):
-        self.eload_cfg.set('submission', 'metadata_spreadsheet', value=self.find_submitted_metadata())
+            raise ValueError('Found %s spreadsheet in %s' % (len(metadata_spreadsheets), metadata_dir))
+        self.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata_spreadsheets[0])
 
     def check_submitted_filenames(self):
         """Compares submitted vcf filenames with those in metadata sheet, and amends the metadata when possible."""
@@ -213,7 +210,7 @@ class EloadPreparation(Eload):
 
 
     def convert_new_spreadsheet_to_eload_spreadsheet_if_required(self):
-        metadata_xlsx = self.find_submitted_metadata()
+        metadata_xlsx = self.eload_cfg.query('submission', 'metadata_spreadsheet')
         metadata_xlsx_name = os.path.basename(metadata_xlsx)
         version = metadata_xlsx_version(metadata_xlsx)
         if Version(version) >= Version("1.1.6"):
