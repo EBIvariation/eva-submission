@@ -2,12 +2,17 @@ import glob
 import os
 import shutil
 
+import eva_sub_cli
 import requests
 from ebi_eva_common_pyutils.config import cfg
+from ebi_eva_common_pyutils.spreadsheet.metadata_xlsx_utils import metadata_xlsx_version
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 from ebi_eva_internal_pyutils.config_utils import get_contig_alias_db_creds_for_profile
+from eva_sub_cli.executables.xlsx2json import XlsxParser
+from packaging.version import Version
 from retry import retry
 
+from eva_sub_cli_processing.sub_cli_to_eload_converter.json_to_xlsx_converter import JsonToXlsxConverter
 from eva_submission.eload_submission import Eload, directory_structure
 from eva_submission.eload_utils import resolve_accession_from_text, get_reference_fasta_and_report, NCBIAssembly, \
     create_assembly_report_from_fasta
@@ -63,6 +68,8 @@ class EloadPreparation(Eload):
             self.eload_cfg.backup()
             self.eload_cfg.clear()
         self.detect_submitted_metadata()
+        self.convert_new_spreadsheet_to_eload_spreadsheet_if_required()
+        self.detect_submitted_metadata()
         if taxid or reference_accession:
             self.replace_values_in_metadata(taxid=taxid, reference_accession=reference_accession)
         self.check_submitted_filenames()
@@ -74,7 +81,7 @@ class EloadPreparation(Eload):
         metadata_spreadsheets = glob.glob(os.path.join(metadata_dir, '*.xlsx'))
         if len(metadata_spreadsheets) != 1:
             self.critical('Found %s spreadsheet in %s', len(metadata_spreadsheets), metadata_dir)
-            raise ValueError('Found %s spreadsheet in %s'% (len(metadata_spreadsheets), metadata_dir))
+            raise ValueError('Found %s spreadsheet in %s' % (len(metadata_spreadsheets), metadata_dir))
         self.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata_spreadsheets[0])
 
     def check_submitted_filenames(self):
@@ -200,3 +207,29 @@ class EloadPreparation(Eload):
                 self.warning(f'Assembly accession {assembly} already exist in Contig-Alias DB. Response: {response.text}')
             else:
                 self.error(f'Could not save Assembly accession {assembly} to Contig-Alias DB. Error : {response.text}')
+
+
+    def convert_new_spreadsheet_to_eload_spreadsheet_if_required(self):
+        metadata_xlsx = self.eload_cfg.query('submission', 'metadata_spreadsheet')
+        metadata_xlsx_name = os.path.basename(metadata_xlsx)
+        version = metadata_xlsx_version(metadata_xlsx)
+        if Version(version) >= Version("1.1.6"):
+            self.info(f'Convert spreadsheet version {version} to Eload spreadsheet')
+            # Create a subdirectory and move the submitted file there to avoid confusion
+            metadata_cli_dir = os.path.join(self._get_dir('metadata'), 'eva_sub_cli')
+            os.makedirs(metadata_cli_dir, exist_ok=True)
+            os.rename(metadata_xlsx, os.path.join(metadata_cli_dir, metadata_xlsx_name))
+            metadata_xlsx = os.path.join(metadata_cli_dir, metadata_xlsx_name)
+
+            # Convert to the old format
+            conf_filename = os.path.join(eva_sub_cli.ETC_DIR, 'spreadsheet2json_conf.yaml')
+            parser = XlsxParser(metadata_xlsx, conf_filename)
+            metadata_json_file_path = os.path.join(self._get_dir('metadata'), 'eva_sub_cli', 'eva_sub_cli_metadata.json')
+            try:
+                parser.json(metadata_json_file_path)
+                eload_spreadsheet_file_path = os.path.join(self._get_dir('metadata'), metadata_xlsx_name)
+                JsonToXlsxConverter().convert_json_to_xlsx(metadata_json_file_path, eload_spreadsheet_file_path)
+            except IndexError as e:
+                self.error(f'Could not convert metadata version {version} to JSON file: {metadata_xlsx}')
+                raise e
+

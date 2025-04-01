@@ -3,7 +3,9 @@ import os
 import shutil
 from unittest import TestCase, mock
 
+import eva_sub_cli
 from ebi_eva_common_pyutils.config import cfg
+from ebi_eva_common_pyutils.spreadsheet.metadata_xlsx_utils import metadata_xlsx_version
 
 from eva_submission import ROOT_DIR
 from eva_submission.eload_preparation import EloadPreparation
@@ -135,3 +137,20 @@ class TestEloadPreparation(TestCase):
             self.eload.find_genome()
 
             mockput.assert_called_once_with('host/v1/admin/assemblies/GCA_000001405.10', auth=('user', 'pass'))
+
+    def test_convert_new_spreadsheet_to_eload_spreadsheet_if_required(self):
+        metadata_example = os.path.join(eva_sub_cli.ETC_DIR , 'EVA_Submission_Example.xlsx')
+        metadata_dir = self.eload._get_dir('metadata')
+        self.eload.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata_example)
+        self.eload.convert_new_spreadsheet_to_eload_spreadsheet_if_required()
+        assert os.path.isfile(os.path.join(metadata_dir, 'eva_sub_cli', os.path.basename(metadata_example)))
+        assert os.path.isfile(os.path.join(metadata_dir, os.path.basename(metadata_example)))
+        metadata_xlsx = os.path.join(metadata_dir, os.path.basename(metadata_example))
+        version = metadata_xlsx_version(metadata_xlsx)
+        assert version == '1.1.4'
+        reader = EvaXlsxReader(metadata_xlsx)
+        assert reader.project['Project Title'] == 'Investigation of human genetic variants'
+        assert reader.analysis[0]['Analysis Title'] == 'Human genetic variation analysis'
+
+
+
