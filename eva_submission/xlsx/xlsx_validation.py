@@ -5,7 +5,7 @@ from collections import Counter
 import yaml
 from cerberus import Validator
 from ebi_eva_common_pyutils.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
-from ebi_eva_common_pyutils.biosamples_communicators import AAPHALCommunicator
+from ebi_eva_common_pyutils.biosamples_communicators import WebinHALCommunicator
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.reference import NCBIAssembly
@@ -32,10 +32,9 @@ class EvaXlsxValidator(AppLogger):
             self.metadata[worksheet] = self.reader._get_all_rows(worksheet)
 
         self.error_list = []
-        self.communicator = AAPHALCommunicator(
-            cfg.query('biosamples', 'aap_url'), cfg.query('biosamples', 'bsd_url'),
-            cfg.query('biosamples', 'username'), cfg.query('biosamples', 'password'),
-            cfg.query('biosamples', 'domain')
+        self.communicator = WebinHALCommunicator(
+            cfg.query('biosamples', 'webin_url'), cfg.query('biosamples', 'bsd_url'),
+            cfg.query('biosamples', 'webin_username'), cfg.query('biosamples', 'webin_password')
         )
 
 

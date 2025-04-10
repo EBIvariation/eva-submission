@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-from ebi_eva_common_pyutils.biosamples_communicators import AAPHALCommunicator, HALCommunicator, WebinHALCommunicator
+from ebi_eva_common_pyutils.biosamples_communicators import HALCommunicator, WebinHALCommunicator
 
 from eva_submission import ROOT_DIR
 from eva_submission.biosample_submission import biosamples_submitters
@@ -56,7 +56,6 @@ sample_data = [{
         'release': '2020-07-06T19:09:29.090Z'}
     ]
 
-# BioSamples does not support AAP login so we have to use credentials from Webin.
 @pytest.mark.skip(reason='You need to set a config file with correct Webin credential to run these test')
 class TestBSDSubmitter(BSDTestCase):
     """

@@ -17,7 +17,7 @@ from copy import deepcopy
 from datetime import datetime, date
 from functools import lru_cache
 
-from ebi_eva_common_pyutils.biosamples_communicators import AAPHALCommunicator, WebinHALCommunicator
+from ebi_eva_common_pyutils.biosamples_communicators import WebinHALCommunicator
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 
@@ -267,27 +267,11 @@ class SampleSubmitter(AppLogger):
 
     def __init__(self, submit_type):
         communicators = []
-
-        if 'override' in submit_type:
-            assert len(submit_type) == 1, f'override can only be used as a single action'
-            communicators.append(AAPHALCommunicator(
-                cfg.query('biosamples', 'aap_url'), cfg.query('biosamples', 'bsd_url'),
-                cfg.query('biosamples', 'aap_super_user'), cfg.query('biosamples', 'aap_super_password'),
-                cfg.query('biosamples', 'aap_super_domain')
-            ))
         # If the config has the credential for using webin with BioSamples use webin first
-        if cfg.query('biosamples', 'webin_url') and cfg.query('biosamples', 'webin_username') and \
-                cfg.query('biosamples', 'webin_password'):
-            communicators.append(WebinHALCommunicator(
-                cfg.query('biosamples', 'webin_url'), cfg.query('biosamples', 'bsd_url'),
-                cfg.query('biosamples', 'webin_username'), cfg.query('biosamples', 'webin_password')
-            ))
-        communicators.append(AAPHALCommunicator(
-            cfg.query('biosamples', 'aap_url'), cfg.query('biosamples', 'bsd_url'),
-            cfg.query('biosamples', 'username'), cfg.query('biosamples', 'password'),
-            cfg.query('biosamples', 'domain')
+        communicators.append(WebinHALCommunicator(
+            cfg.query('biosamples', 'webin_url'), cfg.query('biosamples', 'bsd_url'),
+            cfg.query('biosamples', 'webin_username'), cfg.query('biosamples', 'webin_password')
         ))
-
         self.submitter = BioSamplesSubmitter(communicators, submit_type)
         self.sample_data = None
 
