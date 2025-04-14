@@ -17,10 +17,10 @@
 import argparse
 import csv
 
+from ebi_eva_common_pyutils.biosamples_communicators import WebinHALCommunicator
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.biosample_submission.biosamples_submitters import AAPHALCommunicator
 from eva_submission.submission_config import load_config
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
@@ -41,9 +41,10 @@ def main():
     # Load the config_file from default location
     load_config()
     metadata_reader = EvaXlsxReader(args.metadata_file)
-    communicator = AAPHALCommunicator(cfg.query('biosamples', 'aap_url'), cfg.query('biosamples', 'bsd_url'),
-                                      cfg.query('biosamples', 'username'), cfg.query('biosamples', 'password'),
-                                      cfg.query('biosamples', 'domain'))
+    communicator = WebinHALCommunicator(
+        cfg.query('biosamples', 'webin_url'), cfg.query('biosamples', 'bsd_url'),
+        cfg.query('biosamples', 'webin_username'), cfg.query('biosamples', 'webin_password')
+    )
     with open(args.output, 'w') as open_ouptut:
         sample_attrs = ['accession', 'name', 'domain', 'webinSubmissionAccountId', 'status']
         writer = csv.DictWriter(open_ouptut, fieldnames=sample_attrs + ['owner'])
