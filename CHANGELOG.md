@@ -1,10 +1,12 @@
 Changelog for eva-submission
 ============================
 
-## 1.17.1 (unreleased)
+## 1.17.1 (2025-04-14)
 ----------------------
 
-- Nothing changed yet.
+- Convert new spreadsheet template back to 1.1.4
+- Improved resolution of GCA
+- Remove connection to AAP authentication
 
 
 ## 1.17.0 (2025-02-26)
