@@ -7,9 +7,10 @@ from unittest import TestCase, mock
 from unittest.mock import patch, MagicMock
 
 import yaml
+from eva_submission.evapro.populate_evapro import EvaProjectLoader
 
 from eva_submission import NEXTFLOW_DIR
-from eva_submission.eload_ingestion import EloadIngestion
+from eva_submission.eload_ingestion import EloadIngestion, project_dirs
 from eva_submission.submission_config import load_config
 
 
@@ -81,12 +82,16 @@ class TestEloadIngestion(TestCase):
         self.original_cfg = deepcopy(self.eload.eload_cfg.content)
 
     def tearDown(self):
-        projects = glob.glob(os.path.join(self.resources_folder, 'projects', 'PRJEB12345'))
-        for proj in projects:
-            shutil.rmtree(proj)
-        ingest_csv = os.path.join(self.eload.eload_dir, 'vcf_files_to_ingest.csv')
-        if os.path.exists(ingest_csv):
-            os.remove(ingest_csv)
+        for proj_dir_name in project_dirs.values():
+            proj_dir_path = os.path.join(self.eload.eload_dir, proj_dir_name)
+            if os.path.exists(proj_dir_path):
+                shutil.rmtree(proj_dir_path)
+        ingest_files = ['vcf_files_to_ingest.csv', 'accession_and_load_params.yaml', 'accession_import.properties',
+                        'remap_and_cluster_params.yaml', 'variant_load.properties']
+        for ingest_file_name in ingest_files:
+            ingest_file_path = os.path.join(self.eload.eload_dir, ingest_file_name)
+            if os.path.exists(ingest_file_path):
+                os.remove(ingest_file_path)
         self.eload.eload_cfg.content = self.original_cfg
 
     def _patch_get_dbname(self, db_name):
@@ -153,18 +158,22 @@ class TestEloadIngestion(TestCase):
             m_mongo.return_value.shard_collections.assert_called_once()
 
     def test_load_from_ena(self):
-        with patch('eva_submission.eload_ingestion.check_project_exists_in_evapro'), \
-                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_execute:
+        with self._patch_metadata_handle(), \
+                patch.object(EvaProjectLoader, 'load_project_from_ena') as m_load_project, \
+                patch.object(EvaProjectLoader, 'load_samples_from_vcf_file') as m_load_samples:
             self.eload.load_from_ena()
-            m_execute.assert_called_once()
+            m_load_project.assert_called_once()
+            self.assertEqual(m_load_samples.call_count, 2)
 
     def test_load_from_ena_script_fails(self):
-        with patch('eva_submission.eload_ingestion.check_project_exists_in_evapro'), \
-                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_execute:
-            m_execute.side_effect = subprocess.CalledProcessError(1, 'some command')
-            with self.assertRaises(subprocess.CalledProcessError):
+        with self._patch_metadata_handle(), \
+                patch.object(EvaProjectLoader, 'load_project_from_ena') as m_load_project, \
+                patch.object(EvaProjectLoader, 'load_samples_from_vcf_file') as m_load_samples:
+            m_load_project.side_effect = ValueError('metadata load error')
+            with self.assertRaises(ValueError):
                 self.eload.load_from_ena()
-            m_execute.assert_called_once()
+            m_load_project.assert_called_once()
+            m_load_samples.assert_not_called()
 
     def test_ingest_all_tasks(self):
         with self._patch_metadata_handle(), \
@@ -177,6 +186,8 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.get_species_name_from_ncbi') as m_get_species, \
                 patch('eva_submission.eload_ingestion.get_assembly_name_and_taxonomy_id') as m_get_tax, \
                 patch('eva_submission.eload_ingestion.insert_new_assembly_and_taxonomy') as insert_asm_tax, \
+                patch.object(EvaProjectLoader, 'load_project_from_ena'), \
+                patch.object(EvaProjectLoader, 'load_samples_from_vcf_file'), \
                 self._patch_mongo_database():
             m_get_vep_versions.return_value = (100, 100)
             m_get_species.return_value = 'homo_sapiens'
@@ -191,19 +202,12 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
                 patch('eva_submission.eload_utils.requests.post') as m_post, \
                 patch('eva_submission.eload_ingestion.insert_new_assembly_and_taxonomy') as insert_asm_tax, \
+                patch.object(EvaProjectLoader, 'load_project_from_ena'), \
+                patch.object(EvaProjectLoader, 'load_samples_from_vcf_file'), \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
             self.eload.ingest(tasks=['metadata_load'])
-
-    def test_load_from_ena_from_analysis(self):
-        with self._patch_metadata_handle(), \
-                patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as mockrun:
-            analysis_accession = 'ERZ2499196'
-            self.eload.load_from_ena_from_project_or_analysis(analysis_accession)
-            command = ('perl /path/to/load_from_ena_script -p PRJEB12345 -c submitted -v 1 -l '
-                       f'{self.eload._get_dir("scratch")} -e 33 -A 1 -a ERZ2499196')
-            mockrun.assert_called_once_with('Load metadata from ENA to EVAPRO', command)
 
     def test_ingest_accession(self):
         with self._patch_metadata_handle(), \
@@ -459,6 +463,8 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.get_species_name_from_ncbi') as m_get_species, \
                 patch('eva_submission.eload_ingestion.get_assembly_name_and_taxonomy_id') as m_get_tax, \
                 patch('eva_submission.eload_ingestion.insert_new_assembly_and_taxonomy') as insert_asm_tax, \
+                patch.object(EvaProjectLoader, 'load_project_from_ena'), \
+                patch.object(EvaProjectLoader, 'load_samples_from_vcf_file'), \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100)
@@ -469,7 +475,6 @@ class TestEloadIngestion(TestCase):
                                          + default_db_results_for_ingestion())
 
             m_run_command.side_effect = [
-                None,  # metadata load
                 subprocess.CalledProcessError(1, 'nextflow accession'),  # first accession fails
                 None,  # metadata load on resume
                 None,  # accession on resume
@@ -501,6 +506,8 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.get_species_name_from_ncbi') as m_get_species, \
                 patch('eva_submission.eload_ingestion.get_assembly_name_and_taxonomy_id') as m_get_tax, \
                 patch('eva_submission.eload_ingestion.insert_new_assembly_and_taxonomy') as insert_asm_tax, \
+                patch.object(EvaProjectLoader, 'load_project_from_ena'), \
+                patch.object(EvaProjectLoader, 'load_samples_from_vcf_file'), \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100)
@@ -512,13 +519,16 @@ class TestEloadIngestion(TestCase):
             # Resuming with no existing job execution is fine
             self.eload.ingest(resume=True)
             num_db_calls = m_get_results.call_count
-            assert m_run_command.call_count == 3
+            assert m_run_command.call_count == 2
+
+            m_get_results.reset_mock()
+            m_run_command.reset_mock()
 
             # If we resume a successfully completed job, everything in the python will re-run (including db queries)
             # but the nextflow calls will not
             self.eload.ingest(resume=True)
-            assert m_get_results.call_count == 2 * num_db_calls
-            assert m_run_command.call_count == 4  # 1 per task, plus 1 for metadata load
+            assert m_get_results.call_count == num_db_calls
+            assert m_run_command.call_count == 0  # no additional calls
 
     def test_resume_with_tasks(self):
         with self._patch_metadata_handle(), \

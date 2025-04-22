@@ -18,11 +18,11 @@ from ebi_eva_internal_pyutils.metadata_utils import resolve_variant_warehouse_db
     get_assembly_set_from_metadata, add_to_supported_assemblies
 from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query, execute_query
 from ebi_eva_internal_pyutils.spring_properties import SpringPropertiesGenerator
+from eva_submission.evapro.populate_evapro import EvaProjectLoader
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import provision_new_database_for_variant_warehouse, check_project_exists_in_evapro, \
-    get_nextflow_config_flag
+from eva_submission.eload_utils import provision_new_database_for_variant_warehouse, get_nextflow_config_flag
 from eva_submission.submission_config import EloadConfig
 from eva_submission.vep_utils import get_vep_and_vep_cache_version
 
@@ -129,7 +129,7 @@ class EloadIngestion(Eload):
             for analysis_alias, analysis_data in analyses.items():
                 files = analysis_data['vcf_files']
                 vcf_files.extend(files) if files else None
-            return vcf_files
+        return vcf_files
 
     def check_brokering_done(self):
         vcf_files = self._get_vcf_files_from_brokering()
@@ -209,28 +209,21 @@ class EloadIngestion(Eload):
             provision_new_database_for_variant_warehouse(db_info['db_name'])
 
     def load_from_ena(self):
-        if check_project_exists_in_evapro(self.project_accession):
-            analyses = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
-            for analysis_accession in analyses.values():
-                self.load_from_ena_from_project_or_analysis(analysis_accession)
-
-        else:
-            self.load_from_ena_from_project_or_analysis()
-
-    def load_from_ena_from_project_or_analysis(self, analysis_accession=None):
         """
-        Loads Analysis metadata from ENA into EVAPRO to the project associated with this ELOAD or to an analysis
-        if it is specified.
+        Loads Project and Analysis metadata from ENA into EVAPRO to the project associated with this ELOAD.
         """
-        # Current submission process never changes -c or -v
-        command = (f"perl {cfg['executable']['load_from_ena']} -p {self.project_accession} -c submitted -v 1 "
-                   f"-l {self._get_dir('scratch')} -e {str(self.eload_num)}")
-        if analysis_accession:
-            command += f' -A 1 -a {analysis_accession}'
+        loader = EvaProjectLoader()
         try:
-            command_utils.run_command_with_output('Load metadata from ENA to EVAPRO', command)
+            loader.load_project_from_ena(self.project_accession, self.eload_num)
+            for analysis_alias in self.eload_cfg.query('brokering', 'analyses'):
+                analysis_info = self.eload_cfg.query('brokering', 'analyses', analysis_alias)
+                for vcf_file in analysis_info['vcf_files']:
+                    vcf_file_md5 = analysis_info['vcf_files'][vcf_file]['md5']
+                    loader.load_samples_from_vcf_file(self.eload_cfg.query('brokering', 'Biosamples', 'Samples'),
+                                                      vcf_file, vcf_file_md5)
+            self.refresh_study_browser()
             self.eload_cfg.set(self.config_section, 'ena_load', value='success')
-        except subprocess.CalledProcessError as e:
+        except Exception as e:
             self.error('ENA metadata load failed: aborting ingestion.')
             self.eload_cfg.set(self.config_section, 'ena_load', value='failure')
             raise e
