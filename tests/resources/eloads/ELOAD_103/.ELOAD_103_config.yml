@@ -28,6 +28,9 @@ ingestion:
   project_dir: tests/resources/projects/PRJEB33333
   remap_and_cluster:
     target_assembly: GCA_000247795.2
+  aggregation:
+    ERZ2499196: 'none'
+    ERZ2499197: 'none'
 submission:
   analyses:
     Analysis alias test:

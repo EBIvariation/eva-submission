@@ -184,7 +184,7 @@ class TestSubmissionQC(TestCase):
         Study Statistics check: 
             Success: FAIL
             Errors:
-                ERZ2499196 - variant-stats error : No variant-stats log file found for ERZ2499196
+                ERZ2499196 - file-stats error : No file-stats log file found for ERZ2499196
         ----------------------------------
         Accession Import check: 
             Success: FAIL
@@ -271,7 +271,7 @@ class TestSubmissionQC(TestCase):
         Study Statistics check: 
             Success: FAIL
             Errors:
-                ERZ2499196 - variant-stats error : No variant-stats log file found for ERZ2499196
+                ERZ2499196 - file-stats error : No file-stats log file found for ERZ2499196
         ----------------------------------
         Accession Import check: 
             Success: FAIL
@@ -389,8 +389,8 @@ class TestSubmissionQC(TestCase):
         Variant load and Accession Import check:
             Variant load check: FAIL
             Annotation check: FAIL
-            Variant Statistics check: FAIL
-            Study Statistics check: FAIL
+            Variant Statistics check: SKIP
+            Study Statistics check: SKIP
             Accession Import check: FAIL
         Remapping and Clustering Check:
             Remapping check: FAIL
@@ -428,14 +428,10 @@ class TestSubmissionQC(TestCase):
                 ERZ2499196 - annotate_variants error : No annotate_variants log file found for ERZ2499196
         ----------------------------------
         Variant Statistics check: 
-            Success: FAIL
-            Errors:
-                ERZ2499196 - variant-stats error : No variant-stats log file found for ERZ2499196
+            Variant statistics result - SKIPPED
         ----------------------------------
         Study Statistics check: 
-            Success: FAIL
-            Errors:
-                ERZ2499196 - variant-stats error : No variant-stats log file found for ERZ2499196
+            Study statistics result - SKIPPED
         ----------------------------------
         Accession Import check: 
             Success: FAIL
