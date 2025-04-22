@@ -8,9 +8,11 @@ brokering:
         tests/resources/eloads/ELOAD_33/18_brokering/ena/test1.vcf.gz:
           csi: tests/resources/eloads/ELOAD_33/18_brokering/ena/test1.vcf.gz.csi
           index: tests/resources/eloads/ELOAD_33/18_brokering/ena/test1.vcf.gz.tbi
+          md5: d41d8cd98f00b204e9800998ecf8427e
         tests/resources/eloads/ELOAD_33/18_brokering/ena/test2.vcf.gz:
           csi: tests/resources/eloads/ELOAD_33/18_brokering/ena/test2.vcf.gz.csi
           index: tests/resources/eloads/ELOAD_33/18_brokering/ena/test2.vcf.gz.tbi
+          md5: d41d8cd98f00b204e9800998ecf8427e
   ena:
     ANALYSIS:
       Analysis alias test: ERZ2499196
