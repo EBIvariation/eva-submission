@@ -85,7 +85,8 @@ class EvaProjectLoader(AppLogger):
                                                         action=action.get('type'),
                                                         submission_alias=alias, submission_date=last_updated,
                                                         brokered=1,
-                                                        submission_type=action.get('schema').upper())
+                                                        submission_type=action.get('schema').upper() if action.get(
+                                                            'schema') else 'PROJECT')
             self.insert_project_ena_submission(project_obj, submission_obj, eload)
             # TODO: Link analysis with submission
         ###
@@ -120,9 +121,15 @@ class EvaProjectLoader(AppLogger):
                                                             submission_type=action.get('schema').upper())
                 analysis_obj.submissions.append(submission_obj)
             ###
-            # LINK PLATFORMS (ASSUME NO NEW PLATFORM)
+            # LINK PLATFORMS
             ###
-            platform_objs = [self.get_platform_obj_from_evapro(platform) for platform in platforms]
+            platform_objs = []
+            for platform in platforms:
+                plat_obj = self.get_platform_obj_from_evapro(platform)
+                # Bypass new platforms
+                # TODO this mimics the behaviour of the perl script, but we should update
+                if plat_obj:
+                    platform_objs.append(plat_obj)
             analysis_obj.platforms = platform_objs
 
             ###
