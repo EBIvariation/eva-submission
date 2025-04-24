@@ -72,7 +72,8 @@ class EvaProjectLoader(AppLogger):
         # LOAD TAXONOMY
         ###
         taxonomy_obj = self.insert_taxonomy(taxonomy_id)
-        project_obj.taxonomies.append(taxonomy_obj)
+        if taxonomy_obj not in project_obj.taxonomies:
+            project_obj.taxonomies.append(taxonomy_obj)
 
         ###
         # LOAD SUBMISSIONS
@@ -104,7 +105,8 @@ class EvaProjectLoader(AppLogger):
                 analysis_accession=analysis_accession, title=analysis_title, alias=analysis_alias,
                 description=analysis_description, center_name=center_name, date=first_created,
                 assembly_set_id=assembly_set_obj.assembly_set_id, vcf_reference_accession=assembly)
-            project_obj.analyses.append(analysis_obj)
+            if analysis_obj not in project_obj.analyses:
+                project_obj.analyses.append(analysis_obj)
 
             ###
             # LOAD SUBMISSIONS FOR ANALYSIS
@@ -119,7 +121,8 @@ class EvaProjectLoader(AppLogger):
                                                             submission_alias=alias, submission_date=last_updated,
                                                             brokered=1,
                                                             submission_type=action.get('schema').upper())
-                analysis_obj.submissions.append(submission_obj)
+                if submission_obj not in analysis_obj.submissions:
+                    analysis_obj.submissions.append(submission_obj)
             ###
             # LINK PLATFORMS
             ###
@@ -154,7 +157,8 @@ class EvaProjectLoader(AppLogger):
                     file_type=file_type,
                     ftp_file=ftp_file
                 )
-                analysis_obj.files.append(file_obj)
+                if file_obj not in analysis_obj.files:
+                    analysis_obj.files.append(file_obj)
 
             ###
             # LOAD SAMPLE
