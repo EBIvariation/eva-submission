@@ -8,21 +8,21 @@ import requests
 import yaml
 from cached_property import cached_property
 from ebi_eva_common_pyutils import command_utils
+from ebi_eva_common_pyutils.assembly.assembly import get_supported_asm_from_ensembl, \
+    get_supported_asm_from_ensembl_rapid_release
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.ena_utils import get_assembly_name_and_taxonomy_id
 from ebi_eva_common_pyutils.ncbi_utils import get_species_name_from_ncbi
-from ebi_eva_common_pyutils.assembly.assembly import get_supported_asm_from_ensembl,\
-    get_supported_asm_from_ensembl_rapid_release
 from ebi_eva_internal_pyutils.config_utils import get_mongo_uri_for_eva_profile
 from ebi_eva_internal_pyutils.metadata_utils import resolve_variant_warehouse_db_name, insert_new_assembly_and_taxonomy, \
     get_assembly_set_from_metadata, add_to_supported_assemblies
 from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query, execute_query
 from ebi_eva_internal_pyutils.spring_properties import SpringPropertiesGenerator
-from eva_submission.evapro.populate_evapro import EvaProjectLoader
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import provision_new_database_for_variant_warehouse, get_nextflow_config_flag
+from eva_submission.evapro.populate_evapro import EvaProjectLoader
 from eva_submission.submission_config import EloadConfig
 from eva_submission.vep_utils import get_vep_and_vep_cache_version
 
@@ -213,14 +213,22 @@ class EloadIngestion(Eload):
         Loads Project and Analysis metadata from ENA into EVAPRO to the project associated with this ELOAD.
         """
         loader = EvaProjectLoader()
+        sample_name_2_accession = self.eload_cfg.query('brokering', 'Biosamples', 'Samples')
         try:
             loader.load_project_from_ena(self.project_accession, self.eload_num)
-            for analysis_alias in self.eload_cfg.query('brokering', 'analyses'):
-                analysis_info = self.eload_cfg.query('brokering', 'analyses', analysis_alias)
-                for vcf_file in analysis_info['vcf_files']:
-                    vcf_file_md5 = analysis_info['vcf_files'][vcf_file]['md5']
-                    loader.load_samples_from_vcf_file(self.eload_cfg.query('brokering', 'Biosamples', 'Samples'),
-                                                      vcf_file, vcf_file_md5)
+
+            # Check aggregation type for each analysis to determine if we should load samples by file or by analysis
+            for analysis_alias in self.eload_cfg.query('validation', 'aggregation_check', 'analyses'):
+                aggregation_type = self.eload_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
+                if aggregation_type == 'basic':
+                    analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
+                    loader.load_samples_from_analysis(sample_name_2_accession, analysis_accession)
+                else:
+                    analysis_info = self.eload_cfg.query('brokering', 'analyses', analysis_alias)
+                    for vcf_file in analysis_info['vcf_files']:
+                        vcf_file_md5 = analysis_info['vcf_files'][vcf_file]['md5']
+                        loader.load_samples_from_vcf_file(sample_name_2_accession, vcf_file, vcf_file_md5)
+
             self.refresh_study_browser()
             self.eload_cfg.set(self.config_section, 'ena_load', value='success')
         except Exception as e:

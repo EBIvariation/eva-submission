@@ -168,6 +168,26 @@ class EvaProjectLoader(AppLogger):
                                        name_in_file=sample_name)
         self.eva_session.commit()
 
+    def load_samples_from_analysis(self, sample_name_2_sample_accession, analysis_accession):
+        # For analyses with aggregated VCFs, get sample accessions associated with the analysis
+        sample_accessions = [sample_info[1] for sample_info in
+                             self.ena_project_finder.find_samples_in_ena(analysis_accession)]
+        sample_accession_2_sample_name = dict(
+            zip(sample_name_2_sample_accession.values(), sample_name_2_sample_accession.keys()))
+        self.eva_session.begin()
+        file_objs = self.get_files_for_analysis(analysis_accession)
+        for sample_accession in sample_accessions:
+            sample_name = sample_accession_2_sample_name.get(sample_accession)
+            sample_obj = self.get_sample(sample_accession)
+            if not sample_obj:
+                self.error(f'Cannot find sample {sample_accession} in EVAPRO')
+                return
+            # Associate these samples with all files in the analysis
+            for file_obj in file_objs:
+                self.insert_sample_in_file(file_id=file_obj.file_id, sample_id=sample_obj.sample_id,
+                                           name_in_file=sample_name)
+        self.eva_session.commit()
+
     def update_project_samples_temp1(self, project_accession):
         # This function assumes that all samples have been loaded to Sample/SampleFiles
         # TODO: Remove this when Sample have been back-filled and this can be calculated on the fly
@@ -395,6 +415,10 @@ class EvaProjectLoader(AppLogger):
         if result:
             return result.File
         return None
+
+    def get_files_for_analysis(self, analysis_accession):
+        query = select(File).join(Analysis, File.analyses).where(Analysis.analysis_accession == analysis_accession)
+        return [result.File for result in self.eva_session.execute(query).fetchall()]
 
     def insert_file(self, project_accession, assembly_set_id, ena_submission_file_id, filename, file_md5, file_type,
                     ftp_file, file_location=None, file_class='submitted', file_version=1, is_current=1):

@@ -13,7 +13,6 @@ from eva_submission.submission_config import load_config
 
 
 class TestEvaProjectLoader(TestCase):
-
     resources_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources')
 
     def setUp(self):
@@ -63,7 +62,8 @@ class TestEvaProjectLoader(TestCase):
                 for result in session.execute(select(Taxonomy)).fetchall()
             ]
             assert set([(taxonomy.taxonomy_id, taxonomy.common_name, taxonomy.scientific_name, taxonomy.taxonomy_code)
-                        for taxonomy in taxonomies]) == {(217634, 'Asian longhorned beetle', 'Anoplophora glabripennis', 'aglabripennis')}
+                        for taxonomy in taxonomies]) == {
+                       (217634, 'Asian longhorned beetle', 'Anoplophora glabripennis', 'aglabripennis')}
 
             # Loaded Submissions
             submissions = [
@@ -71,7 +71,7 @@ class TestEvaProjectLoader(TestCase):
                 for result in session.execute(select(Submission)).fetchall()
             ]
             assert set([(submission.submission_accession, submission.action, submission.type) for submission in
-                        submissions]) =={('ERA27275681', 'ADD', 'PROJECT')}
+                        submissions]) == {('ERA27275681', 'ADD', 'PROJECT')}
 
             # Loaded analysis
             analyses = [
@@ -112,7 +112,8 @@ class TestEvaProjectLoader(TestCase):
             ('ERS18360856', 'SAMEA115348712'), ('ERS18360857', 'SAMEA115348713'), ('ERS18360858', 'SAMEA115348714')
         ]
         files_info = [
-            ('ERZ293539', 'ERF11112570', 'IRIS_313-12319.snp.vcf.gz.tbi', 'b98e6396a38b1658d9e0116692e1dae3', 'TABIX',4),
+            ('ERZ293539', 'ERF11112570', 'IRIS_313-12319.snp.vcf.gz.tbi', 'b98e6396a38b1658d9e0116692e1dae3', 'TABIX',
+             4),
             ('ERZ293539', 'ERF11112569', 'IRIS_313-12319.snp.vcf.gz', '642b2e31ce4fc6b8c92eb2dc53630d47', 'VCF', 4)
         ]
         with self.patch_evapro_engine(engine):
@@ -141,17 +142,17 @@ class TestEvaProjectLoader(TestCase):
             result = session.execute(select(LinkedProject)).fetchone()
             linked_project = result.LinkedProject
             assert (
-                linked_project.project_accession,
-                linked_project.linked_project_accession,
-                linked_project.linked_project_relation
-            ) == ('PRJEB36082', 'PRJNA9558', 'PARENT')
+                       linked_project.project_accession,
+                       linked_project.linked_project_accession,
+                       linked_project.linked_project_relation
+                   ) == ('PRJEB36082', 'PRJNA9558', 'PARENT')
 
             # Loaded Taxonomies
             taxonomies = [
                 result.Taxonomy
                 for result in session.execute(select(Taxonomy)).fetchall()
             ]
-            assert set([(taxonomy.taxonomy_id, taxonomy.common_name, taxonomy.scientific_name,taxonomy.taxonomy_code)
+            assert set([(taxonomy.taxonomy_id, taxonomy.common_name, taxonomy.scientific_name, taxonomy.taxonomy_code)
                         for taxonomy in taxonomies]) == {(9606, 'human', 'Homo sapiens', 'hsapiens')}
 
             # Loaded Submissions
@@ -159,8 +160,10 @@ class TestEvaProjectLoader(TestCase):
                 result.Submission
                 for result in session.execute(select(Submission)).fetchall()
             ]
-            print(set([(submission.submission_accession, submission.action, submission.type) for submission in submissions]))
-            assert set([(submission.submission_accession, submission.action, submission.type) for submission in submissions]) == {('ERA27275681', 'ADD', 'PROJECT')}
+            print(set([(submission.submission_accession, submission.action, submission.type) for submission in
+                       submissions]))
+            assert set([(submission.submission_accession, submission.action, submission.type) for submission in
+                        submissions]) == {('ERA27275681', 'ADD', 'PROJECT')}
 
             # Loaded analysis
             analyses = [
@@ -173,14 +176,13 @@ class TestEvaProjectLoader(TestCase):
             assert set(p.platform for p in analysis.platforms) == {'Illumina HiSeq 2500'}
             assert set(e.experiment_type for e in analysis.experiment_types) == {'Whole genome sequencing'}
             assert (
-                analysis.assembly_set.taxonomy_id, analysis.assembly_set.assembly_name,
-                analysis.assembly_set.assembly_code
-            ) == (9606, 'L_crocea_1.0', 'lcrocea10')
-
+                       analysis.assembly_set.taxonomy_id, analysis.assembly_set.assembly_name,
+                       analysis.assembly_set.assembly_code
+                   ) == (9606, 'L_crocea_1.0', 'lcrocea10')
 
     def test_load_samples_from_vcf_file(self):
-        sample_name_2_sample_accession = {'NA00001': 'SAME000001', 'NA00002':'SAME000002', 'NA00003':'SAME000003'}
-        vcf_file = os.path.join(self.resources_dir, 'vcf_files','file_structural_variants.vcf')
+        sample_name_2_sample_accession = {'NA00001': 'SAME000001', 'NA00002': 'SAME000002', 'NA00003': 'SAME000003'}
+        vcf_file = os.path.join(self.resources_dir, 'vcf_files', 'file_structural_variants.vcf')
         vcf_file_name = os.path.basename(vcf_file)
         vcf_file_md5 = 'md5sum'
         engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
@@ -204,9 +206,41 @@ class TestEvaProjectLoader(TestCase):
             results = []
             for result in self.loader.eva_session.execute(query).fetchall():
                 sample_in_file = result.SampleInFile
-                results.append((sample_in_file.name_in_file, sample_in_file.sample.biosample_accession, sample_in_file.file.filename))
+                results.append((sample_in_file.name_in_file, sample_in_file.sample.biosample_accession,
+                                sample_in_file.file.filename))
             assert results == expected_results
 
+    def test_load_samples_from_analysis(self):
+        sample_name_2_sample_accession = {'POP': 'SAME000001', 'not present': 'SAME000002'}
+        vcf_file = os.path.join(self.resources_dir, 'vcf_files', 'file_basic_aggregation.vcf')
+        vcf_file_name = os.path.basename(vcf_file)
+        engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+        with self.patch_evapro_engine(engine):
+            metadata.create_all(engine)
+            self.loader.eva_session.begin()
+            analysis_obj = self.loader.insert_analysis('ERZ000001', 'title', 'alias', 'description', 'center_name',
+                                        datetime.datetime(2018, 3, 26, 15, 33, 35), 1)
+            file_obj = self.loader.insert_file('prj000001', 1, 1, vcf_file_name,
+                                    'md5sum', 'vcf', 'path/to/ftp')
+            analysis_obj.files.append(file_obj)
+            self.loader.insert_sample('SAME000001', 'SAME000001')
+            self.loader.eva_session.commit()
+
+            # Only SAME000001 found for this analysis
+            self.loader.ena_project_finder = PropertyMock(
+                find_samples_in_ena=Mock(return_value=[('ERS000001', 'SAME000001')])
+            )
+
+            self.loader.load_samples_from_analysis(sample_name_2_sample_accession, 'ERZ000001')
+            query = select(SampleInFile)
+            expected_results = [('POP', 'SAME000001', vcf_file_name)]
+
+            results = []
+            for result in self.loader.eva_session.execute(query).fetchall():
+                sample_in_file = result.SampleInFile
+                results.append((sample_in_file.name_in_file, sample_in_file.sample.biosample_accession,
+                                sample_in_file.file.filename))
+            assert results == expected_results
 
     def test_update_project_samples_temp1(self):
         engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
@@ -222,7 +256,8 @@ class TestEvaProjectLoader(TestCase):
             self.loader.eva_session.begin()
             project_obj = self.loader.insert_project_in_evapro(
                 project_accession=project_accession, center_name='name', project_alias='alias', title='title',
-                description='description', ena_study_type='ena_study_type', ena_secondary_study_id='ena_secondary_study_id'
+                description='description', ena_study_type='ena_study_type',
+                ena_secondary_study_id='ena_secondary_study_id'
             )
             analysis_obj = self.loader.insert_analysis(
                 analysis_accession='analysis1', title='title', alias='alais', description='description',
@@ -231,11 +266,13 @@ class TestEvaProjectLoader(TestCase):
             )
             project_obj.analyses.append(analysis_obj)
             file1_obj = self.loader.insert_file(
-                project_accession='project_accession', assembly_set_id=1, ena_submission_file_id=1, filename=vcf_file1_name,
+                project_accession='project_accession', assembly_set_id=1, ena_submission_file_id=1,
+                filename=vcf_file1_name,
                 file_md5=vcf_file1_md5, file_type='vcf', ftp_file='path/to/ftp'
             )
             file2_obj = self.loader.insert_file(
-                project_accession='project_accession', assembly_set_id=1, ena_submission_file_id=2, filename=vcf_file2_name,
+                project_accession='project_accession', assembly_set_id=1, ena_submission_file_id=2,
+                filename=vcf_file2_name,
                 file_md5=vcf_file2_md5, file_type='vcf', ftp_file='path/to/ftp'
             )
             analysis_obj.files.append(file1_obj)
@@ -246,7 +283,7 @@ class TestEvaProjectLoader(TestCase):
 
             self.loader.eva_session.begin()
             self.loader.insert_sample_in_file(file_id=file1_obj.file_id, sample_id=sample1_obj.sample_id,
-                                       name_in_file='sample_name')
+                                              name_in_file='sample_name')
             self.loader.insert_sample_in_file(file_id=file1_obj.file_id, sample_id=sample2_obj.sample_id,
                                               name_in_file='sample_name')
             self.loader.insert_sample_in_file(file_id=file2_obj.file_id, sample_id=sample1_obj.sample_id,
@@ -264,6 +301,3 @@ class TestEvaProjectLoader(TestCase):
 
             # Only 2 samples because one sample is contained in two files
             assert results == [('prj000001', 2)]
-
-
-
