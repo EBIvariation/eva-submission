@@ -21,7 +21,8 @@ from ebi_eva_internal_pyutils.spring_properties import SpringPropertiesGenerator
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import provision_new_database_for_variant_warehouse, get_nextflow_config_flag
+from eva_submission.eload_utils import provision_new_database_for_variant_warehouse, check_project_exists_in_evapro, \
+    get_nextflow_config_flag
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
 from eva_submission.submission_config import EloadConfig
 from eva_submission.vep_utils import get_vep_and_vep_cache_version
@@ -215,9 +216,16 @@ class EloadIngestion(Eload):
         loader = EvaProjectLoader()
         sample_name_2_accession = self.eload_cfg.query('brokering', 'Biosamples', 'Samples')
         try:
-            loader.load_project_from_ena(self.project_accession, self.eload_num)
+            # Load entire project, or only analyses associated with this submission
+            if check_project_exists_in_evapro(self.project_accession):
+                analyses = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
+                for analysis_accession in analyses.values():
+                    loader.load_project_from_ena(self.project_accession, self.eload_num, analysis_accession)
+            else:
+                loader.load_project_from_ena(self.project_accession, self.eload_num)
 
-            # Check aggregation type for each analysis to determine if we should load samples by file or by analysis
+            # Check aggregation type for each analysis in this submission to determine if we should load samples by file
+            # or by analysis
             for analysis_alias in self.eload_cfg.query('validation', 'aggregation_check', 'analyses'):
                 aggregation_type = self.eload_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
                 if aggregation_type == 'basic':
@@ -228,6 +236,7 @@ class EloadIngestion(Eload):
                     for vcf_file in analysis_info['vcf_files']:
                         vcf_file_md5 = analysis_info['vcf_files'][vcf_file]['md5']
                         loader.load_samples_from_vcf_file(sample_name_2_accession, vcf_file, vcf_file_md5)
+            loader.update_project_samples_temp1(self.project_accession)
 
             self.refresh_study_browser()
             self.eload_cfg.set(self.config_section, 'ena_load', value='success')
