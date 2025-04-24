@@ -1,6 +1,6 @@
 # coding: utf-8
 from sqlalchemy import BigInteger, Boolean, CHAR, Column, Date, DateTime, ForeignKey, Index, \
-    Integer, SmallInteger, String, Table, Text, UniqueConstraint, text, func
+    Integer, SmallInteger, String, Table, Text, UniqueConstraint, text, func, Sequence
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -364,7 +364,7 @@ class ProjectSampleTemp1(Base):
 
     project_accession = Column(ForeignKey('project.project_accession'), primary_key=True, nullable=False, index=True)
     sample_count = Column(Integer)
-    pro_samp1_id = Column(Integer, autoincrement=True)
+    pro_samp1_id = Column(Integer, Sequence("pro_samp1_seq"))
 
 
 t_analysis_experiment_type = Table(
