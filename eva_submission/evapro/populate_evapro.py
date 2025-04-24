@@ -32,14 +32,19 @@ class EvaProjectLoader(AppLogger):
 
     loader = EvaProjectLoader()
     loader.load_project_from_ena(project_accession) -> Retrieve a project from ENA and add it to the metadata database
-    loader.load_samples_from_vcf_file(ample_name_2_sample_accession, vcf_file, vcf_file_md5) -> Retrieve samples from a VCF file
-    This second method assume the project/analysis and file have been loaded already
+    loader.load_samples_from_vcf_file(sample_name_2_sample_accession, vcf_file, vcf_file_md5) -> Retrieve samples from a VCF file
+    loader.load_samples_from_analysis(sample_name_2_sample_accession, analysis_accession) -> Retrieve samples for all files in an analysis
+    The last 2 methods assume the project/analysis and file have been loaded already
     """
 
     def __init__(self):
         self.ena_project_finder = EnaProjectFinder()
 
-    def load_project_from_ena(self, project_accession, eload):
+    def load_project_from_ena(self, project_accession, eload, analysis_accession_to_load=None):
+        """
+        Loads a project from ENA for the given ELOAD and adds it to the metadata database.
+        If analysis_accession_to_load is specified, will only load that analysis; otherwise all analyses are added.
+        """
         self.eva_session.begin()
 
         ###
@@ -91,6 +96,8 @@ class EvaProjectLoader(AppLogger):
                 analysis_accession, analysis_title, analysis_alias, analysis_description, analysis_type, center_name,
                 first_created, assembly, refname, custom, experiment_types, platforms
             ) = analysis_info
+            if analysis_accession_to_load and analysis_accession != analysis_accession_to_load:
+                continue
             assembly_set_obj = self.insert_assembly_set(taxonomy_obj=taxonomy_obj, assembly_accession=assembly)
             analysis_obj = self.insert_analysis(
                 analysis_accession=analysis_accession, title=analysis_title, alias=analysis_alias,

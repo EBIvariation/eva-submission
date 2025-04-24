@@ -159,16 +159,20 @@ class TestEloadIngestion(TestCase):
 
     def test_load_from_ena(self):
         with self._patch_metadata_handle(), \
+                patch('eva_submission.eload_ingestion.check_project_exists_in_evapro'), \
                 patch.object(EvaProjectLoader, 'load_project_from_ena') as m_load_project, \
-                patch.object(EvaProjectLoader, 'load_samples_from_vcf_file') as m_load_samples:
+                patch.object(EvaProjectLoader, 'load_samples_from_vcf_file') as m_load_samples, \
+                patch.object(EvaProjectLoader, 'update_project_samples_temp1'):
             self.eload.load_from_ena()
             m_load_project.assert_called_once()
             self.assertEqual(m_load_samples.call_count, 2)
 
     def test_load_from_ena_script_fails(self):
         with self._patch_metadata_handle(), \
+                patch('eva_submission.eload_ingestion.check_project_exists_in_evapro'), \
                 patch.object(EvaProjectLoader, 'load_project_from_ena') as m_load_project, \
-                patch.object(EvaProjectLoader, 'load_samples_from_vcf_file') as m_load_samples:
+                patch.object(EvaProjectLoader, 'load_samples_from_vcf_file') as m_load_samples, \
+                patch.object(EvaProjectLoader, 'update_project_samples_temp1'):
             m_load_project.side_effect = ValueError('metadata load error')
             with self.assertRaises(ValueError):
                 self.eload.load_from_ena()
@@ -188,6 +192,7 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.insert_new_assembly_and_taxonomy') as insert_asm_tax, \
                 patch.object(EvaProjectLoader, 'load_project_from_ena'), \
                 patch.object(EvaProjectLoader, 'load_samples_from_vcf_file'), \
+                patch.object(EvaProjectLoader, 'update_project_samples_temp1'), \
                 self._patch_mongo_database():
             m_get_vep_versions.return_value = (100, 100)
             m_get_species.return_value = 'homo_sapiens'
@@ -204,6 +209,7 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.insert_new_assembly_and_taxonomy') as insert_asm_tax, \
                 patch.object(EvaProjectLoader, 'load_project_from_ena'), \
                 patch.object(EvaProjectLoader, 'load_samples_from_vcf_file'), \
+                patch.object(EvaProjectLoader, 'update_project_samples_temp1'), \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_post.return_value.text = self.get_mock_result_for_ena_date()
@@ -465,6 +471,7 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.insert_new_assembly_and_taxonomy') as insert_asm_tax, \
                 patch.object(EvaProjectLoader, 'load_project_from_ena'), \
                 patch.object(EvaProjectLoader, 'load_samples_from_vcf_file'), \
+                patch.object(EvaProjectLoader, 'update_project_samples_temp1'), \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100)
@@ -508,6 +515,7 @@ class TestEloadIngestion(TestCase):
                 patch('eva_submission.eload_ingestion.insert_new_assembly_and_taxonomy') as insert_asm_tax, \
                 patch.object(EvaProjectLoader, 'load_project_from_ena'), \
                 patch.object(EvaProjectLoader, 'load_samples_from_vcf_file'), \
+                patch.object(EvaProjectLoader, 'update_project_samples_temp1'), \
                 self._patch_mongo_database():
             m_get_alias_results.return_value = [['alias']]
             m_get_vep_versions.return_value = (100, 100)
