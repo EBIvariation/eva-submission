@@ -24,6 +24,8 @@ def get_samples_from_vcf_manual(vcf_file):
                 sp_line = line.strip().split('\t')
                 if len(sp_line) > 9:
                     return sp_line[9:]
+                else:
+                    return []
     finally:
         open_file.close()
     return []
