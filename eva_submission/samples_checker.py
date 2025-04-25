@@ -26,6 +26,7 @@ def get_samples_from_vcf_manual(vcf_file):
                     return sp_line[9:]
     finally:
         open_file.close()
+    return []
 
 
 def get_samples_from_vcf_pysam(vcf_file):
