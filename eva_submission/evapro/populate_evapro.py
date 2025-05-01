@@ -190,6 +190,7 @@ class EvaProjectLoader(AppLogger):
         # For analyses with aggregated VCFs, get sample accessions associated with the analysis
         sample_accessions = [sample_info[1] for sample_info in
                              self.ena_project_finder.find_samples_in_ena(analysis_accession)]
+        self.info(f'Sample accessions for {analysis_accession} found in ENA: {sample_accessions}')
         sample_accession_2_sample_name = dict(
             zip(sample_name_2_sample_accession.values(), sample_name_2_sample_accession.keys()))
         self.eva_session.begin()
