@@ -21,6 +21,8 @@ ingestion:
   vep:
     GCA_000003205.6:
       cache_version: 1
+  aggregation:
+    ERZ2499196: 'basic'
 submission:
   analyses:
     Analysis alias test:
