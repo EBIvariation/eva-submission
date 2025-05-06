@@ -181,6 +181,7 @@ class EvaProjectLoader(AppLogger):
             sample_obj = self.get_sample(sample_accession)
             if not sample_obj:
                 self.error(f'Cannot find sample {sample_accession} in EVAPRO')
+                self.eva_session.rollback()
                 return
             self.insert_sample_in_file(file_id=file_obj.file_id, sample_id=sample_obj.sample_id,
                                        name_in_file=sample_name)
@@ -200,6 +201,7 @@ class EvaProjectLoader(AppLogger):
             sample_obj = self.get_sample(sample_accession)
             if not sample_obj:
                 self.error(f'Cannot find sample {sample_accession} in EVAPRO')
+                self.eva_session.rollback()
                 return
             # Associate these samples with all files in the analysis
             for file_obj in file_objs:
