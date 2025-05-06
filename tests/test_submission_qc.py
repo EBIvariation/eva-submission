@@ -51,6 +51,7 @@ class TestSubmissionQC(TestCase):
                                  self._mock_response(status=500, raise_for_status=HTTPError("service is down"))]
             m_ftp_nlst.return_value = []
             self.assertEqual(self.expected_report_of_eload_101(), self.eload.run_qc_checks_for_submission())
+            self.assertIn(EloadQC.config_section, self.eload.eload_cfg)
 
     def test_submission_qc_checks_failed_2(self):
         self.eload = EloadQC(102)
@@ -69,6 +70,7 @@ class TestSubmissionQC(TestCase):
             m_ftp_nlst.return_value = ['test1.vcf.gz.csi', 'test1.vcf.csi', 'test1.accessioned.vcf.gz.csi',
                                        'test1.accessioned.vcf.csi']
             self.assertEqual(self.expected_report_of_eload_102(), self.eload.run_qc_checks_for_submission())
+            self.assertIn(EloadQC.config_section, self.eload.eload_cfg)
 
     def test_submission_qc_checks_passed(self):
         self.eload = EloadQC(103)
@@ -96,6 +98,7 @@ class TestSubmissionQC(TestCase):
                                        'test2.vcf.gz.csi', 'test2.vcf.csi', 'test2.accessioned.vcf.gz',
                                        'test2.accessioned.vcf.gz.csi', 'test2.accessioned.vcf.csi']
             self.assertEqual(self.expected_report_of_eload_103(), self.eload.run_qc_checks_for_submission())
+            self.assertIn(EloadQC.config_section, self.eload.eload_cfg)
 
     def test_submission_qc_checks_missing_files(self):
         self.eload = EloadQC(104)
@@ -118,6 +121,7 @@ class TestSubmissionQC(TestCase):
             m_ftp_nlst.return_value = ['test1.vcf.gz', 'test1.vcf.gz.csi', 'test1.vcf.csi', 'test1.accessioned.vcf.gz',
                                        'test1.accessioned.vcf.gz.csi', 'test1.accessioned.vcf.csi']
             self.assertEqual(self.expected_report_of_eload_104(), self.eload.run_qc_checks_for_submission())
+            self.assertIn(EloadQC.config_section, self.eload.eload_cfg)
 
     def test_check_if_variant_load_completed_successfully(self):
         self.eload = EloadQC(103)
@@ -339,7 +343,7 @@ class TestSubmissionQC(TestCase):
             Success: PASS
         ----------------------------------
         Annotation check: 
-            annotation result - SKIPPED
+            Annotation result - SKIPPED
         ----------------------------------
         Variant Statistics check: 
             Success: PASS
@@ -428,10 +432,10 @@ class TestSubmissionQC(TestCase):
                 ERZ2499196 - annotate_variants error : No annotate_variants log file found for ERZ2499196
         ----------------------------------
         Variant Statistics check: 
-            Variant statistics result - SKIPPED
+            Variant statistics result - SKIPPED (aggregated VCF)
         ----------------------------------
         Study Statistics check: 
-            Study statistics result - SKIPPED
+            Study statistics result - SKIPPED (aggregated VCF)
         ----------------------------------
         Accession Import check: 
             Success: FAIL

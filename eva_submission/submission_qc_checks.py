@@ -108,6 +108,8 @@ def _get_failed_job_or_step_name(file_name):
 
 
 class EloadQC(Eload):
+    config_section = 'qc_checks'  # top-level config key
+
     def __init__(self, eload_number, config_object: EloadConfig = None):
         super().__init__(eload_number, config_object)
         self.profile = cfg['maven']['environment']
@@ -243,8 +245,8 @@ class EloadQC(Eload):
 
     @staticmethod
     def _report_for_human():
-        result = 'N/A - Human Taxonomy'
-        report = f"""Success: {result}"""
+        result = 'SKIP'
+        report = 'Success: SKIPPED (human taxonomy)'
         return result, report
 
     @staticmethod
@@ -369,6 +371,9 @@ class EloadQC(Eload):
         return self._report_for_log(failed_files)
 
     def check_if_acc_load_completed_successfully(self):
+        # No accessioning load check is required for human
+        if self.taxonomy == 9606:
+            return self._report_for_human()
         failed_files = {}
         for file_name in self.vcf_files:
             file_pass, last_error = self._check_multiple_logs(
@@ -400,7 +405,7 @@ class EloadQC(Eload):
         if any_vep_run:
             return self._report_for_log(failed_analysis)
         else:
-            return 'SKIP', f"""annotation result - SKIPPED"""
+            return 'SKIP', f"""Annotation result - SKIPPED"""
 
     def check_if_variant_statistic_completed_successfully(self):
         failed_analysis = {}
@@ -424,7 +429,7 @@ class EloadQC(Eload):
         if any_stats_run:
             return self._report_for_log(failed_analysis)
         else:
-            return 'SKIP', f"""Variant statistics result - SKIPPED"""
+            return 'SKIP', f"""Variant statistics result - SKIPPED (aggregated VCF)"""
 
     def check_if_study_statistic_completed_successfully(self):
         failed_analysis = {}
@@ -448,23 +453,7 @@ class EloadQC(Eload):
         if any_stats_run:
             return self._report_for_log(failed_analysis)
         else:
-            return 'SKIP', f"""Study statistics result - SKIPPED"""
-
-    def study_statistic_check_report(self):
-        failed_analysis = {}
-        for analysis_alias, analysis_accession in self.eload_cfg.query('brokering', 'ena', 'ANALYSIS').items():
-            logs_to_check = []
-            jobs_to_check = []
-            for file_name in self.analysis_to_file_names[analysis_accession]:
-                logs_to_check.append(f"pipeline.*{file_name}*.log")
-                jobs_to_check.append("variant_load")
-            logs_to_check.extend(
-                [f"statistics.*{analysis_accession}*.log", f"study.statistics.{analysis_accession}.log"])
-            jobs_to_check.extend(["calculate_statistics", "study-stats"])
-            analysis_pass, last_error = self._check_multiple_logs(analysis_accession, logs_to_check, jobs_to_check)
-            if not analysis_pass:
-                failed_analysis[analysis_accession] = last_error
-        return self._report_for_log(failed_analysis)
+            return 'SKIP', f"""Study statistics result - SKIPPED (aggregated VCF)"""
 
     def check_if_variants_were_skipped_while_accessioning(self):
         # No accessioning check is required for human
@@ -474,7 +463,7 @@ class EloadQC(Eload):
         for file in self.vcf_files:
             accessioning_log_files = glob.glob(f"{self.path_to_logs_dir}/accessioning.*{file}*.log")
             if accessioning_log_files:
-                # check if any variants were skippped while accessioning
+                # check if any variants were skipped while accessioning
                 variants_skipped = self._check_if_variants_were_skipped_in_log(accessioning_log_files[0])
                 if variants_skipped:
                     if variants_skipped == -1:
@@ -604,7 +593,6 @@ class EloadQC(Eload):
         """Collect information from different qc methods format and write the report."""
         browsable_files_result, browsable_files_report = self.check_if_browsable_files_entered_correctly_in_db()
 
-        # No accessioning check is required for human
         accessioning_job_result, accessioning_job_report = self.check_if_accessioning_completed_successfully()
         variants_skipped_result, variants_skipped_report = self.check_if_variants_were_skipped_while_accessioning()
 
@@ -622,6 +610,24 @@ class EloadQC(Eload):
         study_check_result, study_check_report = self.check_if_study_appears()
 
         study_metadata_check_result, study_metadata_check_report = self.check_if_study_appears_in_metadata()
+
+        result_summary = {
+            'browsable_files': browsable_files_result,
+            'accessioning': accessioning_job_result,
+            'variants_skipped_accessioning': variants_skipped_result,
+            'variant_load': variant_load_result,
+            'annotation': annotation_result,
+            'variant_stats': variant_statistic_result,
+            'study_stats': study_statistic_result,
+            'accession_import': acc_import_result,
+            'remapping': remapping_check_result,
+            'clustering': clustering_check_result,
+            'back-propogation': backpropagation_check_result,
+            'ftp': ftp_check_result,
+            'study_webservice': study_check_result,
+            'study_metadata': study_metadata_check_result,
+        }
+        self.eload_cfg.set(EloadQC.config_section, value=result_summary)
 
         report = f"""
         QC Result Summary:

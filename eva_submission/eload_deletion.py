@@ -5,9 +5,13 @@ import tarfile
 from pathlib import Path
 
 from ebi_eva_common_pyutils.config import cfg
+from eva_submission.submission_qc_checks import EloadQC
 
 from eva_submission.eload_submission import Eload
 from eva_submission.submission_in_ftp import deposit_box
+
+
+successful_qc_statuses = {'PASS', 'SKIP', 'PASS with Warning (Manual Check Required)'}
 
 
 class EloadDeletion(Eload):
@@ -24,6 +28,11 @@ class EloadDeletion(Eload):
                 f'File already exists in the LTS for the eload {self.eload_num}. LTS file: {self.lts_archive_file}')
 
         self.upgrade_to_new_version_if_needed()
+
+        # check that QC has been run and passed
+        if not self.check_qc_successful() and not force_delete:
+                raise Exception(f'QC has not been run successfully for eload {self.eload_num}')
+
         self.archive_eload()
 
         # delete
@@ -31,6 +40,15 @@ class EloadDeletion(Eload):
         self.delete_ftp_dir(ftp_dir)
         self.delete_project_dir(self.project_dir)
         self.delete_eload_dir(self.eload_dir)
+
+    def check_qc_successful(self):
+        qc_results = self.eload_cfg.query(EloadQC.config_section)
+        if not qc_results:
+            return False
+        for check in qc_results:
+            if qc_results[check] not in successful_qc_statuses:
+                return False
+        return True
 
     def is_compressed(self, file_name):
         compressed_exts = (".gz", ".xz", ".bz2", ".zip", ".rar", ".7z")
