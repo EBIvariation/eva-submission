@@ -143,9 +143,9 @@ class TestSubmissionQC(TestCase):
             Study Statistics check: FAIL
             Accession Import check: FAIL
         Remapping and Clustering Check:
-            Remapping check: DID NOT RUN
-            Clustering check: DID NOT RUN 
-            Back-propogation check: DID NOT RUN
+            Remapping check: FAIL
+            Clustering check: FAIL
+            Back-propogation check: FAIL
         FTP check: FAIL
         Study check: FAIL
         Study metadata check: FAIL
@@ -197,13 +197,13 @@ class TestSubmissionQC(TestCase):
                 test2.vcf.gz - acc_import error : No acc_import log file found for test2.vcf.gz
         ----------------------------------
         Remapping Check:
-            N/A
+            Success: DID NOT RUN
         ----------------------------------
         Clustering check:
-            N/A
+            Success: DID NOT RUN
         ----------------------------------
         Backpropagation check:
-            N/A
+            Success: DID NOT RUN
         ----------------------------------
         FTP check:
             Error: No files found in FTP for study PRJEB11111
@@ -231,9 +231,9 @@ class TestSubmissionQC(TestCase):
             Study Statistics check: FAIL
             Accession Import check: FAIL
         Remapping and Clustering Check:
-            Remapping check: DID NOT RUN
-            Clustering check: DID NOT RUN 
-            Back-propogation check: DID NOT RUN
+            Remapping check: FAIL
+            Clustering check: FAIL
+            Back-propogation check: FAIL
         FTP check: FAIL
         Study check: FAIL
         Study metadata check: FAIL
@@ -284,13 +284,13 @@ class TestSubmissionQC(TestCase):
                 test2.vcf.gz - acc_import error : No acc_import log file found for test2.vcf.gz
         ----------------------------------
         Remapping Check:
-            N/A
+            Success: DID NOT RUN
         ----------------------------------
         Clustering check:
-            N/A
+            Success: DID NOT RUN
         ----------------------------------
         Backpropagation check:
-            N/A
+            Success: DID NOT RUN
         ----------------------------------
         FTP check:
             Success: FAIL 
@@ -343,7 +343,7 @@ class TestSubmissionQC(TestCase):
             Success: PASS
         ----------------------------------
         Annotation check: 
-            Annotation result - SKIPPED
+            Annotation result - SKIPPED (no VEP cache)
         ----------------------------------
         Variant Statistics check: 
             Success: PASS

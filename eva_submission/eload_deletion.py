@@ -11,9 +11,6 @@ from eva_submission.eload_submission import Eload
 from eva_submission.submission_in_ftp import deposit_box
 
 
-successful_qc_statuses = {'PASS', 'SKIP', 'PASS with Warning (Manual Check Required)'}
-
-
 class EloadDeletion(Eload):
     def __init__(self, eload_number):
         super().__init__(eload_number)
@@ -46,7 +43,7 @@ class EloadDeletion(Eload):
         if not qc_results:
             return False
         for check in qc_results:
-            if qc_results[check] not in successful_qc_statuses:
+            if qc_results[check] not in EloadQC.SUCCESSFUL_RESULTS:
                 return False
         return True
 

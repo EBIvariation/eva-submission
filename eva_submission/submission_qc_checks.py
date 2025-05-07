@@ -2,113 +2,32 @@ import glob
 import os
 from collections import defaultdict
 from ftplib import FTP
-from functools import cached_property, lru_cache
+from functools import cached_property
 from pathlib import Path
 
 import requests
 from ebi_eva_common_pyutils.config import cfg
-from ebi_eva_common_pyutils.logger import logging_config
 from ebi_eva_internal_pyutils.metadata_utils import get_metadata_connection_handle
 from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query
+
+from eva_submission.qc_utils import did_job_complete_successfully_from_log, get_failed_job_or_step_name
 from requests import HTTPError
 from retry import retry
 
 from eva_submission.eload_submission import Eload
 from eva_submission.submission_config import EloadConfig
 
-logger = logging_config.get_logger(__name__)
-
-
-job_launched_and_completed_text_map = {
-    'accession': (
-        {'Job: [SimpleJob: [name=CREATE_SUBSNP_ACCESSION_JOB]] launched'},
-        {'Job: [SimpleJob: [name=CREATE_SUBSNP_ACCESSION_JOB]] completed'}
-    ),
-    'variant_load': (
-        {'Job: [FlowJob: [name=genotyped-vcf-job]] launched',
-         'Job: [FlowJob: [name=aggregated-vcf-job]] launched'},
-        {'Job: [FlowJob: [name=genotyped-vcf-job]] completed',
-         'Job: [FlowJob: [name=aggregated-vcf-job]] completed'}
-    ),
-    'load_vcf': (
-        {'Job: [FlowJob: [name=load-vcf-job]] launched'},
-        {'Job: [FlowJob: [name=load-vcf-job]] completed'}
-    ),
-    'annotate_variants': (
-        {'Job: [FlowJob: [name=annotate-variants-job]] launched'},
-        {'Job: [FlowJob: [name=annotate-variants-job]] completed'}
-    ),
-    'calculate_statistics': (
-        {'Job: [FlowJob: [name=calculate-statistics-job]] launched'},
-        {'Job: [FlowJob: [name=calculate-statistics-job]] completed'}
-    ),
-    'variant-stats': (
-        {'Job: [SimpleJob: [name=variant-stats-job]] launched'},
-        {'Job: [SimpleJob: [name=variant-stats-job]] completed'}
-    ),
-    'study-stats': (
-        {'Job: [SimpleJob: [name=file-stats-job]] launched'},
-        {'Job: [SimpleJob: [name=file-stats-job]] completed'}
-    ),
-    'acc_import': (
-        {'Job: [SimpleJob: [name=accession-import-job]] launched'},
-        {'Job: [SimpleJob: [name=accession-import-job]] completed'}
-    ),
-    'clustering': (
-        {'Job: [SimpleJob: [name=STUDY_CLUSTERING_JOB]] launched'},
-        {'Job: [SimpleJob: [name=STUDY_CLUSTERING_JOB]] completed'}
-    ),
-    'clustering_qc': (
-        {'Job: [SimpleJob: [name=NEW_CLUSTERED_VARIANTS_QC_JOB]] launched'},
-        {'Job: [SimpleJob: [name=NEW_CLUSTERED_VARIANTS_QC_JOB]] completed'}
-    ),
-    'vcf_extractor': (
-        {'Job: [SimpleJob: [name=EXPORT_SUBMITTED_VARIANTS_JOB]] launched'},
-        {'Job: [SimpleJob: [name=EXPORT_SUBMITTED_VARIANTS_JOB]] completed'}
-    ),
-    'remapping_ingestion': (
-        {'Job: [SimpleJob: [name=INGEST_REMAPPED_VARIANTS_FROM_VCF_JOB]] launched'},
-        {'Job: [SimpleJob: [name=INGEST_REMAPPED_VARIANTS_FROM_VCF_JOB]] completed'}
-    ),
-    'backpropagation': (
-        {'Job: [SimpleJob: [name=BACK_PROPAGATE_NEW_RS_JOB]] launched'},
-        {'Job: [SimpleJob: [name=BACK_PROPAGATE_NEW_RS_JOB]] completed'}
-    )
-}
-
-
-@lru_cache(maxsize=None)
-def _did_job_complete_successfully_from_log(file_path, job_type):
-    with open(file_path, 'r') as f:
-        job_status = 'FAILED'
-        job_launched_str, job_completed_str = job_launched_and_completed_text_map[job_type]
-        for line in f:
-            if any(text in line for text in job_launched_str):
-                job_status = ""
-            if any(text in line for text in job_completed_str):
-                job_status = line.split(" ")[-1].replace("[", "").replace("]", "").strip()
-        if job_status == 'COMPLETED':
-            return True
-        elif job_status == 'FAILED':
-            return False
-        else:
-            logger.error(f'Could not determine status of {job_type} job in file {file_path}')
-            return False
-
-
-def _get_failed_job_or_step_name(file_name):
-    with open(file_name, 'r') as f:
-        job_name = 'job name could not be retrieved'
-        for line in f:
-            if 'Encountered an error executing step' in line:
-                job_name = line[line.index("Encountered an error executing step"): line.rindex("in job")] \
-                    .strip().split(" ")[-1]
-
-        return job_name
-
 
 class EloadQC(Eload):
     config_section = 'qc_checks'  # top-level config key
+
+    # Possible QC results
+    PASS = 'PASS'
+    FAIL = 'FAIL'
+    SKIP = 'SKIP'
+    PASS_WITH_WARNING = 'PASS with Warning (Manual Check Required)'
+    # QC statuses that are considered successful
+    SUCCESSFUL_RESULTS = {PASS, SKIP, PASS_WITH_WARNING}
 
     def __init__(self, eload_number, config_object: EloadConfig = None):
         super().__init__(eload_number, config_object)
@@ -150,7 +69,7 @@ class EloadQC(Eload):
         try:
             json_response = self._get_result_from_webservice(url)
         except HTTPError as e:
-            logger.error(str(e))
+            self.error(str(e))
             json_response = {}
         if self._check_if_study_present_in_response(json_response, 'studyId'):
             return True
@@ -229,8 +148,8 @@ class EloadQC(Eload):
         report_text = ""
         if log_files:
             # check if job completed successfully
-            if not _did_job_complete_successfully_from_log(log_files[0], job_type):
-                report_text += f"{job_type} failed job/step : {_get_failed_job_or_step_name(log_files[0])}"
+            if not did_job_complete_successfully_from_log(log_files[0], job_type):
+                report_text += f"{job_type} failed job/step : {get_failed_job_or_step_name(log_files[0])}"
                 job_passed = False
             else:
                 job_passed = True
@@ -245,14 +164,20 @@ class EloadQC(Eload):
 
     @staticmethod
     def _report_for_human():
-        result = 'SKIP'
+        result = EloadQC.SKIP
         report = 'Success: SKIPPED (human taxonomy)'
+        return result, report
+
+    @staticmethod
+    def _report_did_not_run():
+        result = EloadQC.FAIL
+        report = 'Success: DID NOT RUN'
         return result, report
 
     @staticmethod
     def _report_for_log(failed_unit):
         """Create a result string and a detailed report based on the error reported in failed unit"""
-        result = "PASS" if not failed_unit else "FAIL"
+        result = EloadQC.PASS if not failed_unit else EloadQC.FAIL
         report = f"""Success: {result}"""
         if failed_unit:
             report += f"""
@@ -271,12 +196,12 @@ class EloadQC(Eload):
         try:
             json_response = self._get_result_from_webservice(url)
         except HTTPError as e:
-            logger.error(str(e))
+            self.error(str(e))
             json_response = {}
         if self._check_if_study_present_in_response(json_response, 'id'):
-            result = "PASS"
+            result = EloadQC.PASS
         else:
-            result = "FAIL"
+            result = EloadQC.FAIL
 
         report = f"""Success: {result}"""
         return result, report
@@ -288,7 +213,7 @@ class EloadQC(Eload):
             if not self._check_if_study_appears_in_variant_browser(species_name):
                 missing_assemblies.append(f"{species_name}({analysis_data['assembly_accession']})")
 
-        result = "PASS" if not missing_assemblies else "FAIL"
+        result = EloadQC.PASS if not missing_assemblies else EloadQC.FAIL
         report = f"""Success: {result}
                 missing assemblies: {missing_assemblies if missing_assemblies else None}"""
         return result, report
@@ -297,14 +222,14 @@ class EloadQC(Eload):
         try:
             files_in_ftp = self._get_files_from_ftp(self.project_accession)
         except Exception as e:
-            logger.error(f"Error fetching files from ftp for study {self.project_accession}. Exception  {e}")
-            result = "FAIL"
+            self.error(f"Error fetching files from ftp for study {self.project_accession}. Exception  {e}")
+            result = EloadQC.FAIL
             report = f"""Error: Error fetching files from ftp for study {self.project_accession}"""
             return result, report
 
         if not files_in_ftp:
-            logger.error(f"No file found in ftp for study {self.project_accession}")
-            result = "FAIL"
+            self.error(f"No file found in ftp for study {self.project_accession}")
+            result = EloadQC.FAIL
             report = f"""Error: No files found in FTP for study {self.project_accession}"""
             return result, report
 
@@ -327,7 +252,7 @@ class EloadQC(Eload):
                         f'{no_ext_accessioned_file}.csi' not in files_in_ftp:
                     missing_files.append(f'{accessioned_file}.csi or {no_ext_accessioned_file}.csi')
 
-        result = "PASS" if not missing_files else "FAIL"
+        result = EloadQC.PASS if not missing_files else EloadQC.FAIL
         report = f"""Success: {result} 
                 Missing files: {missing_files if missing_files else None}"""
         return result, report
@@ -342,13 +267,13 @@ class EloadQC(Eload):
             accessioning_log_files = glob.glob(f"{self.path_to_logs_dir}/accessioning.*{file}*.log")
             if accessioning_log_files:
                 # check if accessioning job completed successfully
-                if not _did_job_complete_successfully_from_log(accessioning_log_files[0], 'accession'):
+                if not did_job_complete_successfully_from_log(accessioning_log_files[0], 'accession'):
                     failed_files[
-                        file] = f"failed job/step : {_get_failed_job_or_step_name(accessioning_log_files[0])}"
+                        file] = f"failed job/step : {get_failed_job_or_step_name(accessioning_log_files[0])}"
             else:
                 failed_files[file] = f"Accessioning Error : No accessioning file found for {file}"
 
-        result = "PASS" if not failed_files else "FAIL"
+        result = EloadQC.PASS if not failed_files else EloadQC.FAIL
         report = f"""Success: {result}"""
         if failed_files:
             report += f"""
@@ -405,7 +330,7 @@ class EloadQC(Eload):
         if any_vep_run:
             return self._report_for_log(failed_analysis)
         else:
-            return 'SKIP', f"""Annotation result - SKIPPED"""
+            return EloadQC.SKIP, f"""Annotation result - SKIPPED (no VEP cache)"""
 
     def check_if_variant_statistic_completed_successfully(self):
         failed_analysis = {}
@@ -429,7 +354,7 @@ class EloadQC(Eload):
         if any_stats_run:
             return self._report_for_log(failed_analysis)
         else:
-            return 'SKIP', f"""Variant statistics result - SKIPPED (aggregated VCF)"""
+            return EloadQC.SKIP, f"""Variant statistics result - SKIPPED (aggregated VCF)"""
 
     def check_if_study_statistic_completed_successfully(self):
         failed_analysis = {}
@@ -453,7 +378,7 @@ class EloadQC(Eload):
         if any_stats_run:
             return self._report_for_log(failed_analysis)
         else:
-            return 'SKIP', f"""Study statistics result - SKIPPED (aggregated VCF)"""
+            return EloadQC.SKIP, f"""Study statistics result - SKIPPED (aggregated VCF)"""
 
     def check_if_variants_were_skipped_while_accessioning(self):
         # No accessioning check is required for human
@@ -473,7 +398,7 @@ class EloadQC(Eload):
             else:
                 failed_files[file] = f"Accessioning Error : No accessioning file found for {file}"
 
-        result = "PASS" if not failed_files else "PASS with Warning (Manual Check Required)"
+        result = EloadQC.PASS if not failed_files else EloadQC.PASS_WITH_WARNING
         report = f"""Success: {result}"""
         if failed_files:
             report += f"""
@@ -487,18 +412,18 @@ class EloadQC(Eload):
     def check_if_browsable_files_entered_correctly_in_db(self):
         browsable_files_from_db = self._get_browsable_files_for_study()
         missing_files = set(self.vcf_files) - set(browsable_files_from_db)
-        result = "PASS" if len(missing_files) == 0 else "FAIL"
+        result = EloadQC.PASS if len(missing_files) == 0 else EloadQC.FAIL
         report = f"""Success : {result}
             Expected files: {self.vcf_files}
             Missing files: {missing_files if missing_files else 'None'}"""
         return result, report
 
     def clustering_check_report(self):
+        if self.taxonomy == 9606:
+            return self._report_for_human()
         target_assembly = self.eload_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly')
         if not target_assembly:
-            result = 'DID NOT RUN'
-            report = """N/A"""
-            return result, report
+            return self._report_did_not_run()
         clustering_check_pass, clustering_error = self._find_log_and_check_job(
             target_assembly, f'{target_assembly}_clustering.log', 'clustering'
         )
@@ -507,24 +432,24 @@ class EloadQC(Eload):
         )
 
         if clustering_check_pass and clustering_qc_check_pass:
-            result = 'PASS'
+            result = EloadQC.PASS
         else:
-            result = 'FAIL'
+            result = EloadQC.FAIL
 
-        report = f"""Clustering Job: {'PASS' if clustering_check_pass else "FAIL"} - {clustering_error if not clustering_check_pass else "No error"}
-            Clustering QC Job: {'PASS' if clustering_qc_check_pass else "FAIL"} - {clustering_qc_error if not clustering_qc_check_pass else "No error"}"""
+        report = f"""Clustering Job: {EloadQC.PASS if clustering_check_pass else EloadQC.FAIL} - {clustering_error if not clustering_check_pass else "No error"}
+            Clustering QC Job: {EloadQC.PASS if clustering_qc_check_pass else EloadQC.FAIL} - {clustering_qc_error if not clustering_qc_check_pass else "No error"}"""
         return result, report
 
     def remapping_check_report(self):
+        if self.taxonomy == 9606:
+            return self._report_for_human()
         target_assembly = self.eload_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly')
         if not target_assembly:
-            result = 'DID NOT RUN'
-            report = """N/A"""
-            return result, report
+            return self._report_did_not_run()
         asm_res = defaultdict(dict)
         for analysis_data in self.analyses.values():
             assembly_accession = analysis_data['assembly_accession']
-            vcf_extractor_result = remapping_ingestion_result = 'SKIP'
+            vcf_extractor_result = remapping_ingestion_result = EloadQC.SKIP
             vcf_extractor_error = remapping_ingestion_error = ""
             if assembly_accession != target_assembly:
                 vcf_extractor_pass, vcf_extractor_error = self._find_log_and_check_job(
@@ -533,14 +458,14 @@ class EloadQC(Eload):
                 remapping_ingestion_pass, remapping_ingestion_error = self._find_log_and_check_job(
                     assembly_accession, f"{assembly_accession}*_eva_remapped.vcf_ingestion.log", "remapping_ingestion"
                 )
-                vcf_extractor_result = 'PASS' if vcf_extractor_pass else 'FAIL'
-                remapping_ingestion_result = 'PASS' if remapping_ingestion_pass else 'FAIL'
+                vcf_extractor_result = EloadQC.PASS if vcf_extractor_pass else EloadQC.FAIL
+                remapping_ingestion_result = EloadQC.PASS if remapping_ingestion_pass else EloadQC.FAIL
             asm_res[assembly_accession]['vcf_extractor_result'] = vcf_extractor_result
             asm_res[assembly_accession]['vcf_extractor_error'] = vcf_extractor_error
             asm_res[assembly_accession]['remapping_ingestion_result'] = remapping_ingestion_result
             asm_res[assembly_accession]['remapping_ingestion_error'] = remapping_ingestion_error
 
-        result = 'PASS'
+        result = EloadQC.PASS
 
         report_lines = []
         for asm, res in asm_res.items():
@@ -549,8 +474,8 @@ class EloadQC(Eload):
             remap_ingest_res = res['remapping_ingestion_result']
             remap_ingest_err = 'No Error' if res['remapping_ingestion_error'] == "" \
                 else res['remapping_ingestion_error']
-            if vcf_ext_res == 'FAIL' or remap_ingest_res == 'FAIL':
-                result = 'FAIL'
+            if vcf_ext_res == EloadQC.FAIL or remap_ingest_res == EloadQC.FAIL:
+                result = EloadQC.FAIL
 
             report_lines.append(f"""Source assembly {asm}:
                 - vcf_extractor_result : {vcf_ext_res} - {vcf_ext_err}
@@ -558,11 +483,11 @@ class EloadQC(Eload):
         return result, '\n            '.join(report_lines)
 
     def backpropagation_check_report(self):
+        if self.taxonomy == 9606:
+            return self._report_for_human()
         target_assembly = self.eload_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly')
         if not target_assembly:
-            result = 'DID NOT RUN'
-            report = """N/A"""
-            return result, report
+            return self._report_did_not_run()
         asm_res = defaultdict(dict)
         for analysis_data in self.analyses.values():
             assembly_accession = analysis_data['assembly_accession']
@@ -571,20 +496,20 @@ class EloadQC(Eload):
                     assembly_accession, f"{target_assembly}_backpropagate_to_{assembly_accession}.log",
                     "backpropagation"
                 )
-                asm_res[assembly_accession]['result'] = 'PASS' if backpropagation_pass else 'FAIL'
+                asm_res[assembly_accession]['result'] = EloadQC.PASS if backpropagation_pass else EloadQC.FAIL
                 asm_res[assembly_accession]['error'] = backpropagation_error
             else:
-                asm_res[assembly_accession]['result'] = "SKIP"
+                asm_res[assembly_accession]['result'] = EloadQC.SKIP
                 asm_res[assembly_accession]['error'] = ""
 
-        result = 'PASS'
+        result = EloadQC.PASS
 
         report_lines = []
         for asm, bckp_result in asm_res.items():
             res = bckp_result['result']
             err = 'No Error' if bckp_result['error'] == '' else bckp_result['error']
-            if res == 'FAIL':
-                result = 'FAIL'
+            if res == EloadQC.FAIL:
+                result = EloadQC.FAIL
             report_lines.append(f"""Backpropagation result to {asm}: {res} - {err}""")
 
         return result, '\n            '.join(report_lines)
@@ -643,7 +568,7 @@ class EloadQC(Eload):
             Accession Import check: {acc_import_result}
         Remapping and Clustering Check:
             Remapping check: {remapping_check_result}
-            Clustering check: {clustering_check_result} 
+            Clustering check: {clustering_check_result}
             Back-propogation check: {backpropagation_check_result}
         FTP check: {ftp_check_result}
         Study check: {study_check_result}
