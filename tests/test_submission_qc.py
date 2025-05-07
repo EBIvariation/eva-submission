@@ -320,7 +320,7 @@ class TestSubmissionQC(TestCase):
             Accession Import check: PASS
         Remapping and Clustering Check:
             Remapping check: PASS
-            Clustering check: PASS 
+            Clustering check: PASS
             Back-propogation check: PASS
         FTP check: PASS
         Study check: PASS
@@ -398,7 +398,7 @@ class TestSubmissionQC(TestCase):
             Accession Import check: FAIL
         Remapping and Clustering Check:
             Remapping check: FAIL
-            Clustering check: FAIL 
+            Clustering check: FAIL
             Back-propogation check: FAIL
         FTP check: PASS
         Study check: PASS
