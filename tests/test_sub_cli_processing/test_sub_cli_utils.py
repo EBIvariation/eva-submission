@@ -48,7 +48,7 @@ class TestSubCliToEloadConverter(TestCase):
         assert os.path.exists(metadata_json_file_path)
         with open(metadata_json_file_path) as json_file:
             json_data = json.load(json_file)
-        self.assertEquals(input_json_data, json_data)
+        self.assertEqual(input_json_data, json_data)
 
     @patch("requests.get")
     def test_get_metadata_json_for_submission_id(self, mock_requests):
@@ -68,4 +68,4 @@ class TestSubCliToEloadConverter(TestCase):
             auth=(cfg['submissions']['webservice']['admin_username'],
                   cfg['submissions']['webservice']['admin_password']))
 
-        self.assertEquals(input_json_data, response_json_data)
+        self.assertEqual(input_json_data, response_json_data)

@@ -9,7 +9,6 @@ from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.ncbi_utils import get_ncbi_assembly_name_from_term
 from ebi_eva_internal_pyutils.config_utils import get_metadata_creds_for_profile
 from ebi_eva_internal_pyutils.metadata_utils import build_taxonomy_code
-from requests import session
 from sqlalchemy import select, create_engine
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import Session
@@ -22,23 +21,30 @@ from eva_submission.samples_checker import get_samples_from_vcf
 
 ena_ftp_file_prefix_path = "/ftp.sra.ebi.ac.uk/vol1"
 
+
 def get_ftp_path(filename, analysis_accession_id):
     return f"{ena_ftp_file_prefix_path}/{analysis_accession_id[0:6]}/{analysis_accession_id}/{filename}"
 
 
 class EvaProjectLoader(AppLogger):
-    '''
-    Class to insert project and it's components into the metadata database
+    """
+    Class to insert project and its components into the metadata database
 
     loader = EvaProjectLoader()
     loader.load_project_from_ena(project_accession) -> Retrieve a project from ENA and add it to the metadata database
-    loader.load_samples_from_vcf_file(ample_name_2_sample_accession, vcf_file, vcf_file_md5) -> Retrieve samples from a VCF file
-    This second method assume the project/analysis and file have been loaded already
-    '''
+    loader.load_samples_from_vcf_file(sample_name_2_sample_accession, vcf_file, vcf_file_md5) -> Retrieve samples from a VCF file
+    loader.load_samples_from_analysis(sample_name_2_sample_accession, analysis_accession) -> Retrieve samples for all files in an analysis
+    The last 2 methods assume the project/analysis and file have been loaded already
+    """
+
     def __init__(self):
         self.ena_project_finder = EnaProjectFinder()
 
-    def load_project_from_ena(self, project_accession, eload):
+    def load_project_from_ena(self, project_accession, eload, analysis_accession_to_load=None):
+        """
+        Loads a project from ENA for the given ELOAD and adds it to the metadata database.
+        If analysis_accession_to_load is specified, will only load that analysis; otherwise all analyses are added.
+        """
         self.eva_session.begin()
 
         ###
@@ -66,17 +72,22 @@ class EvaProjectLoader(AppLogger):
         # LOAD TAXONOMY
         ###
         taxonomy_obj = self.insert_taxonomy(taxonomy_id)
-        project_obj.taxonomies.append(taxonomy_obj)
+        if taxonomy_obj not in project_obj.taxonomies:
+            project_obj.taxonomies.append(taxonomy_obj)
 
         ###
         # LOAD SUBMISSIONS
         ###
-        for submission_info in self.ena_project_finder.find_ena_submission_for_project(project_accession=project_accession):
+        for submission_info in self.ena_project_finder.find_ena_submission_for_project(
+                project_accession=project_accession):
             submission_id, alias, last_updated, hold_date, action = submission_info
             # action {"type": ADD, "schema": project, "source": ELOAD.Project.xml}
-            submission_obj = self.insert_ena_submission(ena_submission_accession=submission_id, action=action.get('type'),
-                                       submission_alias=alias, submission_date=last_updated, brokered=1,
-                                       submission_type=action.get('schema').upper())
+            submission_obj = self.insert_ena_submission(ena_submission_accession=submission_id,
+                                                        action=action.get('type'),
+                                                        submission_alias=alias, submission_date=last_updated,
+                                                        brokered=1,
+                                                        submission_type=action.get('schema').upper() if action.get(
+                                                            'schema') else 'PROJECT')
             self.insert_project_ena_submission(project_obj, submission_obj, eload)
             # TODO: Link analysis with submission
         ###
@@ -87,36 +98,48 @@ class EvaProjectLoader(AppLogger):
                 analysis_accession, analysis_title, analysis_alias, analysis_description, analysis_type, center_name,
                 first_created, assembly, refname, custom, experiment_types, platforms
             ) = analysis_info
+            if analysis_accession_to_load and analysis_accession != analysis_accession_to_load:
+                continue
             assembly_set_obj = self.insert_assembly_set(taxonomy_obj=taxonomy_obj, assembly_accession=assembly)
             analysis_obj = self.insert_analysis(
-                analysis_accession=analysis_accession, title=analysis_title,alias=analysis_alias,
+                analysis_accession=analysis_accession, title=analysis_title, alias=analysis_alias,
                 description=analysis_description, center_name=center_name, date=first_created,
                 assembly_set_id=assembly_set_obj.assembly_set_id, vcf_reference_accession=assembly)
-            project_obj.analyses.append(analysis_obj)
+            if analysis_obj not in project_obj.analyses:
+                project_obj.analyses.append(analysis_obj)
 
             ###
             # LOAD SUBMISSIONS FOR ANALYSIS
             ###
             # This will likely retrieve the same submission as the one associated with the study but there might be
             # some specific to an analysis when they are submitted separately
-            for submission_info in self.ena_project_finder.find_ena_submission_for_analysis(analysis_accession=analysis_accession):
+            for submission_info in self.ena_project_finder.find_ena_submission_for_analysis(
+                    analysis_accession=analysis_accession):
                 submission_id, alias, last_updated, hold_date, action = submission_info
                 submission_obj = self.insert_ena_submission(ena_submission_accession=submission_id,
                                                             action=action.get('type'),
                                                             submission_alias=alias, submission_date=last_updated,
                                                             brokered=1,
                                                             submission_type=action.get('schema').upper())
-                analysis_obj.submissions.append(submission_obj)
+                if submission_obj not in analysis_obj.submissions:
+                    analysis_obj.submissions.append(submission_obj)
             ###
-            # LINK PLATFORMS (ASSUME NO NEW PLATFORM)
+            # LINK PLATFORMS
             ###
-            platform_objs = [self.get_platform_obj_from_evapro(platform) for platform in platforms]
+            platform_objs = []
+            for platform in platforms:
+                plat_obj = self.get_platform_obj_from_evapro(platform)
+                # Bypass new platforms
+                # TODO this mimics the behaviour of the perl script, but we should update
+                if plat_obj:
+                    platform_objs.append(plat_obj)
             analysis_obj.platforms = platform_objs
 
             ###
             # LOAD EXPERIMENT TYPE
             ###
-            experiment_type_objs = [self.insert_experiment_type(experiment_type) for experiment_type in experiment_types]
+            experiment_type_objs = [self.insert_experiment_type(experiment_type) for experiment_type in
+                                    experiment_types]
             analysis_obj.experiment_types = experiment_type_objs
 
             ###
@@ -134,7 +157,8 @@ class EvaProjectLoader(AppLogger):
                     file_type=file_type,
                     ftp_file=ftp_file
                 )
-                analysis_obj.files.append(file_obj)
+                if file_obj not in analysis_obj.files:
+                    analysis_obj.files.append(file_obj)
 
             ###
             # LOAD SAMPLE
@@ -157,9 +181,32 @@ class EvaProjectLoader(AppLogger):
             sample_obj = self.get_sample(sample_accession)
             if not sample_obj:
                 self.error(f'Cannot find sample {sample_accession} in EVAPRO')
+                self.eva_session.rollback()
                 return
             self.insert_sample_in_file(file_id=file_obj.file_id, sample_id=sample_obj.sample_id,
                                        name_in_file=sample_name)
+        self.eva_session.commit()
+
+    def load_samples_from_analysis(self, sample_name_2_sample_accession, analysis_accession):
+        # For analyses with aggregated VCFs, get sample accessions associated with the analysis
+        sample_accessions = [sample_info[1] for sample_info in
+                             self.ena_project_finder.find_samples_in_ena(analysis_accession)]
+        self.info(f'Sample accessions for {analysis_accession} found in ENA: {sample_accessions}')
+        sample_accession_2_sample_name = dict(
+            zip(sample_name_2_sample_accession.values(), sample_name_2_sample_accession.keys()))
+        self.eva_session.begin()
+        file_objs = self.get_files_for_analysis(analysis_accession)
+        for sample_accession in sample_accessions:
+            sample_name = sample_accession_2_sample_name.get(sample_accession)
+            sample_obj = self.get_sample(sample_accession)
+            if not sample_obj:
+                self.error(f'Cannot find sample {sample_accession} in EVAPRO')
+                self.eva_session.rollback()
+                return
+            # Associate these samples with all files in the analysis
+            for file_obj in file_objs:
+                self.insert_sample_in_file(file_id=file_obj.file_id, sample_id=sample_obj.sample_id,
+                                           name_in_file=sample_name)
         self.eva_session.commit()
 
     def update_project_samples_temp1(self, project_accession):
@@ -177,7 +224,6 @@ class EvaProjectLoader(AppLogger):
         result = self.eva_session.execute(query).fetchall()
         nb_samples = len(result)
 
-
         query = select(ProjectSampleTemp1).where(ProjectSampleTemp1.project_accession == project_accession)
         result = self.eva_session.execute(query).fetchone()
         if result:
@@ -188,9 +234,9 @@ class EvaProjectLoader(AppLogger):
         project_samples_temp_obj.sample_count = nb_samples
         self.eva_session.commit()
 
-
     def _evapro_engine(self):
-        pg_url, pg_user, pg_pass = get_metadata_creds_for_profile(cfg['maven']['environment'], cfg['maven']['settings_file'])
+        pg_url, pg_user, pg_pass = get_metadata_creds_for_profile(cfg['maven']['environment'],
+                                                                  cfg['maven']['settings_file'])
         dbtype, host_url, port_and_db = urlsplit(pg_url).path.split(':')
         port, db = port_and_db.split('/')
         return create_engine(URL.create(
@@ -208,9 +254,9 @@ class EvaProjectLoader(AppLogger):
         return session
 
     def get_assembly_code_from_evapro(self, assembly):
-        query = select(AssemblySet.assembly_code)\
-            .join(AccessionedAssembly, AssemblySet.assembly_set_id==AccessionedAssembly.assembly_set_id)\
-            .where(AccessionedAssembly.assembly_accession==assembly)
+        query = select(AssemblySet.assembly_code) \
+            .join(AccessionedAssembly, AssemblySet.assembly_set_id == AccessionedAssembly.assembly_set_id) \
+            .where(AccessionedAssembly.assembly_accession == assembly)
         rows = set(self.eva_session.execute(query).fetchall())
         if len(rows) == 0:
             return None
@@ -276,7 +322,6 @@ class EvaProjectLoader(AppLogger):
             self.info(f'Add Taxonomy {taxonomy_id} to EVAPRO')
         return taxonomy_obj
 
-
     def insert_linked_projects(self, project_obj, linked_project_accession, project_relation='PARENT'):
         query = select(LinkedProject).where(LinkedProject.project_accession == project_obj.project_accession,
                                             LinkedProject.linked_project_accession == linked_project_accession,
@@ -291,24 +336,26 @@ class EvaProjectLoader(AppLogger):
             self.eva_session.add(linked_project_obj)
         return linked_project_obj
 
-    def insert_ena_submission(self, ena_submission_accession, action, submission_alias, submission_date, brokered=1, submission_type='PROJECT'):
+    def insert_ena_submission(self, ena_submission_accession, action, submission_alias, submission_date, brokered=1,
+                              submission_type='PROJECT'):
         query = select(Submission).where(Submission.submission_accession == ena_submission_accession)
         result = self.eva_session.execute(query).fetchone()
         if result:
             submission_obj = result.Submission
         else:
             submission_obj = Submission(
-                submission_accession=ena_submission_accession, action=action, title=submission_alias, date=submission_date, brokered=brokered, type=submission_type
+                submission_accession=ena_submission_accession, action=action, title=submission_alias,
+                date=submission_date, brokered=brokered, type=submission_type
             )
             self.eva_session.add(submission_obj)
             self.info(f'Add Submission {ena_submission_accession} {action} to EVAPRO')
         return submission_obj
 
     def insert_project_ena_submission(self, project_obj, submission_obj, eload):
-        '''
+        """
         This function links project and ENA submission and project and ELOAD in EVAPRO.
         TODO: This is project specific where it should be analysis specific.
-        '''
+        """
         query = select(ProjectEnaSubmission).where(
             ProjectEnaSubmission.project_accession == project_obj.project_accession,
             ProjectEnaSubmission.submission_id == submission_obj.submission_id
@@ -336,9 +383,9 @@ class EvaProjectLoader(AppLogger):
         if result:
             project_eva_submission_obj = result.ProjectEvaSubmission
         else:
-            project_eva_submission_obj = ProjectEvaSubmission(project_accession=project_obj.project_accession, old_ticket_id=eload, eload_id=eload)
+            project_eva_submission_obj = ProjectEvaSubmission(project_accession=project_obj.project_accession,
+                                                              old_ticket_id=eload, eload_id=eload)
             self.eva_session.add(project_eva_submission_obj)
-
 
     def insert_analysis(self, analysis_accession, title, alias, description, center_name, date, assembly_set_id,
                         vcf_reference_accession=None):
@@ -347,8 +394,9 @@ class EvaProjectLoader(AppLogger):
         if result:
             analysis_obj = result.Analysis
         else:
-            analysis_obj = Analysis(analysis_accession=analysis_accession, title=title, alias=alias, description=description,
-                     center_name=center_name, date=date, assembly_set_id=assembly_set_id)
+            analysis_obj = Analysis(analysis_accession=analysis_accession, title=title, alias=alias,
+                                    description=description,
+                                    center_name=center_name, date=date, assembly_set_id=assembly_set_id)
             if vcf_reference_accession:
                 analysis_obj.vcf_reference_accession = vcf_reference_accession
             self.eva_session.add(analysis_obj)
@@ -365,7 +413,8 @@ class EvaProjectLoader(AppLogger):
             assembly_set_obj = result.AssemblySet
         else:
             assembly_code = self.get_assembly_code(assembly_accession, ncbi_api_key=cfg.get('eutils_api_key'))
-            assembly_set_obj = AssemblySet(taxonomy_id=taxonomy_obj.taxonomy_id, assembly_name=assembly_name, assembly_code=assembly_code)
+            assembly_set_obj = AssemblySet(taxonomy_id=taxonomy_obj.taxonomy_id, assembly_name=assembly_name,
+                                           assembly_code=assembly_code)
             self.eva_session.add(assembly_set_obj)
             self.eva_session.flush()
 
@@ -378,9 +427,7 @@ class EvaProjectLoader(AppLogger):
         return assembly_set_obj
 
     def insert_custom_assembly_set(self, taxonomy_obj, custom_assembly):
-        '''
-        TODO: Check if we still need to support this.
-        '''
+        # TODO: Check if we still need to support this.
         pass
 
     def get_file(self, file_md5):
@@ -390,12 +437,17 @@ class EvaProjectLoader(AppLogger):
             return result.File
         return None
 
+    def get_files_for_analysis(self, analysis_accession):
+        query = select(File).join(Analysis, File.analyses).where(Analysis.analysis_accession == analysis_accession)
+        return [result.File for result in self.eva_session.execute(query).fetchall()]
+
     def insert_file(self, project_accession, assembly_set_id, ena_submission_file_id, filename, file_md5, file_type,
                     ftp_file, file_location=None, file_class='submitted', file_version=1, is_current=1):
         file_obj = self.get_file(file_md5)
         if not file_obj:
             file_obj = File(
-                ena_submission_file_id=ena_submission_file_id, filename=filename, file_md5=file_md5, file_type=file_type,
+                ena_submission_file_id=ena_submission_file_id, filename=filename, file_md5=file_md5,
+                file_type=file_type,
                 file_location=file_location, file_class=file_class, file_version=file_version, is_current=is_current,
                 ftp_file=ftp_file
             )
@@ -455,5 +507,3 @@ class EvaProjectLoader(AppLogger):
             self.eva_session.add(sample_in_file_obj)
             self.info(f'Add SampleInFile {file_id} and {sample_id} to EVAPRO')
         return sample_in_file_obj
-
-
