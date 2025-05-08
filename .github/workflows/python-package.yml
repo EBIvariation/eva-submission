@@ -7,7 +7,7 @@ on:
   push:
     branches: [ master ]
   pull_request:
-    branches: [ master, metdata_load_dev ]
+    branches: [ master ]
 
 jobs:
   build:
