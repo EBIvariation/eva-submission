@@ -1,11 +1,13 @@
 Changelog for eva-submission
 ============================
 
-## 1.17.2 (unreleased)
+## 1.18.0 (2025-05-08)
 ----------------------
 
-- Nothing changed yet.
-
+- Replace the perl script to perform metadata ingestion with python script
+- Ingest sample metadata information from BioSample and ENA 
+- Small fix for qc_submission to handle skip statistic check
+- small fix for detection of basic aggregation 
 
 ## 1.17.1 (2025-04-14)
 ----------------------
