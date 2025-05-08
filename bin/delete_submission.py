@@ -45,8 +45,9 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    with EloadDeletion(args.eload) as submission_deletion:
-        submission_deletion.delete_submission(args.ftp_box, args.submitter, args.force_delete)
+    # Do NOT use context manager to ensure the Eload object does not rewrite the config after deletion!
+    submission_deletion = EloadDeletion(args.eload)
+    submission_deletion.delete_submission(args.ftp_box, args.submitter, args.force_delete)
 
 
 if __name__ == "__main__":
