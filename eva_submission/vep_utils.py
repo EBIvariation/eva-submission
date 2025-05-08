@@ -160,7 +160,7 @@ def get_species_and_assembly(assembly_acc):
     ])
     # This is a search so could retrieve multiple results
     if len(taxid_and_assembly_name) != 1:
-        logger.warn(f'Multiple assembly found for {assembly_acc}')
+        logger.warning(f'Multiple assembly found for {assembly_acc}')
         raise ValueError(f'Cannot resolve single assembly for assembly {assembly_acc} in NCBI.')
     taxonomy_id, assembly_name = taxid_and_assembly_name.pop()
 
