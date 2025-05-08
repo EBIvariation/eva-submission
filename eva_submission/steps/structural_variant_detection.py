@@ -6,13 +6,13 @@ from argparse import ArgumentParser
 
 def detect_structural_variant(vcf_file, output_vcf):
     # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Pages: 6, 16)
-    symbolic_allele_pattern = "^<(DEL|INS|DUP|INV|CNV|BND)"
+    symbolic_allele_pattern = r"^<(DEL|INS|DUP|INV|CNV|BND)"
     # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Page: 17)
-    complex_rearrangements_breakend_pattern = "^[ATCGNatgcn]+\[.+:.+\[$|^[ATCGNatgcn]+\].+:.+\]$|^\].+:.+\][ATCGNatgcn]+$|^\[.+:.+\[[ATCGNatgcn]+$"
+    complex_rearrangements_breakend_pattern = r"^[ATCGNatgcn]+\[.+:.+\[$|^[ATCGNatgcn]+\].+:.+\]$|^\].+:.+\][ATCGNatgcn]+$|^\[.+:.+\[[ATCGNatgcn]+$"
     # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Page: 18)
-    complex_rearrangements_special_breakend_pattern = "^[ATGCNatgcn]+<[0-9A-Za-z!#$%&+./:;?@^_|~-][0-9A-Za-z!#$%&*+./:;=?@^_|~-]*>$"
+    complex_rearrangements_special_breakend_pattern = r"^[ATGCNatgcn]+<[0-9A-Za-z!#$%&+./:;?@^_|~-][0-9A-Za-z!#$%&*+./:;=?@^_|~-]*>$"
     # Ref: https://samtools.github.io/hts-specs/VCFv4.3.pdf (Page: 22)
-    single_breakend_pattern = "^\.[ATGCNatgcn]+|[ATGCNatgcn]+\.$"
+    single_breakend_pattern = r"^\.[ATGCNatgcn]+|[ATGCNatgcn]+\.$"
     sv_regex = re.compile(f'{symbolic_allele_pattern}|{complex_rearrangements_breakend_pattern}|'
                           f'{complex_rearrangements_special_breakend_pattern}|{single_breakend_pattern}')
     nb_sv = 0

@@ -87,15 +87,15 @@ def difference_evapro_file_set_with_ena_for_analysis(analysis_accession, ena_lis
         set_of_file_from_ena = set([d['md5'] for d in ena_list_of_file_dicts])
         set_of_file_from_eva_pro = set([d['md5'] for d in eva_list_of_file_dicts])
         if set_of_file_from_ena != set_of_file_from_eva_pro:
-            logger.warn(f'File for analysis {analysis_accession} are different in ENA and EVA')
+            logger.warning(f'File for analysis {analysis_accession} are different in ENA and EVA')
             file_specific_to_ena = set_of_file_from_ena.difference(set_of_file_from_eva_pro)
             file_specific_to_eva = set_of_file_from_eva_pro.difference(set_of_file_from_ena)
             file_dict_specific_to_ena = [file_dict for file_dict in ena_list_of_file_dicts if file_dict['md5'] in file_specific_to_ena]
             file_dict_specific_to_eva = [file_dict for file_dict in eva_list_of_file_dicts if file_dict['md5'] in file_specific_to_eva]
             for file_dict in file_dict_specific_to_ena:
-                logger.warn(f"File {file_dict['filename']} exist in ENA but not in EVA.")
+                logger.warning(f"File {file_dict['filename']} exist in ENA but not in EVA.")
             for file_dict in file_dict_specific_to_eva:
-                logger.warn(f"File {file_dict['filename']} exist in EVA but not in ENA.")
+                logger.warning(f"File {file_dict['filename']} exist in EVA but not in ENA.")
             return file_dict_specific_to_ena, file_dict_specific_to_eva
     return [], []
 
