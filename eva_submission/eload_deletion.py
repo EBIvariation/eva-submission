@@ -135,4 +135,4 @@ class EloadDeletion(Eload):
     def delete_eload_dir(self, eload_dir):
         self.info(f'Deleting Eload directory {eload_dir}')
         if os.path.exists(eload_dir):
-            shutil.rmtree(eload_dir)
+            shutil.rmtree(eload_dir, ignore_errors=True)

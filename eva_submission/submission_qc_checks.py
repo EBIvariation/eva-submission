@@ -369,7 +369,7 @@ class EloadQC(Eload):
                     jobs_to_check.append("variant_load")
                 logs_to_check.extend([
                     f"statistics.*{analysis_accession}*.log",
-                    f"variant.statistics.{analysis_accession}.log"
+                    f"study.statistics.{analysis_accession}.log"
                 ])
                 jobs_to_check.extend(["calculate_statistics", "file-stats"])
                 analysis_pass, last_error = self._check_multiple_logs(analysis_accession, logs_to_check, jobs_to_check)

@@ -32,7 +32,7 @@ job_launched_and_completed_text_map = {
         {'Job: [SimpleJob: [name=variant-stats-job]] launched'},
         {'Job: [SimpleJob: [name=variant-stats-job]] completed'}
     ),
-    'study-stats': (
+    'file-stats': (
         {'Job: [SimpleJob: [name=file-stats-job]] launched'},
         {'Job: [SimpleJob: [name=file-stats-job]] completed'}
     ),
