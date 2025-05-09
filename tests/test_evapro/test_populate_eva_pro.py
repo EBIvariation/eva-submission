@@ -125,7 +125,7 @@ class TestEvaProjectLoader(TestCase):
             # Populate the ENAFinder
             self.loader.ena_project_finder = PropertyMock(
                 find_project_from_ena_database=Mock(return_value=project_info),
-                find_parent_project=Mock(return_value='PRJNA9558'),
+                find_parent_projects=Mock(return_value=['PRJNA9558']),
                 find_ena_submission_for_project=Mock(return_value=submission_info),
                 find_analysis_in_ena=Mock(return_value=analysis_info),
                 find_samples_in_ena=Mock(return_value=samples_info),
@@ -160,8 +160,6 @@ class TestEvaProjectLoader(TestCase):
                 result.Submission
                 for result in session.execute(select(Submission)).fetchall()
             ]
-            print(set([(submission.submission_accession, submission.action, submission.type) for submission in
-                       submissions]))
             assert set([(submission.submission_accession, submission.action, submission.type) for submission in
                         submissions]) == {('ERA27275681', 'ADD', 'PROJECT')}
 
