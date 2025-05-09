@@ -132,9 +132,9 @@ workflow {
     if ("variant_load" in params.ingestion_tasks) {
         normalised_vcfs_ch = Channel.fromPath(params.valid_vcfs)
                 .splitCsv(header:true)
-                .map{row -> tuple(file(row.vcf_file).name, file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name, row.vep_version, row.vep_cache_version, row.vep_species, row.aggregation)}
+                .map{row -> tuple(file(row.vcf_file).name, file(row.vcf_file), file(row.fasta), row.analysis_accession, row.db_name, row.vep_version, row.vep_cache_version, row.vep_species, row.aggregation, file(row.report))}
                 .combine(normalise_vcf.out.vcf_tuples, by:0)
-                .map{tuple(it[0], it[9], it[2], it[3], it[4], it[5], it[6], it[7], it[8])}   // vcf_filename, normalised vcf, fasta, analysis_accession, db_name, vep_version, vep_cache_version, vep_species, aggregation
+                .map{tuple(it[0], it[10], it[2], it[3], it[4], it[5], it[6], it[7], it[8], it[9])}   // vcf_filename, normalised vcf, fasta, analysis_accession, db_name, vep_version, vep_cache_version, vep_species, aggregation, assembly_report
         load_variants_vcf(normalised_vcfs_ch)
         // Ensure that all the load are completed before the VEP and calculate statistics starts
         vep_ch = normalised_vcfs_ch
@@ -343,7 +343,7 @@ process load_variants_vcf {
     }
 
     input:
-    tuple val(vcf_filename), val(vcf_file), val(fasta), val(analysis_accession), val(db_name), val(vep_version), val(vep_cache_version), val(vep_species), val(aggregation)
+    tuple val(vcf_filename), val(vcf_file), val(fasta), val(analysis_accession), val(db_name), val(vep_version), val(vep_cache_version), val(vep_species), val(aggregation), val(report)
 
     output:
     val true, emit: variant_load_complete
@@ -354,6 +354,7 @@ process load_variants_vcf {
     pipeline_parameters += " --input.vcf=" + vcf_file.toRealPath().toString()
     pipeline_parameters += " --input.vcf.id=" + analysis_accession.toString()
     pipeline_parameters += " --input.fasta=" + fasta.toString()
+    pipeline_parameters += " --input.assembly.report=file:" + report.toString()
     pipeline_parameters += " --spring.data.mongodb.database=" + db_name.toString()
 
     """
