@@ -6,6 +6,7 @@ from unittest import TestCase
 
 import yaml
 from ebi_eva_common_pyutils.config import cfg
+from eva_submission.submission_qc_checks import EloadQC
 
 from eva_submission.eload_deletion import EloadDeletion
 from eva_submission.submission_config import load_config
@@ -132,10 +133,37 @@ class TestEloadDeletion(TestCase):
             self.eload_deletion.delete_submission(1, 'test_user')
         self.assertIn("File already exists in the LTS", str(context.exception))
 
+    def test_delete_submission_failed_qc_no_force_delete(self):
+        self.setup_test_eload_data(1)
+        self.setup_test_ftp_boxes_data(1, 'test_user')
+
+        # No QC in config
+        with self.assertRaises(Exception) as context:
+            self.eload_deletion.delete_submission(1, 'test_user')
+        self.assertIn('QC has not been run successfully', str(context.exception))
+
+        # Failed QC in config
+        self.eload_deletion.eload_cfg.set(EloadQC.config_section, value={
+            'accessioning': 'FAIL',
+            'variants_skipped_accessioning': 'FAIL',
+            'variant_load': 'PASS',
+            'annotation': 'PASS'
+        })
+        with self.assertRaises(Exception) as context:
+            self.eload_deletion.delete_submission(1, 'test_user')
+        self.assertIn('QC has not been run successfully', str(context.exception))
+
     def test_delete_submission(self):
         # setup test data
         self.setup_test_eload_data(1)
         self.setup_test_ftp_boxes_data(1, 'test_user')
+        # Successful QC in config
+        self.eload_deletion.eload_cfg.set(EloadQC.config_section, value={
+            'accessioning': 'PASS',
+            'variants_skipped_accessioning': 'PASS with Warning (Manual Check Required)',
+            'variant_load': 'PASS',
+            'annotation': 'SKIP'
+        })
 
         # call method
         self.eload_deletion.delete_submission(1, 'test_user')
