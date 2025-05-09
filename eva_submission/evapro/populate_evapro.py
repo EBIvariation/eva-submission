@@ -64,8 +64,8 @@ class EvaProjectLoader(AppLogger):
         ###
         # LOAD PARENT PROJECT
         ###
-        parent_project = self.ena_project_finder.find_parent_project(project_accession=project_accession)
-        if parent_project:
+        parent_projects = self.ena_project_finder.find_parent_projects(project_accession=project_accession)
+        for parent_project in parent_projects:
             self.insert_linked_projects(project_obj, parent_project)
 
         ###
@@ -168,6 +168,7 @@ class EvaProjectLoader(AppLogger):
                 sample_obj = self.insert_sample(biosample_accession=sample_accession, ena_accession=sample_id)
         self.eva_session.commit()
         self.eva_session.close()
+
 
     def load_samples_from_vcf_file(self, sample_name_2_sample_accession, vcf_file, vcf_file_md5):
         sample_names = get_samples_from_vcf(vcf_file)
@@ -334,6 +335,8 @@ class EvaProjectLoader(AppLogger):
                                                linked_project_accession=linked_project_accession,
                                                linked_project_relation=project_relation)
             self.eva_session.add(linked_project_obj)
+            self.info(f'Add Project link ({project_obj.project_accession} -> {project_relation} -> '
+                      f'{linked_project_accession})to EVAPRO')
         return linked_project_obj
 
     def insert_ena_submission(self, ena_submission_accession, action, submission_alias, submission_date, brokered=1,
@@ -400,6 +403,7 @@ class EvaProjectLoader(AppLogger):
             if vcf_reference_accession:
                 analysis_obj.vcf_reference_accession = vcf_reference_accession
             self.eva_session.add(analysis_obj)
+            self.info(f'Add Analysis {analysis_accession} to EVAPRO')
         return analysis_obj
 
     def insert_assembly_set(self, taxonomy_obj, assembly_accession, assembly_name=None):
@@ -416,6 +420,7 @@ class EvaProjectLoader(AppLogger):
             assembly_set_obj = AssemblySet(taxonomy_id=taxonomy_obj.taxonomy_id, assembly_name=assembly_name,
                                            assembly_code=assembly_code)
             self.eva_session.add(assembly_set_obj)
+            self.info(f'Add assembly_set ({taxonomy_obj.taxonomy_id} {assembly_name}) to EVAPRO')
             self.eva_session.flush()
 
             accessioned_assembly_obj = AccessionedAssembly(
@@ -423,6 +428,7 @@ class EvaProjectLoader(AppLogger):
                 assembly_chain=assembly_accession.split('.')[0], assembly_version=assembly_accession.split('.')[1]
             )
             self.eva_session.add(accessioned_assembly_obj)
+            self.info(f'Add accessioned_assembly {assembly_accession} to EVAPRO')
 
         return assembly_set_obj
 

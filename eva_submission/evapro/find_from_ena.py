@@ -31,19 +31,14 @@ class EnaProjectFinder():
             str(project_title), taxonomy_id, scientific_name, common_name, study_description
         )
 
-    def find_parent_project(self, project_accession):
+    def find_parent_projects(self, project_accession):
         # link_type=2 == project
         # link_role=1 == hierarchical
         era_linked_project_query = (f"select to_id from era.ena_link "
                                     f"where TO_LINK_TYPE_ID=2 AND LINK_ROLE_ID=1 AND from_id='{project_accession}'")
         with self.era_cursor() as cursor:
-            parent_project = [to_id for to_id, in cursor.execute(era_linked_project_query)]
-            if not parent_project:
-                return None
-            elif len(parent_project) > 1:
-                raise RuntimeError(f"Multiple parent projects found for project accession {project_accession}")
-            else:
-                return parent_project[0]
+            parent_projects = [to_id for to_id, in cursor.execute(era_linked_project_query)]
+            return parent_projects
 
     def find_ena_submission_for_project(self, project_accession):
         era_submission_query = (
