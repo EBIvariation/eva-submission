@@ -119,7 +119,7 @@ class ProjectEnaSubmission(Base):
 class ProjectEvaSubmission(Base):
     __tablename__ = 'project_eva_submission'
 
-    project_accession = Column(String(25), primary_key=True, nullable=False, unique=True)
+    project_accession = Column(String(25), primary_key=True, nullable=False)
     old_ticket_id = Column(Integer, primary_key=True, nullable=False)
     eload_id = Column(Integer)
     old_eva_submission_id = Column(Integer)

@@ -485,8 +485,7 @@ CREATE TABLE evapro.project_eva_submission (
 	old_ticket_id int4 NOT NULL,
 	eload_id int4 NULL,
 	old_eva_submission_id int4 NULL,
-	CONSTRAINT project_eva_submission_pkey PRIMARY KEY (project_accession, old_ticket_id),
-	CONSTRAINT project_eva_submission_project_accession_key UNIQUE (project_accession)
+	CONSTRAINT project_eva_submission_pkey PRIMARY KEY (project_accession, old_ticket_id)
 );
 
 ALTER TABLE evapro.project_eva_submission OWNER TO metadata_user;
