@@ -120,7 +120,14 @@ class TestEvaProjectLoader(TestCase):
             metadata.create_all(engine)
             # Prepare the platforms that are supposed to be in the database before the load
             platform = Platform(platform='Illumina HiSeq 2500', manufacturer='Illumina')
+
             self.loader.eva_session.add(platform)
+            # Add a dummy project to initiate eva_study_accession
+            project = Project(project_accession='dummy', center_name='dummy', alias='dummy', title='dummy',
+                              description='dummy', scope='dummy', material='dummy', type='dummy', study_type='dummy',
+                              secondary_study_id='dummy', eva_study_accession=1)
+            self.loader.eva_session.add(project)
+
             self.loader.eva_session.commit()
             # Populate the ENAFinder
             self.loader.ena_project_finder = PropertyMock(
@@ -134,9 +141,10 @@ class TestEvaProjectLoader(TestCase):
             self.loader.load_project_from_ena(project, eload)
             session = self.loader.eva_session
             # Loaded project
-            result = session.execute(select(Project)).fetchone()
+            result = session.execute(select(Project).where(Project.project_accession != 'dummy')).fetchone()
             project = result.Project
             assert project.project_accession == 'PRJEB36082'
+            assert project.eva_study_accession == 2
 
             # Loaded Project Link
             result = session.execute(select(LinkedProject)).fetchone()
