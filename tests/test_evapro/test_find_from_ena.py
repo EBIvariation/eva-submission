@@ -4,7 +4,7 @@ import unittest
 
 import pytest
 
-from eva_submission.evapro.populate_evapro import EnaProjectFinder
+from eva_submission.evapro.populate_evapro import OracleEnaProjectFinder
 from eva_submission.submission_config import load_config
 
 @pytest.mark.skip(reason='Needs access to ERA database')
@@ -16,7 +16,7 @@ class TestEnaProjectFinder(unittest.TestCase):
             load_config(config_file)
         else:
             print(f'Config file {config_file} is not present. Add the config file to run the tests using ERA')
-        self.finder = EnaProjectFinder()
+        self.finder = OracleEnaProjectFinder()
 
 
     def test_find_project_from_ena_database(self):

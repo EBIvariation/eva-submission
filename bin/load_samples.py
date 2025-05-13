@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2021 EMBL - European Bioinformatics Institute
+# Copyright 2025 EMBL - European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,11 +15,9 @@
 # limitations under the License.
 
 import logging
-import os
 from argparse import ArgumentParser
 from functools import cached_property
 
-from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query
 
@@ -37,8 +35,6 @@ def main():
     argparse.add_argument('--eload', type=int, help='The ELOAD number of the submission for which the samples should be loaded')
     argparse.add_argument('--project_accession', type=str,
                           help='The project accession of the submission for which the samples should be loaded.')
-    argparse.add_argument('--analysis_accession', required=False, type=str,
-                          help='The analysis accession of the submission for which the samples should be loaded.')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
 
@@ -106,7 +102,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                 vcf_info_list = [(vcf_file, vcf_info.get('md5')) for vcf_file, vcf_info in vcf_file_dict.items()]
                 analysis_accession_2_files[analysis_accession] = vcf_info_list
         else:
-            # resolve the files from the database and download if required
+            # resolve the files from the database and download if required similar to EloadBacklog.get_analysis_info
             with self.metadata_connection_handle as conn:
                 query = f"select a.analysis_accession, c.filename, c.file_md5 " \
                         f"from analysis a " \
@@ -129,6 +125,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
 
     @cached_property
     def analysis_accession_2_aggregation_type(self):
+        """Resolve aggregation types for each analysis. Either use the config or the database information"""
         analysis_accession_2_aggregation_type={}
         if self.eload_cfg.query('ingestion', 'aggregation'):
             analysis_accession_2_aggregation_type = self.eload_cfg.query('ingestion', 'aggregation')
