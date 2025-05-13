@@ -9,7 +9,7 @@ from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.ncbi_utils import get_ncbi_assembly_name_from_term
 from ebi_eva_internal_pyutils.config_utils import get_metadata_creds_for_profile
 from ebi_eva_internal_pyutils.metadata_utils import build_taxonomy_code
-from sqlalchemy import select, create_engine
+from sqlalchemy import select, create_engine, func
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import Session
 
@@ -293,10 +293,17 @@ class EvaProjectLoader(AppLogger):
         if result:
             project_obj = result.Project
         else:
+            query = select(func.max(Project.eva_study_accession))
+            result = self.eva_session.execute(query).fetchone()
+            eva_study_accession = result[0]
+            if not eva_study_accession:
+                eva_study_accession = 1
+            else:
+                eva_study_accession += 1
             project_obj = Project(
                 project_accession=project_accession, center_name=center_name, alias=project_alias, title=title,
                 description=description, scope=scope, material=material, type=ena_study_type, study_type=study_type,
-                secondary_study_id=ena_secondary_study_id
+                secondary_study_id=ena_secondary_study_id, eva_study_accession=eva_study_accession
             )
             self.eva_session.add(project_obj)
             self.info(f'Add Project {project_accession} to EVAPRO')
