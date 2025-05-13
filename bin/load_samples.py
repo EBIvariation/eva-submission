@@ -50,7 +50,7 @@ def main():
 
 class HistoricalProjectSampleLoader(EloadBacklog):
     def __init__(self, eload, project_accession):
-        super().__init__(eload, project_accession)
+        super().__init__(eload_number=eload, project_accession=project_accession)
         self.ena_project_finder = OracleEnaProjectFinder()
         self.api_ena_finder = ApiEnaProjectFinder()
         self.eva_project_loader = EvaProjectLoader()
