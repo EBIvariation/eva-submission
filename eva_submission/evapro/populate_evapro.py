@@ -13,7 +13,7 @@ from sqlalchemy import select, create_engine, func
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import Session
 
-from eva_submission.evapro.find_from_ena import EnaProjectFinder
+from eva_submission.evapro.find_from_ena import OracleEnaProjectFinder
 from eva_submission.evapro.table import Project, Taxonomy, LinkedProject, Submission, ProjectEnaSubmission, \
     EvaSubmission, ProjectEvaSubmission, Analysis, AssemblySet, AccessionedAssembly, File, BrowsableFile, \
     Platform, ExperimentType, Sample, SampleInFile, ProjectSampleTemp1
@@ -38,7 +38,7 @@ class EvaProjectLoader(AppLogger):
     """
 
     def __init__(self):
-        self.ena_project_finder = EnaProjectFinder()
+        self.ena_project_finder = OracleEnaProjectFinder()
 
     def load_project_from_ena(self, project_accession, eload, analysis_accession_to_load=None):
         """

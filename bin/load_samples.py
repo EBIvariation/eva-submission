@@ -18,15 +18,14 @@ import logging
 import os
 from argparse import ArgumentParser
 from functools import cached_property
-from urllib.error import URLError
 
-import requests
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
-from ebi_eva_internal_pyutils.metadata_utils import get_metadata_connection_handle
 from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query
-from eva_submission.eload_utils import detect_vcf_aggregation, download_file
-from eva_submission.evapro.find_from_ena import EnaProjectFinder
+
+from eva_submission.eload_backlog import EloadBacklog, list_to_sql_in_list
+from eva_submission.eload_utils import detect_vcf_aggregation
+from eva_submission.evapro.find_from_ena import OracleEnaProjectFinder, ApiEnaProjectFinder
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
 from eva_submission.submission_config import load_config, EloadConfig
 
@@ -51,130 +50,105 @@ def main():
 
     # Load the config_file from default location
     load_config()
+    HistoricalProjectSampleLoader(args.eload, args.project_accession).load_samples()
 
-class HistoricalProjectSampleLoader:
-    def __init__(self, eload, project_accession, analysis_accession):
-        self.eload = eload
-        self.project_accession = project_accession
-        self.analysis_accession = analysis_accession
-
-    @cached_property
-    def eload_cfg(self):
-        if self.eload is not None:
-            config_path = os.path.join(cfg['eloads_dir'], self.eload, '.' + self.eload + '_config.yml')
-            eload_cfg = EloadConfig(config_path)
-            return eload_cfg
-        else:
-            # config that cannot be saved and should return None to any query
-            return EloadConfig()
-
-    @property
-    def metadata_connection_handle(self):
-        return get_metadata_connection_handle(cfg['maven']['environment'], cfg['maven']['settings_file'])
+class HistoricalProjectSampleLoader(EloadBacklog):
+    def __init__(self, eload, project_accession):
+        super().__init__(eload, project_accession)
+        self.ena_project_finder = OracleEnaProjectFinder()
+        self.api_ena_finder = ApiEnaProjectFinder()
+        self.eva_project_loader = EvaProjectLoader()
 
     def load_samples(self):
-        ena_project_finder = EnaProjectFinder()
-        eva_project_loader = EvaProjectLoader()
+        self.project_accession
+        self.analysis_accessions
+        self.sample_name_2_accession
+        self.analysis_accession_2_file_info
+        self.analysis_accession_2_aggregation_type
 
-        sample_name_2_accession = retrieve_sample_2_accession()
+        for analysis_accession in self.analysis_accessions:
+            # Add the sample that exists for this analysis
+            for ena_sample_accession, biosample_accession in self.ena_project_finder.find_samples_in_ena(analysis_accession=analysis_accession):
+                self.eva_project_loader.insert_sample(biosample_accession=biosample_accession, ena_accession=ena_sample_accession)
 
-        for analysis_accession in self.find_analysis_accessions():
-            for sample_info in ena_project_finder.find_samples_in_ena(analysis_accession=analysis_accession):
-                sample_id, sample_accession = sample_info
-                eva_project_loader.insert_sample(biosample_accession=sample_accession, ena_accession=sample_id)
-
-            aggregation_type = self.determine_aggregation_type(analysis_accession)
+            aggregation_type = self.analysis_accession_2_aggregation_type(analysis_accession)
             if aggregation_type == 'basic':
-                eva_project_loader.load_samples_from_analysis(sample_name_2_accession, analysis_accession)
+                self.eva_project_loader.load_samples_from_analysis(self.sample_name_2_accession, analysis_accession)
             else:
-                for vcf_file, vcf_file_md5 in determine_files(analysis_accession):
-                    eva_project_loader.load_samples_from_vcf_file(sample_name_2_accession, vcf_file, vcf_file_md5)
+                for vcf_file, vcf_file_md5 in self.analysis_accession_2_file_info.get(analysis_accession):
+                    self.eva_project_loader.load_samples_from_vcf_file(self.sample_name_2_accession, vcf_file, vcf_file_md5)
 
-    def determine_aggregation_type(self, analysis_accession):
-        aggregation_type = self.eload_cfg.query('ingestion', 'aggregation')
-        if not aggregation_type:
+    @cached_property
+    def sample_name_2_accession(self):
+        """Retrieve the sample to biosample accession map from the config or from the ENA API"""
+        sample_name_2_accession = self.eload_cfg.query('brokering', 'Biosamples', 'Samples')
+        if not sample_name_2_accession:
+            if self.project_accession:
+                'element for row in matrix for element in row '
+                sample_name_2_accessions_per_analysis = self.api_ena_finder.find_samples_from_analysis(
+                    self.project_accession)
+                sample_name_2_accessions = dict([(name, accession)
+                                                 for analysis_accession in sample_name_2_accessions_per_analysis
+                                                 for name, accession in
+                                                 sample_name_2_accessions_per_analysis[analysis_accession].items()
+                                                 ])
+        return sample_name_2_accession
+
+    @cached_property
+    def analysis_accession_2_file_info(self):
+        """Find the files associated with all the analysis accessions"""
+        analysis_accession_2_files = {}
+        if self.eload_cfg.query('brokering', 'analyses'):
+            # Assume that all the information in contained in the config and the files exist
+            for analysis_alias in self.eload_cfg.query('brokering', 'analyses'):
+                vcf_file_dict = self.eload_cfg.query('brokering', 'analyses', analysis_alias, 'vcf_files')
+                analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
+                vcf_info_list = [(vcf_file, vcf_info.get('md5')) for vcf_file, vcf_info in vcf_file_dict.items()]
+                analysis_accession_2_files[analysis_accession] = vcf_info_list
+        else:
+            # resolve the files from the database and download if required
+            with self.metadata_connection_handle as conn:
+                query = f"select a.analysis_accession, c.filename, c.file_md5 " \
+                        f"from analysis a " \
+                        f"join analysis_file b on a.analysis_accession=b.analysis_accession " \
+                        f"join file c on b.file_id=c.file_id " \
+                        f"where a.analysis_accession in {list_to_sql_in_list(self.analysis_accessions)};"
+                rows = get_all_results_for_query(conn, query)
+
+            for analysis_accession, filename, file_md5 in rows:
+                if not filename.endswith('.vcf.gz'):
+                    continue
+                try:
+                    full_path = self.find_local_file(filename)
+                except FileNotFoundError:
+                    full_path = self.find_file_on_ena(filename, analysis_accession)
+                if analysis_accession not in analysis_accession_2_files:
+                    analysis_accession_2_files[analysis_accession] = []
+                analysis_accession_2_files[analysis_accession].append((full_path, file_md5))
+        return analysis_accession_2_files
+
+    @cached_property
+    def analysis_accession_2_aggregation_type(self):
+        analysis_accession_2_aggregation_type={}
+        if self.eload_cfg.query('ingestion', 'aggregation'):
+            analysis_accession_2_aggregation_type = self.eload_cfg.query('ingestion', 'aggregation')
+        if not analysis_accession_2_aggregation_type:
             analysis_info = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
             if analysis_info:
-                analysis_alias = [analysis_alias for analysis_alias, accession in analysis_info.item() if accession==analysis_accession]
-                if analysis_alias:
-                    aggregation_type = self.eload_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias[0])
-        if not aggregation_type:
-            aggregation_type_per_file = {}
-            for vcf_file in self.get_files_for_analysis_accession(analysis_accession):
-                aggregation_type_per_file[vcf_file] = detect_vcf_aggregation(vcf_file)
-            if len(set(aggregation_type_per_file.values())) == 1:
-                aggregation_type = set(aggregation_type_per_file.values()).pop()
-            else:
-                logger.error(f'Aggregation type could not be determined for {analysis_accession}.')
-                aggregation_type = None
-        return aggregation_type
-
-    def vcf_files_for_analysis_accession(self, analysis_accession):
-        with self.metadata_connection_handle as conn:
-            query = f"select c.filename " \
-                    f"from analysis a " \
-                    f"join analysis_file b on a.analysis_accession=b.analysis_accession " \
-                    f"join file c on b.file_id=c.file_id " \
-                    f"where a.analysis_accession = '{analysis_accession}';"
-            rows = get_all_results_for_query(conn, query)
-        return [filename for filename, in rows if filename.endswith('.vcf.gz')]
-
-    def get_vcf_file_from_ena(self, analysis_accession):
-        """
-        Find and download all the VCF files for this analysis accession based on the ones associated with the
-        analysis accession in EVAPRO and the actual files present in the ENA FTP.
-        """
-        vcf_file_list = []
-        for fn in self.vcf_files_for_analysis_accession(analysis_accession):
-            full_path = self.find_file_on_ena(fn, analysis_accession)
-            vcf_file_list.append(full_path)
-        return vcf_file_list
-
-    def find_file_on_ena(self, fn, analysis):
-        basename = os.path.basename(fn)
-        full_path = os.path.join(self.work_directory, basename)
-        if not os.path.exists(full_path):
-            try:
-                ftp_urls = self._get_files_from_ena_analysis(analysis)
-                urls = [ftp_url for ftp_url in ftp_urls if ftp_url.endswith(fn)]
-                if len(urls) == 1:
-                    url = 'https://' + urls[0]
-                    download_file(url, full_path)
+                for analysis_alias, accession in analysis_info.item():
+                    analysis_accession_2_aggregation_type[accession] = self.eload_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
+        if not analysis_accession_2_aggregation_type:
+            for analysis_accession in self.analysis_accessions:
+                aggregation_type_per_file = {}
+                for vcf_file, md5 in self.analysis_accession_2_file_info.get(analysis_accession):
+                    aggregation_type_per_file[vcf_file] = detect_vcf_aggregation(vcf_file)
+                if len(set(aggregation_type_per_file.values())) == 1:
+                    aggregation_type = set(aggregation_type_per_file.values()).pop()
                 else:
-                    logger.error(f'Could find {fn} in analysis {analysis} on ENA: most likely does not exist')
-                    raise FileNotFoundError(f'File not found: {full_path}')
-            except URLError:
-                logger.error(f'Could not access {url} on ENA: most likely does not exist')
-                raise FileNotFoundError(f'File not found: {full_path}')
-        return full_path
-
-    def _get_files_from_ena_analysis(self, analysis_accession):
-        """Find the location of the file submitted with an analysis"""
-        analyses_url = (
-            f"https://www.ebi.ac.uk/ena/portal/api/filereport?result=analysis&accession={analysis_accession}"
-            f"&format=json&fields=submitted_ftp"
-        )
-        response = requests.get(analyses_url)
-        response.raise_for_status()
-        data = response.json()
-        if data:
-            return data[0].get('submitted_ftp').split(';')
-        else:
-            return {}
-
-    def get_files_for_analysis_accession(self, analysis_accession):
-        self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
-
-
-    def retrieve_sample_2_accession(self):
-        sample_name_2_accession = self.eload_cfg.query('brokering', 'Biosamples', 'Samples')
-        if not(sample_name_2_accession):
-
-
-
-
-def determine_files(analysis_accession):
-    pass
+                    logger.error(f'Aggregation type could not be determined for {analysis_accession}.')
+                    aggregation_type = None
+                analysis_accession_2_aggregation_type[analysis_accession] = aggregation_type
+        return analysis_accession_2_aggregation_type
 
 
 if __name__ == "__main__":
