@@ -506,7 +506,7 @@ class EvaProjectLoader(AppLogger):
         if not sample_obj:
             sample_obj = Sample(biosample_accession=biosample_accession, ena_accession=ena_accession)
             self.eva_session.add(sample_obj)
-            self.info(f'Add Sample type {biosample_accession} to EVAPRO')
+            self.info(f'Add Sample {biosample_accession} to EVAPRO')
 
         return sample_obj
 

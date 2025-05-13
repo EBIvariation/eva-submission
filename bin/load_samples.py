@@ -25,9 +25,8 @@ from eva_submission.eload_backlog import EloadBacklog, list_to_sql_in_list
 from eva_submission.eload_utils import detect_vcf_aggregation
 from eva_submission.evapro.find_from_ena import OracleEnaProjectFinder, ApiEnaProjectFinder
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
-from eva_submission.submission_config import load_config, EloadConfig
+from eva_submission.submission_config import load_config
 
-logger = log_cfg.get_logger(__name__)
 
 
 def main():
@@ -64,10 +63,12 @@ class HistoricalProjectSampleLoader(EloadBacklog):
 
         for analysis_accession in self.analysis_accessions:
             # Add the sample that exists for this analysis
+            self.eva_project_loader.eva_session.begin()
             for ena_sample_accession, biosample_accession in self.ena_project_finder.find_samples_in_ena(analysis_accession=analysis_accession):
                 self.eva_project_loader.insert_sample(biosample_accession=biosample_accession, ena_accession=ena_sample_accession)
+            self.eva_project_loader.eva_session.commit()
 
-            aggregation_type = self.analysis_accession_2_aggregation_type(analysis_accession)
+            aggregation_type = self.analysis_accession_2_aggregation_type.get(analysis_accession)
             if aggregation_type == 'basic':
                 self.eva_project_loader.load_samples_from_analysis(self.sample_name_2_accession, analysis_accession)
             else:
@@ -80,10 +81,9 @@ class HistoricalProjectSampleLoader(EloadBacklog):
         sample_name_2_accession = self.eload_cfg.query('brokering', 'Biosamples', 'Samples')
         if not sample_name_2_accession:
             if self.project_accession:
-                'element for row in matrix for element in row '
                 sample_name_2_accessions_per_analysis = self.api_ena_finder.find_samples_from_analysis(
                     self.project_accession)
-                sample_name_2_accessions = dict([(name, accession)
+                sample_name_2_accession = dict([(name, accession)
                                                  for analysis_accession in sample_name_2_accessions_per_analysis
                                                  for name, accession in
                                                  sample_name_2_accessions_per_analysis[analysis_accession].items()
@@ -142,7 +142,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                 if len(set(aggregation_type_per_file.values())) == 1:
                     aggregation_type = set(aggregation_type_per_file.values()).pop()
                 else:
-                    logger.error(f'Aggregation type could not be determined for {analysis_accession}.')
+                    self.error(f'Aggregation type could not be determined for {analysis_accession}.')
                     aggregation_type = None
                 analysis_accession_2_aggregation_type[analysis_accession] = aggregation_type
         return analysis_accession_2_aggregation_type
