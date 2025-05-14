@@ -55,6 +55,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
         self.eva_project_loader = EvaProjectLoader()
 
     def load_samples(self):
+        # check all the data and retrieve all the files before loading to the database
         self.project_accession
         self.analysis_accessions
         self.sample_name_2_accession
@@ -74,6 +75,23 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             else:
                 for vcf_file, vcf_file_md5 in self.analysis_accession_2_file_info.get(analysis_accession):
                     self.eva_project_loader.load_samples_from_vcf_file(self.sample_name_2_accession, vcf_file, vcf_file_md5)
+
+
+    @cached_property
+    def project_accession(self):
+        project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
+        if project_accession is not None:
+            return project_accession
+        else:
+            return super().project_accession
+
+    @cached_property
+    def analysis_accessions(self):
+        analysis_accession_dict = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
+        if analysis_accession_dict is not None:
+            return analysis_accession_dict.values()
+        else:
+            return super().analysis_accessions
 
     @cached_property
     def sample_name_2_accession(self):
