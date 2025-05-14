@@ -15,7 +15,9 @@
 # limitations under the License.
 
 import logging
+import os
 from argparse import ArgumentParser
+from collections import defaultdict
 from functools import cached_property
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
@@ -34,6 +36,8 @@ def main():
     argparse.add_argument('--eload', type=int, help='The ELOAD number of the submission for which the samples should be loaded')
     argparse.add_argument('--project_accession', type=str,
                           help='The project accession of the submission for which the samples should be loaded.')
+    argparse.add_argument('--clean_up', action='store_true', default=False,
+                          help='Remove any downloaded files from the ELOAD directory')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
 
@@ -45,7 +49,10 @@ def main():
 
     # Load the config_file from default location
     load_config()
-    HistoricalProjectSampleLoader(args.eload, args.project_accession).load_samples()
+    sample_loader = HistoricalProjectSampleLoader(args.eload, args.project_accession)
+    sample_loader.load_samples()
+    if args.clean_up:
+        sample_loader.clean_up()
 
 class HistoricalProjectSampleLoader(EloadBacklog):
     def __init__(self, eload, project_accession):
@@ -53,6 +60,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
         self.ena_project_finder = OracleEnaProjectFinder()
         self.api_ena_finder = ApiEnaProjectFinder()
         self.eva_project_loader = EvaProjectLoader()
+        self.downloaded_files = []
 
     def load_samples(self):
         # check all the data and retrieve all the files before loading to the database
@@ -102,17 +110,16 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             if self.project_accession:
                 sample_name_2_accessions_per_analysis = self.api_ena_finder.find_samples_from_analysis(
                     self.project_accession)
-                sample_name_2_accession = dict([(name, accession)
-                                                 for analysis_accession in sample_name_2_accessions_per_analysis
-                                                 for name, accession in
-                                                 sample_name_2_accessions_per_analysis[analysis_accession].items()
-                                                 ])
+                sample_name_2_accession = {name: accession
+                                           for analysis_accession in sample_name_2_accessions_per_analysis
+                                           for name, accession in
+                                           sample_name_2_accessions_per_analysis[analysis_accession].items()}
         return sample_name_2_accession
 
     @cached_property
     def analysis_accession_2_file_info(self):
         """Find the files associated with all the analysis accessions"""
-        analysis_accession_2_files = {}
+        analysis_accession_2_files = defaultdict(list)
         if self.eload_cfg.query('brokering', 'analyses'):
             # Assume that all the information in contained in the config and the files exist
             for analysis_alias in self.eload_cfg.query('brokering', 'analyses'):
@@ -137,8 +144,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                     full_path = self.find_local_file(filename)
                 except FileNotFoundError:
                     full_path = self.find_file_on_ena(filename, analysis_accession)
-                if analysis_accession not in analysis_accession_2_files:
-                    analysis_accession_2_files[analysis_accession] = []
+                    self.downloaded_files.append(full_path)
                 analysis_accession_2_files[analysis_accession].append((full_path, file_md5))
         return analysis_accession_2_files
 
@@ -165,6 +171,11 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                     aggregation_type = None
                 analysis_accession_2_aggregation_type[analysis_accession] = aggregation_type
         return analysis_accession_2_aggregation_type
+
+    def clean_up(self):
+        if self.downloaded_files:
+            for f in self.downloaded_files:
+                os.remove(f)
 
 
 if __name__ == "__main__":
