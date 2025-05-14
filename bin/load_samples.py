@@ -69,6 +69,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                 self.eva_project_loader.insert_sample(biosample_accession=biosample_accession, ena_accession=ena_sample_accession)
             self.eva_project_loader.eva_session.commit()
 
+            # Add link between sample accession and sample name
             aggregation_type = self.analysis_accession_2_aggregation_type.get(analysis_accession)
             if aggregation_type == 'basic':
                 self.eva_project_loader.load_samples_from_analysis(self.sample_name_2_accession, analysis_accession)
@@ -96,7 +97,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
     @cached_property
     def sample_name_2_accession(self):
         """Retrieve the sample to biosample accession map from the config or from the ENA API"""
-        sample_name_2_accession = self.eload_cfg.query('brokering', 'Biosamples', 'Samples')
+        sample_name_2_accession = self.eload_cfg.query('brokering', 'Biosamples', 'Samples', ret_default={})
         if not sample_name_2_accession:
             if self.project_accession:
                 sample_name_2_accessions_per_analysis = self.api_ena_finder.find_samples_from_analysis(
