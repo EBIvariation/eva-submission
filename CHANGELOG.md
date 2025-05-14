@@ -1,11 +1,17 @@
 Changelog for eva-submission
 ============================
 
-## 1.18.1 (unreleased)
+## 1.18.1 (2025-05-14)
 ----------------------
 
-- Nothing changed yet.
+### Ingestion
 
+- Metadata load fixes: 
+  - allow multiple parent project
+  - remove unique constraint on project_eva_submission
+  - auto increment project.eva_study_accession manually
+- Pass assembly report to eva-pipeline to trigger contig renaming to INSDC
+- Fix and Refactor ingestion QC and make deletion dependent on successful QC 
 
 ## 1.18.0 (2025-05-08)
 ----------------------
