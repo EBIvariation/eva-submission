@@ -28,17 +28,17 @@ json_to_xlsx_key_mapper = {
         "description": "Description",
         "centre": "Center",
         "taxId": "Tax ID",
-        "publications": "Publication(s)",
+        "publications": {'name': "Publication(s)", 'transform': lambda x: ','.join(x)},
         "parentProject": "Parent Project",
-        "childProjects": "Child Project(s)",
-        "peerProjects": "Peer Project(s)",
-        "links": "Link(s)",
-        "holdDate": "Hold Date",
+        "childProjects": {'name': "Child Project(s)", 'transform': lambda x: ','.join(x)},
+        "peerProjects": {'name': "Peer Project(s)", 'transform': lambda x: ','.join(x)},
+        "links": {'name': "Link(s)", 'transform': lambda x: ','.join(x)},
+        "holdDate": {'name': "Hold Date", 'transform': lambda x: datetime.strptime(x, "%Y-%m-%d").date()},
         "collaborators": "Collaborator(s)",
         "strain": "Strain",
         "breed": "Breed",
         "broker": "Broker",
-        'DUMMY1': 'Project Alias'
+        'DUMMY1': {'name':'Project Alias', 'link': 'project.title'}
     },
 
     "analysis": {
@@ -51,20 +51,20 @@ json_to_xlsx_key_mapper = {
         "platform": "Platform",
         "software": "Software",
         "pipelineDescriptions": "Pipeline Description",
-        "imputation": "Imputation",
-        "phasing": "Phasing",
+        "imputation": {'name': "Imputation", 'transform': lambda x: '1' if x == True else ''},
+        "phasing": {'name': "Phasing", 'transform': lambda x: '1' if x == True else ''},
         "centre": "Centre",
-        "date": "Date",
+        "date": {'name': "Date", 'transform': lambda x: datetime.strptime(x, "%Y-%m-%d").date()},
         "links": "Link(s)",
-        "runAccessions": "Run Accession(s)",
-        'DUMMY1': 'Project Title'
+        "runAccessions": {'name': "Run Accession(s)", 'transform': lambda x: ','.join(x)},
+        'Dummy': {'name': "Project Title", 'link': 'project.title'}
     },
 
     "sample": {
-        "analysisAlias": "Analysis Alias",
-        "sampleInVCF": "Sample Name in VCF",
+        "analysisAlias": {'name': "Analysis Alias", 'transform': lambda x: ','.join(x)},
+        "sampleInVCF": "Sample ID",
         "bioSampleAccession": "Sample Accession",
-        "bioSampleName": "BioSample Name",
+        "bioSampleName": "Sample Name",
         "title": "Title",
         "description": "Description",
         "uniqueName": "Unique Name",
@@ -86,7 +86,7 @@ json_to_xlsx_key_mapper = {
         "cultureCollection": "culture_collection",
         "specimenVoucher": "specimen_voucher",
         "collectedBy": "collected_by",
-        "collectionDate": "collection_date",
+        "collectionDate": {'name': "collection_date", 'transform': lambda x: datetime.strptime(x, "%Y-%m-%d").date()},
         "geographicLocationCountrySea": "geographic location (country and/or sea)",
         "geographicLocationRegion": "geographic location (region and locality)",
         "host": "host",
@@ -118,18 +118,20 @@ json_to_xlsx_key_mapper = {
 
 class JsonToXlsxConverter:
 
-    def convert_json_to_xlsx(self, input_json_file, output_xlsx_file):
+    def __init__(self,  input_json_file, output_xlsx_file):
+        self.input_json_file = input_json_file
+        self.output_xlsx_file = output_xlsx_file
         with open(input_json_file, 'r') as f:
-            data = json.load(f)
+            self.data = json.load(f)
 
+    def convert_json_to_xlsx(self):
         workbook = Workbook()
         self.create_dummy_instructions_sheet(workbook)
         for worksheet_key in json_to_xlsx_key_mapper['worksheets']:
             worksheet_title = json_to_xlsx_key_mapper['worksheets'][worksheet_key]
-            worksheet_data = data[worksheet_key]
+            worksheet_data = self.data[worksheet_key]
             self.create_worksheet(workbook, worksheet_key, worksheet_title, worksheet_data)
-
-        workbook.save(output_xlsx_file)
+        workbook.save(self.output_xlsx_file)
 
     def create_worksheet(self, workbook, worksheet_key, worksheet_title, worksheet_data):
         self.create_worksheet_header(workbook, worksheet_key, worksheet_title)
@@ -153,8 +155,12 @@ class JsonToXlsxConverter:
         header_col_index = 0
         for header_key in sorted(json_to_xlsx_key_mapper[worksheet_key]):
             header_col_index += 1
+            if isinstance(json_to_xlsx_key_mapper[worksheet_key][header_key], dict):
+                header_value = json_to_xlsx_key_mapper[worksheet_key][header_key]['name']
+            else:
+                header_value = json_to_xlsx_key_mapper[worksheet_key][header_key]
             cell = workbook[worksheet_title].cell(column=header_col_index, row=header_row_index,
-                                                  value=json_to_xlsx_key_mapper[worksheet_key][header_key])
+                                                  value=header_value)
             cell.font = openpyxl.styles.Font(bold=True)
 
     def create_dummy_instructions_sheet(self, workbook):
@@ -162,81 +168,65 @@ class JsonToXlsxConverter:
         workbook.create_sheet(worksheet_title)
         workbook[worksheet_title].cell(column=1, row=3, value='V1.1.4 August 2020')
 
-    def create_submitter_details_worksheet(self, workbook, worksheet_key, worksheet_title, submitter_details):
-        row_index = 1
-        for submitter in submitter_details:
+    def _fill_in_worksheet(self, output_workbook, output_worksheet_title, worksheet_key, source_data_list,  start_row_index=0):
+        row_index = start_row_index
+        for source_data_element in source_data_list:
             row_index += 1
             col_index = 0
-            for header_name in sorted(json_to_xlsx_key_mapper[worksheet_key]):
+            for header_key in sorted(json_to_xlsx_key_mapper[worksheet_key]):
                 col_index += 1
-                if header_name in submitter:
-                    workbook[worksheet_title].cell(column=col_index, row=row_index, value=submitter[header_name])
+                if header_key in source_data_element:
+                    cell_value = source_data_element.get(header_key)
+                    if isinstance(json_to_xlsx_key_mapper[worksheet_key][header_key], dict):
+                        header_dict = json_to_xlsx_key_mapper[worksheet_key][header_key]
+                        if 'transform' in header_dict and cell_value:
+                            cell_value = json_to_xlsx_key_mapper[worksheet_key][header_key].get('transform')(cell_value)
+
+                else:
+                    cell_value = ''
+                    if isinstance(json_to_xlsx_key_mapper[worksheet_key][header_key], dict):
+                        header_dict = json_to_xlsx_key_mapper[worksheet_key][header_key]
+                        if 'default' in header_dict and not cell_value:
+                            cell_value = json_to_xlsx_key_mapper[worksheet_key][header_key].get('default')
+                        if 'link' in header_dict and not cell_value:
+                            tmp_worksheet, tmp_header = json_to_xlsx_key_mapper[worksheet_key][header_key].get('link').split('.')
+                            cell_value = self.data[tmp_worksheet][tmp_header]
+                output_workbook[output_worksheet_title].cell(column=col_index, row=row_index, value=cell_value)
+
+    def create_submitter_details_worksheet(self, workbook, worksheet_key, worksheet_title, submitter_details):
+        row_index = 1
+        self._fill_in_worksheet(workbook, worksheet_title, worksheet_key, submitter_details, row_index)
 
     def create_project_worksheet(self, workbook, worksheet_key, worksheet_title, project_data):
         row_index = 2
-        col_index = 0
-        for header_name in sorted(json_to_xlsx_key_mapper[worksheet_key]):
-            col_index += 1
-            if header_name in project_data:
-                cell_value = project_data[header_name]
-                if header_name in ['publications', 'childProjects', 'peerProjects', 'links']:
-                    cell_value = ",".join(cell_value)
-                elif header_name in ['holdDate']:
-                    cell_value = datetime.strptime(cell_value, "%Y-%m-%d").date()
-
-                workbook[worksheet_title].cell(column=col_index, row=row_index, value=cell_value)
+        self._fill_in_worksheet(workbook, worksheet_title, worksheet_key, [project_data], row_index)
 
     def create_analysis_worksheet(self, workbook, worksheet_key, worksheet_title, analysis_data):
         row_index = 1
-        for analysis in analysis_data:
-            row_index += 1
-            col_index = 0
-            for header_name in sorted(json_to_xlsx_key_mapper[worksheet_key]):
-                col_index += 1
-                if header_name in analysis:
-                    cell_value = analysis[header_name]
-                    if header_name in ['runAccessions']:
-                        cell_value = ",".join(cell_value)
-                    elif header_name in ['imputation', 'phasing']:
-                        cell_value = '1' if cell_value == True else ''
-                    elif header_name in ['date']:
-                        cell_value = datetime.strptime(cell_value, "%Y-%m-%d").date()
-
-                    workbook[worksheet_title].cell(column=col_index, row=row_index, value=cell_value)
+        self._fill_in_worksheet(workbook, worksheet_title, worksheet_key, analysis_data, row_index)
 
     def create_sample_worksheet(self, workbook, worksheet_key, worksheet_title, sample_data):
         row_index = 3
+        sample_flattened_data = []
         for sample in sample_data:
             row_index += 1
-            sample_flattened_data = {**sample,
-                                     **sample.get('bioSampleObject', {}),
-                                     **({'bioSampleName': sample['bioSampleObject']['name']}
-                                        if 'bioSampleObject' in sample and 'name' in sample['bioSampleObject'] and
-                                           sample['bioSampleObject']['name']
-                                        else {}),
-                                     **{key: char_data[0].get('text')
-                                        for key, char_data in
-                                        sample.get('bioSampleObject', {}).get('characteristics', {}).items()
-                                        }
-                                     }
-            col_index = 0
-            for header_name in sorted(json_to_xlsx_key_mapper[worksheet_key]):
-                col_index += 1
-                if header_name in sample_flattened_data:
-                    cell_value = sample_flattened_data[header_name]
-                    if header_name in ['analysisAlias']:
-                        cell_value = ",".join(cell_value)
-                    elif header_name in ['collectionDate']:
-                        cell_value = datetime.strptime(cell_value, "%Y-%m-%d").date()
+            sample_flattened_data.append(
+                {
+                    **sample,
+                    **sample.get('bioSampleObject', {}),
+                    **({'bioSampleName': sample['bioSampleObject']['name']}
+                       if 'bioSampleObject' in sample and 'name' in sample['bioSampleObject'] and
+                           sample['bioSampleObject']['name']
+                        else {}),
+                    **{key: char_data[0].get('text')
+                        for key, char_data in
+                        sample.get('bioSampleObject', {}).get('characteristics', {}).items()
+                       }
+                 }
+            )
+        self._fill_in_worksheet(workbook, worksheet_title, worksheet_key, sample_flattened_data, row_index)
 
-                    workbook[worksheet_title].cell(column=col_index, row=row_index, value=cell_value)
 
     def create_file_worksheet(self, workbook, worksheet_key, worksheet_title, files_data):
         row_index = 1
-        for file in files_data:
-            row_index += 1
-            col_index = 0
-            for header_name in sorted(json_to_xlsx_key_mapper[worksheet_key]):
-                col_index += 1
-                if header_name in file:
-                    workbook[worksheet_title].cell(column=col_index, row=row_index, value=file[header_name])
+        self._fill_in_worksheet(workbook, worksheet_title, worksheet_key, files_data, row_index)
