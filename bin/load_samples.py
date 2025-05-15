@@ -105,7 +105,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             all_rows = []
 
             for vcf_file, md5 in self.analysis_accession_2_file_info.get(analysis_accession):
-                sample_name_2_accession = copy(self.sample_name_2_accession)
+                sample_name_2_accession = copy(self.sample_name_2_accessions_per_analysis.get(analysis_accession))
                 sample_names = get_samples_from_vcf(vcf_file)
 
                 for sample_name in sample_names:
@@ -169,17 +169,22 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             return super().analysis_accessions
 
     @cached_property
+    def sample_name_2_accessions_per_analysis(self):
+        """Retrieve the sample to biosample accession map from the ENA API"""
+        sample_name_2_accessions_per_analysis = {}
+        if self.project_accession:
+            sample_name_2_accessions_per_analysis = self.api_ena_finder.find_samples_from_analysis(self.project_accession)
+        return sample_name_2_accessions_per_analysis
+
+    @cached_property
     def sample_name_2_accession(self):
         """Retrieve the sample to biosample accession map from the config or from the ENA API"""
         sample_name_2_accession = self.eload_cfg.query('brokering', 'Biosamples', 'Samples', ret_default={})
         if not sample_name_2_accession:
-            if self.project_accession:
-                sample_name_2_accessions_per_analysis = self.api_ena_finder.find_samples_from_analysis(
-                    self.project_accession)
                 sample_name_2_accession = {name: accession
-                                           for analysis_accession in sample_name_2_accessions_per_analysis
+                                           for analysis_accession in self.sample_name_2_accessions_per_analysis
                                            for name, accession in
-                                           sample_name_2_accessions_per_analysis[analysis_accession].items()}
+                                           self.sample_name_2_accessions_per_analysis[analysis_accession].items()}
         return sample_name_2_accession
 
     @cached_property
