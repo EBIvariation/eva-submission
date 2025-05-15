@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/nfs/production/keane/eva/software/eva-submission/development_deployment/EVA3787_load_samples/bin/python3
 
 # Copyright 2025 EMBL - European Bioinformatics Institute
 #
@@ -18,8 +18,10 @@ import logging
 import os
 from argparse import ArgumentParser
 from collections import defaultdict
+from copy import copy
 from functools import cached_property
 
+from ebi_eva_common_pyutils.common_utils import pretty_print
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query
 
@@ -27,6 +29,7 @@ from eva_submission.eload_backlog import EloadBacklog, list_to_sql_in_list
 from eva_submission.eload_utils import detect_vcf_aggregation
 from eva_submission.evapro.find_from_ena import OracleEnaProjectFinder, ApiEnaProjectFinder
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
+from eva_submission.samples_checker import get_samples_from_vcf
 from eva_submission.submission_config import load_config
 
 
@@ -38,6 +41,8 @@ def main():
                           help='The project accession of the submission for which the samples should be loaded.')
     argparse.add_argument('--clean_up', action='store_true', default=False,
                           help='Remove any downloaded files from the ELOAD directory')
+    argparse.add_argument('--print', action='store_true', default=False,
+                          help='Print and compare the files and samples from the ENA and EVAPRO')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
 
@@ -50,7 +55,10 @@ def main():
     # Load the config_file from default location
     load_config()
     sample_loader = HistoricalProjectSampleLoader(args.eload, args.project_accession)
-    sample_loader.load_samples()
+    if args.print:
+        sample_loader.print_sample_matches()
+    else:
+        sample_loader.load_samples()
     if args.clean_up:
         sample_loader.clean_up()
 
@@ -62,14 +70,72 @@ class HistoricalProjectSampleLoader(EloadBacklog):
         self.eva_project_loader = EvaProjectLoader()
         self.downloaded_files = []
 
-    def load_samples(self):
-        # check all the data and retrieve all the files before loading to the database
-        self.project_accession
-        self.analysis_accessions
-        self.sample_name_2_accession
-        self.analysis_accession_2_file_info
-        self.analysis_accession_2_aggregation_type
+    def print_sample_matches(self):
+        sample_from_ena_per_analysis = {
+            analysis_accession: {
+                biosample: ena_sample
+                for ena_sample, biosample in self.ena_project_finder.find_samples_in_ena(analysis_accession=analysis_accession)
+            }
+            for analysis_accession in self.analysis_accessions
+        }
+        file_in_database_per_analysis = {
+            analysis_accession: {f.file_md5: f.filename for f in self.eva_project_loader.get_files_for_analysis(analysis_accession)}
+            for analysis_accession in self.analysis_accessions
+        }
+        for analysis_accession in self.analysis_accessions:
+            print(f'###  {analysis_accession}  ###')
+            # Compare file in ENA/config with file in Database
+            header = ['File in ENA', 'md5 in ENA', 'md5 in EVAPRO', 'File in EVAPRO']
+            all_rows = []
+            files_in_db = copy(file_in_database_per_analysis.get(analysis_accession))
+            samples_from_ena = copy(sample_from_ena_per_analysis.get(analysis_accession))
+            for vcf_file, md5 in self.analysis_accession_2_file_info.get(analysis_accession):
+                line = [os.path.basename(vcf_file), md5]
+                if md5 in files_in_db:
+                    line.append(md5)
+                    line.append(files_in_db.pop(md5))
+                else:
+                    line.append('-')
+                    line.append('-')
+                all_rows.append(line)
+            for md5, vcf_file in files_in_db.items():
+                all_rows.append(['-', '-', md5, vcf_file])
+            pretty_print(header, all_rows)
+            header = ['VCF file', 'Sample in VCF', 'Name in ENA', 'BioSamples', 'ENA sample in analysis']
+            all_rows = []
 
+            for vcf_file, md5 in self.analysis_accession_2_file_info.get(analysis_accession):
+                sample_name_2_accession = copy(self.sample_name_2_accession)
+                sample_names = get_samples_from_vcf(vcf_file)
+
+                for sample_name in sample_names:
+                    line = [os.path.basename(vcf_file), sample_name]
+                    sample_accession = sample_name_2_accession.get(sample_name)
+                    if sample_accession:
+                        line.append(sample_name)
+                        line.append(sample_name_2_accession.pop(sample_name))
+                    else:
+                        line.append('-')
+                        line.append('-')
+                    if sample_accession in samples_from_ena:
+                        line.append(samples_from_ena.pop(sample_accession))
+                    else:
+                        line.append('-')
+                    all_rows.append(line)
+                for sample_name in sample_name_2_accession:
+                    line = ['-', '-', sample_name, sample_name_2_accession.get(sample_name)]
+                    if sample_name_2_accession.get(sample_name) in samples_from_ena:
+                        line.append(samples_from_ena.pop(sample_name_2_accession.get(sample_name)))
+                    else:
+                        line.append('-')
+                    all_rows.append(line)
+                for sample_accession in samples_from_ena:
+                    all_rows.append(['-', '-', '-', sample_accession, samples_from_ena.get(sample_accession)])
+
+            pretty_print(header, all_rows)
+            print('')
+
+    def load_samples(self):
         for analysis_accession in self.analysis_accessions:
             # Add the sample that exists for this analysis
             self.eva_project_loader.eva_session.begin()
