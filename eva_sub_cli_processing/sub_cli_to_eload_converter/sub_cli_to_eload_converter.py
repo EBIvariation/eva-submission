@@ -32,4 +32,4 @@ class SubCLIToEloadConverter(EloadPreparation):
         # download metadata json
         download_metadata_json_file_for_submission_id(submission_id, metadata_json_file_path)
         # convert metadata json to metadata xlsx
-        JsonToXlsxConverter().convert_json_to_xlsx(metadata_json_file_path, metadata_xlsx_file_path)
+        JsonToXlsxConverter(metadata_json_file_path, metadata_xlsx_file_path).convert_json_to_xlsx()
