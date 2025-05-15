@@ -27,7 +27,7 @@ json_to_xlsx_key_mapper = {
         "title": "Project Title",
         "description": "Description",
         "centre": "Center",
-        "taxId": "Tax ID",
+        "taxId": {'name': "Tax ID", 'transform': lambda x: int(x)},
         "publications": {'name': "Publication(s)", 'transform': lambda x: ','.join(x)},
         "parentProject": "Parent Project",
         "childProjects": {'name': "Child Project(s)", 'transform': lambda x: ','.join(x)},
@@ -71,7 +71,7 @@ json_to_xlsx_key_mapper = {
         "prefix": "Prefix",
         "subject": "Subject",
         "derivedFrom": "Derived From",
-        "taxId": "Tax Id",
+        "taxId": {'name': "Tax Id", 'transform': lambda x: int(x)},
         "scientificName": "Scientific Name",
         "commonName": "Common Name",
         "matingType": "mating_type",
@@ -111,7 +111,7 @@ json_to_xlsx_key_mapper = {
         "analysisAlias": "Analysis Alias",
         "fileName": "File Name",
         'DUMMY1': 'MD5',
-        'DUMMY2': 'File Type'
+        'DUMMY2': {'name': 'File Type', 'default': 'vcf'}
     }
 }
 
