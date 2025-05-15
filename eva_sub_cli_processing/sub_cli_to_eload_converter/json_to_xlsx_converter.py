@@ -4,6 +4,11 @@ from datetime import datetime
 import openpyxl
 from openpyxl.workbook import Workbook
 
+# The dict contains the mapping between the field in JSON and the header of the Excel spreadsheet.
+# when the value is a dict it must contain a 'name' to define the header and optionally can contain
+#  - transform which define a function applied to the json value
+#  - default which define a default value when the key is not present in the JSON
+#  - link which defines another value in the input JSON to apply (only works on project value)
 json_to_xlsx_key_mapper = {
     "worksheets": {
         "submitterDetails": "Submitter Details",
