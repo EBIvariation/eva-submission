@@ -158,10 +158,8 @@ class TestJsonToXlsxConverter(TestCase):
         self.converter = JsonToXlsxConverter(self.test_input_json, self.output_xlsx)
 
         self.converter.convert_json_to_xlsx()
-        with (
-            patch.object(EvaXlsxValidator, 'check_biosamples_accessions'),
-            patch('eva_submission.xlsx.xlsx_validation.check_existing_project_in_ena')
-        ):
+        with patch.object(EvaXlsxValidator, 'check_biosamples_accessions'), \
+                patch('eva_submission.xlsx.xlsx_validation.check_existing_project_in_ena'):
             validator = EvaXlsxValidator(self.output_xlsx)
             validator.validate()
             assert validator.error_list == ['Check Analysis Alias vs Samples: VD4,VD5 present in Samples not in Analysis Alias']
