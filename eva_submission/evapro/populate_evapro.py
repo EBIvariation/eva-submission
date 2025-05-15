@@ -175,13 +175,17 @@ class EvaProjectLoader(AppLogger):
         self.eva_session.begin()
         file_obj = self.get_file(vcf_file_md5)
         if not file_obj:
-            self.error(f'Cannot find file {vcf_file} in EVAPRO for md5 {vcf_file_md5}')
+            self.error(f'Cannot find file {vcf_file} in EVAPRO for md5 {vcf_file_md5}: Rolling back')
             return
         for sample_name in sample_names:
             sample_accession = sample_name_2_sample_accession.get(sample_name)
+            if not sample_accession:
+                self.error(f'Sample {sample_name} found in {vcf_file} does not have BioSample accession: Rolling back')
+                self.eva_session.rollback()
+                return
             sample_obj = self.get_sample(sample_accession)
             if not sample_obj:
-                self.error(f'Cannot find sample {sample_accession} in EVAPRO')
+                self.error(f'Cannot find sample {sample_accession} ({sample_name}) from {vcf_file} in EVAPRO: Rolling back')
                 self.eva_session.rollback()
                 return
             self.insert_sample_in_file(file_id=file_obj.file_id, sample_id=sample_obj.sample_id,
@@ -507,7 +511,8 @@ class EvaProjectLoader(AppLogger):
             sample_obj = Sample(biosample_accession=biosample_accession, ena_accession=ena_accession)
             self.eva_session.add(sample_obj)
             self.info(f'Add Sample {biosample_accession} to EVAPRO')
-
+        else:
+            self.debug(f'Sample {biosample_accession} already exists in EVAPRO')
         return sample_obj
 
     def insert_sample_in_file(self, file_id, sample_id, name_in_file):
