@@ -21,6 +21,7 @@ from argparse import ArgumentParser
 from collections import defaultdict
 from copy import copy
 from functools import cached_property
+from itertools import zip_longest
 
 from ebi_eva_common_pyutils.common_utils import pretty_print
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
@@ -169,7 +170,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             pretty_print(header, all_rows)
             print('')
 
-            for n1, n2 in zip(sorted(unmatched_name_in_VCF), sorted(unmatched_names_in_ENA)):
+            for n1, n2 in zip_longest(sorted(unmatched_name_in_VCF), sorted(unmatched_names_in_ENA), fillvalue=''):
                 print(f'{n1}\t{n2}')
                 if output_mapping:
                     output_mapping.write(f'{n1}\t{n2}\n')
