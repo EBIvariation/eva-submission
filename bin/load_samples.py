@@ -68,7 +68,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
         self.ena_project_finder = OracleEnaProjectFinder()
         self.api_ena_finder = ApiEnaProjectFinder()
         self.eva_project_loader = EvaProjectLoader()
-        self.downloaded_files = []
+        self.downloaded_files_path = os.path.join(self.eload_dir, '.load_samples_downloaded_files')
 
     def print_sample_matches(self):
         sample_from_ena_per_analysis = {
@@ -216,7 +216,8 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                     full_path = self.find_local_file(filename)
                 except FileNotFoundError:
                     full_path = self.find_file_on_ena(filename, analysis_accession)
-                    self.downloaded_files.append(full_path)
+                    with open(self.downloaded_files_path, 'a') as open_file:
+                        open_file.write(full_path+'\n')
                 analysis_accession_2_files[analysis_accession].append((full_path, file_md5))
         return analysis_accession_2_files
 
@@ -245,9 +246,13 @@ class HistoricalProjectSampleLoader(EloadBacklog):
         return analysis_accession_2_aggregation_type
 
     def clean_up(self):
-        if self.downloaded_files:
-            for f in self.downloaded_files:
-                os.remove(f)
+        if os.path.exists(self.downloaded_files_path):
+            with open(self.downloaded_files_path, 'r') as open_file:
+                for line in open_file:
+                    f = line.strip()
+                    if os.path.exists(f):
+                        os.remove(f)
+            os.remove(self.downloaded_files_path)
 
 
 if __name__ == "__main__":
