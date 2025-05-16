@@ -100,6 +100,9 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             analysis_accession: {f.file_md5: f.filename for f in self.eva_project_loader.get_files_for_analysis(analysis_accession)}
             for analysis_accession in self.analysis_accessions
         }
+        unmatched_names_in_ENA = []
+        unmatched_name_in_VCF = []
+
         for analysis_accession in self.analysis_accessions:
             print(f'###  {analysis_accession}  ###')
             # Compare file in ENA/config with file in Database
@@ -122,7 +125,6 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             pretty_print(header, all_rows)
             header = ['VCF file', 'Sample in VCF', 'Name in ENA', 'BioSamples', 'ENA sample in analysis']
             all_rows = []
-
             for vcf_file, md5 in self.analysis_accession_2_file_info.get(analysis_accession):
                 sample_name_2_accession = copy(self.sample_name_2_accessions_per_analysis.get(analysis_accession))
                 sample_names = get_samples_from_vcf(vcf_file)
@@ -137,6 +139,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                         line.append(sample_name)
                         line.append(sample_name_2_accession.pop(sample_name))
                     else:
+                        unmatched_name_in_VCF.append(sample_name)
                         line.append('-')
                         line.append('-')
                     if sample_accession in samples_from_ena:
@@ -145,6 +148,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                         line.append('-')
                     all_rows.append(line)
                 for sample_name in sample_name_2_accession:
+                    unmatched_names_in_ENA.append(sample_name)
                     line = ['-', '-', sample_name, sample_name_2_accession.get(sample_name)]
                     if sample_name_2_accession.get(sample_name) in samples_from_ena:
                         line.append(samples_from_ena.pop(sample_name_2_accession.get(sample_name)))
@@ -156,6 +160,10 @@ class HistoricalProjectSampleLoader(EloadBacklog):
 
             pretty_print(header, all_rows)
             print('')
+
+        for n1, n2 in zip(sorted(unmatched_name_in_VCF), sorted(unmatched_names_in_ENA)):
+            print(f'{n1}\t{n2}')
+
 
     def load_samples(self):
         result = True
