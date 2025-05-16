@@ -176,21 +176,22 @@ class EvaProjectLoader(AppLogger):
         file_obj = self.get_file(vcf_file_md5)
         if not file_obj:
             self.error(f'Cannot find file {vcf_file} in EVAPRO for md5 {vcf_file_md5}: Rolling back')
-            return
+            return False
         for sample_name in sample_names:
             sample_accession = sample_name_2_sample_accession.get(sample_name)
             if not sample_accession:
                 self.error(f'Sample {sample_name} found in {vcf_file} does not have BioSample accession: Rolling back')
                 self.eva_session.rollback()
-                return
+                return False
             sample_obj = self.get_sample(sample_accession)
             if not sample_obj:
                 self.error(f'Cannot find sample {sample_accession} ({sample_name}) from {vcf_file} in EVAPRO: Rolling back')
                 self.eva_session.rollback()
-                return
+                return False
             self.insert_sample_in_file(file_id=file_obj.file_id, sample_id=sample_obj.sample_id,
                                        name_in_file=sample_name)
         self.eva_session.commit()
+        return True
 
     def load_samples_from_analysis(self, sample_name_2_sample_accession, analysis_accession):
         # For analyses with aggregated VCFs, get sample accessions associated with the analysis
@@ -207,12 +208,13 @@ class EvaProjectLoader(AppLogger):
             if not sample_obj:
                 self.error(f'Cannot find sample {sample_accession} in EVAPRO')
                 self.eva_session.rollback()
-                return
+                return False
             # Associate these samples with all files in the analysis
             for file_obj in file_objs:
                 self.insert_sample_in_file(file_id=file_obj.file_id, sample_id=sample_obj.sample_id,
                                            name_in_file=sample_name)
         self.eva_session.commit()
+        return True
 
     def update_project_samples_temp1(self, project_accession):
         # This function assumes that all samples have been loaded to Sample/SampleFiles

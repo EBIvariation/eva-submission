@@ -1,4 +1,4 @@
-#!/nfs/production/keane/eva/software/eva-submission/development_deployment/EVA3787_load_samples/bin/python3
+#!/usr/bin/env python
 
 # Copyright 2025 EMBL - European Bioinformatics Institute
 #
@@ -54,13 +54,15 @@ def main():
 
     # Load the config_file from default location
     load_config()
+    exit_code = 0
     sample_loader = HistoricalProjectSampleLoader(args.eload, args.project_accession)
     if args.print:
         sample_loader.print_sample_matches()
     else:
-        sample_loader.load_samples()
-    if args.clean_up:
+        exit_code = sample_loader.load_samples()
+    if exit_code == 0 and args.clean_up:
         sample_loader.clean_up()
+    return exit_code
 
 class HistoricalProjectSampleLoader(EloadBacklog):
     def __init__(self, eload, project_accession):
@@ -137,6 +139,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             print('')
 
     def load_samples(self):
+        result = True
         for analysis_accession in self.analysis_accessions:
             # Add the sample that exists for this analysis
             self.eva_project_loader.eva_session.begin()
@@ -147,10 +150,14 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             # Add link between sample accession and sample name
             aggregation_type = self.analysis_accession_2_aggregation_type.get(analysis_accession)
             if aggregation_type == 'basic':
-                self.eva_project_loader.load_samples_from_analysis(self.sample_name_2_accession, analysis_accession)
+                result &= self.eva_project_loader.load_samples_from_analysis(self.sample_name_2_accession, analysis_accession)
             else:
                 for vcf_file, vcf_file_md5 in self.analysis_accession_2_file_info.get(analysis_accession):
-                    self.eva_project_loader.load_samples_from_vcf_file(self.sample_name_2_accession, vcf_file, vcf_file_md5)
+                    result &= self.eva_project_loader.load_samples_from_vcf_file(self.sample_name_2_accession, vcf_file, vcf_file_md5)
+        if not result:
+            self.error('Not all the Samples were properly loaded in EVAPRO')
+            return 1
+        return 0
 
 
     @cached_property
