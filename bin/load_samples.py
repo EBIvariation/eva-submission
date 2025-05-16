@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/nfs/production/keane/eva/software/eva-submission/development_deployment/EVA3787_load_samples/bin/python3
 
 # Copyright 2025 EMBL - European Bioinformatics Institute
 #
@@ -46,6 +46,10 @@ def main():
                           help='Print and compare the files and samples from the ENA and EVAPRO')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
+    argparse.add_argument('--mapping_file', type=str, default=False,
+                          help='Allow to pass a file providing a mapping between sample names in ENA and Sample names '
+                               'in the VCF files. The format should be one line per mapping with the first column being '
+                               'the name in the VCF and the second the name in ENA.')
 
     args = argparse.parse_args()
 
@@ -56,7 +60,7 @@ def main():
     # Load the config_file from default location
     load_config()
     exit_code = 0
-    sample_loader = HistoricalProjectSampleLoader(args.eload, args.project_accession)
+    sample_loader = HistoricalProjectSampleLoader(args.eload, args.project_accession, args.mapping_file)
     if args.print:
         sample_loader.print_sample_matches()
     else:
@@ -66,12 +70,23 @@ def main():
     return exit_code
 
 class HistoricalProjectSampleLoader(EloadBacklog):
-    def __init__(self, eload, project_accession):
+    def __init__(self, eload, project_accession, mapping_file):
         super().__init__(eload_number=eload, project_accession=project_accession)
+        self.mapping_file = mapping_file
         self.ena_project_finder = OracleEnaProjectFinder()
         self.api_ena_finder = ApiEnaProjectFinder()
         self.eva_project_loader = EvaProjectLoader()
         self.downloaded_files_path = os.path.join(self.eload_dir, '.load_samples_downloaded_files')
+
+    @cached_property
+    def sample_mapping(self):
+        mapping = {}
+        if os.path.isfile(self.mapping_file):
+            with open(self.mapping_file) as open_file:
+                for line in open_file:
+                    sp_line = line.strip().split('\t')
+                    mapping[sp_line[0]] = sp_line[1]
+        return mapping
 
     def print_sample_matches(self):
         sample_from_ena_per_analysis = {
@@ -115,6 +130,9 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                 for sample_name in sample_names:
                     line = [os.path.basename(vcf_file), sample_name]
                     sample_accession = sample_name_2_accession.get(sample_name)
+                    if not sample_accession:
+                        sample_name = self.sample_mapping.get(sample_name) or sample_name
+                        sample_accession = sample_name_2_accession.get(sample_name)
                     if sample_accession:
                         line.append(sample_name)
                         line.append(sample_name_2_accession.pop(sample_name))
@@ -154,7 +172,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                 result &= self.eva_project_loader.load_samples_from_analysis(self.sample_name_2_accession, analysis_accession)
             else:
                 for vcf_file, vcf_file_md5 in self.analysis_accession_2_file_info.get(analysis_accession):
-                    result &= self.eva_project_loader.load_samples_from_vcf_file(self.sample_name_2_accession, vcf_file, vcf_file_md5)
+                    result &= self.eva_project_loader.load_samples_from_vcf_file(self.sample_name_2_accession, vcf_file, vcf_file_md5, self.sample_mapping)
         if not result:
             self.error('Not all the Samples were properly loaded in EVAPRO')
             return 1
