@@ -218,6 +218,7 @@ class File(Base):
 
     file_class_cv = relationship('FileClassCv')
     samples = relationship('SampleInFile', back_populates='file')
+    analyses = relationship('Analysis', secondary='analysis_file', back_populates='files')
 
 class ProjectDbxref(Base):
     __tablename__ = 'project_dbxref'
@@ -295,7 +296,7 @@ class Analysis(Base):
     assembly_set_id = Column(ForeignKey('assembly_set.assembly_set_id'))
 
     assembly_set = relationship('AssemblySet')
-    files = relationship('File', secondary='analysis_file', backref='analyses')
+    files = relationship('File', secondary='analysis_file', back_populates='analyses')
     platforms = relationship('Platform', secondary='analysis_platform')
     sequences = relationship('EvaReferencedSequence', secondary='analysis_sequence')
     submissions = relationship('Submission', secondary='analysis_submission', backref='analyses')

@@ -13,7 +13,7 @@ from sqlalchemy import select, create_engine, func
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import Session
 
-from eva_submission.evapro.find_from_ena import EnaProjectFinder
+from eva_submission.evapro.find_from_ena import OracleEnaProjectFinder
 from eva_submission.evapro.table import Project, Taxonomy, LinkedProject, Submission, ProjectEnaSubmission, \
     EvaSubmission, ProjectEvaSubmission, Analysis, AssemblySet, AccessionedAssembly, File, BrowsableFile, \
     Platform, ExperimentType, Sample, SampleInFile, ProjectSampleTemp1
@@ -38,7 +38,7 @@ class EvaProjectLoader(AppLogger):
     """
 
     def __init__(self):
-        self.ena_project_finder = EnaProjectFinder()
+        self.ena_project_finder = OracleEnaProjectFinder()
 
     def load_project_from_ena(self, project_accession, eload, analysis_accession_to_load=None):
         """
@@ -170,23 +170,31 @@ class EvaProjectLoader(AppLogger):
         self.eva_session.close()
 
 
-    def load_samples_from_vcf_file(self, sample_name_2_sample_accession, vcf_file, vcf_file_md5):
+    def load_samples_from_vcf_file(self, sample_name_2_sample_accession, vcf_file, vcf_file_md5, sample_mapping = None):
         sample_names = get_samples_from_vcf(vcf_file)
         self.eva_session.begin()
         file_obj = self.get_file(vcf_file_md5)
         if not file_obj:
-            self.error(f'Cannot find file {vcf_file} in EVAPRO for md5 {vcf_file_md5}')
-            return
+            self.error(f'Cannot find file {vcf_file} in EVAPRO for md5 {vcf_file_md5}: Rolling back')
+            return False
         for sample_name in sample_names:
             sample_accession = sample_name_2_sample_accession.get(sample_name)
+            if not sample_accession and sample_mapping:
+                sample_name = sample_mapping.get(sample_name) or sample_name
+                sample_accession = sample_name_2_sample_accession.get(sample_name)
+            if not sample_accession:
+                self.error(f'Sample {sample_name} found in {vcf_file} does not have BioSample accession: Rolling back')
+                self.eva_session.rollback()
+                return False
             sample_obj = self.get_sample(sample_accession)
             if not sample_obj:
-                self.error(f'Cannot find sample {sample_accession} in EVAPRO')
+                self.error(f'Cannot find sample {sample_accession} ({sample_name}) from {vcf_file} in EVAPRO: Rolling back')
                 self.eva_session.rollback()
-                return
+                return False
             self.insert_sample_in_file(file_id=file_obj.file_id, sample_id=sample_obj.sample_id,
                                        name_in_file=sample_name)
         self.eva_session.commit()
+        return True
 
     def load_samples_from_analysis(self, sample_name_2_sample_accession, analysis_accession):
         # For analyses with aggregated VCFs, get sample accessions associated with the analysis
@@ -203,12 +211,13 @@ class EvaProjectLoader(AppLogger):
             if not sample_obj:
                 self.error(f'Cannot find sample {sample_accession} in EVAPRO')
                 self.eva_session.rollback()
-                return
+                return False
             # Associate these samples with all files in the analysis
             for file_obj in file_objs:
                 self.insert_sample_in_file(file_id=file_obj.file_id, sample_id=sample_obj.sample_id,
                                            name_in_file=sample_name)
         self.eva_session.commit()
+        return True
 
     def update_project_samples_temp1(self, project_accession):
         # This function assumes that all samples have been loaded to Sample/SampleFiles
@@ -506,8 +515,9 @@ class EvaProjectLoader(AppLogger):
         if not sample_obj:
             sample_obj = Sample(biosample_accession=biosample_accession, ena_accession=ena_accession)
             self.eva_session.add(sample_obj)
-            self.info(f'Add Sample type {biosample_accession} to EVAPRO')
-
+            self.info(f'Add Sample {biosample_accession} to EVAPRO')
+        else:
+            self.debug(f'Sample {biosample_accession} already exists in EVAPRO')
         return sample_obj
 
     def insert_sample_in_file(self, file_id, sample_id, name_in_file):

@@ -1,11 +1,34 @@
-import re
+import requests
 from functools import cached_property
 import xml.etree.ElementTree as ET
 
 import oracledb
 from ebi_eva_common_pyutils.config import cfg
 
-class EnaProjectFinder():
+
+class ApiEnaProjectFinder:
+    file_report_base_url = 'https://www.ebi.ac.uk/ena/portal/api/filereport'
+
+    def find_samples_from_analysis(self, accession):
+        """
+        This function leverage the filereport endpoint to retrieve the samples name to sample accession  dictionary
+        organised by analysis.
+        This function can be provided with an analysis or a project accession.
+        returns a dictionary with key is tha analysis accession and value is another dictionary with key is sample
+        name and value the biosample accession
+        """
+        url = self.file_report_base_url + f'?result=analysis&accession={accession}&format=json&fields=sample_accession,sample_alias'
+        response = requests.get(url)
+        response.raise_for_status()
+        json_data = response.json()
+        results_per_analysis = {}
+        for analysis_data in json_data:
+            sample_aliases = analysis_data.get('sample_alias').split(';')
+            sample_accessions = analysis_data.get('sample_accession').split(';')
+            results_per_analysis[analysis_data.get('analysis_accession')] = dict(zip(sample_aliases, sample_accessions))
+        return results_per_analysis
+
+class OracleEnaProjectFinder:
 
     def find_project_from_ena_database(self, project_accession):
         era_project_query = (
