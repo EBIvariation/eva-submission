@@ -16,6 +16,7 @@
 
 import logging
 import os
+import sys
 from argparse import ArgumentParser
 from collections import defaultdict
 from copy import copy
@@ -263,4 +264,4 @@ class HistoricalProjectSampleLoader(EloadBacklog):
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
