@@ -170,7 +170,7 @@ class EvaProjectLoader(AppLogger):
         self.eva_session.close()
 
 
-    def load_samples_from_vcf_file(self, sample_name_2_sample_accession, vcf_file, vcf_file_md5):
+    def load_samples_from_vcf_file(self, sample_name_2_sample_accession, vcf_file, vcf_file_md5, sample_mapping = None):
         sample_names = get_samples_from_vcf(vcf_file)
         self.eva_session.begin()
         file_obj = self.get_file(vcf_file_md5)
@@ -179,6 +179,9 @@ class EvaProjectLoader(AppLogger):
             return False
         for sample_name in sample_names:
             sample_accession = sample_name_2_sample_accession.get(sample_name)
+            if not sample_accession and sample_mapping:
+                sample_name = sample_mapping.get(sample_name) or sample_name
+                sample_accession = sample_name_2_sample_accession.get(sample_name)
             if not sample_accession:
                 self.error(f'Sample {sample_name} found in {vcf_file} does not have BioSample accession: Rolling back')
                 self.eva_session.rollback()
