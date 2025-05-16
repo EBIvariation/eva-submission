@@ -228,7 +228,7 @@ class EloadPreparation(Eload):
             try:
                 parser.json(metadata_json_file_path)
                 eload_spreadsheet_file_path = os.path.join(self._get_dir('metadata'), metadata_xlsx_name)
-                JsonToXlsxConverter().convert_json_to_xlsx(metadata_json_file_path, eload_spreadsheet_file_path)
+                JsonToXlsxConverter(metadata_json_file_path, eload_spreadsheet_file_path).convert_json_to_xlsx()
             except IndexError as e:
                 self.error(f'Could not convert metadata version {version} to JSON file: {metadata_xlsx}')
                 raise e

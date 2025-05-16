@@ -7,11 +7,11 @@ Submitter Details:
     schema:
       Last Name: {         type: 'string',  nullable: False, required: True}
       First Name: {        type: 'string',  nullable: False, required: True}
-      Telephone Number: {  nullable: False, required: True}
+      Telephone Number: {  nullable: True, required: False}
       Email Address: {     type: 'string',  nullable: False, required: True}
       Laboratory: {        type: 'string',  nullable: False, required: True}
       Center: {            type: 'string',  nullable: False, required: True}
-      Address: {           type: 'string',  nullable: False, required: True}
+      Address: {           type: 'string',  nullable: True, required: False}
 
 Project:
   type: 'list'
