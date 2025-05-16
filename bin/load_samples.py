@@ -50,6 +50,9 @@ def main():
                           help='Allow to pass a file providing a mapping between sample names in ENA and Sample names '
                                'in the VCF files. The format should be one line per mapping with the first column being '
                                'the name in the VCF and the second the name in ENA.')
+    argparse.add_argument('--possible_mapping_file', type=str, default=False,
+                          help='path to an output file where the possible mapping between unmatched samples is provided. '
+                               'This only contains the list of unmatched samples sorted for each analysis')
 
     args = argparse.parse_args()
 
@@ -60,7 +63,7 @@ def main():
     # Load the config_file from default location
     load_config()
     exit_code = 0
-    sample_loader = HistoricalProjectSampleLoader(args.eload, args.project_accession, args.mapping_file)
+    sample_loader = HistoricalProjectSampleLoader(args.eload, args.project_accession, args.mapping_file, args.possible_mapping_file)
     if args.print:
         sample_loader.print_sample_matches()
     else:
@@ -70,9 +73,10 @@ def main():
     return exit_code
 
 class HistoricalProjectSampleLoader(EloadBacklog):
-    def __init__(self, eload, project_accession, mapping_file):
+    def __init__(self, eload, project_accession, mapping_file, possible_mapping_file):
         super().__init__(eload_number=eload, project_accession=project_accession)
         self.mapping_file = mapping_file
+        self.possible_mapping_file = possible_mapping_file
         self.ena_project_finder = OracleEnaProjectFinder()
         self.api_ena_finder = ApiEnaProjectFinder()
         self.eva_project_loader = EvaProjectLoader()
@@ -89,6 +93,10 @@ class HistoricalProjectSampleLoader(EloadBacklog):
         return mapping
 
     def print_sample_matches(self):
+        output_mapping = None
+        if self.possible_mapping_file:
+            output_mapping = open(self.possible_mapping_file, 'w')
+
         sample_from_ena_per_analysis = {
             analysis_accession: {
                 biosample: ena_sample
@@ -100,8 +108,6 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             analysis_accession: {f.file_md5: f.filename for f in self.eva_project_loader.get_files_for_analysis(analysis_accession)}
             for analysis_accession in self.analysis_accessions
         }
-        unmatched_names_in_ENA = []
-        unmatched_name_in_VCF = []
 
         for analysis_accession in self.analysis_accessions:
             print(f'###  {analysis_accession}  ###')
@@ -125,6 +131,8 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             pretty_print(header, all_rows)
             header = ['VCF file', 'Sample in VCF', 'Name in ENA', 'BioSamples', 'ENA sample in analysis']
             all_rows = []
+            unmatched_names_in_ENA = []
+            unmatched_name_in_VCF = []
             for vcf_file, md5 in self.analysis_accession_2_file_info.get(analysis_accession):
                 sample_name_2_accession = copy(self.sample_name_2_accessions_per_analysis.get(analysis_accession))
                 sample_names = get_samples_from_vcf(vcf_file)
@@ -161,8 +169,13 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             pretty_print(header, all_rows)
             print('')
 
-        for n1, n2 in zip(sorted(unmatched_name_in_VCF), sorted(unmatched_names_in_ENA)):
-            print(f'{n1}\t{n2}')
+            for n1, n2 in zip(sorted(unmatched_name_in_VCF), sorted(unmatched_names_in_ENA)):
+                print(f'{n1}\t{n2}')
+                if output_mapping:
+                    output_mapping.write(f'{n1}\t{n2}\n')
+
+        if output_mapping:
+            output_mapping.close()
 
 
     def load_samples(self):
