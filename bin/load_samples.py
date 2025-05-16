@@ -99,7 +99,8 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                     line.append('-')
                 all_rows.append(line)
             for md5, vcf_file in files_in_db.items():
-                all_rows.append(['-', '-', md5, vcf_file])
+                if vcf_file.endswith('.vcf') or vcf_file.endswith('.vcf.gz'):
+                    all_rows.append(['-', '-', md5, vcf_file])
             pretty_print(header, all_rows)
             header = ['VCF file', 'Sample in VCF', 'Name in ENA', 'BioSamples', 'ENA sample in analysis']
             all_rows = []
