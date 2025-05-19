@@ -75,6 +75,7 @@ class EloadPreparation(Eload):
         self.check_submitted_filenames()
         self.detect_metadata_attributes()
         self.find_genome()
+        self.add_fasta_to_metadata()
 
     def detect_submitted_metadata(self):
         metadata_dir = os.path.join(self.eload_dir, directory_structure['metadata'])
@@ -194,6 +195,23 @@ class EloadPreparation(Eload):
         else:
             self.error('No scientific name specified')
 
+    def add_fasta_to_metadata(self):
+        """Add a path to the assembly fasta found in find_genome to the analysis spreadsheet.
+        Note this overwrites any user-provided value."""
+        analysis_alias_to_assembly_fasta = {
+            analysis_alias: analysis_info['assembly_fasta']
+            for analysis_alias, analysis_info in self.eload_cfg.query('submission', 'analyses').items()
+        }
+        input_spreadsheet = self.eload_cfg.query('submission', 'metadata_spreadsheet')
+        reader = EvaXlsxReader(input_spreadsheet)
+        eva_xls_writer = EvaXlsxWriter(input_spreadsheet)
+        analysis_rows = []
+        for analysis in reader.analysis:
+            if analysis.get('Analysis Alias') in analysis_alias_to_assembly_fasta:
+                analysis['Reference Fasta Path'] = analysis_alias_to_assembly_fasta.get(analysis.get('Analysis Alias'))
+            analysis_rows.append(analysis)
+        eva_xls_writer.set_analysis(analysis_rows)
+        eva_xls_writer.save()
 
     @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
     def contig_alias_put_db(self, contig_alias_payload, contig_alias_url, contig_alias_user, contig_alias_pass):

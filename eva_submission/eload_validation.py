@@ -21,7 +21,7 @@ from eva_submission.xlsx.xlsx_validation import EvaXlsxValidator
 class EloadValidation(Eload):
 
     all_validation_tasks = ['metadata_check', 'assembly_check', 'aggregation_check', 'vcf_check', 'sample_check',
-                            'structural_variant_check', 'naming_convention_check']
+                            'structural_variant_check', 'naming_convention_check', 'eva_sub_cli']
 
     def validate(self, validation_tasks=None, set_as_valid=False, merge_per_analysis=False):
         if not validation_tasks:
@@ -40,7 +40,7 @@ class EloadValidation(Eload):
         if 'sample_check' in validation_tasks:
             self._validate_sample_names()
         if set(validation_tasks).intersection(
-                {'vcf_check', 'assembly_check', 'structural_variant_check', 'naming_convention_check'}
+                {'vcf_check', 'assembly_check', 'structural_variant_check', 'naming_convention_check', 'eva_sub_cli'}
         ):
             output_dir = self._run_validation_workflow(validation_tasks)
             self._collect_validation_workflow_results(output_dir, validation_tasks)
@@ -130,7 +130,7 @@ class EloadValidation(Eload):
                 self.eload_cfg.set('validation', 'aggregation_check', 'analyses', str(analysis_alias), value=aggregation)
             elif None in aggregations:
                 indices = [i for i, x in enumerate(aggregations) if x is None]
-                errors.append(f'{analysis_alias}: VCF file aggregation could not be determied: ' + ', '.join([
+                errors.append(f'{analysis_alias}: VCF file aggregation could not be determined: ' + ', '.join([
                     self.eload_cfg.query('submission', 'analyses', analysis_alias, 'vcf_files')[i]
                     for i in indices
                 ]))
@@ -264,6 +264,7 @@ class EloadValidation(Eload):
         validation_config = {
             'vcf_files_mapping': vcf_files_mapping_csv,
             'output_dir': output_dir,
+            'metadata_xlsx': self.eload_cfg['validation']['metadata_check']['metadata_spreadsheet'],
             'executable': cfg['executable'],
             'validation_tasks': validation_tasks
         }
@@ -306,6 +307,8 @@ class EloadValidation(Eload):
             self._collect_structural_variant_check_results(vcf_files, output_dir)
         if 'naming_convention_check' in validation_tasks:
             self._collect_naming_convention_check_results(vcf_files, output_dir)
+        if 'eva_sub_cli' in validation_tasks:
+            self._collect_eva_sub_cli_results(output_dir)
 
     def _collect_vcf_check_results(self, vcf_files, output_dir):
         total_error = 0
@@ -447,6 +450,13 @@ class EloadValidation(Eload):
                                value=naming_conventions.pop())
         self.eload_cfg.set('validation', 'naming_convention_check', 'pass', value=True)
 
+    def _collect_eva_sub_cli_results(self, output_dir):
+        results_yaml = os.path.join(output_dir, 'validation_results.yaml')
+        # TODO copy the results to the eload config
+        # TODO move the html report to the eload validations folder
+        # TODO determine the pass/fail value based on results
+        self.eload_cfg.set('validation', 'eva_sub_cli', 'pass', value=...)
+
     def _metadata_check_report(self):
         reports = []
 
@@ -574,6 +584,10 @@ class EloadValidation(Eload):
                     reports.append(f"    * {vcf_file}: {vcf_files_2_naming_conv[vcf_file]['naming_convention_map']}")
         return '\n'.join(reports)
 
+    def _eva_sub_cli_report(self):
+        # TODO - create a text report, can also point to the html report
+        pass
+
     def report(self):
         """Collect information from the config and write the report."""
 
@@ -588,6 +602,7 @@ class EloadValidation(Eload):
                                                                                       'structural_variant_check')),
             'naming_convention_check': self._check_pass_or_fail(self.eload_cfg.query('validation',
                                                                                       'naming_convention_check')),
+            'eva_sub_cli': self._check_pass_or_fail(self.eload_cfg.query('validation', 'eva_sub_cli')),
             'metadata_check_report': self._metadata_check_report(),
             'vcf_check_report': self._vcf_check_report(),
             'assembly_check_report': self._assembly_check_report(),
@@ -595,7 +610,8 @@ class EloadValidation(Eload):
             'vcf_merge_report': self._vcf_merge_report(),
             'aggregation_report': self._aggregation_report(),
             'structural_variant_check_report': self._structural_variant_check_report(),
-            'naming_convention_check_report': self._naming_convention_check_report()
+            'naming_convention_check_report': self._naming_convention_check_report(),
+            'eva_sub_cli_report': self._eva_sub_cli_report()
         }
 
         report = """Validation performed on {validation_date}
@@ -606,6 +622,7 @@ Sample names check: {sample_check}
 Aggregation check: {aggregation_check}
 Structural variant check: {structural_variant_check}
 Naming convention check: {naming_convention_check}
+eva-sub-cli: {eva_sub_cli}
 ----------------------------------
 
 Metadata check:
@@ -642,6 +659,10 @@ Structural variant check:
 Naming convention check:
 {naming_convention_check_report}
 
+----------------------------------
+
+eva-sub-cli:
+{eva_sub_cli_report}
 ----------------------------------
 """
         print(report.format(**report_data))

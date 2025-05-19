@@ -9,15 +9,18 @@ def helpMessage() {
     Inputs:
             --vcf_files_mapping     csv file with the mappings for vcf files, fasta and assembly report
             --output_dir            output_directory where the reports will be output
+            --metadata_xlsx         metadata spreadsheet to be validated with eva-sub-cli
     """
 }
 
 params.vcf_files_mapping = null
 params.output_dir = null
+params.metadata_xlsx = null
 // executables
-params.executable = ["vcf_assembly_checker": "vcf_assembly_checker", "vcf_validator": "vcf_validator", "bgzip": "bgzip"]
+params.executable = ["vcf_assembly_checker": "vcf_assembly_checker", "vcf_validator": "vcf_validator", "bgzip": "bgzip",
+                     "eva_sub_cli": "eva_sub_cli"]
 // validation tasks
-params.validation_tasks = ["assembly_check", "vcf_check", "normalisation_check", "structural_variant_check"]
+params.validation_tasks = ["assembly_check", "vcf_check", "structural_variant_check", "naming_convention_check", 'eva_sub_cli']
 // help
 params.help = null
 
@@ -26,9 +29,10 @@ params.help = null
 if (params.help) exit 0, helpMessage()
 
 // Test input files
-if (!params.vcf_files_mapping || !params.output_dir) {
+if (!params.vcf_files_mapping || !params.output_dir || !params.metadata_xlsx) {
     if (!params.vcf_files_mapping)    log.warn('Provide a csv file with the mappings (vcf, fasta, assembly report) --vcf_files_mapping')
     if (!params.output_dir)    log.warn('Provide an output directory where the reports will be copied using --output_dir')
+    if (!params.metadata_xlsx)    log.warn('Provide a metadata spreadsheet to be validated with eva-sub-cli')
     exit 1, helpMessage()
 }
 
@@ -41,6 +45,10 @@ workflow {
         .splitCsv(header:true)
         .map{row -> tuple(file(row.vcf), row.assembly_accession)}
 
+
+    if ("eva_sub_cli" in params.validation_tasks) {
+        run_eva_sub_cli()
+    }
     if ("vcf_check" in params.validation_tasks) {
         check_vcf_valid(vcf_info_ch)
     }
@@ -53,6 +61,25 @@ workflow {
     if ("naming_convention_check" in params.validation_tasks) {
         detect_naming_convention(vcf_info_acc_ch)
     }
+}
+
+
+/*
+ * Run eva-sub-cli
+ */
+process run_eva_sub_cli {
+
+    publishDir "$params.output_dir",
+        overwrite: false,
+        mode: "copy"
+
+    output:
+    path "validation_results.yaml", emit: eva_sub_cli_results
+
+    script:
+    """
+    $params.executable.eva_sub_cli --submission_dir . --metadata_xlsx ${params.metadata_xlsx} --tasks VALIDATE
+    """
 }
 
 
