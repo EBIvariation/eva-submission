@@ -844,7 +844,7 @@ GRANT ALL ON TABLE evapro.project_resource TO metadata_user;
 
 
 CREATE MATERIALIZED VIEW evapro.study_browser
-AS SELECT evapro.project.project_accession,
+AS SELECT DISTINCT evapro.project.project_accession,
     evapro.project.eva_study_accession AS study_id,
     evapro.project.title AS project_title,
     COALESCE(evapro.project.eva_description, evapro.project.description) AS description,
@@ -896,7 +896,6 @@ AS SELECT evapro.project.project_accession,
            FROM evapro.browsable_file
           GROUP BY evapro.browsable_file.project_accession) browsable_table(project_accession_browsable, browsable) ON browsable_table.project_accession_browsable::text = project.project_accession::text
   WHERE (project.hold_date <= now()::date OR project.hold_date IS NULL) AND eva_submission.eva_submission_status_id >= 6 AND project.ena_status = 4 AND project.eva_status = 1
-  ORDER BY project_children_taxonomy.taxonomy_common_names
 WITH DATA;
 
 
