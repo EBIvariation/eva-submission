@@ -9,13 +9,13 @@ def helpMessage() {
     Inputs:
             --vcf_files_mapping     csv file with the mappings for vcf files, fasta and assembly report
             --output_dir            output_directory where the reports will be output
-            --metadata_xlsx         metadata spreadsheet to be validated with eva-sub-cli
+            --metadata_json         metadata JSON to be validated with eva-sub-cli
     """
 }
 
 params.vcf_files_mapping = null
 params.output_dir = null
-params.metadata_xlsx = null
+params.metadata_json = null
 // executables
 params.executable = ["vcf_assembly_checker": "vcf_assembly_checker", "vcf_validator": "vcf_validator", "bgzip": "bgzip",
                      "eva_sub_cli": "eva_sub_cli"]
@@ -29,10 +29,10 @@ params.help = null
 if (params.help) exit 0, helpMessage()
 
 // Test input files
-if (!params.vcf_files_mapping || !params.output_dir || !params.metadata_xlsx) {
+if (!params.vcf_files_mapping || !params.output_dir || !params.metadata_json) {
     if (!params.vcf_files_mapping)    log.warn('Provide a csv file with the mappings (vcf, fasta, assembly report) --vcf_files_mapping')
     if (!params.output_dir)    log.warn('Provide an output directory where the reports will be copied using --output_dir')
-    if (!params.metadata_xlsx)    log.warn('Provide a metadata spreadsheet to be validated with eva-sub-cli')
+    if (!params.metadata_json)    log.warn('Provide a metadata JSON to be validated with eva-sub-cli')
     exit 1, helpMessage()
 }
 
@@ -45,8 +45,7 @@ workflow {
         .splitCsv(header:true)
         .map{row -> tuple(file(row.vcf), row.assembly_accession)}
 
-
-    if ("eva_sub_cli" in params.validation_tasks) {
+    if ("eva_sub_cli" in params.validation_tasks && params.metadata_json) {
         run_eva_sub_cli()
     }
     if ("vcf_check" in params.validation_tasks) {
@@ -78,7 +77,7 @@ process run_eva_sub_cli {
 
     script:
     """
-    $params.executable.eva_sub_cli --submission_dir . --metadata_xlsx ${params.metadata_xlsx} --tasks VALIDATE
+    $params.executable.eva_sub_cli --submission_dir . --metadata_json ${params.metadata_json} --tasks VALIDATE
     """
 }
 

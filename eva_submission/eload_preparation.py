@@ -1,4 +1,5 @@
 import glob
+import json
 import os
 import shutil
 
@@ -75,7 +76,7 @@ class EloadPreparation(Eload):
         self.check_submitted_filenames()
         self.detect_metadata_attributes()
         self.find_genome()
-        self.add_fasta_to_metadata()
+        self.update_metadata_json_if_required(taxid=taxid, reference_accession=reference_accession)
 
     def detect_submitted_metadata(self):
         metadata_dir = os.path.join(self.eload_dir, directory_structure['metadata'])
@@ -195,23 +196,33 @@ class EloadPreparation(Eload):
         else:
             self.error('No scientific name specified')
 
-    def add_fasta_to_metadata(self):
-        """Add a path to the assembly fasta found in find_genome to the analysis spreadsheet.
-        Note this overwrites any user-provided value."""
-        analysis_alias_to_assembly_fasta = {
-            analysis_alias: analysis_info['assembly_fasta']
-            for analysis_alias, analysis_info in self.eload_cfg.query('submission', 'analyses').items()
-        }
-        input_spreadsheet = self.eload_cfg.query('submission', 'metadata_spreadsheet')
-        reader = EvaXlsxReader(input_spreadsheet)
-        eva_xls_writer = EvaXlsxWriter(input_spreadsheet)
-        analysis_rows = []
-        for analysis in reader.analysis:
-            if analysis.get('Analysis Alias') in analysis_alias_to_assembly_fasta:
-                analysis['Reference Fasta Path'] = analysis_alias_to_assembly_fasta.get(analysis.get('Analysis Alias'))
-            analysis_rows.append(analysis)
-        eva_xls_writer.set_analysis(analysis_rows)
-        eva_xls_writer.save()
+    def update_metadata_json_if_required(self, taxid=None, reference_accession=None):
+        """Update metadata JSON to include paths to the assembly FASTAs and assembly reports located by find_genome.
+        Also overwrites taxid and assembly accession values if requested, to mirror any updates done to the spreadsheet
+        in replace_values_in_metadata."""
+        metadata_json_path = self.eload_cfg.query('submission', 'metadata_json')
+        if not metadata_json_path:
+            return
+        with open(metadata_json_path) as json_file:
+            metadata_json = json.load(json_file)
+
+        # Overwrite taxid & assembly accession values, if specified
+        if taxid:
+            metadata_json['project']['taxid'] = taxid
+        if reference_accession:
+            for analysis in metadata_json['analysis']:
+                analysis['referenceGenome'] = reference_accession
+
+        # Overwrite paths to assembly fasta and assembly report
+        analyses_in_config = self.eload_cfg.query('submission', 'analyses')
+        for analysis in metadata_json['analysis']:
+            if analysis.get('analysisAlias') in analyses_in_config:
+                analysis['referenceFasta'] = analyses_in_config.get(analysis['analysisAlias']).get('assembly_fasta')
+                analysis['assemblyReport'] = analyses_in_config.get(analysis['analysisAlias']).get('assembly_report')
+
+        # Rewrite the metadata json file
+        with open(metadata_json_path, 'w') as json_file:
+            json.dump(metadata_json, json_file)
 
     @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
     def contig_alias_put_db(self, contig_alias_payload, contig_alias_url, contig_alias_user, contig_alias_pass):
@@ -245,6 +256,8 @@ class EloadPreparation(Eload):
             metadata_json_file_path = os.path.join(self._get_dir('metadata'), 'eva_sub_cli', 'eva_sub_cli_metadata.json')
             try:
                 parser.json(metadata_json_file_path)
+                # Store path to metadata json in the eload config
+                self.eload_cfg.set('submission', 'metadata_json', value=metadata_json_file_path)
                 eload_spreadsheet_file_path = os.path.join(self._get_dir('metadata'), metadata_xlsx_name)
                 JsonToXlsxConverter(metadata_json_file_path, eload_spreadsheet_file_path).convert_json_to_xlsx()
             except IndexError as e:

@@ -264,7 +264,7 @@ class EloadValidation(Eload):
         validation_config = {
             'vcf_files_mapping': vcf_files_mapping_csv,
             'output_dir': output_dir,
-            'metadata_xlsx': self.eload_cfg['validation']['metadata_check']['metadata_spreadsheet'],
+            'metadata_json': self.eload_cfg.query('submission', 'metadata_json'),
             'executable': cfg['executable'],
             'validation_tasks': validation_tasks
         }
@@ -451,11 +451,11 @@ class EloadValidation(Eload):
         self.eload_cfg.set('validation', 'naming_convention_check', 'pass', value=True)
 
     def _collect_eva_sub_cli_results(self, output_dir):
-        results_yaml = os.path.join(output_dir, 'validation_results.yaml')
-        # TODO copy the results to the eload config
-        # TODO move the html report to the eload validations folder
-        # TODO determine the pass/fail value based on results
-        self.eload_cfg.set('validation', 'eva_sub_cli', 'pass', value=...)
+        # Move the results to the validations folder
+        results_path = resolve_single_file_path(os.path.join(output_dir, 'validation_results.yaml'))
+        self._move_file(results_path, os.path.join(self._get_dir('eva_sub_cli'), 'validation_results.yaml'))
+        report_path = resolve_single_file_path(os.path.join(output_dir, 'report.html'))
+        self._move_file(report_path, os.path.join(self._get_dir('eva_sub_cli'), 'report.html'))
 
     def _metadata_check_report(self):
         reports = []
@@ -585,8 +585,10 @@ class EloadValidation(Eload):
         return '\n'.join(reports)
 
     def _eva_sub_cli_report(self):
-        # TODO - create a text report, can also point to the html report
-        pass
+        report_path = os.path.join(self._get_dir('eva_sub_cli'), 'report.html')
+        if os.path.exists(report_path):
+            return f'See {report_path}'
+        return f'Did not run'
 
     def report(self):
         """Collect information from the config and write the report."""
@@ -602,7 +604,6 @@ class EloadValidation(Eload):
                                                                                       'structural_variant_check')),
             'naming_convention_check': self._check_pass_or_fail(self.eload_cfg.query('validation',
                                                                                       'naming_convention_check')),
-            'eva_sub_cli': self._check_pass_or_fail(self.eload_cfg.query('validation', 'eva_sub_cli')),
             'metadata_check_report': self._metadata_check_report(),
             'vcf_check_report': self._vcf_check_report(),
             'assembly_check_report': self._assembly_check_report(),
@@ -622,7 +623,6 @@ Sample names check: {sample_check}
 Aggregation check: {aggregation_check}
 Structural variant check: {structural_variant_check}
 Naming convention check: {naming_convention_check}
-eva-sub-cli: {eva_sub_cli}
 ----------------------------------
 
 Metadata check:
