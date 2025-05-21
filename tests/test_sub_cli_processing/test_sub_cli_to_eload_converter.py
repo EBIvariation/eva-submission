@@ -156,6 +156,8 @@ class TestSubCliToEloadConverter(TestCase):
 
     def test_contig_alias_db_update(self):
         cfg.content['eutils_api_key'] = None
+        # Ensure no other analyses present in the config
+        self.cli_to_eload.eload_cfg.set('submission', 'analyses', value={})
         self.cli_to_eload.eload_cfg.set('submission', 'scientific_name', value='Thingy thingus')
         self.cli_to_eload.eload_cfg.set('submission', 'analyses', 'Analysis alias test', 'assembly_accession',
                                         value='GCA_000001405.10')
