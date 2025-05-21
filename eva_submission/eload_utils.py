@@ -30,7 +30,7 @@ def get_reference_fasta_and_report(species_name, reference_accession, output_dir
             eutils_api_key=cfg.get('eutils_api_key')
         )
         if not os.path.isfile(assembly.assembly_fasta_path) or not os.path.isfile(assembly.assembly_report_path) or overwrite or update:
-            assembly.download_or_construct(overwrite=overwrite, update=update)
+            assembly.download_or_construct(overwrite=overwrite)
         return assembly.assembly_fasta_path, assembly.assembly_report_path
     elif NCBISequence.is_genbank_accession_format(reference_accession):
         reference = NCBISequence(reference_accession, species_name, output_directory,

@@ -37,9 +37,10 @@ def main():
     parser.add_argument("-o", "--output-directory",
                         help="Base directory under which all species assemblies are stored. "
                              "Will use the one defined in config file if omitted")
-    parser.add_argument("-c", "--clear", help="Flag to clear existing data in FASTA file and starting from scratch",
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-c", "--clear", help="Flag to clear existing data in FASTA file and starting from scratch",
                         action='store_true')
-    parser.add_argument("-u", "--update", help="Flag to update existing FASTA based on the assembly report",
+    group.add_argument("-u", "--update", help="Flag to update existing FASTA based on the assembly report",
                         action='store_true')
     parser.add_argument('--debug', action='store_true', default=False,
                         help='Set the script to output logging information at debug level')
