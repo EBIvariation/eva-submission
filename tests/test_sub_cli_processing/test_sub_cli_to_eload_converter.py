@@ -93,6 +93,7 @@ class TestSubCliToEloadConverter(TestCase):
                                                'metadata_xlsx.xlsx')
         assert os.path.exists(metadata_json_file_path)
         assert os.path.exists(metadata_xlsx_file_path)
+        assert self.cli_to_eload.eload_cfg.query('submission', 'metadata_json') == metadata_json_file_path
 
     def test_detect_submitted_metadata(self):
         self.create_vcfs()

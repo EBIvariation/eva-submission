@@ -21,7 +21,7 @@ from eva_submission.xlsx.xlsx_validation import EvaXlsxValidator
 class EloadValidation(Eload):
 
     all_validation_tasks = ['metadata_check', 'assembly_check', 'aggregation_check', 'vcf_check', 'sample_check',
-                            'structural_variant_check', 'naming_convention_check', 'eva_sub_cli']
+                            'structural_variant_check', 'naming_convention_check']
 
     def validate(self, validation_tasks=None, set_as_valid=False, merge_per_analysis=False):
         if not validation_tasks:
@@ -40,7 +40,7 @@ class EloadValidation(Eload):
         if 'sample_check' in validation_tasks:
             self._validate_sample_names()
         if set(validation_tasks).intersection(
-                {'vcf_check', 'assembly_check', 'structural_variant_check', 'naming_convention_check', 'eva_sub_cli'}
+                {'vcf_check', 'assembly_check', 'structural_variant_check', 'naming_convention_check'}
         ):
             output_dir = self._run_validation_workflow(validation_tasks)
             self._collect_validation_workflow_results(output_dir, validation_tasks)
@@ -307,8 +307,8 @@ class EloadValidation(Eload):
             self._collect_structural_variant_check_results(vcf_files, output_dir)
         if 'naming_convention_check' in validation_tasks:
             self._collect_naming_convention_check_results(vcf_files, output_dir)
-        if 'eva_sub_cli' in validation_tasks:
-            self._collect_eva_sub_cli_results(output_dir)
+        # eva-sub-cli does not have an associated task, but runs whenever the Nextflow is run and a metadata json exists
+        self._collect_eva_sub_cli_results(output_dir)
 
     def _collect_vcf_check_results(self, vcf_files, output_dir):
         total_error = 0

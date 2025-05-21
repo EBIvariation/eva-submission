@@ -208,7 +208,7 @@ class EloadPreparation(Eload):
 
         # Overwrite taxid & assembly accession values, if specified
         if taxid:
-            metadata_json['project']['taxid'] = taxid
+            metadata_json['project']['taxId'] = taxid
         if reference_accession:
             for analysis in metadata_json['analysis']:
                 analysis['referenceGenome'] = reference_accession
