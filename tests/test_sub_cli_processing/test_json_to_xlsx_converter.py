@@ -155,9 +155,9 @@ class TestJsonToXlsxConverter(TestCase):
         return data_dict
 
     def test_json_to_xlsx_converter_is_valid(self):
-        self.converter = JsonToXlsxConverter(self.test_input_json, self.output_xlsx)
+        converter = JsonToXlsxConverter(self.test_input_json, self.output_xlsx)
 
-        self.converter.convert_json_to_xlsx()
+        converter.convert_json_to_xlsx()
         with patch.object(EvaXlsxValidator, 'check_biosamples_accessions'), \
                 patch('eva_submission.xlsx.xlsx_validation.check_existing_project_in_ena'), \
                 patch('eva_submission.xlsx.xlsx_validation.retrieve_genbank_assembly_accessions_from_ncbi',

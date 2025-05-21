@@ -141,15 +141,16 @@ class JsonToXlsxConverter:
     def create_worksheet(self, workbook, worksheet_key, worksheet_title, worksheet_data):
         self.create_worksheet_header(workbook, worksheet_key, worksheet_title)
         if worksheet_key == "submitterDetails":
-            self.create_submitter_details_worksheet(workbook, worksheet_key, worksheet_title, worksheet_data)
+            self._fill_in_worksheet(workbook, worksheet_title, worksheet_key, source_data_list=worksheet_data, start_row_index = 1)
         elif worksheet_key == "project":
-            self.create_project_worksheet(workbook, worksheet_key, worksheet_title, worksheet_data)
+            self._fill_in_worksheet(workbook, worksheet_title, worksheet_key, source_data_list=[worksheet_data], start_row_index=2)
         elif worksheet_key == "analysis":
-            self.create_analysis_worksheet(workbook, worksheet_key, worksheet_title, worksheet_data)
+            self._fill_in_worksheet(workbook, worksheet_title, worksheet_key, source_data_list=worksheet_data, start_row_index=1)
         elif worksheet_key == "sample":
-            self.create_sample_worksheet(workbook, worksheet_key, worksheet_title, worksheet_data)
+            sample_flattened_data = self._flatten_sample_data(worksheet_data)
+            self._fill_in_worksheet(workbook, worksheet_title, worksheet_key, source_data_list=sample_flattened_data, start_row_index=3)
         elif worksheet_key == "files":
-            self.create_file_worksheet(workbook, worksheet_key, worksheet_title, worksheet_data)
+            self._fill_in_worksheet(workbook, worksheet_title, worksheet_key, source_data_list=worksheet_data, start_row_index=1)
 
     def create_worksheet_header(self, workbook, worksheet_key, worksheet_title):
         workbook.create_sheet(worksheet_title)
@@ -198,19 +199,7 @@ class JsonToXlsxConverter:
                             cell_value = self.data[tmp_worksheet][tmp_header]
                 output_workbook[output_worksheet_title].cell(column=col_index, row=row_index, value=cell_value)
 
-    def create_submitter_details_worksheet(self, workbook, worksheet_key, worksheet_title, submitter_details):
-        row_index = 1
-        self._fill_in_worksheet(workbook, worksheet_title, worksheet_key, submitter_details, row_index)
-
-    def create_project_worksheet(self, workbook, worksheet_key, worksheet_title, project_data):
-        row_index = 2
-        self._fill_in_worksheet(workbook, worksheet_title, worksheet_key, [project_data], row_index)
-
-    def create_analysis_worksheet(self, workbook, worksheet_key, worksheet_title, analysis_data):
-        row_index = 1
-        self._fill_in_worksheet(workbook, worksheet_title, worksheet_key, analysis_data, row_index)
-
-    def create_sample_worksheet(self, workbook, worksheet_key, worksheet_title, sample_data):
+    def _flatten_sample_data(self, sample_data):
         row_index = 3
         sample_flattened_data = []
         for sample in sample_data:
@@ -229,9 +218,4 @@ class JsonToXlsxConverter:
                        }
                  }
             )
-        self._fill_in_worksheet(workbook, worksheet_title, worksheet_key, sample_flattened_data, row_index)
-
-
-    def create_file_worksheet(self, workbook, worksheet_key, worksheet_title, files_data):
-        row_index = 1
-        self._fill_in_worksheet(workbook, worksheet_title, worksheet_key, files_data, row_index)
+        return sample_flattened_data
