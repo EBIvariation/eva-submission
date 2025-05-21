@@ -24,9 +24,9 @@ class TestJsonToXlsxConverter(TestCase):
                 os.remove(f)
 
     def test_json_to_xlsx_converter(self):
-        self.converter = JsonToXlsxConverter(self.test_input_json, self.output_xlsx)
+        converter = JsonToXlsxConverter(self.test_input_json, self.output_xlsx)
 
-        self.converter.convert_json_to_xlsx()
+        converter.convert_json_to_xlsx()
         output_xlsx_data = self.read_excel_to_dict(self.output_xlsx)
 
         self.assert_submitter_details(output_xlsx_data['Submitter Details'])
