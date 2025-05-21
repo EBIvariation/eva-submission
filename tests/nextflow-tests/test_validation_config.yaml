@@ -1,11 +1,13 @@
 vcf_files_mapping: vcf_files_to_validate.csv
 output_dir: output
+metadata_json: fake_metadata.json
 
 executable:
   vcf_validator: ../../../bin/fake_vcf_validator.sh
   vcf_assembly_checker: ../../../bin/fake_assembly_checker.sh
   bcftools: ../../../bin/fake_bcftools.sh
   bgzip: ../../../bin/fake_bgzip.sh
+  eva_sub_cli: ../../../bin/fake_eva_sub_cli.py
   python:
     script_path: ../../../../../
     interpreter: '`which python`'

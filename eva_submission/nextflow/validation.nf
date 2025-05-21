@@ -74,6 +74,7 @@ process run_eva_sub_cli {
 
     output:
     path "validation_results.yaml", emit: eva_sub_cli_results
+    path "report.html", emit: eva_sub_cli_report
 
     script:
     """
