@@ -6,9 +6,6 @@ import os
 def touch(f):
     open(f, 'w').close()
 
-'''
---submission_dir . --metadata_json ${params.metadata_json} --tasks VALIDATE
-'''
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -16,5 +13,6 @@ if __name__ == '__main__':
     parser.add_argument("--metadata_json", required=True)
     parser.add_argument("--tasks", required=True)
     args = parser.parse_args()
-    touch(os.path.join(args.submission_dir, 'report.html'))
+    os.mkdir(os.path.join(args.submission_dir, 'validation_output'))
+    touch(os.path.join(args.submission_dir, 'validation_output/report.html'))
     touch(os.path.join(args.submission_dir, 'validation_results.yaml'))

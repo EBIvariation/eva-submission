@@ -8,6 +8,7 @@ executable:
   bcftools: ../../../bin/fake_bcftools.sh
   bgzip: ../../../bin/fake_bgzip.sh
   eva_sub_cli: ../../../bin/fake_eva_sub_cli.py
+  sub_cli_env: ../../../bin/venv_activate
   python:
     script_path: ../../../../../
     interpreter: '`which python`'

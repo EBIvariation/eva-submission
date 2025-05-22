@@ -17,7 +17,7 @@ output/assembly_check/test1.vcf.gz.assembly_check.log \
 output/assembly_check/test1.vcf.gz.text_assembly_report \
 output/assembly_check/test1.vcf.gz.valid_assembly_report \
 output/validation_results.yaml \
-output/report.html
+output/validation_output/report.html
 
 
 # clean up

@@ -454,7 +454,7 @@ class EloadValidation(Eload):
         # Move the results to the validations folder
         results_path = resolve_single_file_path(os.path.join(output_dir, 'validation_results.yaml'))
         self._move_file(results_path, os.path.join(self._get_dir('eva_sub_cli'), 'validation_results.yaml'))
-        report_path = resolve_single_file_path(os.path.join(output_dir, 'report.html'))
+        report_path = resolve_single_file_path(os.path.join(output_dir, 'validation_output', 'report.html'))
         self._move_file(report_path, os.path.join(self._get_dir('eva_sub_cli'), 'report.html'))
 
     def _metadata_check_report(self):
