@@ -16,7 +16,7 @@ from retry import retry
 from eva_sub_cli_processing.sub_cli_to_eload_converter.json_to_xlsx_converter import JsonToXlsxConverter
 from eva_submission.eload_submission import Eload, directory_structure
 from eva_submission.eload_utils import resolve_accession_from_text, get_reference_fasta_and_report, NCBIAssembly, \
-    create_assembly_report_from_fasta
+    create_assembly_report_from_fasta, is_vcf_file
 from eva_submission.submission_in_ftp import FtpDepositBox
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
@@ -99,7 +99,7 @@ class EloadPreparation(Eload):
         eva_xls_reader = EvaXlsxReader(eva_files_sheet)
         spreadsheet_vcfs = [
             os.path.basename(row['File Name']) for row in eva_xls_reader.files
-            if row['File Type'] == 'vcf' or row['File Name'].endswith('.vcf') or row['File Name'].endswith('.vcf.gz')
+            if is_vcf_file(row['File Name'])
         ]
 
         if sorted(spreadsheet_vcfs) != sorted(submitted_vcfs):
@@ -148,7 +148,7 @@ class EloadPreparation(Eload):
                 self.error(f"Reference is missing for Analysis {analysis.get('Analysis Alias')}")
 
         for file in eva_metadata.files:
-            if file.get("File Type") == 'vcf':
+            if is_vcf_file(file.get('File Name')):
                 file_full = os.path.join(self.eload_dir, directory_structure['vcf'], file.get("File Name"))
                 analysis_alias = self._unique_alias(file.get("Analysis Alias"))
                 analysis_reference[analysis_alias]['vcf_files'].append(file_full)
