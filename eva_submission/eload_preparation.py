@@ -216,9 +216,11 @@ class EloadPreparation(Eload):
         # Overwrite paths to assembly fasta and assembly report
         analyses_in_config = self.eload_cfg.query('submission', 'analyses')
         for analysis in metadata_json['analysis']:
-            if analysis.get('analysisAlias') in analyses_in_config:
-                analysis['referenceFasta'] = analyses_in_config.get(analysis['analysisAlias']).get('assembly_fasta')
-                analysis['assemblyReport'] = analyses_in_config.get(analysis['analysisAlias']).get('assembly_report')
+            unique_alias_in_json = self._unique_alias(analysis.get('analysisAlias'))
+            if unique_alias_in_json in analyses_in_config:
+                analysis['referenceFasta'] = analyses_in_config.get(unique_alias_in_json).get('assembly_fasta')
+                analysis['assemblyReport'] = analyses_in_config.get(unique_alias_in_json).get('assembly_report')
+                self.info(f'Added fasta and assembly report to json for {analysis["analysisAlias"]}')
 
         # Rewrite the metadata json file
         with open(metadata_json_path, 'w') as json_file:

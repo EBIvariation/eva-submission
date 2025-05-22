@@ -166,10 +166,10 @@ class TestEloadPreparation(TestCase):
         self.eload.eload_cfg.set('submission', 'metadata_json', value=json_copy)
 
         # fasta and assembly report determined by find_genome
-        self.eload.eload_cfg.set('submission', 'analyses', 'VD1', 'assembly_fasta', value='GCA_000009999.9_fasta.fa')
-        self.eload.eload_cfg.set('submission', 'analyses', 'VD1', 'assembly_report', value='GCA_000009999.9_report.txt')
-        self.eload.eload_cfg.set('submission', 'analyses', 'VD2', 'assembly_fasta', value='GCA_000001111.1_fasta.fa')
-        self.eload.eload_cfg.set('submission', 'analyses', 'VD2', 'assembly_report', value='GCA_000001111.1_report.txt')
+        self.eload.eload_cfg.set('submission', 'analyses', 'ELOAD_1_VD1', 'assembly_fasta', value='GCA_000009999.9_fasta.fa')
+        self.eload.eload_cfg.set('submission', 'analyses', 'ELOAD_1_VD1', 'assembly_report', value='GCA_000009999.9_report.txt')
+        self.eload.eload_cfg.set('submission', 'analyses', 'ELOAD_1_VD2', 'assembly_fasta', value='GCA_000001111.1_fasta.fa')
+        self.eload.eload_cfg.set('submission', 'analyses', 'ELOAD_1_VD2', 'assembly_report', value='GCA_000001111.1_report.txt')
 
         # assert initial state of metadata
         with open(json_copy) as open_json:
