@@ -222,6 +222,11 @@ class EloadPreparation(Eload):
                 analysis['assemblyReport'] = analyses_in_config.get(unique_alias_in_json).get('assembly_report')
                 self.info(f'Added fasta and assembly report to json for {analysis["analysisAlias"]}')
 
+        # Overwrite file names to full paths
+        for file in metadata_json['files']:
+            file['fileName'] = os.path.join(self.eload_dir, directory_structure['vcf'], file['fileName'])
+            self.info(f'Updated {file["fileName"]} to full path')
+
         # Rewrite the metadata json file
         with open(metadata_json_path, 'w') as json_file:
             json.dump(metadata_json, json_file)
@@ -265,4 +270,3 @@ class EloadPreparation(Eload):
             except IndexError as e:
                 self.error(f'Could not convert metadata version {version} to JSON file: {metadata_xlsx}')
                 raise e
-

@@ -181,6 +181,7 @@ class TestEloadPreparation(TestCase):
         assert 'assemblyReport' not in original_metadata['analysis'][1]
         assert original_metadata['analysis'][2]['referenceFasta'] == 'GCA_000001405.27_fasta.fa'
         assert 'assemblyReport' not in original_metadata['analysis'][2]
+        assert original_metadata['files'][0]['fileName'] == 'example1.vcf.gz'
 
         self.eload.update_metadata_json_if_required(taxid=10000)
 
@@ -194,3 +195,4 @@ class TestEloadPreparation(TestCase):
         assert updated_metadata['analysis'][1]['assemblyReport'] == 'GCA_000001111.1_report.txt'
         assert updated_metadata['analysis'][2]['referenceFasta'] == 'GCA_000001405.27_fasta.fa'
         assert 'assemblyReport' not in updated_metadata['analysis'][2]
+        assert 'ELOAD_1/10_submitted/vcf_files' in updated_metadata['files'][0]['fileName']
