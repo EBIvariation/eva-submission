@@ -1,10 +1,11 @@
 Changelog for eva-submission
 ============================
 
-## 1.18.2 (unreleased)
+## 1.18.2 (2025-05-22)
 ----------------------
 
-- Nothing changed yet.
+ - Validation: Better conversion of the new spreadsheet format
+ - New script to load samples from previous submissions
 
 
 ## 1.18.1 (2025-05-14)
