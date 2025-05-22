@@ -6,9 +6,9 @@ from openpyxl.workbook import Workbook
 
 # The dict contains the mapping between the field in JSON and the header of the Excel spreadsheet.
 # when the value is a dict it must contain a 'name' to define the header and optionally can contain
-#  - transform which define a function applied to the json value
+#  - transform which define a function applied to the cell value
 #  - default which define a default value when the key is not present in the JSON
-#  - link which defines another value in the input JSON to apply (only works on project value)
+#  - link which defines another value in the input JSON to apply in the format <worksheet>.<column> (works on project value) or <>.<column> to get data from the current row
 json_to_xlsx_key_mapper = {
     "worksheets": {
         "submitterDetails": "Submitter Details",
@@ -116,10 +116,9 @@ json_to_xlsx_key_mapper = {
         "analysisAlias": "Analysis Alias",
         "fileName": "File Name",
         'DUMMY1': 'MD5',
-        'DUMMY2': {'name': 'File Type', 'default': 'vcf'}
+        'DUMMY2': {'name': 'File Type', 'link': '.fileName', 'transform': lambda x: 'vcf' if x.endswith('.vcf.gz') or x.endswith('.vcf') else ''},
     }
 }
-
 
 class JsonToXlsxConverter:
 
@@ -181,14 +180,7 @@ class JsonToXlsxConverter:
             col_index = 0
             for header_key in sorted(json_to_xlsx_key_mapper[worksheet_key]):
                 col_index += 1
-                if header_key in source_data_element:
-                    cell_value = source_data_element.get(header_key)
-                    if isinstance(json_to_xlsx_key_mapper[worksheet_key][header_key], dict):
-                        header_dict = json_to_xlsx_key_mapper[worksheet_key][header_key]
-                        if 'transform' in header_dict and cell_value:
-                            cell_value = json_to_xlsx_key_mapper[worksheet_key][header_key].get('transform')(cell_value)
-
-                else:
+                if header_key not in source_data_element:
                     cell_value = ''
                     if isinstance(json_to_xlsx_key_mapper[worksheet_key][header_key], dict):
                         header_dict = json_to_xlsx_key_mapper[worksheet_key][header_key]
@@ -196,7 +188,17 @@ class JsonToXlsxConverter:
                             cell_value = json_to_xlsx_key_mapper[worksheet_key][header_key].get('default')
                         if 'link' in header_dict and not cell_value:
                             tmp_worksheet, tmp_header = json_to_xlsx_key_mapper[worksheet_key][header_key].get('link').split('.')
-                            cell_value = self.data[tmp_worksheet][tmp_header]
+                            if tmp_worksheet:
+                                cell_value = self.data[tmp_worksheet][tmp_header]
+                            else:
+                                cell_value = source_data_element.get(tmp_header)
+                else:
+                    cell_value = source_data_element.get(header_key)
+                if isinstance(json_to_xlsx_key_mapper[worksheet_key][header_key], dict):
+                    header_dict = json_to_xlsx_key_mapper[worksheet_key][header_key]
+                    if 'transform' in header_dict and cell_value:
+                        cell_value = json_to_xlsx_key_mapper[worksheet_key][header_key].get('transform')(cell_value)
+
                 output_workbook[output_worksheet_title].cell(column=col_index, row=row_index, value=cell_value)
 
     def _flatten_sample_data(self, sample_data):

@@ -118,7 +118,7 @@ class TestJsonToXlsxConverter(TestCase):
         assert samples_details[3]['tissue_type'] == 'skin'
 
     def assert_files_details(self, files_details):
-        assert len(files_details) == 3
+        assert len(files_details) == 4
         assert files_details[0]['Analysis Alias'] == 'VD1'
         assert files_details[0]['File Name'] == 'example1.vcf.gz'
         assert files_details[0]['File Type'] == 'vcf'
@@ -128,6 +128,9 @@ class TestJsonToXlsxConverter(TestCase):
         assert files_details[2]['Analysis Alias'] == 'VD3'
         assert files_details[2]['File Name'] == 'example3.vcf'
         assert files_details[2]['File Type'] == 'vcf'
+        assert files_details[3]['Analysis Alias'] == 'VD1'
+        assert files_details[3]['File Name'] == 'example1.vcf.gz.csi'
+        assert files_details[3].get('File Type') is None
 
     def read_excel_to_dict(self, file_path):
         wb = openpyxl.load_workbook(file_path, data_only=True)
