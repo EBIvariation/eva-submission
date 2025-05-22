@@ -156,6 +156,10 @@
     {
       "analysisAlias": "VD3",
       "fileName": "example3.vcf"
+    },
+    {
+      "analysisAlias": "VD1",
+      "fileName": "example1.vcf.gz.csi"
     }
   ]
 }
