@@ -130,7 +130,7 @@ class EloadValidation(Eload):
                 self.eload_cfg.set('validation', 'aggregation_check', 'analyses', str(analysis_alias), value=aggregation)
             elif None in aggregations:
                 indices = [i for i, x in enumerate(aggregations) if x is None]
-                errors.append(f'{analysis_alias}: VCF file aggregation could not be determied: ' + ', '.join([
+                errors.append(f'{analysis_alias}: VCF file aggregation could not be determined: ' + ', '.join([
                     self.eload_cfg.query('submission', 'analyses', analysis_alias, 'vcf_files')[i]
                     for i in indices
                 ]))
@@ -264,6 +264,7 @@ class EloadValidation(Eload):
         validation_config = {
             'vcf_files_mapping': vcf_files_mapping_csv,
             'output_dir': output_dir,
+            'metadata_json': self.eload_cfg.query('submission', 'metadata_json'),
             'executable': cfg['executable'],
             'validation_tasks': validation_tasks
         }
@@ -306,6 +307,8 @@ class EloadValidation(Eload):
             self._collect_structural_variant_check_results(vcf_files, output_dir)
         if 'naming_convention_check' in validation_tasks:
             self._collect_naming_convention_check_results(vcf_files, output_dir)
+        # eva-sub-cli does not have an associated task, but runs whenever the Nextflow is run and a metadata json exists
+        self._collect_eva_sub_cli_results(output_dir)
 
     def _collect_vcf_check_results(self, vcf_files, output_dir):
         total_error = 0
@@ -447,6 +450,13 @@ class EloadValidation(Eload):
                                value=naming_conventions.pop())
         self.eload_cfg.set('validation', 'naming_convention_check', 'pass', value=True)
 
+    def _collect_eva_sub_cli_results(self, output_dir):
+        # Move the results to the validations folder
+        results_path = resolve_single_file_path(os.path.join(output_dir, 'validation_results.yaml'))
+        self._move_file(results_path, os.path.join(self._get_dir('eva_sub_cli'), 'validation_results.yaml'))
+        report_path = resolve_single_file_path(os.path.join(output_dir, 'validation_output', 'report.html'))
+        self._move_file(report_path, os.path.join(self._get_dir('eva_sub_cli'), 'report.html'))
+
     def _metadata_check_report(self):
         reports = []
 
@@ -574,6 +584,14 @@ class EloadValidation(Eload):
                     reports.append(f"    * {vcf_file}: {vcf_files_2_naming_conv[vcf_file]['naming_convention_map']}")
         return '\n'.join(reports)
 
+    def _eva_sub_cli_report(self):
+        report_path = os.path.join(self._get_dir('eva_sub_cli'), 'report.html')
+        if os.path.exists(report_path):
+            return f'See {report_path}'
+        if self.eload_cfg.query('submission', 'metadata_json'):
+            return f'Process failed, check logs'
+        return f'Did not run'
+
     def report(self):
         """Collect information from the config and write the report."""
 
@@ -595,7 +613,8 @@ class EloadValidation(Eload):
             'vcf_merge_report': self._vcf_merge_report(),
             'aggregation_report': self._aggregation_report(),
             'structural_variant_check_report': self._structural_variant_check_report(),
-            'naming_convention_check_report': self._naming_convention_check_report()
+            'naming_convention_check_report': self._naming_convention_check_report(),
+            'eva_sub_cli_report': self._eva_sub_cli_report()
         }
 
         report = """Validation performed on {validation_date}
@@ -642,6 +661,10 @@ Structural variant check:
 Naming convention check:
 {naming_convention_check_report}
 
+----------------------------------
+
+eva-sub-cli:
+{eva_sub_cli_report}
 ----------------------------------
 """
         print(report.format(**report_data))

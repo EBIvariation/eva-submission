@@ -92,6 +92,10 @@ def get_file_content(file_path):
     return fc
 
 
+def is_vcf_file(file_path):
+    return file_path and (file_path.endswith('.vcf') or file_path.endswith('.vcf.gz'))
+
+
 def cast_list(l, type_to_cast=str):
     for e in l:
         yield type_to_cast(e)

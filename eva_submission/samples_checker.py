@@ -4,7 +4,7 @@ import os
 import pysam
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.eload_utils import cast_list
+from eva_submission.eload_utils import cast_list, is_vcf_file
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 logger = log_cfg.get_logger(__name__)
@@ -98,9 +98,7 @@ def get_vcf_file_paths(file_rows, vcf_dir):
     return [
         os.path.join(vcf_dir, file_row.get('File Name'))
         for file_row in file_rows
-        if (file_row.get('File Type') and file_row.get('File Type') == 'vcf') or
-           (file_row.get('File Name') and file_row.get('File Name').endswith('.vcf')) or
-           (file_row.get('File Name') and file_row.get('File Name').endswith('.vcf.gz'))
+        if is_vcf_file(file_row.get('File Name'))
     ]
 
 

@@ -1,4 +1,5 @@
 import glob
+import json
 import os
 import shutil
 from unittest import TestCase, mock
@@ -141,16 +142,57 @@ class TestEloadPreparation(TestCase):
     def test_convert_new_spreadsheet_to_eload_spreadsheet_if_required(self):
         metadata_example = os.path.join(eva_sub_cli.ETC_DIR , 'EVA_Submission_Example.xlsx')
         metadata_dir = self.eload._get_dir('metadata')
-        self.eload.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata_example)
+        # Make a copy so we preserve the example spreadsheet
+        metadata_copy = shutil.copy(metadata_example, os.path.join(metadata_dir, 'metadata.xlsx'))
+        self.eload.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata_copy)
+
         self.eload.convert_new_spreadsheet_to_eload_spreadsheet_if_required()
-        assert os.path.isfile(os.path.join(metadata_dir, 'eva_sub_cli', os.path.basename(metadata_example)))
-        assert os.path.isfile(os.path.join(metadata_dir, os.path.basename(metadata_example)))
-        metadata_xlsx = os.path.join(metadata_dir, os.path.basename(metadata_example))
+        assert os.path.isfile(os.path.join(metadata_dir, 'eva_sub_cli', os.path.basename(metadata_copy)))
+        assert os.path.isfile(os.path.join(metadata_dir, os.path.basename(metadata_copy)))
+        metadata_xlsx = os.path.join(metadata_dir, os.path.basename(metadata_copy))
         version = metadata_xlsx_version(metadata_xlsx)
         assert version == '1.1.4'
         reader = EvaXlsxReader(metadata_xlsx)
         assert reader.project['Project Title'] == 'Investigation of human genetic variants'
         assert reader.analysis[0]['Analysis Title'] == 'Human genetic variation analysis'
+        assert self.eload.eload_cfg.query('submission', 'metadata_json') == os.path.join(metadata_dir, 'eva_sub_cli',
+                                                                                         'eva_sub_cli_metadata.json')
 
+    def test_update_metadata_json_if_required(self):
+        json_example = os.path.join(self.resources_folder, 'input_json_for_json_to_xlsx_converter.json')
+        metadata_dir = self.eload._get_dir('metadata')
+        # Make a copy so we preserve the example json
+        json_copy = shutil.copy(json_example, os.path.join(metadata_dir, 'metadata.json'))
+        self.eload.eload_cfg.set('submission', 'metadata_json', value=json_copy)
 
+        # fasta and assembly report determined by find_genome
+        self.eload.eload_cfg.set('submission', 'analyses', 'ELOAD_1_VD1', 'assembly_fasta', value='GCA_000009999.9_fasta.fa')
+        self.eload.eload_cfg.set('submission', 'analyses', 'ELOAD_1_VD1', 'assembly_report', value='GCA_000009999.9_report.txt')
+        self.eload.eload_cfg.set('submission', 'analyses', 'ELOAD_1_VD2', 'assembly_fasta', value='GCA_000001111.1_fasta.fa')
+        self.eload.eload_cfg.set('submission', 'analyses', 'ELOAD_1_VD2', 'assembly_report', value='GCA_000001111.1_report.txt')
 
+        # assert initial state of metadata
+        with open(json_copy) as open_json:
+            original_metadata = json.load(open_json)
+        assert original_metadata['project']['taxId'] == 9606
+        assert original_metadata['analysis'][0]['referenceFasta'] == 'GCA_000001405.27_fasta.fa'
+        assert 'assemblyReport' not in original_metadata['analysis'][0]
+        assert original_metadata['analysis'][1]['referenceFasta'] == 'GCA_000001405.27_fasta.fa'
+        assert 'assemblyReport' not in original_metadata['analysis'][1]
+        assert original_metadata['analysis'][2]['referenceFasta'] == 'GCA_000001405.27_fasta.fa'
+        assert 'assemblyReport' not in original_metadata['analysis'][2]
+        assert original_metadata['files'][0]['fileName'] == 'example1.vcf.gz'
+
+        self.eload.update_metadata_json_if_required(taxid=10000)
+
+        # assert updated metadata
+        with open(json_copy) as open_json:
+            updated_metadata = json.load(open_json)
+        assert updated_metadata['project']['taxId'] == 10000
+        assert updated_metadata['analysis'][0]['referenceFasta'] == 'GCA_000009999.9_fasta.fa'
+        assert updated_metadata['analysis'][0]['assemblyReport'] == 'GCA_000009999.9_report.txt'
+        assert updated_metadata['analysis'][1]['referenceFasta'] == 'GCA_000001111.1_fasta.fa'
+        assert updated_metadata['analysis'][1]['assemblyReport'] == 'GCA_000001111.1_report.txt'
+        assert updated_metadata['analysis'][2]['referenceFasta'] == 'GCA_000001405.27_fasta.fa'
+        assert 'assemblyReport' not in updated_metadata['analysis'][2]
+        assert 'ELOAD_1/10_submitted/vcf_files' in updated_metadata['files'][0]['fileName']
