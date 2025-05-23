@@ -588,6 +588,8 @@ class EloadValidation(Eload):
         report_path = os.path.join(self._get_dir('eva_sub_cli'), 'report.html')
         if os.path.exists(report_path):
             return f'See {report_path}'
+        if self.eload_cfg.query('submission', 'metadata_json'):
+            return f'Process failed, check logs'
         return f'Did not run'
 
     def report(self):

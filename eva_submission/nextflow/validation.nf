@@ -80,7 +80,7 @@ process run_eva_sub_cli {
     script:
     """
     source $params.executable.sub_cli_env
-    $params.executable.eva_sub_cli --submission_dir . --metadata_json ${params.metadata_json} --tasks VALIDATE
+    $params.executable.eva_sub_cli --submission_dir . --metadata_json ${params.metadata_json} --tasks VALIDATE --shallow
     """
 }
 
