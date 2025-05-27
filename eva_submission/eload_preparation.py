@@ -1,4 +1,5 @@
 import glob
+import json
 import os
 import shutil
 
@@ -15,7 +16,7 @@ from retry import retry
 from eva_sub_cli_processing.sub_cli_to_eload_converter.json_to_xlsx_converter import JsonToXlsxConverter
 from eva_submission.eload_submission import Eload, directory_structure
 from eva_submission.eload_utils import resolve_accession_from_text, get_reference_fasta_and_report, NCBIAssembly, \
-    create_assembly_report_from_fasta
+    create_assembly_report_from_fasta, is_vcf_file
 from eva_submission.submission_in_ftp import FtpDepositBox
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
@@ -75,6 +76,7 @@ class EloadPreparation(Eload):
         self.check_submitted_filenames()
         self.detect_metadata_attributes()
         self.find_genome()
+        self.update_metadata_json_if_required(taxid=taxid, reference_accession=reference_accession)
 
     def detect_submitted_metadata(self):
         metadata_dir = os.path.join(self.eload_dir, directory_structure['metadata'])
@@ -97,7 +99,7 @@ class EloadPreparation(Eload):
         eva_xls_reader = EvaXlsxReader(eva_files_sheet)
         spreadsheet_vcfs = [
             os.path.basename(row['File Name']) for row in eva_xls_reader.files
-            if row['File Type'] == 'vcf' or row['File Name'].endswith('.vcf') or row['File Name'].endswith('.vcf.gz')
+            if is_vcf_file(row['File Name'])
         ]
 
         if sorted(spreadsheet_vcfs) != sorted(submitted_vcfs):
@@ -146,7 +148,7 @@ class EloadPreparation(Eload):
                 self.error(f"Reference is missing for Analysis {analysis.get('Analysis Alias')}")
 
         for file in eva_metadata.files:
-            if file.get("File Type") == 'vcf':
+            if is_vcf_file(file.get('File Name')):
                 file_full = os.path.join(self.eload_dir, directory_structure['vcf'], file.get("File Name"))
                 analysis_alias = self._unique_alias(file.get("Analysis Alias"))
                 analysis_reference[analysis_alias]['vcf_files'].append(file_full)
@@ -194,6 +196,40 @@ class EloadPreparation(Eload):
         else:
             self.error('No scientific name specified')
 
+    def update_metadata_json_if_required(self, taxid=None, reference_accession=None):
+        """Update metadata JSON to include paths to the assembly FASTAs and assembly reports located by find_genome.
+        Also overwrites taxid and assembly accession values if requested, to mirror any updates done to the spreadsheet
+        in replace_values_in_metadata."""
+        metadata_json_path = self.eload_cfg.query('submission', 'metadata_json')
+        if not metadata_json_path:
+            return
+        with open(metadata_json_path) as json_file:
+            metadata_json = json.load(json_file)
+
+        # Overwrite taxid & assembly accession values, if specified
+        if taxid:
+            metadata_json['project']['taxId'] = taxid
+        if reference_accession:
+            for analysis in metadata_json['analysis']:
+                analysis['referenceGenome'] = reference_accession
+
+        # Overwrite paths to assembly fasta and assembly report
+        analyses_in_config = self.eload_cfg.query('submission', 'analyses')
+        for analysis in metadata_json['analysis']:
+            unique_alias_in_json = self._unique_alias(analysis.get('analysisAlias'))
+            if unique_alias_in_json in analyses_in_config:
+                analysis['referenceFasta'] = analyses_in_config.get(unique_alias_in_json).get('assembly_fasta')
+                analysis['assemblyReport'] = analyses_in_config.get(unique_alias_in_json).get('assembly_report')
+                self.info(f'Added fasta and assembly report to json for {analysis["analysisAlias"]}')
+
+        # Overwrite file names to full paths
+        for file in metadata_json['files']:
+            file['fileName'] = os.path.join(self.eload_dir, directory_structure['vcf'], file['fileName'])
+            self.info(f'Updated {file["fileName"]} to full path')
+
+        # Rewrite the metadata json file
+        with open(metadata_json_path, 'w') as json_file:
+            json.dump(metadata_json, json_file)
 
     @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
     def contig_alias_put_db(self, contig_alias_payload, contig_alias_url, contig_alias_user, contig_alias_pass):
@@ -227,9 +263,10 @@ class EloadPreparation(Eload):
             metadata_json_file_path = os.path.join(self._get_dir('metadata'), 'eva_sub_cli', 'eva_sub_cli_metadata.json')
             try:
                 parser.json(metadata_json_file_path)
+                # Store path to metadata json in the eload config
+                self.eload_cfg.set('submission', 'metadata_json', value=metadata_json_file_path)
                 eload_spreadsheet_file_path = os.path.join(self._get_dir('metadata'), metadata_xlsx_name)
                 JsonToXlsxConverter(metadata_json_file_path, eload_spreadsheet_file_path).convert_json_to_xlsx()
             except IndexError as e:
                 self.error(f'Could not convert metadata version {version} to JSON file: {metadata_xlsx}')
                 raise e
-

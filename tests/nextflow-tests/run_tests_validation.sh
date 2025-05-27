@@ -15,7 +15,9 @@ ls output/sv_check/test1.vcf_sv_check.log \
 output/sv_check/test1.vcf_sv_list.vcf.gz \
 output/assembly_check/test1.vcf.gz.assembly_check.log \
 output/assembly_check/test1.vcf.gz.text_assembly_report \
-output/assembly_check/test1.vcf.gz.valid_assembly_report
+output/assembly_check/test1.vcf.gz.valid_assembly_report \
+output/validation_results.yaml \
+output/validation_output/report.html
 
 
 # clean up

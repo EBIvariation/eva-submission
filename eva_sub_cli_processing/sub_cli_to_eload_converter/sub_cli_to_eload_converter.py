@@ -31,5 +31,7 @@ class SubCLIToEloadConverter(EloadPreparation):
         metadata_xlsx_file_path = os.path.join(metadata_dir, "metadata_xlsx.xlsx")
         # download metadata json
         download_metadata_json_file_for_submission_id(submission_id, metadata_json_file_path)
+        # Store path to metadata json in the eload config
+        self.eload_cfg.set('submission', 'metadata_json', value=metadata_json_file_path)
         # convert metadata json to metadata xlsx
         JsonToXlsxConverter(metadata_json_file_path, metadata_xlsx_file_path).convert_json_to_xlsx()

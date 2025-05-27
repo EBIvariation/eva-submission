@@ -9,15 +9,18 @@ def helpMessage() {
     Inputs:
             --vcf_files_mapping     csv file with the mappings for vcf files, fasta and assembly report
             --output_dir            output_directory where the reports will be output
+            --metadata_json         metadata JSON to be validated with eva-sub-cli (optional)
     """
 }
 
 params.vcf_files_mapping = null
 params.output_dir = null
+params.metadata_json = null
 // executables
-params.executable = ["vcf_assembly_checker": "vcf_assembly_checker", "vcf_validator": "vcf_validator", "bgzip": "bgzip"]
+params.executable = ["vcf_assembly_checker": "vcf_assembly_checker", "vcf_validator": "vcf_validator", "bgzip": "bgzip",
+                     "eva_sub_cli": "eva_sub_cli", "sub_cli_env": "sub_cli_env"]
 // validation tasks
-params.validation_tasks = ["assembly_check", "vcf_check", "normalisation_check", "structural_variant_check"]
+params.validation_tasks = ["assembly_check", "vcf_check", "structural_variant_check", "naming_convention_check"]
 // help
 params.help = null
 
@@ -41,6 +44,10 @@ workflow {
         .splitCsv(header:true)
         .map{row -> tuple(file(row.vcf), row.assembly_accession)}
 
+	// eva-sub-cli does not have an associated task, but runs whenever the Nextflow is run and a metadata json exists
+    if (params.metadata_json) {
+        run_eva_sub_cli()
+    }
     if ("vcf_check" in params.validation_tasks) {
         check_vcf_valid(vcf_info_ch)
     }
@@ -53,6 +60,28 @@ workflow {
     if ("naming_convention_check" in params.validation_tasks) {
         detect_naming_convention(vcf_info_acc_ch)
     }
+}
+
+
+/*
+ * Run eva-sub-cli
+ */
+process run_eva_sub_cli {
+    label 'long_time', 'med_mem'
+
+    publishDir "$params.output_dir",
+        overwrite: false,
+        mode: "copy"
+
+    output:
+    path "validation_results.yaml", emit: eva_sub_cli_results
+    path "validation_output/report.html", emit: eva_sub_cli_report
+
+    script:
+    """
+    source $params.executable.sub_cli_env
+    $params.executable.eva_sub_cli --submission_dir . --metadata_json ${params.metadata_json} --tasks VALIDATE --shallow
+    """
 }
 
 

@@ -149,6 +149,10 @@ Naming convention check:
     * test.vcf: enaSequenceName
 
 ----------------------------------
+
+eva-sub-cli:
+Did not run
+----------------------------------
 '''
         print(self.validation.report())
         with patch('builtins.print') as mprint:
