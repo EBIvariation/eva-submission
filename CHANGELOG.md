@@ -1,10 +1,10 @@
 Changelog for eva-submission
 ============================
 
-## 1.18.3 (unreleased)
+## 1.18.3 (2025-05-27)
 ----------------------
 
-- Nothing changed yet.
+- Run eva-sub-cli as part of validation
 
 
 ## 1.18.2 (2025-05-22)
