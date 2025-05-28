@@ -72,11 +72,23 @@ class TestSubCliToEloadConverter(TestCase):
             writer.save()
         return metadata
 
-    def patch_submission_obj(self):
+    def patch_submission_obj(self, json_response=None):
+        if json_response is None:
+            json_response =self.webservice_response_json
         m_submission_obj = patch.object(SubCLIToEloadConverter, '_submission_obj',
-                                        new_callable=PropertyMock(return_value=self.webservice_response_json))
-        print(m_submission_obj)
+                                        new_callable=PropertyMock(return_value=json_response))
         return m_submission_obj
+
+    def test_check_status(self):
+        with self.patch_submission_obj() as m_submission_obj:
+            self.cli_to_eload.check_status()
+            # Check that nothing was raised
+            assert True
+
+    def test_check_status_fail(self):
+        with self.patch_submission_obj(json_response={'submission':{'status': "OPEN"}}) as m_submission_obj:
+            with self.assertRaises(AssertionError):
+                self.cli_to_eload.check_status()
 
     def test_retrieve_vcf_files_from_sub_cli_ftp(self):
         assert os.listdir(os.path.join(self.cli_to_eload.eload_dir, '10_submitted', 'vcf_files')) == []
