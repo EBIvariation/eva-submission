@@ -1,0 +1,187 @@
+{
+  "submissionId": "abcdef_ghijkl_mnopqr_stuvwx",
+  "submission": {
+    "submissionId": "abcdef_ghijkl_mnopqr_stuvwx",
+    "status": "UPLOADED",
+    "submissionAccount": {
+      "id": "webin123_webin",
+      "userId": "webin123",
+      "loginType": "webin",
+      "primaryEmail": "john.doe@example.com",
+      "secondaryEmails": [],
+      "firstName": "John",
+      "lastName": "Dow"
+    },
+    "initiationTime": "2025-05-24T12:00:00.000",
+    "uploadedTime": "2025-05-24T13:00:00.000",
+    "completionTime": null,
+    "uploadUrl": "https://endpoint.data.globus.org/webin123_webin/abcdef_ghijkl_mnopqr_stuvwx"
+  },
+  "projectTitle": "Generic project",
+  "projectDescription": "project description",
+  "metadataJson": {
+    "submitterDetails": [
+      {
+        "lastName": "Smith",
+        "firstName": "John",
+        "email": "john.smith@example.com",
+        "laboratory": "Genomics Lab",
+        "centre": "University of Example",
+        "address": "1 street address"
+      },
+      {
+        "lastName": "Doe",
+        "firstName": "Jane",
+        "email": "jane.doe@example.com",
+        "laboratory": "Bioinformatics Lab",
+        "centre": "University of Example",
+        "address": "1 street address"
+      }
+    ],
+    "project": {
+      "title": "Example Project",
+      "description": "An example project for demonstration purposes",
+      "centre": "University of Example",
+      "taxId": 9606,
+      "holdDate": "2023-12-31",
+      "parentProject": "PRJEB00001",
+      "childProjects": [
+        "PRJEB00002",
+        "PRJEB00003"
+      ]
+    },
+    "analysis": [
+      {
+        "analysisTitle": "Variant Detection 1",
+        "analysisAlias": "VD1",
+        "description": "An example analysis for demonstration purposes",
+        "experimentType": "Whole genome sequencing",
+        "referenceGenome": "GCA_000001405.27",
+        "referenceFasta": "GCA_000001405.27_fasta.fa",
+        "platform": "BGISEQ-500",
+        "imputation": true
+      },
+      {
+        "analysisTitle": "Variant Detection 2",
+        "analysisAlias": "VD2",
+        "description": "An example analysis for demonstration purposes",
+        "experimentType": "Whole genome sequencing",
+        "referenceGenome": "GCA_000001405.27",
+        "referenceFasta": "GCA_000001405.27_fasta.fa",
+        "platform": "BGISEQ-500",
+        "phasing": true
+      },
+      {
+        "analysisTitle": "Variant Detection 3",
+        "analysisAlias": "VD3",
+        "description": "An example analysis for demonstration purposes",
+        "experimentType": "Whole genome sequencing",
+        "referenceGenome": "GCA_000001405.27",
+        "referenceFasta": "GCA_000001405.27_fasta.fa",
+        "platform": "BGISEQ-500"
+      }
+    ],
+    "sample": [
+      {
+        "analysisAlias": [
+          "VD1",
+          "VD2",
+          "VD3"
+        ],
+        "sampleInVCF": "sample1",
+        "bioSampleAccession": "SAME00001"
+      },
+      {
+        "analysisAlias": [
+          "VD1",
+          "VD2",
+          "VD3"
+        ],
+        "sampleInVCF": "sample2",
+        "bioSampleAccession": "SAME00002"
+      },
+      {
+        "analysisAlias": [
+          "VD3"
+        ],
+        "sampleInVCF": "sample3",
+        "bioSampleAccession": "SAME00003"
+      },
+      {
+        "analysisAlias": [
+          "VD4",
+          "VD5"
+        ],
+        "sampleInVCF": "sample4",
+        "bioSampleObject": {
+          "name": "Lm_17_S8",
+          "characteristics": {
+            "title": [
+              {
+                "text": "Bastet normal sample"
+              }
+            ],
+            "description": [
+              {
+                "text": "Test Description"
+              }
+            ],
+            "taxId": [
+              {
+                "text": "9447"
+              }
+            ],
+            "scientificName": [
+              {
+                "text": "Lemur catta"
+              }
+            ],
+            "sex": [
+              {
+                "text": "Female"
+              }
+            ],
+            "tissueType": [
+              {
+                "text": "skin"
+              }
+            ],
+            "species": [
+              {
+                "text": "Lemur catta"
+              }
+            ],
+            "collectionDate": [
+              {
+                "text": "2021-03-12"
+              }
+            ],
+            "geographicLocationCountrySea": [
+              {
+                "text": "United Kingdom"
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "files": [
+      {
+        "analysisAlias": "VD1",
+        "fileName": "example1.vcf.gz"
+      },
+      {
+        "analysisAlias": "VD2",
+        "fileName": "example2.vcf"
+      },
+      {
+        "analysisAlias": "VD3",
+        "fileName": "example3.vcf"
+      },
+      {
+        "analysisAlias": "VD1",
+        "fileName": "example1.vcf.gz.csi"
+      }
+    ]
+  }
+}

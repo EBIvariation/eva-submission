@@ -33,8 +33,6 @@ def main():
                           help='box number where the data should have been uploaded. Required to copy the data from the FTP')
     argparse.add_argument('--submitter', required=False, type=str,
                           help='the name of the directory for that submitter. Required to copy the data from the FTP')
-    argparse.add_argument('--submission_account_id', required=False, type=str,
-                          help='submission account id of the user which is generally "userId_loginType"')
     argparse.add_argument('--submission_id', required=False, type=str, help='The Submission Id of the submission')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
     argparse.add_argument('--taxid', required=False, type=str,
@@ -54,9 +52,9 @@ def main():
     load_config()
 
     if args.submission_account_id and args.submission_id:
-        with SubCLIToEloadConverter(args.eload) as sub_cli_eload:
-            sub_cli_eload.retrieve_vcf_files_from_sub_cli_ftp_dir(args.submission_account_id, args.submission_id)
-            sub_cli_eload.download_metadata_json_and_convert_to_xlsx(args.submission_id)
+        with SubCLIToEloadConverter(args.eload, args.submission_id) as sub_cli_eload:
+            sub_cli_eload.retrieve_vcf_files_from_sub_cli_ftp_dir()
+            sub_cli_eload.download_metadata_json_and_convert_to_xlsx()
             sub_cli_eload.detect_all(args.taxid, args.reference)
     else:
         with EloadPreparation(args.eload) as eload:
