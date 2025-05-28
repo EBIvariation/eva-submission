@@ -29,7 +29,9 @@ class TestSubCliToEloadConverter(TestCase):
         webservice_response_file = os.path.join(self.resources_folder, 'submission_ws_response.json')
         with open(webservice_response_file) as open_file:
             self.webservice_response_json = json.load(open_file)
-
+        metadata_json_file = os.path.join(self.resources_folder, 'input_json_for_json_to_xlsx_converter.json')
+        with open(metadata_json_file) as open_file:
+            self.webservice_response_json['metadataJson'] = json.load(open_file)
         load_config(config_file)
         # Need to set the directory so that the relative path set in the config file works from the top directory
         os.chdir(ROOT_DIR)
