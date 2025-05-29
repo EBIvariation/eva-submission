@@ -1,0 +1,25 @@
+{
+  "submissionId": "abcdef_ghijkl_mnopqr_stuvwx",
+  "submission": {
+    "submissionId": "abcdef_ghijkl_mnopqr_stuvwx",
+    "status": "UPLOADED",
+    "submissionAccount": {
+      "id": "webin123_webin",
+      "userId": "webin123",
+      "loginType": "webin",
+      "primaryEmail": "john.doe@example.com",
+      "secondaryEmails": [],
+      "firstName": "John",
+      "lastName": "Doe"
+    },
+    "initiationTime": "2025-05-24T12:00:00.000",
+    "uploadedTime": "2025-05-24T13:00:00.000",
+    "completionTime": null,
+    "uploadUrl": "https://endpoint.data.globus.org/webin123_webin/abcdef_ghijkl_mnopqr_stuvwx"
+  },
+  "projectTitle": "Generic project",
+  "projectDescription": "project description",
+  "metadataJson": {
+    "Comment": "Will be loaded from input_json_for_json_to_xlsx_converter.json"
+  }
+}
