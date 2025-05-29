@@ -43,7 +43,7 @@ class SubCLIToEloadConverter(EloadPreparation):
         return os.path.join(cfg['ftp_dir'], 'eva-sub-cli', 'upload', self.submission_account_id, self.submission_id)
 
     def check_status(self):
-        status = self._submission_obj.get('submission').get('status')
+        status = self._submission_obj.get('submission', {}).get('status')
         assert status == 'UPLOADED', f'Status for submission {self.submission_id} must be UPLOADED'
 
     def retrieve_vcf_files_from_sub_cli_ftp_dir(self):
