@@ -51,7 +51,7 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    if args.submission_account_id and args.submission_id:
+    if args.submission_id:
         with SubCLIToEloadConverter(args.eload, args.submission_id) as sub_cli_eload:
             sub_cli_eload.check_status()
             sub_cli_eload.retrieve_vcf_files_from_sub_cli_ftp_dir()
