@@ -224,7 +224,8 @@ class EloadPreparation(Eload):
 
         # Overwrite file names to full paths
         for file in metadata_json['files']:
-            file['fileName'] = os.path.join(self.eload_dir, directory_structure['vcf'], file['fileName'])
+            file['fileName'] = os.path.join(self.eload_dir, directory_structure['vcf'],
+                                            os.path.basename(file['fileName']))
             self.info(f'Updated {file["fileName"]} to full path')
 
         # Rewrite the metadata json file
