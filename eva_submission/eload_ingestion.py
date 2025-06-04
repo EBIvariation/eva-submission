@@ -26,23 +26,7 @@ from eva_submission.eload_utils import provision_new_database_for_variant_wareho
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
 from eva_submission.submission_config import EloadConfig
 from eva_submission.vep_utils import get_vep_and_vep_cache_version
-'''
-eva_submission/ENA_submission/json_to_ENA_json.py:from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
-eva_submission/ENA_submission/xlsx_to_ENA_xml.py:from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
-eva_submission/eload_ingestion.py:from ebi_eva_common_pyutils.assembly.assembly import get_supported_asm_from_ensembl, \
-eva_submission/eload_ingestion.py:from ebi_eva_common_pyutils.ena_utils import get_assembly_name_and_taxonomy_id
-eva_submission/eload_ingestion.py:from ebi_eva_common_pyutils.ncbi_utils import get_species_name_from_ncbi
-eva_submission/eload_ingestion.py:from ebi_eva_common_pyutils.ncbi_utils import get_species_name_from_ncbi
-eva_submission/eload_preparation.py:from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
-eva_submission/eload_utils.py:from ebi_eva_common_pyutils.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
-eva_submission/eload_utils.py:from ebi_eva_common_pyutils.reference import NCBIAssembly, NCBISequence
-eva_submission/ena_retrieval.py:from ebi_eva_common_pyutils.ena_utils import download_xml_from_ena
-eva_submission/evapro/populate_evapro.py:from ebi_eva_common_pyutils.ncbi_utils import get_ncbi_assembly_name_from_term
-eva_submission/evapro/populate_evapro.py:from ebi_eva_common_pyutils.ena_utils import get_scientific_name_and_common_name
-eva_submission/vep_utils.py:from ebi_eva_common_pyutils.ncbi_utils import get_ncbi_assembly_dicts_from_term, \
-eva_submission/xlsx/xlsx_validation.py:from ebi_eva_common_pyutils.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
 
-'''
 project_dirs = {
     'logs': '00_logs',
     'valid': '30_eva_valid',
