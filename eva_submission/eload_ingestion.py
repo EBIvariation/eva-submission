@@ -118,7 +118,7 @@ class EloadIngestion(Eload):
                 assembly_accession,
                 vep_cache_assembly_name
             )
-            vep_species = get_species_name_from_ncbi(assembly_accession)
+            vep_species = get_species_name_from_ncbi(assembly_accession, api_key=cfg.get('eutils_api_key'))
             self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'version', value=vep_version)
             self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'cache_version', value=vep_cache_version)
             self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'species', value=vep_species)
