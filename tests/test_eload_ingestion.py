@@ -4,13 +4,16 @@ import shutil
 import subprocess
 from copy import deepcopy
 from unittest import TestCase, mock
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, PropertyMock
 
 import yaml
+from sqlalchemy import create_engine
+
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_ingestion import EloadIngestion, project_dirs
+from eva_submission.evapro.table import metadata
 from eva_submission.submission_config import load_config
 
 
@@ -105,6 +108,11 @@ class TestEloadIngestion(TestCase):
     def _patch_metadata_handle(self):
         return patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True)
 
+    def _patch_metadata_engine(self):
+        engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+        metadata.create_all(engine)
+        return patch.object(EvaProjectLoader, '_evapro_engine', side_effect=PropertyMock(return_value=engine))
+
     def _patch_mongo_database(self, collection_names=None):
         mongodb_instance = mock.Mock()
         if collection_names:
@@ -159,6 +167,8 @@ class TestEloadIngestion(TestCase):
 
     def test_load_from_ena(self):
         with self._patch_metadata_handle(), \
+                self._patch_metadata_engine(), \
+                patch.object(EvaProjectLoader, 'refresh_study_browser'), \
                 patch('eva_submission.eload_ingestion.check_project_exists_in_evapro'), \
                 patch.object(EvaProjectLoader, 'load_project_from_ena') as m_load_project, \
                 patch.object(EvaProjectLoader, 'load_samples_from_vcf_file') as m_load_samples, \
@@ -181,7 +191,8 @@ class TestEloadIngestion(TestCase):
 
     def test_ingest_all_tasks(self):
         with self._patch_metadata_handle(), \
-                patch.object(EloadIngestion, '_update_metadata_post_ingestion') as m_post_load_metadata, \
+                self._patch_metadata_engine(), \
+                patch.object(EvaProjectLoader, 'refresh_study_browser'), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
@@ -202,6 +213,8 @@ class TestEloadIngestion(TestCase):
 
     def test_ingest_metadata_load(self):
         with self._patch_metadata_handle(), \
+                self._patch_metadata_engine(), \
+                patch.object(EvaProjectLoader, 'refresh_study_browser'), \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
                 patch('eva_submission.eload_utils.get_all_results_for_query') as m_get_alias_results, \
@@ -217,6 +230,8 @@ class TestEloadIngestion(TestCase):
 
     def test_ingest_accession(self):
         with self._patch_metadata_handle(), \
+             self._patch_metadata_engine(), \
+                patch.object(EvaProjectLoader, 'refresh_study_browser'), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
@@ -240,6 +255,8 @@ class TestEloadIngestion(TestCase):
 
     def test_ingest_variant_load(self):
         with self._patch_metadata_handle(), \
+                self._patch_metadata_engine(), \
+                patch.object(EvaProjectLoader, 'refresh_study_browser'), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True), \
                 patch('eva_submission.eload_utils.get_metadata_connection_handle', autospec=True), \
@@ -258,60 +275,6 @@ class TestEloadIngestion(TestCase):
             assert os.path.exists(
                 os.path.join(self.eload.eload_dir, 'accession_and_load_params.yaml')
             )
-
-    def test_insert_browsable_files(self):
-        with self._patch_metadata_handle(), \
-                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
-                patch('eva_submission.eload_ingestion.execute_query') as m_execute:
-            m_get_results.side_effect = [
-                [],                                      # files_query
-                [],                                      # find_browsable_files_query
-                [(1, 'ERA', 'filename_1', 'PRJ', 123),
-                 (2, 'ERA', 'filename_1', 'PRJ', 123)],  # files_query
-                [(1, 'ERA', 'filename_1', 'PRJ', 123),
-                 (2, 'ERA', 'filename_1', 'PRJ', 123)]   # find_browsable_files_query
-            ]
-            self.eload.insert_browsable_files()
-            m_execute.assert_called()
-
-            # calling insert again doesn't execute anything
-            m_execute.call_count = 0
-            self.eload.insert_browsable_files()
-            m_execute.assert_not_called()
-
-    def test_insert_browsable_files_warning(self):
-        with self._patch_metadata_handle(), \
-                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
-                patch.object(EloadIngestion, 'warning') as m_warning:
-            m_get_results.side_effect = [
-                [(1, 'ERA', 'filename_1', 'PRJ', 123),
-                 (2, 'ERA', 'filename_1', 'PRJ', 123)],  # files_query
-                [(1, 'ERA', 'filename_1', 'PRJ', 123),
-                 (2, 'ERA', 'filename_1', 'PRJ', 234)],  # find_browsable_files_query
-            ]
-            assert m_warning.call_count == 0
-            self.eload.insert_browsable_files()
-            assert m_warning.call_count == 1
-
-    def test_update_browsable_files_with_date(self):
-        with self._patch_metadata_handle(), \
-                patch('eva_submission.eload_ingestion.execute_query') as m_execute:
-            self.eload.update_browsable_files_with_date()
-            m_execute.assert_called()
-
-    def test_update_files_with_ftp_path(self):
-        with self._patch_metadata_handle(), \
-                patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
-                patch('eva_submission.eload_ingestion.execute_query') as m_execute:
-            m_get_results.side_effect = [[(1, 'filename_1')], []]
-            self.eload.update_files_with_ftp_path()
-            m_execute.assert_called()
-
-            # calling insert again fail because no files are present
-            m_execute.call_count = 0
-            with self.assertRaises(ValueError):
-                self.eload.update_files_with_ftp_path()
-            m_execute.assert_not_called()
 
     def get_mock_result_for_ena_date(self):
         return '''<?xml version="1.0" encoding="UTF-8"?>
@@ -403,6 +366,8 @@ class TestEloadIngestion(TestCase):
 
     def test_ingest_clustering(self):
         with self._patch_metadata_handle(), \
+                self._patch_metadata_engine(), \
+                patch.object(EvaProjectLoader, 'refresh_study_browser'), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_run_command, \
                 patch('eva_submission.eload_ingestion.get_assembly_name_and_taxonomy_id') as m_get_tax, \
@@ -429,6 +394,8 @@ class TestEloadIngestion(TestCase):
 
     def test_ingest_clustering_supported_assembly_in_another_taxonomy(self):
         with self._patch_metadata_handle(), \
+                self._patch_metadata_engine(), \
+                patch.object(EvaProjectLoader, 'refresh_study_browser'), \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch.object(EloadIngestion, "_get_supported_assembly_from_evapro", new=MagicMock()) as m_get_supported_asm, \
                 patch.object(EloadIngestion, "_insert_new_supported_asm_from_ensembl", new=MagicMock()) as m_new_supported_asm, \
@@ -459,6 +426,8 @@ class TestEloadIngestion(TestCase):
 
     def test_resume_when_step_fails(self):
         with self._patch_metadata_handle(), \
+                self._patch_metadata_engine(), \
+                patch.object(EvaProjectLoader, 'refresh_study_browser'), \
                 patch.object(EloadIngestion, '_update_metadata_post_ingestion') as m_post_load_metadata, \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_run_command, \
@@ -503,6 +472,8 @@ class TestEloadIngestion(TestCase):
 
     def test_resume_completed_job(self):
         with self._patch_metadata_handle(), \
+                self._patch_metadata_engine(), \
+                patch.object(EvaProjectLoader, 'refresh_study_browser'), \
                 patch.object(EloadIngestion, '_update_metadata_post_ingestion') as m_post_load_metadata, \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_run_command, \
@@ -540,6 +511,8 @@ class TestEloadIngestion(TestCase):
 
     def test_resume_with_tasks(self):
         with self._patch_metadata_handle(), \
+                self._patch_metadata_engine(), \
+                patch.object(EvaProjectLoader, 'refresh_study_browser'), \
                 patch.object(EloadIngestion, '_update_metadata_post_ingestion') as m_post_load_metadata, \
                 patch('eva_submission.eload_ingestion.get_all_results_for_query') as m_get_results, \
                 patch('eva_submission.eload_ingestion.command_utils.run_command_with_output', autospec=True) as m_run_command, \
