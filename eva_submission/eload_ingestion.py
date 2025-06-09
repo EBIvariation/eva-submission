@@ -55,6 +55,7 @@ class EloadIngestion(Eload):
         self.maven_profile = cfg['maven']['environment']
         self.mongo_uri = get_mongo_uri_for_eva_profile(self.maven_profile, self.private_settings_file)
         self.properties_generator = SpringPropertiesGenerator(self.maven_profile, self.private_settings_file)
+        self.loader = EvaProjectLoader()
 
     def ingest(
             self,
@@ -62,6 +63,7 @@ class EloadIngestion(Eload):
             vep_cache_assembly_name=None,
             resume=False
     ):
+        clustering_performed_on_assembly = None
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
         self.project_dir = self.setup_project_dir()
         # Pre ingestion checks
@@ -91,19 +93,31 @@ class EloadIngestion(Eload):
             target_assembly = self._get_target_assembly()
             if target_assembly:
                 self.eload_cfg.set(self.config_section, 'remap_and_cluster', 'target_assembly', value=target_assembly)
-                self.run_remap_and_cluster_workflow(target_assembly, resume=resume)
+                tasks = self.run_remap_and_cluster_workflow(target_assembly, resume=resume)
+                if tasks:
+                    # clustering was successfully performed on the target assembly
+                    clustering_performed_on_assembly = target_assembly
             else:
                 self.warning(f'Could not find any current supported assembly for the submission, skipping clustering')
 
         if do_accession or do_variant_load:
             self._update_metadata_post_ingestion()
 
+        if clustering_performed_on_assembly:
+            self._update_clustering_records(clustering_performed_on_assembly)
+
+
     def _update_metadata_post_ingestion(self):
-        self.insert_browsable_files()
-        self.update_browsable_files_with_date()
-        self.update_loaded_assembly_in_browsable_files()
-        self.update_files_with_ftp_path()
-        self.refresh_study_browser()
+        self.loader.insert_browsable_files_for_project(self.project_accession)
+        release_date = self.eload_cfg.query('brokering', 'ena', 'hold_date')
+        self.loader.mark_release_browsable_files_for_project(self.project_accession, release_date)
+        self.loader.update_loaded_assembly_in_browsable_files_for_project(self.project_accession)
+        self.loader.update_files_with_ftp_path_for_project(self.project_accession)
+        self.loader.refresh_study_browser()
+
+    def _update_clustering_records(self, target_assembly):
+        clustering_source = f'{self.project_accession},ELOAD_{self.eload_num}'
+        self.loader.load_clustering_record(self.taxonomy, target_assembly, clustering_source)
 
     def fill_vep_versions(self, vep_cache_assembly_name=None):
         analyses = self.eload_cfg.query('brokering', 'analyses')
@@ -213,16 +227,15 @@ class EloadIngestion(Eload):
         """
         Loads Project and Analysis metadata from ENA into EVAPRO to the project associated with this ELOAD.
         """
-        loader = EvaProjectLoader()
         sample_name_2_accession = self.eload_cfg.query('brokering', 'Biosamples', 'Samples')
         try:
             # Load entire project, or only analyses associated with this submission
             if check_project_exists_in_evapro(self.project_accession):
                 analyses = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
                 for analysis_accession in analyses.values():
-                    loader.load_project_from_ena(self.project_accession, self.eload_num, analysis_accession)
+                    self.loader.load_project_from_ena(self.project_accession, self.eload_num, analysis_accession)
             else:
-                loader.load_project_from_ena(self.project_accession, self.eload_num)
+                self.loader.load_project_from_ena(self.project_accession, self.eload_num)
 
             # Check aggregation type for each analysis in this submission to determine if we should load samples by file
             # or by analysis
@@ -230,15 +243,15 @@ class EloadIngestion(Eload):
                 aggregation_type = self.eload_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
                 if aggregation_type == 'basic':
                     analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
-                    loader.load_samples_from_analysis(sample_name_2_accession, analysis_accession)
+                    self.loader.load_samples_from_analysis(sample_name_2_accession, analysis_accession)
                 else:
                     analysis_info = self.eload_cfg.query('brokering', 'analyses', analysis_alias)
                     for vcf_file in analysis_info['vcf_files']:
                         vcf_file_md5 = analysis_info['vcf_files'][vcf_file]['md5']
-                        loader.load_samples_from_vcf_file(sample_name_2_accession, vcf_file, vcf_file_md5)
-            loader.update_project_samples_temp1(self.project_accession)
+                        self.loader.load_samples_from_vcf_file(sample_name_2_accession, vcf_file, vcf_file_md5)
+            self.loader.update_project_samples_temp1(self.project_accession)
 
-            self.refresh_study_browser()
+            self.loader.refresh_study_browser()
             self.eload_cfg.set(self.config_section, 'ena_load', value='success')
         except Exception as e:
             self.error('ENA metadata load failed: aborting ingestion.')
@@ -374,7 +387,7 @@ class EloadIngestion(Eload):
         }
         for part in ['executable', 'nextflow', 'jar']:
             remap_cluster_config[part] = cfg[part]
-        self.run_nextflow('remap_and_cluster', remap_cluster_config, resume, tasks=['optional_remap_and_cluster'])
+        return self.run_nextflow('remap_and_cluster', remap_cluster_config, resume, tasks=['optional_remap_and_cluster'])
 
     def _get_supported_assembly_from_evapro(self, tax_id: int = None):
         tax_id = tax_id or self.taxonomy
@@ -514,78 +527,6 @@ class EloadIngestion(Eload):
             open_file.write(properties)
         return output_file_path
 
-    def insert_browsable_files(self):
-        with self.metadata_connection_handle as conn:
-            # insert into browsable file table, if files not already there
-            files_query = (f"select file_id, ena_submission_file_id,filename,project_accession,assembly_set_id "
-                           f"from evapro.browsable_file "
-                           f"where project_accession = '{self.project_accession}';")
-            rows_in_table = get_all_results_for_query(conn, files_query)
-            find_browsable_files_query = (
-                "select file.file_id,ena_submission_file_id,filename,project_accession,assembly_set_id "
-                "from (select * from analysis_file af "
-                "join analysis a on a.analysis_accession = af.analysis_accession "
-                "join project_analysis pa on af.analysis_accession = pa.analysis_accession "
-                f"where pa.project_accession = '{self.project_accession}' ) myfiles "
-                "join file on file.file_id = myfiles.file_id where file.file_type ilike 'vcf';"
-            )
-            rows_expected = get_all_results_for_query(conn, files_query)
-            if len(rows_in_table) > 0:
-                if set(rows_in_table) == set(rows_expected):
-                    self.info('Browsable files already inserted, skipping')
-                else:
-                    self.warning(f'Found {len(rows_in_table)} browsable file rows in the table but they are different '
-                                 f'from the expected ones: '
-                                 f'{os.linesep + os.linesep.join([str(row) for row in rows_expected])}')
-            else:
-                self.info('Inserting browsable files...')
-                insert_query = ("insert into browsable_file (file_id,ena_submission_file_id,filename,project_accession,"
-                                "assembly_set_id) " + find_browsable_files_query)
-                execute_query(conn, insert_query)
-
-    def update_browsable_files_with_date(self):
-        with self.metadata_connection_handle as conn:
-            # update loaded and release date
-            release_date = self.eload_cfg.query('brokering', 'ena', 'hold_date')
-            release_update = f"update evapro.browsable_file " \
-                             f"set loaded = true, eva_release = '{release_date.strftime('%Y%m%d')}' " \
-                             f"where project_accession = '{self.project_accession}';"
-            execute_query(conn, release_update)
-
-    def update_files_with_ftp_path(self):
-        files_query = f"select file_id, filename from evapro.browsable_file " \
-                      f"where project_accession = '{self.project_accession}';"
-        with self.metadata_connection_handle as conn:
-            # update FTP file paths
-            rows = get_all_results_for_query(conn, files_query)
-            if len(rows) == 0:
-                raise ValueError('Something went wrong with loading from ENA')
-            for file_id, filename in rows:
-                ftp_update = f"update evapro.file " \
-                             f"set ftp_file = '/ftp.ebi.ac.uk/pub/databases/eva/{self.project_accession}/{filename}' " \
-                             f"where file_id = '{file_id}';"
-                execute_query(conn, ftp_update)
-
-    def update_loaded_assembly_in_browsable_files(self):
-        # find assembly associated with each browsable file and copy it to the browsable file table
-        query = ('select bf.file_id, a.vcf_reference_accession '
-                 'from analysis a '
-                 'join analysis_file af on a.analysis_accession=af.analysis_accession '
-                 'join browsable_file bf on af.file_id=bf.file_id '
-                 f"where bf.project_accession='{self.project_accession}';")
-        with self.metadata_connection_handle as conn:
-            rows = get_all_results_for_query(conn, query)
-            if len(rows) == 0:
-                raise ValueError(f'No files found associated with project {self.project_accession}. '
-                                 f'Something went wrong with loading from ENA')
-
-            # Update each file with its associated assembly accession
-            for file_id, assembly_accession in rows:
-                ftp_update = f"update evapro.browsable_file " \
-                             f"set loaded_assembly = '{assembly_accession}' " \
-                             f"where file_id = '{file_id}';"
-                execute_query(conn, ftp_update)
-
     def check_assembly_set_id_coherence(self):
         query = (
             f'select a.analysis_accession, a.assembly_set_id, af.file_id, bf.assembly_set_id '
@@ -622,9 +563,6 @@ class EloadIngestion(Eload):
                                        f"where analysis_accession = '{analysis_accession}';")
                     execute_query(conn, analysis_update)
 
-    def refresh_study_browser(self):
-        with self.metadata_connection_handle as conn:
-            execute_query(conn, 'refresh materialized view study_browser;')
 
     @cached_property
     def valid_vcf_filenames(self):
@@ -693,6 +631,8 @@ class EloadIngestion(Eload):
             for task in tasks:
                 self.eload_cfg.set(self.config_section, workflow_name, 'nextflow_dir', task,
                                    value=self.nextflow_complete_value)
+            # Notify which tasks where actually performed
+            return tasks
         except subprocess.CalledProcessError as e:
             error_msg = f'Nextflow {workflow_name} pipeline failed: results might not be complete.'
             error_msg += (f"See Nextflow logs in {self.eload_dir}/.nextflow.log or pipeline logs "

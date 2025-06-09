@@ -1,5 +1,6 @@
 import datetime
 import os.path
+from datetime import date
 from unittest import TestCase
 from unittest.mock import patch, PropertyMock, Mock
 
@@ -8,7 +9,7 @@ from sqlalchemy import create_engine, select
 
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
 from eva_submission.evapro.table import metadata, SampleInFile, Project, Analysis, Submission, LinkedProject, Platform, \
-    Taxonomy, ProjectSampleTemp1
+    Taxonomy, ProjectSampleTemp1, BrowsableFile, File, ClusterVariantUpdate
 from eva_submission.submission_config import load_config
 
 
@@ -194,7 +195,7 @@ class TestEvaProjectLoader(TestCase):
         engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
         with self.patch_evapro_engine(engine):
             metadata.create_all(engine)
-            self.loader.eva_session.begin()
+            self.loader.begin_or_continue_transaction()
             self.loader.insert_file('prj000001', 1, 1, vcf_file_name,
                                     vcf_file_md5, 'vcf', 'path/to/ftp')
             for sample_name, biosample_accession in sample_name_2_sample_accession.items():
@@ -223,7 +224,7 @@ class TestEvaProjectLoader(TestCase):
         engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
         with self.patch_evapro_engine(engine):
             metadata.create_all(engine)
-            self.loader.eva_session.begin()
+            self.loader.begin_or_continue_transaction()
             analysis_obj = self.loader.insert_analysis('ERZ000001', 'title', 'alias', 'description', 'center_name',
                                         datetime.datetime(2018, 3, 26, 15, 33, 35), 1)
             file_obj = self.loader.insert_file('prj000001', 1, 1, vcf_file_name,
@@ -248,54 +249,64 @@ class TestEvaProjectLoader(TestCase):
                                 sample_in_file.file.filename))
             assert results == expected_results
 
+    def _load_project_analysis_files_samples(
+            self, project_accession='prj000001',  analysis_accession='erz000001',
+            vcf_files=['vcf_file1.vcf', 'vcf_file2.vcf'],  vcf_file_md5=['md5sum1', 'md5sum2'],
+            biosamples=['SAME000001', 'SAME000002'],
+            add_browsable=False
+    ):
+        self.loader.begin_or_continue_transaction()
+        project_obj = self.loader.insert_project_in_evapro(
+            project_accession=project_accession, center_name='name', project_alias='alias', title='title',
+            description='description', ena_study_type='ena_study_type',
+            ena_secondary_study_id='ena_secondary_study_id'
+        )
+        analysis_obj = self.loader.insert_analysis(
+            analysis_accession=analysis_accession, title='title', alias='alais', description='description',
+            center_name='name', date=datetime.date(year=2024, month=1, day=1), assembly_set_id=1,
+            vcf_reference_accession='GCA000001'
+        )
+        project_obj.analyses.append(analysis_obj)
+        file_objs = []
+        sample_objs = []
+        for vcf_file, vcf_file_md5 in zip(vcf_files, vcf_file_md5):
+            if add_browsable:
+                file_obj = self.loader.insert_file(
+                    project_accession=project_accession, assembly_set_id=1, ena_submission_file_id=1,
+                    filename=vcf_file,
+                    file_md5=vcf_file_md5, file_type='vcf', ftp_file='path/to/ftp'
+                )
+            else:
+                # Only create the file object
+                file_obj = File(
+                    ena_submission_file_id='1',  filename=vcf_file, file_md5=vcf_file_md5,
+                    file_type='vcf',
+                    file_location=None, file_class='submitted', file_version=1,
+                    is_current=1,
+                    ftp_file='path/to/ftp'
+                )
+                self.loader.eva_session.add(file_obj)
+            analysis_obj.files.append(file_obj)
+            file_objs.append(file_obj)
+        for biosample in biosamples:
+            sample_obj = self.loader.insert_sample(biosample_accession=biosample, ena_accession='ena_accession')
+            sample_objs.append(sample_obj)
+        self.loader.eva_session.commit()
+
+        self.loader.begin_or_continue_transaction()
+        for file_obj, sample_obj in zip(file_objs,sample_objs):
+            self.loader.insert_sample_in_file(file_id=file_obj.file_id, sample_id=sample_obj.sample_id,
+                                              name_in_file='sample_name')
+        self.loader.eva_session.commit()
+        return project_accession, analysis_accession, vcf_files, vcf_file_md5, biosamples
+
     def test_update_project_samples_temp1(self):
         engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
-        project_accession = 'prj000001'
-        vcf_file1_name = 'vcf_file1.vcf'
-        vcf_file2_name = 'vcf_file2.vcf'
-        vcf_file1_md5 = 'md5sum1'
-        vcf_file2_md5 = 'md5sum2'
-        biosample1 = 'SAME000001'
-        biosample2 = 'SAME000002'
+
         with self.patch_evapro_engine(engine):
             metadata.create_all(engine)
-            self.loader.eva_session.begin()
-            project_obj = self.loader.insert_project_in_evapro(
-                project_accession=project_accession, center_name='name', project_alias='alias', title='title',
-                description='description', ena_study_type='ena_study_type',
-                ena_secondary_study_id='ena_secondary_study_id'
-            )
-            analysis_obj = self.loader.insert_analysis(
-                analysis_accession='analysis1', title='title', alias='alais', description='description',
-                center_name='name', date=datetime.date(year=2024, month=1, day=1), assembly_set_id=1,
-                vcf_reference_accession='GCA000001'
-            )
-            project_obj.analyses.append(analysis_obj)
-            file1_obj = self.loader.insert_file(
-                project_accession='project_accession', assembly_set_id=1, ena_submission_file_id=1,
-                filename=vcf_file1_name,
-                file_md5=vcf_file1_md5, file_type='vcf', ftp_file='path/to/ftp'
-            )
-            file2_obj = self.loader.insert_file(
-                project_accession='project_accession', assembly_set_id=1, ena_submission_file_id=2,
-                filename=vcf_file2_name,
-                file_md5=vcf_file2_md5, file_type='vcf', ftp_file='path/to/ftp'
-            )
-            analysis_obj.files.append(file1_obj)
-            analysis_obj.files.append(file2_obj)
-            sample1_obj = self.loader.insert_sample(biosample_accession=biosample1, ena_accession='ena_accession')
-            sample2_obj = self.loader.insert_sample(biosample_accession=biosample2, ena_accession='ena_accession')
-            self.loader.eva_session.commit()
 
-            self.loader.eva_session.begin()
-            self.loader.insert_sample_in_file(file_id=file1_obj.file_id, sample_id=sample1_obj.sample_id,
-                                              name_in_file='sample_name')
-            self.loader.insert_sample_in_file(file_id=file1_obj.file_id, sample_id=sample2_obj.sample_id,
-                                              name_in_file='sample_name')
-            self.loader.insert_sample_in_file(file_id=file2_obj.file_id, sample_id=sample1_obj.sample_id,
-                                              name_in_file='sample_name')
-            self.loader.eva_session.commit()
-
+            project_accession, _, _, _, _ = self._load_project_analysis_files_samples()
             self.loader.update_project_samples_temp1(project_accession=project_accession)
 
             query = select(ProjectSampleTemp1)
@@ -307,3 +318,95 @@ class TestEvaProjectLoader(TestCase):
 
             # Only 2 samples because one sample is contained in two files
             assert results == [('prj000001', 2)]
+
+    def _get_browsable_file_names(self):
+        query = select(BrowsableFile)
+        results = []
+        for browsable_file in self.loader.eva_session.execute(query).scalars():
+            results.append(browsable_file.filename)
+        self.loader.eva_session.commit()
+        return results
+
+    def test_insert_browsable_files_for_project(self):
+        engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+        with self.patch_evapro_engine(engine):
+            metadata.create_all(engine)
+            project_accession, _, vcf_files, _, _ = self._load_project_analysis_files_samples()
+            browsable_file_names = self._get_browsable_file_names()
+            assert browsable_file_names == []
+            self.loader.insert_browsable_files_for_project(project_accession=project_accession)
+            browsable_file_names = self._get_browsable_file_names()
+            assert sorted(browsable_file_names) == vcf_files
+
+    def test_not_insert_browsable_files_for_project(self):
+        engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+        with self.patch_evapro_engine(engine):
+            metadata.create_all(engine)
+            project_accession, _, vcf_files, _, _ = self._load_project_analysis_files_samples(add_browsable=True)
+            browsable_file_names = self._get_browsable_file_names()
+            assert browsable_file_names == vcf_files
+            self.loader.insert_browsable_files_for_project(project_accession=project_accession)
+            browsable_file_names = self._get_browsable_file_names()
+            assert sorted(browsable_file_names) == vcf_files
+
+    def test_mark_release_browsable_files_for_project(self):
+        engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+        with self.patch_evapro_engine(engine):
+            metadata.create_all(engine)
+            project_accession, _, _, _, _ = self._load_project_analysis_files_samples(add_browsable=True)
+            release_date = date(year=2024, month=1, day=1)
+            query = select(BrowsableFile)
+            for browsable_file in self.loader.eva_session.execute(query).scalars():
+                assert browsable_file.loaded == False
+                assert browsable_file.eva_release == 'Unreleased'
+            self.loader.mark_release_browsable_files_for_project(project_accession, release_date)
+
+            for browsable_file in self.loader.eva_session.execute(query).scalars():
+                assert browsable_file.loaded == True
+                assert browsable_file.eva_release == '20240101'
+
+    def test_update_files_with_ftp_path_for_project(self):
+        engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+        with self.patch_evapro_engine(engine):
+            metadata.create_all(engine)
+            project_accession, _, _, _, _ = self._load_project_analysis_files_samples(add_browsable=True)
+            query = select(File)
+            for file_obj in self.loader.eva_session.execute(query).scalars():
+                assert file_obj.ftp_file == 'path/to/ftp'
+            self.loader.update_files_with_ftp_path_for_project(project_accession)
+            ftp_file_paths = []
+            for file_obj in self.loader.eva_session.execute(query).scalars():
+                ftp_file_paths.append(file_obj.ftp_file)
+            assert ftp_file_paths == [
+                '/ftp.ebi.ac.uk/pub/databases/eva/prj000001/vcf_file1.vcf',
+                '/ftp.ebi.ac.uk/pub/databases/eva/prj000001/vcf_file2.vcf'
+            ]
+
+    def test_update_loaded_assembly_in_browsable_files_for_project(self):
+        engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+        with self.patch_evapro_engine(engine):
+            metadata.create_all(engine)
+            project_accession, _, _, _, _ = self._load_project_analysis_files_samples(add_browsable=True)
+            query = select(BrowsableFile)
+            for browsable_file_obj in self.loader.eva_session.execute(query).scalars():
+                assert browsable_file_obj.loaded_assembly is None
+            self.loader.update_loaded_assembly_in_browsable_files_for_project(project_accession)
+            query = select(BrowsableFile)
+            for browsable_file_obj in self.loader.eva_session.execute(query).scalars():
+                assert browsable_file_obj.loaded_assembly == 'GCA000001'
+
+
+    def test_load_clustering_record(self):
+        engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+        now=datetime.datetime.now()
+        with self.patch_evapro_engine(engine), patch('eva_submission.evapro.populate_evapro.now', return_value=now):
+            metadata.create_all(engine)
+            self.loader.load_clustering_record(taxonomy=1234, assembly='assembly', clustering_source='source')
+
+        query = select(ClusterVariantUpdate)
+        clustering_update_obj = self.loader.eva_session.execute(query).scalar()
+        assert clustering_update_obj.taxonomy_id == 1234
+        assert clustering_update_obj.assembly_accession == 'assembly'
+        assert clustering_update_obj.source == 'source'
+        assert clustering_update_obj.ingestion_time == now
+

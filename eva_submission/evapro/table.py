@@ -106,7 +106,7 @@ class Project(Base):
 
     url_links = relationship('UrlLink', secondary='project_url_link')
     taxonomies = relationship('Taxonomy', secondary='project_taxonomy', back_populates='projects')
-    analyses = relationship('Analysis', secondary='project_analysis', backref='projects')
+    analyses = relationship('Analysis', secondary='project_analysis', back_populates='projects')
 
 class ProjectEnaSubmission(Base):
     __tablename__ = 'project_ena_submission'
@@ -301,6 +301,7 @@ class Analysis(Base):
     sequences = relationship('EvaReferencedSequence', secondary='analysis_sequence')
     submissions = relationship('Submission', secondary='analysis_submission', backref='analyses')
     experiment_types = relationship('ExperimentType', secondary='analysis_experiment_type')
+    projects = relationship('Project', secondary='project_analysis', back_populates='analyses')
 
 
 class AnalysisAttribute(Base):
@@ -449,3 +450,15 @@ t_study_browser = Table(
     Column('resource', String),
     Column('browsable', Boolean)
 )
+
+
+class ClusterVariantUpdate(Base):
+    __tablename__ = 'cluster_variant_update'
+    __table_args__ = {'comment': 'Table storing addition to the submitted or clustered accession'}
+
+    dbxref_id = Column(Integer, primary_key=True, autoincrement=True)
+    taxonomy_id = Column(Integer,  nullable=False)
+    assembly_accession= Column(String, nullable=False)
+    source = Column(Text, nullable=False)
+    ingestion_time = Column(DateTime(True))
+

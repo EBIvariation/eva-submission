@@ -1,3 +1,5 @@
+import datetime
+import os
 import re
 from functools import cached_property
 from urllib.parse import urlsplit
@@ -9,14 +11,14 @@ from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.ncbi_utils import get_ncbi_assembly_name_from_term
 from ebi_eva_internal_pyutils.config_utils import get_metadata_creds_for_profile
 from ebi_eva_internal_pyutils.metadata_utils import build_taxonomy_code
-from sqlalchemy import select, create_engine, func
+from sqlalchemy import select, create_engine, func, update
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import Session
 
 from eva_submission.evapro.find_from_ena import OracleEnaProjectFinder
 from eva_submission.evapro.table import Project, Taxonomy, LinkedProject, Submission, ProjectEnaSubmission, \
     EvaSubmission, ProjectEvaSubmission, Analysis, AssemblySet, AccessionedAssembly, File, BrowsableFile, \
-    Platform, ExperimentType, Sample, SampleInFile, ProjectSampleTemp1
+    Platform, ExperimentType, Sample, SampleInFile, ProjectSampleTemp1, ClusterVariantUpdate
 from eva_submission.samples_checker import get_samples_from_vcf
 
 ena_ftp_file_prefix_path = "/ftp.sra.ebi.ac.uk/vol1"
@@ -25,6 +27,8 @@ ena_ftp_file_prefix_path = "/ftp.sra.ebi.ac.uk/vol1"
 def get_ftp_path(filename, analysis_accession_id):
     return f"{ena_ftp_file_prefix_path}/{analysis_accession_id[0:6]}/{analysis_accession_id}/{filename}"
 
+def now():
+    return datetime.datetime.now()
 
 class EvaProjectLoader(AppLogger):
     """
@@ -45,7 +49,7 @@ class EvaProjectLoader(AppLogger):
         Loads a project from ENA for the given ELOAD and adds it to the metadata database.
         If analysis_accession_to_load is specified, will only load that analysis; otherwise all analyses are added.
         """
-        self.eva_session.begin()
+        self.begin_or_continue_transaction()
 
         ###
         # LOAD PROJECT
@@ -172,7 +176,7 @@ class EvaProjectLoader(AppLogger):
 
     def load_samples_from_vcf_file(self, sample_name_2_sample_accession, vcf_file, vcf_file_md5, sample_mapping = None):
         sample_names = get_samples_from_vcf(vcf_file)
-        self.eva_session.begin()
+        self.begin_or_continue_transaction()
         file_obj = self.get_file(vcf_file_md5)
         if not file_obj:
             self.error(f'Cannot find file {vcf_file} in EVAPRO for md5 {vcf_file_md5}: Rolling back')
@@ -203,7 +207,7 @@ class EvaProjectLoader(AppLogger):
         self.info(f'Sample accessions for {analysis_accession} found in ENA: {sample_accessions}')
         sample_accession_2_sample_name = dict(
             zip(sample_name_2_sample_accession.values(), sample_name_2_sample_accession.keys()))
-        self.eva_session.begin()
+        self.begin_or_continue_transaction()
         file_objs = self.get_files_for_analysis(analysis_accession)
         for sample_accession in sample_accessions:
             sample_name = sample_accession_2_sample_name.get(sample_accession)
@@ -222,7 +226,7 @@ class EvaProjectLoader(AppLogger):
     def update_project_samples_temp1(self, project_accession):
         # This function assumes that all samples have been loaded to Sample/SampleFiles
         # TODO: Remove this when Sample have been back-filled and this can be calculated on the fly
-        self.eva_session.begin()
+        self.begin_or_continue_transaction()
         query = (
             select(Sample.biosample_accession).distinct()
             .join(SampleInFile, Sample.files)
@@ -244,6 +248,82 @@ class EvaProjectLoader(AppLogger):
         project_samples_temp_obj.sample_count = nb_samples
         self.eva_session.commit()
 
+    def insert_browsable_files_for_project(self, project_accession):
+        # insert into browsable file table, if files not already there
+        query_browsable_files = select(BrowsableFile).where(BrowsableFile.project_accession == project_accession)
+        query_files_to_be_browsable = (
+            select(File)
+            .join(File.analyses)
+            .join(Analysis.projects)
+            .where(Project.project_accession == project_accession, File.file_type.ilike('vcf'))
+        )
+        self.begin_or_continue_transaction()
+
+        browsable_file_objs = self.eva_session.execute(query_browsable_files).scalars().all()
+        file_to_be_browsable_objs = self.eva_session.execute(query_files_to_be_browsable).scalars().all()
+
+        if len(browsable_file_objs) > 0:
+            if set([f.filename for f in browsable_file_objs]) == set([f.filename for f in file_to_be_browsable_objs]):
+                self.info('Browsable files already inserted, skipping')
+            else:
+                self.warning(f'Found {len(browsable_file_objs)} browsable file rows in the table but they are different '
+                             f'from the expected ones: '
+                             f'{os.linesep + os.linesep.join([str(obj) for obj in file_to_be_browsable_objs])}')
+        else:
+            self.info('Inserting browsable files...')
+            for file_to_be_browsable_obj in file_to_be_browsable_objs:
+                browsable_file_obj = BrowsableFile(
+                    file_id=file_to_be_browsable_obj.file_id,
+                    ena_submission_file_id=file_to_be_browsable_obj.ena_submission_file_id,
+                    filename=file_to_be_browsable_obj.filename,
+                    assembly_set_id= file_to_be_browsable_obj.analyses[0].assembly_set_id,
+                    project_accession=project_accession
+                )
+                self.info(f'Add Browsable File {browsable_file_obj.filename} to EVAPRO')
+                self.eva_session.add(browsable_file_obj)
+            self.eva_session.commit()
+
+    def mark_release_browsable_files_for_project(self, project_accession, release_date):
+        update_browsable_files = (update(BrowsableFile)
+                                 .where(BrowsableFile.project_accession == project_accession)
+                                 .values(loaded=True, eva_release = f"{release_date.strftime('%Y%m%d')}"))
+        self.eva_session.execute(update_browsable_files)
+        self.eva_session.commit()
+
+    def update_files_with_ftp_path_for_project(self, project_accession):
+        query_browsable_files = select(BrowsableFile).where(BrowsableFile.project_accession == project_accession)
+        self.begin_or_continue_transaction()
+        for browsable_file_obj in self.eva_session.execute(query_browsable_files).scalars():
+            file_obj = browsable_file_obj.file
+            file_obj.ftp_file = f'/ftp.ebi.ac.uk/pub/databases/eva/{project_accession}/{file_obj.filename}'
+            self.eva_session.add(file_obj)
+        self.eva_session.commit()
+
+    def update_loaded_assembly_in_browsable_files_for_project(self, project_accession):
+        query_browsable_files = select(BrowsableFile).where(BrowsableFile.project_accession == project_accession)
+        self.begin_or_continue_transaction()
+        for browsable_file_obj in self.eva_session.execute(query_browsable_files).scalars():
+            if browsable_file_obj.loaded_assembly is None:
+                browsable_file_obj.loaded_assembly = browsable_file_obj.file.analyses[0].vcf_reference_accession
+                self.eva_session.add(browsable_file_obj)
+        self.eva_session.commit()
+
+    def refresh_study_browser(self):
+        self.begin_or_continue_transaction()
+        self.eva_session.execute('REFRESH MATERIALIZED VIEW study_browser')
+
+    def load_clustering_record(self, taxonomy, assembly, clustering_source):
+        self.begin_or_continue_transaction()
+        query = select(ClusterVariantUpdate).where(ClusterVariantUpdate.taxonomy_id==taxonomy,
+                                                   ClusterVariantUpdate.assembly_accession==assembly,
+                                                   ClusterVariantUpdate.source==clustering_source)
+        clustering_record_obj = self.eva_session.execute(query).scalar()
+        if not clustering_record_obj:
+            clustering_record_obj = ClusterVariantUpdate(taxonomy_id=taxonomy, assembly_accession=assembly,source=clustering_source)
+        clustering_record_obj.ingestion_time = now()
+        self.eva_session.add(clustering_record_obj)
+        self.eva_session.commit()
+
     def _evapro_engine(self):
         pg_url, pg_user, pg_pass = get_metadata_creds_for_profile(cfg['maven']['environment'],
                                                                   cfg['maven']['settings_file'])
@@ -262,6 +342,10 @@ class EvaProjectLoader(AppLogger):
     def eva_session(self):
         session = Session(self._evapro_engine())
         return session
+
+    def begin_or_continue_transaction(self):
+        if not self.eva_session.is_active:
+            self.begin_or_continue_transaction()
 
     def get_assembly_code_from_evapro(self, assembly):
         query = select(AssemblySet.assembly_code) \
