@@ -1,11 +1,11 @@
 Changelog for eva-submission
 ============================
 
-## 1.18.4 (unreleased)
+## 1.18.4 (2025-06-10)
 ----------------------
 
-- Nothing changed yet.
-
+- prepare_submission does not need the submission account to run
+- Use basename when overwriting path in metadata
 
 ## 1.18.3 (2025-05-27)
 ----------------------
