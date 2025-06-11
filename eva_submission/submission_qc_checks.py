@@ -18,6 +18,10 @@ from eva_submission.eload_submission import Eload
 from eva_submission.submission_config import EloadConfig
 
 
+def rreplace(s, old, new, occurrence=1):
+    li = s.rsplit(old, occurrence)
+    return new.join(li)
+
 class EloadQC(Eload):
     config_section = 'qc_checks'  # top-level config key
 
@@ -244,7 +248,7 @@ class EloadQC(Eload):
 
             # accessioned files will not be present for human taxonomy
             if self.taxonomy != 9606:
-                accessioned_file = file.replace('.vcf.gz', '.accessioned.vcf.gz')
+                accessioned_file = rreplace(file, '.vcf.gz', '.accessioned.vcf.gz')
                 no_ext_accessioned_file, _ = os.path.splitext(accessioned_file)
                 if accessioned_file not in files_in_ftp:
                     missing_files.append(accessioned_file)
