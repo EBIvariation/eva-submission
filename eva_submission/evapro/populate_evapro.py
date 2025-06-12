@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from eva_submission.evapro.find_from_ena import OracleEnaProjectFinder
 from eva_submission.evapro.table import Project, Taxonomy, LinkedProject, Submission, ProjectEnaSubmission, \
     EvaSubmission, ProjectEvaSubmission, Analysis, AssemblySet, AccessionedAssembly, File, BrowsableFile, \
-    Platform, ExperimentType, Sample, SampleInFile, ProjectSampleTemp1, ClusterVariantUpdate
+    Platform, ExperimentType, Sample, SampleInFile, ProjectSampleTemp1, ClusteredVariantUpdate
 from eva_submission.samples_checker import get_samples_from_vcf
 
 ena_ftp_file_prefix_path = "/ftp.sra.ebi.ac.uk/vol1"
@@ -284,6 +284,7 @@ class EvaProjectLoader(AppLogger):
             self.eva_session.commit()
 
     def mark_release_browsable_files_for_project(self, project_accession, release_date):
+        self.begin_or_continue_transaction()
         update_browsable_files = (update(BrowsableFile)
                                  .where(BrowsableFile.project_accession == project_accession)
                                  .values(loaded=True, eva_release = f"{release_date.strftime('%Y%m%d')}"))
@@ -314,12 +315,12 @@ class EvaProjectLoader(AppLogger):
 
     def load_clustering_record(self, taxonomy, assembly, clustering_source):
         self.begin_or_continue_transaction()
-        query = select(ClusterVariantUpdate).where(ClusterVariantUpdate.taxonomy_id==taxonomy,
-                                                   ClusterVariantUpdate.assembly_accession==assembly,
-                                                   ClusterVariantUpdate.source==clustering_source)
+        query = select(ClusteredVariantUpdate).where(ClusteredVariantUpdate.taxonomy_id==taxonomy,
+                                                   ClusteredVariantUpdate.assembly_accession==assembly,
+                                                   ClusteredVariantUpdate.source==clustering_source)
         clustering_record_obj = self.eva_session.execute(query).scalar()
         if not clustering_record_obj:
-            clustering_record_obj = ClusterVariantUpdate(taxonomy_id=taxonomy, assembly_accession=assembly,source=clustering_source)
+            clustering_record_obj = ClusteredVariantUpdate(taxonomy_id=taxonomy, assembly_accession=assembly,source=clustering_source)
         clustering_record_obj.ingestion_time = now()
         self.eva_session.add(clustering_record_obj)
         self.eva_session.commit()
@@ -345,7 +346,7 @@ class EvaProjectLoader(AppLogger):
 
     def begin_or_continue_transaction(self):
         if not self.eva_session.is_active:
-            self.begin_or_continue_transaction()
+            self.eva_session.begin()
 
     def get_assembly_code_from_evapro(self, assembly):
         query = select(AssemblySet.assembly_code) \
