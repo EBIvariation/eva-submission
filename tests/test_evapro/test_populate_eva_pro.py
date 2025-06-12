@@ -324,7 +324,6 @@ class TestEvaProjectLoader(TestCase):
         results = []
         for browsable_file in self.loader.eva_session.execute(query).scalars():
             results.append(browsable_file.filename)
-        self.loader.eva_session.commit()
         return results
 
     def test_insert_browsable_files_for_project(self):
