@@ -9,7 +9,7 @@ from sqlalchemy import create_engine, select
 
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
 from eva_submission.evapro.table import metadata, SampleInFile, Project, Analysis, Submission, LinkedProject, Platform, \
-    Taxonomy, ProjectSampleTemp1, BrowsableFile, File, ClusterVariantUpdate
+    Taxonomy, ProjectSampleTemp1, BrowsableFile, File, ClusteredVariantUpdate
 from eva_submission.submission_config import load_config
 
 
@@ -402,7 +402,7 @@ class TestEvaProjectLoader(TestCase):
             metadata.create_all(engine)
             self.loader.load_clustering_record(taxonomy=1234, assembly='assembly', clustering_source='source')
 
-        query = select(ClusterVariantUpdate)
+        query = select(ClusteredVariantUpdate)
         clustering_update_obj = self.loader.eva_session.execute(query).scalar()
         assert clustering_update_obj.taxonomy_id == 1234
         assert clustering_update_obj.assembly_accession == 'assembly'
