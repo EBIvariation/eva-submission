@@ -631,7 +631,7 @@ class EloadIngestion(Eload):
             for task in tasks:
                 self.eload_cfg.set(self.config_section, workflow_name, 'nextflow_dir', task,
                                    value=self.nextflow_complete_value)
-            # Notify which tasks where actually performed
+            # Notify which tasks were actually performed
             return tasks
         except subprocess.CalledProcessError as e:
             error_msg = f'Nextflow {workflow_name} pipeline failed: results might not be complete.'
