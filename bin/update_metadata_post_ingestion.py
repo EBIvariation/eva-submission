@@ -42,11 +42,11 @@ def main():
     with EloadIngestion(args.eload) as ingestion:
         ingestion.upgrade_to_new_version_if_needed()
         ingestion.update_assembly_set_in_analysis()
-        ingestion.insert_browsable_files()
-        ingestion.update_browsable_files_with_date()
-        ingestion.update_files_with_ftp_path()
-        ingestion.refresh_study_browser()
-        ingestion.update_loaded_assembly_in_browsable_files()
+        ingestion.loader.insert_browsable_files_for_project(ingestion.project_accession)
+        ingestion.loader.mark_release_browsable_files_for_project(ingestion.project_accession)
+        ingestion.loader.update_files_with_ftp_path_for_project(ingestion.project_accession)
+        ingestion.loader.refresh_study_browser()
+        ingestion.loader.update_loaded_assembly_in_browsable_files_for_project(ingestion.project_accession)
         ingestion.check_assembly_set_id_coherence()
 
 

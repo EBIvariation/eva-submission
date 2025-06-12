@@ -452,11 +452,11 @@ t_study_browser = Table(
 )
 
 
-class ClusterVariantUpdate(Base):
-    __tablename__ = 'cluster_variant_update'
+class ClusteredVariantUpdate(Base):
+    __tablename__ = 'clustered_variant_update'
     __table_args__ = {'comment': 'Table storing addition to the submitted or clustered accession'}
 
-    dbxref_id = Column(Integer, primary_key=True, autoincrement=True)
+    clustered_update_id = Column(Integer, primary_key=True, autoincrement=True)
     taxonomy_id = Column(Integer,  nullable=False)
     assembly_accession= Column(String, nullable=False)
     source = Column(Text, nullable=False)
