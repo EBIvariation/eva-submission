@@ -20,7 +20,7 @@ import sys
 from argparse import ArgumentParser
 from collections import defaultdict
 from copy import copy
-from functools import cached_property
+from functools import cached_property, lru_cache
 from itertools import zip_longest
 
 from ebi_eva_common_pyutils.common_utils import pretty_print
@@ -93,6 +93,10 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                     mapping[sp_line[0]] = sp_line[1]
         return mapping
 
+    @lru_cache(maxsize=None)
+    def get_samples_from_vcf(self, vcf_path):
+        return get_samples_from_vcf(vcf_path)
+
     def print_sample_matches(self):
         output_mapping = None
         if self.possible_mapping_file:
@@ -113,30 +117,33 @@ class HistoricalProjectSampleLoader(EloadBacklog):
         for analysis_accession in self.analysis_accessions:
             print(f'###  {analysis_accession}  ###')
             # Compare file in ENA/config with file in Database
-            header = ['File in ENA', 'md5 in ENA', 'md5 in EVAPRO', 'File in EVAPRO']
+            print('## File matches:')
+            header = ['File in ENA', 'md5 in ENA', 'nb sample in file', 'md5 in EVAPRO', 'File in EVAPRO']
             all_rows = []
             files_in_db = copy(file_in_database_per_analysis.get(analysis_accession))
             samples_from_ena = copy(sample_from_ena_per_analysis.get(analysis_accession))
             for vcf_file, md5 in self.analysis_accession_2_file_info.get(analysis_accession):
-                line = [os.path.basename(vcf_file), md5]
+                line = [os.path.basename(vcf_file), str(md5), str(len(self.get_samples_from_vcf(vcf_file)))]
                 if md5 in files_in_db:
-                    line.append(md5)
-                    line.append(files_in_db.pop(md5))
+                    line.append(str(md5))
+                    line.append(str(files_in_db.pop(md5)))
                 else:
                     line.append('-')
                     line.append('-')
                 all_rows.append(line)
             for md5, vcf_file in files_in_db.items():
                 if vcf_file.endswith('.vcf') or vcf_file.endswith('.vcf.gz'):
-                    all_rows.append(['-', '-', md5, vcf_file])
+                    all_rows.append(['-', '-', '-', str(md5), str(vcf_file)])
             pretty_print(header, all_rows)
+
+            print('## Sample matches:')
             header = ['VCF file', 'Sample in VCF', 'Name in ENA', 'BioSamples', 'ENA sample in analysis']
             all_rows = []
             unmatched_names_in_ENA = []
             unmatched_name_in_VCF = []
             for vcf_file, md5 in self.analysis_accession_2_file_info.get(analysis_accession):
                 sample_name_2_accession = copy(self.sample_name_2_accessions_per_analysis.get(analysis_accession))
-                sample_names = get_samples_from_vcf(vcf_file)
+                sample_names = self.get_samples_from_vcf(vcf_file)
 
                 for sample_name in sample_names:
                     line = [os.path.basename(vcf_file), sample_name]
@@ -168,12 +175,14 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                     all_rows.append(['-', '-', '-', sample_accession, samples_from_ena.get(sample_accession)])
 
             pretty_print(header, all_rows)
-            print('')
-
+            all_rows = []
+            print('## Potential mapping of remainging samples')
+            header = ['Sample in VCF', 'ENA sample in analysis']
             for n1, n2 in zip_longest(sorted(unmatched_name_in_VCF), sorted(unmatched_names_in_ENA), fillvalue=''):
-                print(f'{n1}\t{n2}')
+                all_rows.append([n1, n2])
                 if output_mapping:
                     output_mapping.write(f'{n1}\t{n2}\n')
+            pretty_print(header, all_rows)
 
         if output_mapping:
             output_mapping.close()
