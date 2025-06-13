@@ -17,6 +17,7 @@
 import logging
 import os
 import sys
+import urllib
 from argparse import ArgumentParser
 from collections import defaultdict
 from copy import copy
@@ -28,7 +29,7 @@ from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query
 
 from eva_submission.eload_backlog import EloadBacklog, list_to_sql_in_list
-from eva_submission.eload_utils import detect_vcf_aggregation
+from eva_submission.eload_utils import detect_vcf_aggregation, download_file
 from eva_submission.evapro.find_from_ena import OracleEnaProjectFinder, ApiEnaProjectFinder
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
 from eva_submission.samples_checker import get_samples_from_vcf
@@ -269,10 +270,19 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             for analysis_accession, filename, file_md5 in rows:
                 if not filename.endswith('.vcf.gz'):
                     continue
+                full_path = None
                 try:
                     full_path = self.find_local_file(filename)
                 except FileNotFoundError:
-                    full_path = self.find_file_on_ena(filename, analysis_accession)
+                    pass
+                if not full_path:
+                    try:
+                        full_path = self.find_file_on_ena(filename, analysis_accession)
+                    except FileNotFoundError:
+                        pass
+                if not full_path:
+                    # let the exception be raised if the file is not found
+                    full_path = self.find_file_on_eva_ftp(filename)
                     with open(self.downloaded_files_path, 'a') as open_file:
                         open_file.write(full_path+'\n')
                 analysis_accession_2_files[analysis_accession].append((full_path, file_md5))
@@ -301,6 +311,20 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                     aggregation_type = None
                 analysis_accession_2_aggregation_type[analysis_accession] = aggregation_type
         return analysis_accession_2_aggregation_type
+
+    def find_file_on_eva_ftp(self, filename):
+        http_base_url  = f'https://ftp.ebi.ac.uk/pub/databases/eva/{self.project_accession}/'
+        basename = os.path.basename(filename)
+        full_path = os.path.join(self._get_dir('vcf'), basename)
+        if not os.path.exists(full_path):
+            try:
+                self.info(f'Retrieve {basename} in {self.project_accession} from EVA ftp')
+                http_url = http_base_url + basename
+                download_file(http_url, full_path)
+            except urllib.error.URLError:
+                self.error(f'Could not access {http_url} on EVA: most likely does not exist')
+                raise FileNotFoundError(f'File not found: {full_path}')
+        return full_path
 
     def clean_up(self):
         if os.path.exists(self.downloaded_files_path):
