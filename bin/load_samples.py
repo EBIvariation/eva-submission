@@ -149,6 +149,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             all_rows = []
             unmatched_names_in_ENA = []
             unmatched_name_in_VCF = []
+            unmatched_sample_accession = []
             for vcf_file, md5 in self.analysis_accession_2_file_info.get(analysis_accession):
                 sample_name_2_accession = copy(self.sample_name_2_accessions_per_analysis.get(analysis_accession))
                 sample_names = self.get_samples_from_vcf(vcf_file)
@@ -185,15 +186,16 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                     all_rows.append(line)
                 for sample_accession in samples_from_ena:
                     all_rows.append(['-', '-', '-', sample_accession, samples_from_ena.get(sample_accession)])
+                    unmatched_sample_accession.append(sample_accession)
 
             pretty_print(header, all_rows)
             all_rows = []
             print('## Potential mapping of remainging samples')
-            header = ['Sample in VCF', 'ENA sample in analysis']
-            for n1, n2 in zip_longest(sorted(unmatched_name_in_VCF), sorted(unmatched_names_in_ENA), fillvalue=''):
-                all_rows.append([n1, n2])
+            header = ['Sample in VCF', 'ENA sample in analysis', 'BioSample accession']
+            for n1, n2, n3 in zip_longest(sorted(unmatched_name_in_VCF), sorted(unmatched_names_in_ENA), unmatched_sample_accession, fillvalue=''):
+                all_rows.append([n1, n2, n3])
                 if output_mapping:
-                    output_mapping.write(f'{n1}\t{n2}\n')
+                    output_mapping.write(f'{n1}\t{n2}\t{n3}\n')
             pretty_print(header, all_rows)
 
         if output_mapping:
