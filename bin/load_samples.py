@@ -1,4 +1,4 @@
-#!/nfs/production/keane/eva/software/eva-submission/development_deployment/EVA3787_load_samples/bin/python3
+#!/nfs/production/keane/eva/software/eva-submission/production_deployment/v1.18.4/bin/python3
 
 # Copyright 2025 EMBL - European Bioinformatics Institute
 #
@@ -232,7 +232,11 @@ class HistoricalProjectSampleLoader(EloadBacklog):
         """Retrieve the sample to biosample accession map from the ENA API"""
         sample_name_2_accessions_per_analysis = {}
         if self.project_accession:
-            sample_name_2_accessions_per_analysis = self.api_ena_finder.find_samples_from_analysis(self.project_accession)
+            sample_accessions_per_analysis = self.api_ena_finder.find_samples_from_analysis(self.project_accession)
+            for analysis_accession in sample_accessions_per_analysis:
+                sample_name_2_accessions_per_analysis[analysis_accession] = {
+                    alias: accession for accession, alias in sample_accessions_per_analysis[analysis_accession]
+                }
         return sample_name_2_accessions_per_analysis
 
     @cached_property

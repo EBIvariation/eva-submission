@@ -1,3 +1,5 @@
+import urllib
+
 import requests
 from functools import cached_property
 import xml.etree.ElementTree as ET
@@ -8,6 +10,32 @@ from ebi_eva_common_pyutils.config import cfg
 
 class ApiEnaProjectFinder:
     file_report_base_url = 'https://www.ebi.ac.uk/ena/portal/api/filereport'
+    portal_search_base_url = 'https://www.ebi.ac.uk/ena/portal/api/search'
+
+    def find_sample_aliases_per_accessions(self, accession_list):
+        # Chunk the list in case it is too long
+        results = {}
+        chunk_size = 100
+        for i in range(0, len(accession_list), chunk_size):
+            results.update(self._find_sample_aliases_per_accessions(accession_list[i:i + chunk_size]))
+        return results
+
+    def _find_sample_aliases_per_accessions(self, accession_list):
+        params = {
+            'result': 'sample',
+            'includeAccessionType': 'sample',
+            'format': 'json',
+            'fields': 'sample_accession,sample_alias',
+            'includeAccessions': ','.join(accession_list)
+        }
+        url = self.portal_search_base_url
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        json_data = response.json()
+        samples = {}
+        for sample_data in json_data:
+            samples[sample_data['sample_accession']] = sample_data['sample_alias']
+        return samples
 
     def find_samples_from_analysis(self, accession):
         """
@@ -15,7 +43,7 @@ class ApiEnaProjectFinder:
         organised by analysis.
         This function can be provided with an analysis or a project accession.
         returns a dictionary with key is tha analysis accession and value is another dictionary with key is sample
-        name and value the biosample accession
+        accession and value the biosample name
         """
         url = self.file_report_base_url + f'?result=analysis&accession={accession}&format=json&fields=sample_accession,sample_alias'
         response = requests.get(url)
@@ -24,8 +52,9 @@ class ApiEnaProjectFinder:
         results_per_analysis = {}
         for analysis_data in json_data:
             sample_aliases = analysis_data.get('sample_alias').split(';')
+            # the two lists are not necessarily in the same order so we look up the alias for each sample
             sample_accessions = analysis_data.get('sample_accession').split(';')
-            results_per_analysis[analysis_data.get('analysis_accession')] = dict(zip(sample_aliases, sample_accessions))
+            results_per_analysis[analysis_data.get('analysis_accession')] = self.find_sample_aliases_per_accessions(sample_accessions)
         return results_per_analysis
 
 class OracleEnaProjectFinder:
