@@ -181,7 +181,7 @@ class EvaProjectLoader(AppLogger):
         for sample_name in sample_names:
             sample_accession = sample_name_2_sample_accession.get(sample_name)
             if not sample_accession and sample_mapping:
-                mapping = sample_mapping.get(sample_name)
+                mapping = sample_mapping.get(sample_name, {})
                 if 'sample_name' in mapping:
                     sample_name = mapping['sample_name']
                 sample_accession = sample_name_2_sample_accession.get(sample_name)
