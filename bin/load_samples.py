@@ -86,12 +86,19 @@ class HistoricalProjectSampleLoader(EloadBacklog):
 
     @cached_property
     def sample_mapping(self):
+        """This file provides the mapping between the sample names in the VCF files and the sample name in the ENA
+        or the sample name in the VCF and the biosample accession."""
         mapping = {}
         if os.path.isfile(self.mapping_file):
             with open(self.mapping_file) as open_file:
                 for line in open_file:
                     sp_line = line.strip().split('\t')
-                    mapping[sp_line[0]] = sp_line[1]
+                    mapping[sp_line[0]] = {}
+                    if len(sp_line) > 0:
+                        mapping[sp_line[0]]['sample_name'] = sp_line[1]
+                    if len(sp_line) > 1:
+                        mapping[sp_line[0]]['biosample_accession'] = sp_line[2]
+
         return mapping
 
     @lru_cache(maxsize=None)
@@ -150,8 +157,12 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                     line = [os.path.basename(vcf_file), sample_name]
                     sample_accession = sample_name_2_accession.get(sample_name)
                     if not sample_accession:
-                        sample_name = self.sample_mapping.get(sample_name) or sample_name
+                        mapping = self.sample_mapping.get(sample_name)
+                        if 'sample_name' in mapping:
+                            sample_name = mapping['sample_name']
                         sample_accession = sample_name_2_accession.get(sample_name)
+                        if 'biosample_accession' in mapping:
+                            sample_accession = mapping['biosample_accession']
                     if sample_accession:
                         line.append(sample_name)
                         line.append(sample_name_2_accession.pop(sample_name))
@@ -235,7 +246,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             sample_accessions_per_analysis = self.api_ena_finder.find_samples_from_analysis(self.project_accession)
             for analysis_accession in sample_accessions_per_analysis:
                 sample_name_2_accessions_per_analysis[analysis_accession] = {
-                    alias: accession for accession, alias in sample_accessions_per_analysis[analysis_accession]
+                    alias: accession for accession, alias in sample_accessions_per_analysis[analysis_accession].items()
                 }
         return sample_name_2_accessions_per_analysis
 
