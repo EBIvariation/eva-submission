@@ -4,6 +4,7 @@ import unittest
 
 import pytest
 
+from eva_submission.evapro.find_from_ena import ApiEnaProjectFinder
 from eva_submission.evapro.populate_evapro import OracleEnaProjectFinder
 from eva_submission.submission_config import load_config
 
@@ -75,6 +76,7 @@ class TestEnaProjectFinder(unittest.TestCase):
             ('ERS18360883', 'SAMEA115348739'), ('ERS18360884', 'SAMEA115348740'), ('ERS18360885', 'SAMEA115348741')
         ]
         results = list(self.finder.find_samples_in_ena(analysis))
+        print(results)
         assert results == expected_samples
 
 
@@ -86,3 +88,30 @@ class TestEnaProjectFinder(unittest.TestCase):
             ('ERZ293539', 'ERF11112569', 'IRIS_313-12319.snp.vcf.gz', '642b2e31ce4fc6b8c92eb2dc53630d47', 'VCF', 4)
         ]
         assert results == expected_files
+
+
+class TestApiEnaProjectFinder(unittest.TestCase):
+
+    def test_find_samples_from_analysis(self):
+        analysis = 'ERZ23510811'
+        expected_samples_per_analysis = {
+            'ERZ23510811': {
+                'SAMEA115348715': '37_U8681540996_TP53', 'SAMEA115348717': '39_B2253900996_TP53',
+                'SAMEA115348723': 'Sample 16', 'SAMEA115348730': 'Sample 23', 'SAMEA115348731': 'Sample 25',
+                'SAMEA115348732': 'Sample 26', 'SAMEA115348733': 'Sample 27', 'SAMEA115348713': '35_U8488600996_TP53',
+                'SAMEA115348716': '38_U8996740996_TP53', 'SAMEA115348719': '41_U9442170996_TP53',
+                'SAMEA115348721': '43_U9834740996_TP53', 'SAMEA115348722': '44_U9894200996_TP53',
+                'SAMEA115348724': 'Sample 17', 'SAMEA115348726': 'Sample 19',
+                'SAMEA115348727': 'Sample 20', 'SAMEA115348729': 'Sample 22',
+                'SAMEA115348734': 'Sample 28', 'SAMEA115348736': '59_U9252310996_TP53',
+                'SAMEA115348737': '60_U9244200996_TP53', 'SAMEA115348712': '34_U8318640996_TP53',
+                'SAMEA115348714': '36_U8696100996_TP53', 'SAMEA115348718': '40_U9275870996_TP53',
+                'SAMEA115348720': '42_U9453150996_TP53', 'SAMEA115348725': 'Sample 18', 'SAMEA115348728': 'Sample 21',
+                'SAMEA115348735': '58_U9145960996_TP53', 'SAMEA115348738': '61_U9266520996_TP53',
+                'SAMEA115348739': '62_U9458180996_TP53', 'SAMEA115348740': '63_U9490010996_TP53',
+                'SAMEA115348741': '64_U9851770996_TP53'
+            }
+        }
+        project_finder = ApiEnaProjectFinder()
+        samples_per_analysis = project_finder.find_samples_from_analysis(analysis)
+        assert samples_per_analysis == expected_samples_per_analysis
