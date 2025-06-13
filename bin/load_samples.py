@@ -158,7 +158,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                     line = [os.path.basename(vcf_file), sample_name]
                     sample_accession = sample_name_2_accession.get(sample_name)
                     if not sample_accession:
-                        mapping = self.sample_mapping.get(sample_name)
+                        mapping = self.sample_mapping.get(sample_name, {})
                         if 'sample_name' in mapping:
                             sample_name = mapping['sample_name']
                         sample_accession = sample_name_2_accession.get(sample_name)
@@ -166,7 +166,10 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                             sample_accession = mapping['biosample_accession']
                     if sample_accession:
                         line.append(sample_name)
-                        line.append(sample_name_2_accession.pop(sample_name))
+                        if sample_name in sample_name_2_accession:
+                            line.append(sample_name_2_accession.pop(sample_name))
+                        else:
+                            line.append(sample_accession)
                     else:
                         unmatched_name_in_VCF.append(sample_name)
                         line.append('-')
