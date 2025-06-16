@@ -325,12 +325,12 @@ class HistoricalProjectSampleLoader(EloadBacklog):
         analysis_accession_2_aggregation_type={}
         if self.eload_cfg.query('ingestion', 'aggregation'):
             analysis_accession_2_aggregation_type = self.eload_cfg.query('ingestion', 'aggregation')
-        if not analysis_accession_2_aggregation_type:
+        if not analysis_accession_2_aggregation_type or not isinstance(analysis_accession_2_aggregation_type, dict):
             analysis_info = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
             if analysis_info:
                 for analysis_alias, accession in analysis_info.items():
                     analysis_accession_2_aggregation_type[accession] = self.eload_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
-        if not analysis_accession_2_aggregation_type:
+        if not analysis_accession_2_aggregation_type or not isinstance(analysis_accession_2_aggregation_type, dict):
             for analysis_accession in self.analysis_accessions:
                 aggregation_type_per_file = {}
                 for vcf_file, md5 in self.analysis_accession_2_file_info.get(analysis_accession):
