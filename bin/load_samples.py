@@ -270,43 +270,53 @@ class HistoricalProjectSampleLoader(EloadBacklog):
     def analysis_accession_2_file_info(self):
         """Find the files associated with all the analysis accessions"""
         analysis_accession_2_files = defaultdict(list)
-        if self.eload_cfg.query('brokering', 'analyses'):
-            # Assume that all the information in contained in the config and the files exist
-            for analysis_alias in self.eload_cfg.query('brokering', 'analyses'):
-                vcf_file_dict = self.eload_cfg.query('brokering', 'analyses', analysis_alias, 'vcf_files')
-                analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
-                vcf_info_list = [(vcf_file, vcf_info.get('md5')) for vcf_file, vcf_info in vcf_file_dict.items()]
-                analysis_accession_2_files[analysis_accession] = vcf_info_list
-        else:
-            # resolve the files from the database and download if required similar to EloadBacklog.get_analysis_info
-            with self.metadata_connection_handle as conn:
-                query = f"select a.analysis_accession, c.filename, c.file_md5 " \
-                        f"from analysis a " \
-                        f"join analysis_file b on a.analysis_accession=b.analysis_accession " \
-                        f"join file c on b.file_id=c.file_id " \
-                        f"where a.analysis_accession in {list_to_sql_in_list(self.analysis_accessions)};"
-                rows = get_all_results_for_query(conn, query)
+        try:
+            if self.eload_cfg.query('brokering', 'analyses'):
+                # Assume that all the information in contained in the config and the files exist
+                for analysis_alias in self.eload_cfg.query('brokering', 'analyses'):
+                    vcf_file_dict = self.eload_cfg.query('brokering', 'analyses', analysis_alias, 'vcf_files')
+                    analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
+                    vcf_info_list = []
+                    for vcf_file, vcf_info in vcf_file_dict.items():
+                        if os.path.exists(vcf_file):
+                            vcf_info_list.append((vcf_file, vcf_info.get('md5')))
+                        else:
+                            self.error(f'File {vcf_file} cannot be found')
+                            raise FileNotFoundError
+                    analysis_accession_2_files[analysis_accession] = vcf_info_list
+                return analysis_accession_2_files
+        except FileNotFoundError:
+            # reset the file search as some files were missing
+            analysis_accession_2_files = defaultdict(list)
 
-            for analysis_accession, filename, file_md5 in rows:
-                if not filename.endswith('.vcf.gz'):
-                    continue
-                full_path = None
+        # resolve the files from the database and download if required similar to EloadBacklog.get_analysis_info
+        with self.metadata_connection_handle as conn:
+            query = f"select a.analysis_accession, c.filename, c.file_md5 " \
+                    f"from analysis a " \
+                    f"join analysis_file b on a.analysis_accession=b.analysis_accession " \
+                    f"join file c on b.file_id=c.file_id " \
+                    f"where a.analysis_accession in {list_to_sql_in_list(self.analysis_accessions)};"
+            rows = get_all_results_for_query(conn, query)
+
+        for analysis_accession, filename, file_md5 in rows:
+            if not filename.endswith('.vcf.gz'):
+                continue
+            full_path = None
+            try:
+                full_path = self.find_local_file(filename)
+            except FileNotFoundError:
+                pass
+            if not full_path:
                 try:
-                    full_path = self.find_local_file(filename)
+                    full_path = self.find_file_on_ena(filename, analysis_accession)
                 except FileNotFoundError:
                     pass
-                if not full_path:
-                    try:
-                        full_path = self.find_file_on_ena(filename, analysis_accession)
-                    except FileNotFoundError:
-                        pass
-                if not full_path:
-                    # let the exception be raised if the file is not found
-                    full_path = self.find_file_on_eva_ftp(filename)
-                    with open(self.downloaded_files_path, 'a') as open_file:
-                        open_file.write(full_path+'\n')
-                analysis_accession_2_files[analysis_accession].append((full_path, file_md5))
-        return analysis_accession_2_files
+            if not full_path:
+                # let the exception be raised if the file is not found
+                full_path = self.find_file_on_eva_ftp(filename)
+                with open(self.downloaded_files_path, 'a') as open_file:
+                    open_file.write(full_path+'\n')
+            analysis_accession_2_files[analysis_accession].append((full_path, file_md5))
 
     @cached_property
     def analysis_accession_2_aggregation_type(self):
