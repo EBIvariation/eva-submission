@@ -238,7 +238,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
     @cached_property
     def analysis_accessions(self):
         analysis_accession_dict = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
-        if analysis_accession_dict is not None:
+        if analysis_accession_dict is not None and isinstance(analysis_accession_dict, dict):
             return analysis_accession_dict.values()
         else:
             return super().analysis_accessions
@@ -317,7 +317,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
         if not analysis_accession_2_aggregation_type:
             analysis_info = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
             if analysis_info:
-                for analysis_alias, accession in analysis_info.item():
+                for analysis_alias, accession in analysis_info.items():
                     analysis_accession_2_aggregation_type[accession] = self.eload_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
         if not analysis_accession_2_aggregation_type:
             for analysis_accession in self.analysis_accessions:
