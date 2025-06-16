@@ -327,7 +327,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             analysis_accession_2_aggregation_type = self.eload_cfg.query('ingestion', 'aggregation')
         if not analysis_accession_2_aggregation_type or not isinstance(analysis_accession_2_aggregation_type, dict):
             analysis_info = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
-            if analysis_info:
+            if analysis_info and isinstance(analysis_info, dict):
                 for analysis_alias, accession in analysis_info.items():
                     analysis_accession_2_aggregation_type[accession] = self.eload_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
         if not analysis_accession_2_aggregation_type or not isinstance(analysis_accession_2_aggregation_type, dict):
