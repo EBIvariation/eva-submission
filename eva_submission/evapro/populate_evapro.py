@@ -218,6 +218,10 @@ class EvaProjectLoader(AppLogger):
                 self.error(f'Cannot find sample {sample_accession} in EVAPRO')
                 self.eva_session.rollback()
                 return False
+            if not sample_name:
+                self.error(f'Cannot find the name for sample {sample_accession}')
+                self.eva_session.rollback()
+                return False
             # Associate these samples with all files in the analysis
             for file_obj in file_objs:
                 self.insert_sample_in_file(file_id=file_obj.file_id, sample_id=sample_obj.sample_id,
