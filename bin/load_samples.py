@@ -317,6 +317,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                 with open(self.downloaded_files_path, 'a') as open_file:
                     open_file.write(full_path+'\n')
             analysis_accession_2_files[analysis_accession].append((full_path, file_md5))
+        return analysis_accession_2_files
 
     @cached_property
     def analysis_accession_2_aggregation_type(self):
