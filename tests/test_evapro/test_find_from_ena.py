@@ -115,3 +115,10 @@ class TestApiEnaProjectFinder(unittest.TestCase):
         project_finder = ApiEnaProjectFinder()
         samples_per_analysis = project_finder.find_samples_from_analysis(analysis)
         assert samples_per_analysis == expected_samples_per_analysis
+
+        # project with no samples
+        project = 'PRJEB74935'
+        expected_samples_per_analysis = {'ERZ23877850': {}}
+        samples_per_analysis = project_finder.find_samples_from_analysis(project)
+        assert samples_per_analysis == expected_samples_per_analysis
+
