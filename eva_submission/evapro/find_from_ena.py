@@ -16,8 +16,9 @@ class ApiEnaProjectFinder:
         # Chunk the list in case it is too long
         results = {}
         chunk_size = 100
-        for i in range(0, len(accession_list), chunk_size):
-            results.update(self._find_sample_aliases_per_accessions(accession_list[i:i + chunk_size]))
+        if accession_list:
+            for i in range(0, len(accession_list), chunk_size):
+                results.update(self._find_sample_aliases_per_accessions(accession_list[i:i + chunk_size]))
         return results
 
     def _find_sample_aliases_per_accessions(self, accession_list):
@@ -53,7 +54,7 @@ class ApiEnaProjectFinder:
         for analysis_data in json_data:
             sample_aliases = analysis_data.get('sample_alias').split(';')
             # the two lists are not necessarily in the same order so we look up the alias for each sample
-            sample_accessions = analysis_data.get('sample_accession').split(';')
+            sample_accessions = [s for s in analysis_data.get('sample_accession').split(';') if s]
             results_per_analysis[analysis_data.get('analysis_accession')] = self.find_sample_aliases_per_accessions(sample_accessions)
         return results_per_analysis
 
