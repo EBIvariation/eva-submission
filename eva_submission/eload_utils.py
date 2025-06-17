@@ -4,6 +4,7 @@ import os
 import re
 import urllib
 from datetime import datetime
+from urllib.parse import urlencode
 from xml.etree import ElementTree as ET
 
 import pysam
@@ -160,7 +161,7 @@ def get_hold_date_from_ena(project_accession, project_alias=None):
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
 def download_file(url, dest):
     """Download a public file accessible via http or ftp."""
-    urllib.request.urlretrieve(url, dest)
+    urllib.request.urlretrieve(urlencode(url), dest)
     urllib.request.urlcleanup()
 
 
