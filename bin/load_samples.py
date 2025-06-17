@@ -301,6 +301,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
         for analysis_accession, filename, file_md5 in rows:
             if not filename.endswith('.vcf.gz'):
                 continue
+            self.info(f'Searching for {filename} in local, ENA and EVA')
             full_path = None
             try:
                 full_path = self.find_local_file(filename)
@@ -335,8 +336,11 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             analysis_accession_2_aggregation_type = {}
             for analysis_accession in self.analysis_accessions:
                 aggregation_type_per_file = {}
-                for vcf_file, md5 in self.analysis_accession_2_file_info.get(analysis_accession):
-                    aggregation_type_per_file[vcf_file] = detect_vcf_aggregation(vcf_file)
+                if analysis_accession in self.analysis_accession_2_file_info:
+                    for vcf_file, md5 in self.analysis_accession_2_file_info.get(analysis_accession):
+                        aggregation_type_per_file[vcf_file] = detect_vcf_aggregation(vcf_file)
+                else:
+                    self.error(f'Analysis {analysis_accession} does not have any associated files.')
                 if len(set(aggregation_type_per_file.values())) == 1:
                     aggregation_type = set(aggregation_type_per_file.values()).pop()
                 else:
