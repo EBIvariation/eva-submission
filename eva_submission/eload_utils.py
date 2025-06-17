@@ -4,7 +4,6 @@ import os
 import re
 import urllib
 from datetime import datetime
-from urllib.parse import urlencode
 from xml.etree import ElementTree as ET
 
 import pysam
@@ -157,11 +156,33 @@ def get_hold_date_from_ena(project_accession, project_alias=None):
             raise ValueError(f"Couldn't get hold date from ENA for {project_accession} ({project_alias})")
     return hold_date
 
+def encode_url_preserve_base(url: str) -> str:
+    # Parse the URL into components
+    parsed = urllib.parse.urlparse(url)
+
+    # Encode the path
+    encoded_path = '/'.join(urllib.parse.quote(part) for part in parsed.path.split('/'))
+
+    # Encode the query parameters
+    query_pairs = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+    encoded_query = urllib.parse.urlencode([(urllib.parse.quote(k), urllib.parse.quote(v)) for k, v in query_pairs])
+
+    # Reconstruct the URL
+    encoded_url = urllib.parse.urlunparse((
+        parsed.scheme,
+        parsed.netloc,
+        encoded_path,
+        parsed.params,
+        encoded_query,
+        parsed.fragment
+    ))
+
+    return encoded_url
 
 @retry(tries=4, delay=2, backoff=1.2, jitter=(1, 3))
 def download_file(url, dest):
     """Download a public file accessible via http or ftp."""
-    urllib.request.urlretrieve(urlencode(url), dest)
+    urllib.request.urlretrieve(encode_url_preserve_base(url), dest)
     urllib.request.urlcleanup()
 
 
