@@ -130,7 +130,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             all_rows = []
             files_in_db = copy(file_in_database_per_analysis.get(analysis_accession))
             samples_from_ena = copy(sample_from_ena_per_analysis.get(analysis_accession))
-            for vcf_file, md5 in self.analysis_accession_2_file_info.get(analysis_accession):
+            for vcf_file, md5 in self.analysis_accession_2_file_info.get(analysis_accession, []):
                 line = [os.path.basename(vcf_file), str(md5), str(len(self.get_samples_from_vcf(vcf_file)))]
                 if md5 in files_in_db:
                     line.append(str(md5))
@@ -150,7 +150,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             unmatched_names_in_ENA = []
             unmatched_name_in_VCF = []
             unmatched_sample_accession = []
-            for vcf_file, md5 in self.analysis_accession_2_file_info.get(analysis_accession):
+            for vcf_file, md5 in self.analysis_accession_2_file_info.get(analysis_accession, []):
                 sample_name_2_accession = copy(self.sample_name_2_accessions_per_analysis.get(analysis_accession))
                 sample_names = self.get_samples_from_vcf(vcf_file)
 
@@ -219,7 +219,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             if aggregation_type == 'basic':
                 result &= self.eva_project_loader.load_samples_from_analysis(self.sample_name_2_accession, analysis_accession)
             else:
-                for vcf_file, vcf_file_md5 in self.analysis_accession_2_file_info.get(analysis_accession):
+                for vcf_file, vcf_file_md5 in self.analysis_accession_2_file_info.get(analysis_accession, []):
                     result &= self.eva_project_loader.load_samples_from_vcf_file(self.sample_name_2_accession, vcf_file, vcf_file_md5, self.sample_mapping)
         if not result:
             self.error('Not all the Samples were properly loaded in EVAPRO')
@@ -301,7 +301,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
         for analysis_accession, filename, file_md5 in rows:
             if not filename.endswith('.vcf.gz'):
                 continue
-            self.info(f'Searching for {filename} in local, ENA and EVA')
+            self.info(f'Searching for {filename} in local, ENA and EVA for analysis accession {analysis_accession}')
             full_path = None
             try:
                 full_path = self.find_local_file(filename)
@@ -336,11 +336,8 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             analysis_accession_2_aggregation_type = {}
             for analysis_accession in self.analysis_accessions:
                 aggregation_type_per_file = {}
-                if analysis_accession in self.analysis_accession_2_file_info:
-                    for vcf_file, md5 in self.analysis_accession_2_file_info.get(analysis_accession):
-                        aggregation_type_per_file[vcf_file] = detect_vcf_aggregation(vcf_file)
-                else:
-                    self.error(f'Analysis {analysis_accession} does not have any associated files.')
+                for vcf_file, md5 in self.analysis_accession_2_file_info.get(analysis_accession, []):
+                    aggregation_type_per_file[vcf_file] = detect_vcf_aggregation(vcf_file)
                 if len(set(aggregation_type_per_file.values())) == 1:
                     aggregation_type = set(aggregation_type_per_file.values()).pop()
                 else:
