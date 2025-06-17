@@ -94,9 +94,9 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                 for line in open_file:
                     sp_line = line.strip().split('\t')
                     mapping[sp_line[0]] = {}
-                    if len(sp_line) > 0:
-                        mapping[sp_line[0]]['sample_name'] = sp_line[1]
                     if len(sp_line) > 1:
+                        mapping[sp_line[0]]['sample_name'] = sp_line[1]
+                    if len(sp_line) > 2:
                         mapping[sp_line[0]]['biosample_accession'] = sp_line[2]
 
         return mapping
