@@ -317,13 +317,10 @@ class EloadValidation(Eload):
             vcf_name = os.path.basename(vcf_file)
 
             tmp_vcf_check_log = resolve_single_file_path(
-                os.path.join(output_dir, 'vcf_format', vcf_name + '.vcf_format.log')
+                os.path.join(output_dir, 'validation_output', 'vcf_format', vcf_name + '.vcf_format.log')
             )
             tmp_vcf_check_text_report = resolve_single_file_path(
-                os.path.join(output_dir, 'vcf_format', vcf_name + '.*.txt')
-            )
-            tmp_vcf_check_db_report = resolve_single_file_path(
-                os.path.join(output_dir, 'vcf_format', vcf_name + '.*.db')
+                os.path.join(output_dir, 'validation_output', 'vcf_format', vcf_name + '.*.txt')
             )
 
             # move the output files
@@ -335,11 +332,7 @@ class EloadValidation(Eload):
                 tmp_vcf_check_text_report,
                 os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_validator.txt')
             )
-            vcf_check_db_report = self._move_file(
-                tmp_vcf_check_db_report,
-                os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_validator.db')
-            )
-            if vcf_check_log and vcf_check_text_report and vcf_check_db_report:
+            if vcf_check_log and vcf_check_text_report:
                 valid, error_list, error_count, warning_count = self.parse_vcf_check_report(vcf_check_text_report)
             else:
                 valid, error_list, error_count, warning_count = (False, ['Process failed'], 1, 0)
@@ -347,8 +340,7 @@ class EloadValidation(Eload):
 
             self.eload_cfg.set('validation', 'vcf_check', 'files', vcf_name, value={
                 'error_list': error_list, 'nb_error': error_count, 'nb_warning': warning_count,
-                'vcf_check_log': vcf_check_log, 'vcf_check_text_report': vcf_check_text_report,
-                'vcf_check_db_report': vcf_check_db_report
+                'vcf_check_log': vcf_check_log, 'vcf_check_text_report': vcf_check_text_report
             })
         self.eload_cfg.set('validation', 'vcf_check', 'pass', value=total_error == 0)
 
@@ -359,13 +351,10 @@ class EloadValidation(Eload):
             vcf_name = os.path.basename(vcf_file)
 
             tmp_assembly_check_log = resolve_single_file_path(
-                os.path.join(output_dir, 'assembly_check',  vcf_name + '.assembly_check.log')
-            )
-            tmp_assembly_check_valid_vcf = resolve_single_file_path(
-                os.path.join(output_dir, 'assembly_check', vcf_name + '.valid_assembly_report*')
+                os.path.join(output_dir, 'validation_output', 'assembly_check',  vcf_name + '.assembly_check.log')
             )
             tmp_assembly_check_text_report = resolve_single_file_path(
-                os.path.join(output_dir, 'assembly_check', vcf_name + '*text_assembly_report*')
+                os.path.join(output_dir, 'validation_output', 'assembly_check', vcf_name + '*text_assembly_report*')
             )
 
             # move the output files
@@ -373,15 +362,11 @@ class EloadValidation(Eload):
                 tmp_assembly_check_log,
                 os.path.join(self._get_dir('assembly_check'), vcf_name + '.assembly_check.log')
             )
-            assembly_check_valid_vcf = self._move_file(
-                tmp_assembly_check_valid_vcf,
-                os.path.join(self._get_dir('assembly_check'), vcf_name + '.valid_assembly_report.txt')
-            )
             assembly_check_text_report = self._move_file(
                 tmp_assembly_check_text_report,
                 os.path.join(self._get_dir('assembly_check'), vcf_name + '.text_assembly_report.txt')
             )
-            if assembly_check_log and assembly_check_valid_vcf and assembly_check_text_report:
+            if assembly_check_log and assembly_check_text_report:
                 error_list_from_log, nb_error_from_log, match, total = \
                     self.parse_assembly_check_log(assembly_check_log)
                 mismatch_list, nb_mismatch, error_list_from_report, nb_error_from_report = \
@@ -395,7 +380,6 @@ class EloadValidation(Eload):
                 'error_list': error_list, 'mismatch_list': mismatch_list, 'nb_mismatch': nb_mismatch,
                 'nb_error': nb_error, 'ref_match': match,
                 'nb_variant': total, 'assembly_check_log': assembly_check_log,
-                'assembly_check_valid_vcf': assembly_check_valid_vcf,
                 'assembly_check_text_report': assembly_check_text_report
             })
         self.eload_cfg.set('validation', 'assembly_check', 'pass', value=total_error == 0)
