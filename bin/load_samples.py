@@ -1,4 +1,4 @@
-#!/nfs/production/keane/eva/software/eva-submission/production_deployment/v1.18.4/bin/python3
+#!/bin/env python3
 
 # Copyright 2025 EMBL - European Bioinformatics Institute
 #
