@@ -29,9 +29,10 @@ params.help = null
 if (params.help) exit 0, helpMessage()
 
 // Test input files
-if (!params.vcf_files_mapping || !params.output_dir) {
+if (!params.vcf_files_mapping || !params.output_dir || !params.metadata_json) {
     if (!params.vcf_files_mapping)    log.warn('Provide a csv file with the mappings (vcf, fasta, assembly report) --vcf_files_mapping')
     if (!params.output_dir)    log.warn('Provide an output directory where the reports will be copied using --output_dir')
+    if (!params.metadata_json)    log.warn('Provide a json file containing the metadata and location of files using --metadata_json')
     exit 1, helpMessage()
 }
 
@@ -44,15 +45,9 @@ workflow {
         .splitCsv(header:true)
         .map{row -> tuple(file(row.vcf), row.assembly_accession)}
 
-	// eva-sub-cli does not have an associated task, but runs whenever the Nextflow is run and a metadata json exists
-    if (params.metadata_json) {
-        run_eva_sub_cli()
-    }
-    if ("vcf_check" in params.validation_tasks) {
-        check_vcf_valid(vcf_info_ch)
-    }
-    if ("assembly_check" in params.validation_tasks) {
-        check_vcf_reference(vcf_info_ch)
+	// eva-sub-cli is run as soo as one of assembly check of vcf_check is requested
+    if ("vcf_check" in params.validation_tasks || "assembly_check" in params.validation_tasks) {
+            run_eva_sub_cli()
     }
     if ("structural_variant_check" in params.validation_tasks) {
         detect_sv(vcf_info_ch)
@@ -76,11 +71,16 @@ process run_eva_sub_cli {
     output:
     path "validation_results.yaml", emit: eva_sub_cli_results
     path "validation_output/report.html", emit: eva_sub_cli_report
+    path "validation_output/report.txt", emit: eva_sub_cli_text_report
+    path "validation_output/assembly_check/*text_assembly_report*", emit: assembly_check_report
+    path "validation_output/assembly_check/*.assembly_check.log", emit: assembly_check_log
+    path "validation_output/vcf_format/*.errors.*.txt", emit: vcf_validation_txt
+    path "validation_output/vcf_format/*.vcf_format.log", emit: vcf_validation_log
 
     script:
     """
     source $params.executable.sub_cli_env
-    $params.executable.eva_sub_cli --submission_dir . --metadata_json ${params.metadata_json} --tasks VALIDATE --shallow
+    $params.executable.eva_sub_cli --submission_dir . --metadata_json ${params.metadata_json} --tasks VALIDATE
     """
 }
 
