@@ -178,27 +178,26 @@ class EvaProjectLoader(AppLogger):
         if not file_obj:
             self.error(f'Cannot find file {vcf_file} in EVAPRO for md5 {vcf_file_md5}: Rolling back')
             return False
-        for sample_name in sample_names:
-            sample_accession = sample_name_2_sample_accession.get(sample_name)
+        for sample_name_inf_vcf in sample_names:
+            sample_accession = sample_name_2_sample_accession.get(sample_name_inf_vcf)
             if not sample_accession and sample_mapping:
-                mapping = sample_mapping.get(sample_name, {})
+                mapping = sample_mapping.get(sample_name_inf_vcf, {})
                 if 'sample_name' in mapping:
-                    sample_name = mapping['sample_name']
-                sample_accession = sample_name_2_sample_accession.get(sample_name)
+                    sample_name_in_biosample = mapping['sample_name']
+                sample_accession = sample_name_2_sample_accession.get(sample_name_in_biosample)
                 if 'biosample_accession' in mapping:
                     sample_accession = mapping['biosample_accession']
-                sample_name = sample_mapping.get(sample_name) or sample_name
             if not sample_accession:
-                self.error(f'Sample {sample_name} found in {vcf_file} does not have BioSample accession: Rolling back')
+                self.error(f'Sample {sample_name_inf_vcf} found in {vcf_file} does not have BioSample accession: Rolling back')
                 self.eva_session.rollback()
                 return False
             sample_obj = self.get_sample(sample_accession)
             if not sample_obj:
-                self.error(f'Cannot find sample {sample_accession} ({sample_name}) from {vcf_file} in EVAPRO: Rolling back')
+                self.error(f'Cannot find sample {sample_accession} ({sample_name_inf_vcf}) from {vcf_file} in EVAPRO: Rolling back')
                 self.eva_session.rollback()
                 return False
             self.insert_sample_in_file(file_id=file_obj.file_id, sample_id=sample_obj.sample_id,
-                                       name_in_file=sample_name)
+                                       name_in_file=sample_name_inf_vcf)
         self.eva_session.commit()
         return True
 
