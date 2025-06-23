@@ -182,7 +182,7 @@ class EvaProjectLoader(AppLogger):
         if not file_obj:
             self.error(f'Cannot find file {vcf_file} in EVAPRO for md5 {vcf_file_md5}: Rolling back')
             return False
-        for sample_name_inf_vcf in sample_names:
+        for sample_name_in_vcf in sample_names:
             sample_accession = sample_name_2_sample_accession.get(sample_name_inf_vcf)
             if not sample_accession and sample_mapping:
                 mapping = sample_mapping.get(sample_name_inf_vcf, {})
