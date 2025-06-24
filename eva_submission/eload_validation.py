@@ -258,13 +258,16 @@ class EloadValidation(Eload):
         return vcf_files_mapping_csv
 
     def _run_validation_workflow(self, validation_tasks):
+        assert self.eload_cfg.query('submission', 'metadata_json'), 'Metadata json is not set in the config file, Cannot proceed with validation'
+        metadata_json = self.eload_cfg.query('submission', 'metadata_json')
+        assert os.path.isfile(metadata_json), f'Metadata json {metadata_json} does not exist. Cannot proceed with validation'
         output_dir = self.create_nextflow_temp_output_directory()
         vcf_files_mapping_csv = self._generate_csv_mappings()
         cfg['executable']['python']['script_path'] = os.path.dirname(os.path.dirname(__file__))
         validation_config = {
             'vcf_files_mapping': vcf_files_mapping_csv,
             'output_dir': output_dir,
-            'metadata_json': self.eload_cfg.query('submission', 'metadata_json'),
+            'metadata_json': metadata_json,
             'executable': cfg['executable'],
             'validation_tasks': validation_tasks
         }
