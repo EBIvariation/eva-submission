@@ -107,7 +107,7 @@ json_to_xlsx_key_mapper = {
         "subSpecies": "sub_species",
         "variety": "variety",
         "subStrain": "sub_strain",
-        "cellType": "cell_line",
+        "cellLine": "cell_line",
         "serotype": "serotype",
         "serovar": "serovar"
     },

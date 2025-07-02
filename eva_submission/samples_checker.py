@@ -50,10 +50,10 @@ def get_sample_names(sample_rows):
     """
     sample_names = []
     for row in sample_rows:
-        if 'Sample Name' in row and row['Sample Name']:
-            sample_names.append(row['Sample Name'])
-        elif 'Sample ID' in row and row['Sample ID']:
+        if 'Sample ID' in row and row['Sample ID']:
             sample_names.append(row['Sample ID'])
+        elif 'Sample Name' in row and row['Sample Name']:
+            sample_names.append(row['Sample Name'])
         else:
             logger.warning('Sample Name and sample ID are both missing in row %s', row.get('row_num'))
 
