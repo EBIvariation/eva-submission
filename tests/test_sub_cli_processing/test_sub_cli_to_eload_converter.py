@@ -1,3 +1,4 @@
+import datetime
 import glob
 import json
 import os
@@ -7,6 +8,7 @@ from unittest.mock import patch, PropertyMock, Mock
 
 from ebi_eva_common_pyutils.config import cfg
 
+from eva_sub_cli_processing.sub_cli_to_eload_converter.json_to_xlsx_converter import parse_date
 from eva_sub_cli_processing.sub_cli_to_eload_converter.sub_cli_to_eload_converter import SubCLIToEloadConverter
 from eva_submission import ROOT_DIR
 from eva_submission.submission_config import load_config
@@ -206,4 +208,11 @@ class TestSubCliToEloadConverter(TestCase):
             auth=(cfg['submissions']['webservice']['admin_username'],
                   cfg['submissions']['webservice']['admin_password']))
         assert submission_obj == {'json_property': 'json_value'}
+
+    def test_parse_date(self):
+        assert parse_date('2019-12-24') == datetime.date(2019, 12, 24)
+        assert parse_date('2019') == datetime.date(2019, 1, 1)
+        assert parse_date('2019-12') == datetime.date(2019, 12, 1)
+
+        assert parse_date('not provided') == 'not provided'
 

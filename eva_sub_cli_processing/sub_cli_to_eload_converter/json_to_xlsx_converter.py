@@ -4,6 +4,22 @@ from datetime import datetime
 import openpyxl
 from openpyxl.workbook import Workbook
 
+def parse_date(x: str):
+    try:
+        return datetime.strptime(x, "%Y-%m-%d").date()
+    except ValueError:
+        pass
+    try:
+        return datetime.strptime(x, "%Y-%m").date()
+    except ValueError:
+        pass
+    try:
+        return datetime.strptime(x, "%Y").date()
+    except ValueError:
+        pass
+    return x
+
+
 # The dict contains the mapping between the field in JSON and the header of the Excel spreadsheet.
 # when the value is a dict it must contain a 'name' to define the header and optionally can contain
 #  - transform which define a function applied to the cell value
@@ -91,7 +107,7 @@ json_to_xlsx_key_mapper = {
         "cultureCollection": "culture_collection",
         "specimenVoucher": "specimen_voucher",
         "collectedBy": "collected_by",
-        "collectionDate": {'name': "collection_date", 'transform': lambda x: datetime.strptime(x, "%Y-%m-%d").date()},
+        "collectionDate": {'name': "collection_date", 'transform': parse_date},
         "geographicLocationCountrySea": "geographic location (country and/or sea)",
         "geographicLocationRegion": "geographic location (region and locality)",
         "host": "host",
