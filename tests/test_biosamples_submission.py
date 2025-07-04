@@ -277,8 +277,6 @@ class TestSampleMetadataSubmitter(BSDTestCase):
 
         expected_payload = updated_samples + existing_samples + new_samples
         payload = self.submitter_partial_biosample_ids.map_metadata_to_bsd_data()
-        pprint(payload)
-        print(payload)
         assert expected_payload == payload
 
     def test_check_submit_done(self):
