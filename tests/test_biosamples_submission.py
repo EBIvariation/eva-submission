@@ -243,25 +243,33 @@ class TestSampleMetadataSubmitter(BSDTestCase):
         organizations = [{'Name': 'GPE', 'Address': 'The place to be'}, {'Name': 'GPE', 'Address': 'The place to be'}]
         updated_samples = [{
             'accession': 'SAMD1234' + str(567 + i),
-            'name': 'S%s' % (i + 1), 'taxId': 9606, 'release': now,
+            'name': 'S%s' % (i + 1), 'taxId': '9606', 'release': now,
             'contact': contacts, 'organization': organizations,
             'characteristics': {
                 'Organism': [{'text': 'Homo sapiens'}],
                 'description': [{'text': 'Sample %s' % (i + 1)}],
                 'scientific name': [{'text': 'Homo sapiens'}],
+                'collection date': [{'text': 'not provided'}],
+                'geographic location (country and/or sea)': [{'text': 'not provided'}],
                 'last_updated_by': [{'text': 'EVA'}]
             }
         } for i in range(10)]
         existing_samples = [{
             'accession': 'SAMD1234' + str(567 + i),
             'contact': contacts, 'organization': organizations,
-            'characteristics': {'last_updated_by': [{'text': 'EVA'}]},
+            'characteristics': {
+                'last_updated_by': [{'text': 'EVA'}],
+                'collection date': [{'text': 'not provided'}],
+                'geographic location (country and/or sea)': [{'text': 'not provided'}]
+            },
             'release': now
         } for i in range(10, 20)]
-        new_samples = [{'name': 'S%s' % (i + 1), 'taxId': 9606, 'release': now,
+        new_samples = [{'name': 'S%s' % (i + 1), 'taxId': '9606', 'release': now,
                         'contact': contacts, 'organization': organizations,
                         'characteristics': {
                             'Organism': [{'text': 'Homo sapiens'}],
+                            'collection date': [{'text': 'not provided'}],
+                            'geographic location (country and/or sea)': [{'text': 'not provided'}],
                             'description': [{'text': 'Sample %s' % (i + 1)}],
                             'scientific name': [{'text': 'Homo sapiens'}],
                             'last_updated_by': [{'text': 'EVA'}]
@@ -269,6 +277,8 @@ class TestSampleMetadataSubmitter(BSDTestCase):
 
         expected_payload = updated_samples + existing_samples + new_samples
         payload = self.submitter_partial_biosample_ids.map_metadata_to_bsd_data()
+        pprint(payload)
+        print(payload)
         assert expected_payload == payload
 
     def test_check_submit_done(self):
