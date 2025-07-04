@@ -406,19 +406,20 @@ class SampleMetadataSubmitter(SampleSubmitter):
         'Sex': 'characteristics.sex',
         'bio_material': 'characteristics.material',
         'Tax Id': 'taxId',
-        'Scientific Name': ['characteristics.scientific name', 'characteristics.Organism']
+        'Scientific Name': ['characteristics.scientific name', 'characteristics.Organism'],
+        'collection_date': 'characteristics.collection date'
     }
     accepted_characteristics = ['Unique Name Prefix', 'Subject', 'Derived From', 'Scientific Name', 'Common Name',
                                 'mating_type', 'sex', 'population', 'cell_type', 'dev_stage', 'germline', 'tissue_lib',
                                 'tissue_type', 'culture_collection', 'specimen_voucher', 'collected_by',
-                                'collection_date', 'geographic location (country and/or sea)',
+                                'collection date', 'geographic location (country and/or sea)',
                                 'geographic location (region and locality)', 'host', 'identified_by',
                                 'isolation_source', 'lat_lon', 'lab_host', 'environmental_sample', 'cultivar',
                                 'ecotype', 'isolate', 'strain', 'sub_species', 'variety', 'sub_strain', 'cell_line',
                                 'serotype', 'serovar']
 
     characteristic_defaults = {
-        'collection_date': 'not provided',
+        'collection date': 'not provided',
         'geographic location (country and/or sea)': 'not provided'
     }
 
@@ -460,9 +461,9 @@ class SampleMetadataSubmitter(SampleSubmitter):
             for key in sample_row:
                 if sample_row[key]:
                     if key in self.sample_mapping:
-                        self.apply_mapping(bsd_sample_entry, self.map_sample_key(key), sample_row[key])
+                        self.apply_mapping(bsd_sample_entry, self.map_sample_key(key), self.serialize(sample_row[key]))
                     elif key in self.accepted_characteristics:
-                        # other field  maps to characteristics
+                        # other field maps to characteristics
                         self.apply_mapping(
                             bsd_sample_entry['characteristics'],
                             self.map_sample_key(key.lower()),
@@ -482,7 +483,7 @@ class SampleMetadataSubmitter(SampleSubmitter):
                         )
             # Apply defaults if the key doesn't already exist
             for key in self.characteristic_defaults:
-                if key not in sample_row:
+                if key not in bsd_sample_entry['characteristics']:
                     self.apply_mapping(
                         bsd_sample_entry['characteristics'],
                         self.map_sample_key(key.lower()),

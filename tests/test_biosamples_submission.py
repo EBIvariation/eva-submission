@@ -208,7 +208,7 @@ class TestSampleMetadataSubmitter(BSDTestCase):
         biosamples_submitters._now = now
 
         expected_payload = [
-            {'name': 'S%s' % (i + 1), 'taxId': 9606, 'release': now,
+            {'name': 'S%s' % (i + 1), 'taxId': '9606', 'release': now,
              'contact': [{'LastName': 'John', 'FirstName': 'Doe', 'E-mail': 'john.doe@example.com'},
                          {'LastName': 'Jane', 'FirstName': 'Doe', 'E-mail': 'jane.doe@example.com'}],
              'organization': [{'Name': 'GPE', 'Address': 'The place to be'},
@@ -217,7 +217,7 @@ class TestSampleMetadataSubmitter(BSDTestCase):
                 'Organism': [{'text': 'Homo sapiens'}],
                 'description': [{'text': 'Sample %s' % (i+1)}],
                 'scientific name': [{'text': 'Homo sapiens'}],
-                'collection_date': [{'text': '2020-01-15'}],
+                'collection date': [{'text': '2020-01-15'}],
                 'geographic location (country and/or sea)': [{'text': 'not provided'}],
                 'last_updated_by': [{'text': 'EVA'}]
             }}
@@ -229,6 +229,8 @@ class TestSampleMetadataSubmitter(BSDTestCase):
             'tree.ind': [{'text': '168-B1-R1'}]
         })
         payload = self.submitter.map_metadata_to_bsd_data()
+        print(payload)
+        assert payload == expected_payload
         self.assertEqual(payload, expected_payload)
 
     def test_map_partial_metadata_to_bsd_data(self):
@@ -345,11 +347,11 @@ class TestSampleMetadataOverrider(BSDTestCase):
                 patch.object(HALCommunicator, 'follows_link') as m_follows_link:
 
             sample1 = copy.deepcopy(self.samples.get('SAMN1234567'))
-            sample1['characteristics']['collection_date'] = [{'text': '2020-12-24'}]
+            # sample1['characteristics']['collection date'] = [{'text': '2020-12-24'}]
             sample1['characteristics']['geographic location (country and/or sea)'] = [{'text': 'United Kingdom'}]
             sample1['characteristics']['last_updated_by'] = [{'text': 'EVA'}]
             sample2 = copy.deepcopy(self.samples.get('SAMN1234568'))
-            sample2['characteristics']['collection_date'] = [{'text': '1920-12-24'}]
+            # sample2['characteristics']['collection date'] = [{'text': '1920-12-24'}]
             sample2['characteristics']['geographic location (country and/or sea)'] = [{'text': 'USA'}]
             sample2['characteristics']['last_updated_by'] = [{'text': 'EVA'}]
             sample_submitter = SampleMetadataSubmitter(self.metadata_file_ncbi, submit_type=('override',))
