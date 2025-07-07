@@ -14,6 +14,7 @@ from ebi_eva_internal_pyutils.metadata_utils import build_taxonomy_code
 from sqlalchemy import select, create_engine, func, update
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import text
 
 from eva_submission.evapro.find_from_ena import OracleEnaProjectFinder
 from eva_submission.evapro.table import Project, Taxonomy, LinkedProject, Submission, ProjectEnaSubmission, \
@@ -320,7 +321,7 @@ class EvaProjectLoader(AppLogger):
 
     def refresh_study_browser(self):
         self.begin_or_continue_transaction()
-        self.eva_session.execute('REFRESH MATERIALIZED VIEW study_browser')
+        self.eva_session.execute(text('REFRESH MATERIALIZED VIEW study_browser'))
 
     def load_clustering_record(self, taxonomy, assembly, clustering_source):
         self.begin_or_continue_transaction()
