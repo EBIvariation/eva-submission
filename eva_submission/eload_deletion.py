@@ -16,7 +16,9 @@ class EloadDeletion(Eload):
         super().__init__(eload_number)
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
         self.project_dir = os.path.join(cfg['projects_dir'], self.project_accession)
-        self.lts_archive_file = os.path.join(cfg['eloads_lts_dir'], f'{self.eload}.tar')
+        archive_dir = os.path.join(cfg['eloads_lts_dir'])
+        assert os.path.isdir(archive_dir), f'Archive directory {archive_dir} does not exist. Are you on a datamover nodes ?'
+        self.lts_archive_file = os.path.join(archive_dir, f'{self.eload}.tar')
 
     def delete_submission(self, ftp_box, submitter, force_delete=False):
         # check if already present in LTS
@@ -87,6 +89,7 @@ class EloadDeletion(Eload):
             shutil.copy(archive_tar_file, self.lts_archive_file)
         except Exception as e:
             print(f"Error copying archive to LTS: {e}")
+            raise e
 
     def copy_eload_files(self, archive_dir):
         # copy config file
