@@ -1,10 +1,11 @@
 Changelog for eva-submission
 ============================
 
-## 1.18.5 (unreleased)
+## 1.18.5 (2025-07-07)
 ----------------------
 
-- Nothing changed yet.
+- Change property brokered to BioSample from "collection_date" to "collection date" 
+- Allow multiple date format during xlsx conversion 
 
 
 ## 1.18.4 (2025-06-10)
