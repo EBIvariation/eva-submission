@@ -36,6 +36,8 @@ class TestEloadDeletion(TestCase):
 
         # Need to set the directory so that the relative path set in the config file works from the top directory
         os.chdir(self.sub_del_test_dir)
+        # create lts directory
+        os.makedirs(cfg['eloads_lts_dir'], exist_ok=True)
         self.eload_deletion = EloadDeletion(eload_number)
 
     def tearDown(self):
@@ -292,5 +294,3 @@ class TestEloadDeletion(TestCase):
         Path(f"{accessioned_files_dir}/test_2.accessioned.vcf").touch()
         Path(f"{accessioned_files_dir}/test_2.accessioned.vcf.csi").touch()
 
-        # create lts directory
-        os.makedirs(cfg['eloads_lts_dir'])
