@@ -355,11 +355,9 @@ class TestSampleMetadataOverrider(BSDTestCase):
                 patch.object(HALCommunicator, 'follows_link') as m_follows_link:
 
             sample1 = copy.deepcopy(self.samples.get('SAMN1234567'))
-            # sample1['characteristics']['collection date'] = [{'text': '2020-12-24'}]
             sample1['characteristics']['geographic location (country and/or sea)'] = [{'text': 'United Kingdom'}]
             sample1['characteristics']['last_updated_by'] = [{'text': 'EVA'}]
             sample2 = copy.deepcopy(self.samples.get('SAMN1234568'))
-            # sample2['characteristics']['collection date'] = [{'text': '1920-12-24'}]
             sample2['characteristics']['geographic location (country and/or sea)'] = [{'text': 'USA'}]
             sample2['characteristics']['last_updated_by'] = [{'text': 'EVA'}]
             sample_submitter = SampleMetadataSubmitter(self.metadata_file_ncbi, submit_type=('override',))
