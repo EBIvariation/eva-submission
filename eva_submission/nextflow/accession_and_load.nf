@@ -198,6 +198,7 @@ process normalise_vcf {
 
     script:
     """
+    set -eo pipefail
     mkdir normalised_vcfs
     $params.executable.bcftools norm --no-version -cw -f $fasta -O u $vcf_file 2> normalised_vcfs/${vcf_file.getBaseName()}_bcftools_norm.log | $params.executable.bcftools sort -T \$PWD/tmp. -O z -o normalised_vcfs/$vcf_file -
     $params.executable.bcftools index -c normalised_vcfs/$vcf_file
@@ -317,6 +318,7 @@ process csi_index_vcf {
     script:
     if( accessioned_vcfs.size() > 0 )
         """
+        set -eo pipefail
         cd $params.public_dir
         # remove the uncompressed accessioned vcf file
         rm -f ${accessioned_vcfs.join(' ')}
@@ -325,6 +327,7 @@ process csi_index_vcf {
         """
     else
         """
+        set -eo pipefail
         cd $params.public_dir
         rsync -va * ${params.public_ftp_dir}/${params.project_accession}
         ls -l ${params.public_ftp_dir}/${params.project_accession}/*
