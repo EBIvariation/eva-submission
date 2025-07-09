@@ -58,6 +58,7 @@ process retrieve_source_genome {
     tuple val(source_assembly_accession), path("${source_assembly_accession}.fa"), path("${source_assembly_accession}_assembly_report.txt"), emit: source_assembly
 
     """
+    set -eo pipefail
     $params.executable.genome_downloader --assembly-accession ${source_assembly_accession} --species ${species_name} --output-directory ${params.genome_assembly_dir}
     ln -s ${params.genome_assembly_dir}/${species_name}/${source_assembly_accession}/${source_assembly_accession}.fa
     ln -s ${params.genome_assembly_dir}/${species_name}/${source_assembly_accession}/${source_assembly_accession}_assembly_report.txt
@@ -77,6 +78,7 @@ process retrieve_target_genome {
     path "${target_assembly_accession}_assembly_report.txt", emit: target_report
 
     """
+    set -eo pipefail
     $params.executable.genome_downloader --assembly-accession ${target_assembly_accession} --species ${species_name} --output-directory ${params.genome_assembly_dir}
     ln -s ${params.genome_assembly_dir}/${species_name}/${target_assembly_accession}/${target_assembly_accession}.fa
     ln -s ${params.genome_assembly_dir}/${species_name}/${target_assembly_accession}/${target_assembly_accession}_assembly_report.txt
