@@ -247,12 +247,20 @@ class HistoricalProjectSampleLoader(EloadBacklog):
     def sample_name_2_accessions_per_analysis(self):
         """Retrieve the sample to biosample accession map from the ENA API"""
         sample_name_2_accessions_per_analysis = {}
-        if self.project_accession:
-            sample_accessions_per_analysis = self.api_ena_finder.find_samples_from_analysis(self.project_accession)
-            for analysis_accession in sample_accessions_per_analysis:
-                sample_name_2_accessions_per_analysis[analysis_accession] = {
-                    alias: accession for accession, alias in sample_accessions_per_analysis[analysis_accession].items()
-                }
+        sample_accessions_per_analysis = {}
+        # Check the XML first
+        if self.analysis_accessions:
+            for analysis_accession in self.analysis_accessions:
+                sample_accessions_per_analysis.update(self.api_ena_finder.find_samples_from_analysis_xml(analysis_accession))
+        # If it does not yield anything then check the filereport
+        if not sample_accessions_per_analysis:
+            if self.project_accession:
+                sample_accessions_per_analysis = self.api_ena_finder.find_samples_from_analysis(self.project_accession)
+        # reverse the dictionary where sample name become the key and sample accession the value
+        for analysis_accession in sample_accessions_per_analysis:
+            sample_name_2_accessions_per_analysis[analysis_accession] = {
+                alias: accession for accession, alias in sample_accessions_per_analysis[analysis_accession].items()
+            }
         return sample_name_2_accessions_per_analysis
 
     @cached_property
