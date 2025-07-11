@@ -2,7 +2,7 @@ import os
 from unittest import TestCase
 from unittest.mock import patch
 
-from eva_submission.ena_retrieval import files_from_ena, remove_file_from_analysis, \
+from eva_submission.ena_retrieval import remove_file_from_analysis, \
     difference_evapro_file_set_with_ena_for_analysis, get_file_id_from_md5, insert_file_into_evapro, \
     insert_file_analysis_into_evapro
 from eva_submission.submission_config import load_config
@@ -14,17 +14,6 @@ class TestEnaRetrieval(TestCase):
     def setUp(self):
         config_file = os.path.join(self.resources_folder, 'submission_config.yml')
         load_config(config_file)
-
-    def test_files_from_ena(self):
-        expected_files = {
-            'ERZ468492': [
-                {'filename': 'ERZ468/ERZ468492/OMIA001271_9913_2.vcf.gz.tbi', 'analysis_accession': 'ERZ468492',
-                 'filetype': 'tabix', 'md5': '07f98ac44d6d6f1453d40dc61f29ecec'},
-                {'filename': 'ERZ468/ERZ468492/OMIA001271_9913_2.vcf.gz',  'analysis_accession': 'ERZ468492',
-                 'filetype': 'vcf', 'md5': '5118c4d13159750f476005d64fc27829'}
-            ]
-        }
-        assert files_from_ena('ERZ468492') == expected_files
 
     def test_get_file_id_from_md5(self):
         with patch('eva_submission.ena_retrieval.get_metadata_connection_handle', autospec=True), \
