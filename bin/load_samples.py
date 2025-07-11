@@ -251,7 +251,9 @@ class HistoricalProjectSampleLoader(EloadBacklog):
         # Check the XML first
         if self.analysis_accessions:
             for analysis_accession in self.analysis_accessions:
-                sample_accessions_per_analysis.update(self.api_ena_finder.find_samples_from_analysis_xml(analysis_accession))
+                tmp = self.api_ena_finder.find_samples_from_analysis_xml(analysis_accession)
+                if tmp.get(analysis_accession):
+                    sample_accessions_per_analysis.update(tmp)
         # If it does not yield anything then check the filereport
         if not sample_accessions_per_analysis:
             if self.project_accession:
