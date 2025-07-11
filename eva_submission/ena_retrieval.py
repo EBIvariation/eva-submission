@@ -10,21 +10,6 @@ from retry import retry
 logger = log_cfg.get_logger(__name__)
 
 
-@retry(tries=3, logger=logger)
-def files_from_ena(search_term):
-    xml_root = download_xml_from_ena(f'https://www.ebi.ac.uk/ena/browser/api/xml/textsearch?result=analysis&query={search_term}')
-    analyses = xml_root.xpath('/ANALYSIS_SET/ANALYSIS')
-    analysis_files = {}
-    for analysis in analyses:
-        files = analysis.xpath('FILES/FILE')
-        file_dicts = []
-        for file in files:
-            file_dicts.append({'filename': file.attrib['filename'], 'filetype': file.attrib['filetype'],
-                               'md5': file.attrib['checksum'], 'analysis_accession': analysis.attrib['accession']})
-        analysis_files[analysis.attrib['accession']] = file_dicts
-    return analysis_files
-
-
 def get_file_id_from_md5(md5):
     with get_metadata_connection_handle(cfg['maven']['environment'], cfg['maven']['settings_file']) as conn:
         query = f"select file_id from file where file_md5='{md5}'"
