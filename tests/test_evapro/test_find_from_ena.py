@@ -122,3 +122,16 @@ class TestApiEnaProjectFinder(unittest.TestCase):
         samples_per_analysis = project_finder.find_samples_from_analysis(project)
         assert samples_per_analysis == expected_samples_per_analysis
 
+    def test_find_samples_from_analysis_xml(self):
+        api_finder = ApiEnaProjectFinder()
+        analysis_accession = 'ERZ23510811'
+        # Sometimes record in the XML and in the file reports return the same results
+        assert api_finder.find_samples_from_analysis_xml(analysis_accession) == api_finder.find_samples_from_analysis(analysis_accession)
+        analysis_accession = 'ERZ26111426'
+        # Sometimes they DO NOT (and the XML is correct)
+        assert api_finder.find_samples_from_analysis_xml(analysis_accession) != api_finder.find_samples_from_analysis(analysis_accession)
+        analysis_accession = 'ERZ297383'
+        # Sometimes they DO NOT (and the file report is correct) Old submissions most likely
+        assert api_finder.find_samples_from_analysis_xml(analysis_accession) != api_finder.find_samples_from_analysis(analysis_accession)
+
+
