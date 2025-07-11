@@ -15,11 +15,11 @@ class ApiEnaProjectFinder:
 
     def find_sample_aliases_per_accessions(self, accession_list):
         # Chunk the list in case it is too long
-        results = {}
+        results = []
         chunk_size = 100
         if accession_list:
             for i in range(0, len(accession_list), chunk_size):
-                results.update(self._find_sample_aliases_per_accessions(accession_list[i:i + chunk_size]))
+                results.extend(self._find_sample_aliases_per_accessions(accession_list[i:i + chunk_size]))
         return results
 
     def _find_sample_aliases_per_accessions(self, accession_list):
@@ -34,9 +34,9 @@ class ApiEnaProjectFinder:
         response = requests.get(url, params=params)
         response.raise_for_status()
         json_data = response.json()
-        samples = {}
+        samples = []
         for sample_data in json_data:
-            samples[sample_data['sample_accession']] = sample_data['sample_alias']
+            samples.append((sample_data['sample_accession'], sample_data['sample_alias']))
         return samples
 
     def find_samples_from_analysis(self, accession):
@@ -62,7 +62,7 @@ class ApiEnaProjectFinder:
     def find_samples_from_analysis_xml(self, analysis_accession):
         xml_root = download_xml_from_ena(f'https://www.ebi.ac.uk/ena/browser/api/xml/{analysis_accession}')
         xml_samples = xml_root.xpath('/ANALYSIS_SET/ANALYSIS/SAMPLE_REF')
-        samples = {}
+        samples = []
 
         if xml_samples:
             for xml_sample in xml_samples:
@@ -75,7 +75,7 @@ class ApiEnaProjectFinder:
                         if external_id.get('namespace') == 'BioSample':
                             biosample_accession = external_id.text
                 if sample_name and biosample_accession:
-                    samples[biosample_accession] = sample_name
+                    samples.append((biosample_accession, sample_name))
         else:
             print('No samples found')
         return {analysis_accession: samples}

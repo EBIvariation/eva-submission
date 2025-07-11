@@ -94,31 +94,45 @@ class TestApiEnaProjectFinder(unittest.TestCase):
 
     def test_find_samples_from_analysis(self):
         analysis = 'ERZ23510811'
-        expected_samples_per_analysis = {
-            'ERZ23510811': {
-                'SAMEA115348715': '37_U8681540996_TP53', 'SAMEA115348717': '39_B2253900996_TP53',
-                'SAMEA115348723': 'Sample 16', 'SAMEA115348730': 'Sample 23', 'SAMEA115348731': 'Sample 25',
-                'SAMEA115348732': 'Sample 26', 'SAMEA115348733': 'Sample 27', 'SAMEA115348713': '35_U8488600996_TP53',
-                'SAMEA115348716': '38_U8996740996_TP53', 'SAMEA115348719': '41_U9442170996_TP53',
-                'SAMEA115348721': '43_U9834740996_TP53', 'SAMEA115348722': '44_U9894200996_TP53',
-                'SAMEA115348724': 'Sample 17', 'SAMEA115348726': 'Sample 19',
-                'SAMEA115348727': 'Sample 20', 'SAMEA115348729': 'Sample 22',
-                'SAMEA115348734': 'Sample 28', 'SAMEA115348736': '59_U9252310996_TP53',
-                'SAMEA115348737': '60_U9244200996_TP53', 'SAMEA115348712': '34_U8318640996_TP53',
-                'SAMEA115348714': '36_U8696100996_TP53', 'SAMEA115348718': '40_U9275870996_TP53',
-                'SAMEA115348720': '42_U9453150996_TP53', 'SAMEA115348725': 'Sample 18', 'SAMEA115348728': 'Sample 21',
-                'SAMEA115348735': '58_U9145960996_TP53', 'SAMEA115348738': '61_U9266520996_TP53',
-                'SAMEA115348739': '62_U9458180996_TP53', 'SAMEA115348740': '63_U9490010996_TP53',
-                'SAMEA115348741': '64_U9851770996_TP53'
-            }
-        }
+        expected_samples_per_analysis = [
+            ('SAMEA115348715', '37_U8681540996_TP53'),
+            ('SAMEA115348717', '39_B2253900996_TP53'),
+            ('SAMEA115348723', 'Sample 16'),
+            ('SAMEA115348730', 'Sample 23'),
+            ('SAMEA115348731', 'Sample 25'),
+            ('SAMEA115348732', 'Sample 26'),
+            ('SAMEA115348733', 'Sample 27'),
+            ('SAMEA115348713', '35_U8488600996_TP53'),
+            ('SAMEA115348716', '38_U8996740996_TP53'),
+            ('SAMEA115348719', '41_U9442170996_TP53'),
+            ('SAMEA115348721', '43_U9834740996_TP53'),
+            ('SAMEA115348722', '44_U9894200996_TP53'),
+            ('SAMEA115348724', 'Sample 17'),
+            ('SAMEA115348726', 'Sample 19'),
+            ('SAMEA115348727', 'Sample 20'),
+            ('SAMEA115348729', 'Sample 22'),
+            ('SAMEA115348734', 'Sample 28'),
+            ('SAMEA115348736', '59_U9252310996_TP53'),
+            ('SAMEA115348737', '60_U9244200996_TP53'),
+            ('SAMEA115348712', '34_U8318640996_TP53'),
+            ('SAMEA115348714', '36_U8696100996_TP53'),
+            ('SAMEA115348718', '40_U9275870996_TP53'),
+            ('SAMEA115348720', '42_U9453150996_TP53'),
+            ('SAMEA115348725', 'Sample 18'),
+            ('SAMEA115348728', 'Sample 21'),
+            ('SAMEA115348735', '58_U9145960996_TP53'),
+            ('SAMEA115348738', '61_U9266520996_TP53'),
+            ('SAMEA115348739', '62_U9458180996_TP53'),
+            ('SAMEA115348740', '63_U9490010996_TP53'),
+            ('SAMEA115348741', '64_U9851770996_TP53')
+        ]
         project_finder = ApiEnaProjectFinder()
-        samples_per_analysis = project_finder.find_samples_from_analysis(analysis)
-        assert samples_per_analysis == expected_samples_per_analysis
+        samples_for_analysis = project_finder.find_samples_from_analysis(analysis).get(analysis)
+        assert sorted(samples_for_analysis) == sorted(expected_samples_per_analysis)
 
         # project with no samples
         project = 'PRJEB74935'
-        expected_samples_per_analysis = {'ERZ23877850': {}}
+        expected_samples_per_analysis = {'ERZ23877850': []}
         samples_per_analysis = project_finder.find_samples_from_analysis(project)
         assert samples_per_analysis == expected_samples_per_analysis
 
@@ -126,12 +140,14 @@ class TestApiEnaProjectFinder(unittest.TestCase):
         api_finder = ApiEnaProjectFinder()
         analysis_accession = 'ERZ23510811'
         # Sometimes record in the XML and in the file reports return the same results
-        assert api_finder.find_samples_from_analysis_xml(analysis_accession) == api_finder.find_samples_from_analysis(analysis_accession)
+        assert sorted(api_finder.find_samples_from_analysis_xml(analysis_accession).get(analysis_accession)) ==\
+               sorted(api_finder.find_samples_from_analysis(analysis_accession).get(analysis_accession))
         analysis_accession = 'ERZ26111426'
         # Sometimes they DO NOT (and the XML is correct)
-        assert api_finder.find_samples_from_analysis_xml(analysis_accession) != api_finder.find_samples_from_analysis(analysis_accession)
+        assert sorted(api_finder.find_samples_from_analysis_xml(analysis_accession).get(analysis_accession)) != \
+               sorted(api_finder.find_samples_from_analysis(analysis_accession).get(analysis_accession))
         analysis_accession = 'ERZ297383'
         # Sometimes they DO NOT (and the file report is correct) Old submissions most likely
-        assert api_finder.find_samples_from_analysis_xml(analysis_accession) != api_finder.find_samples_from_analysis(analysis_accession)
-
+        assert sorted(api_finder.find_samples_from_analysis_xml(analysis_accession).get(analysis_accession)) != \
+               sorted(api_finder.find_samples_from_analysis(analysis_accession).get(analysis_accession))
 

@@ -261,7 +261,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
         # reverse the dictionary where sample name become the key and sample accession the value
         for analysis_accession in sample_accessions_per_analysis:
             sample_name_2_accessions_per_analysis[analysis_accession] = {
-                alias: accession for accession, alias in sample_accessions_per_analysis[analysis_accession].items()
+                alias: accession for accession, alias in sample_accessions_per_analysis[analysis_accession]
             }
         return sample_name_2_accessions_per_analysis
 
