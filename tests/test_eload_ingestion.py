@@ -40,12 +40,6 @@ def default_db_results_for_target_assembly():
     ]
 
 
-def default_db_results_for_accession():
-    return [
-        [('Test Study Name')]  # get_study_name
-    ]
-
-
 def default_db_results_for_clustering():
     return [
         [('GCA_123',)]  # current supported assembly

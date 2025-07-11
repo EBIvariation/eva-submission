@@ -2,6 +2,7 @@ import json
 from datetime import datetime
 
 import openpyxl
+from ebi_eva_common_pyutils.logger import AppLogger
 from openpyxl.workbook import Workbook
 
 def parse_date(x: str):
@@ -123,7 +124,7 @@ json_to_xlsx_key_mapper = {
         "subSpecies": "sub_species",
         "variety": "variety",
         "subStrain": "sub_strain",
-        "cellType": "cell_line",
+        "cellLine": "cell_line",
         "serotype": "serotype",
         "serovar": "serovar"
     },
@@ -136,7 +137,7 @@ json_to_xlsx_key_mapper = {
     }
 }
 
-class JsonToXlsxConverter:
+class JsonToXlsxConverter(AppLogger):
 
     def __init__(self,  input_json_file, output_xlsx_file):
         self.input_json_file = input_json_file
@@ -218,10 +219,8 @@ class JsonToXlsxConverter:
                 output_workbook[output_worksheet_title].cell(column=col_index, row=row_index, value=cell_value)
 
     def _flatten_sample_data(self, sample_data):
-        row_index = 3
         sample_flattened_data = []
         for sample in sample_data:
-            row_index += 1
             sample_flattened_data.append(
                 {
                     **sample,
@@ -236,4 +235,18 @@ class JsonToXlsxConverter:
                        }
                  }
             )
+        # If both bioSampleName and sampleInVcf are both present and not equal, swap the values & warn.
+        # This performs the sample check correctly, but these samples will be brokered using sampleInVcf
+        # rather than bioSampleName.
+        ignored_biosample_names = []
+        for sample in sample_flattened_data:
+            sampleInVcf = sample.get('sampleInVCF')
+            bioSampleName = sample.get('bioSampleName')
+            if sampleInVcf and bioSampleName and sampleInVcf != bioSampleName:
+                sample['sampleInVCF'] = bioSampleName
+                sample['bioSampleName'] = sampleInVcf
+                ignored_biosample_names.append(bioSampleName)
+        if ignored_biosample_names:
+            self.warning(f'For some samples, BioSample names do not match sample name in VCF. '
+                         f'Will ignore the following BioSample names: {",".join(ignored_biosample_names)}')
         return sample_flattened_data

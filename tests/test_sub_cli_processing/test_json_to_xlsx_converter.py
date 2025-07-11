@@ -3,6 +3,7 @@ from unittest import TestCase
 from unittest.mock import patch
 
 import openpyxl
+from eva_submission.samples_checker import compare_spreadsheet_and_vcf
 
 from eva_sub_cli_processing.sub_cli_to_eload_converter.json_to_xlsx_converter import JsonToXlsxConverter
 from eva_submission import ROOT_DIR
@@ -107,11 +108,13 @@ class TestJsonToXlsxConverter(TestCase):
         assert samples_details[2]['Sample ID'] == 'sample3'
 
         assert samples_details[3]['Analysis Alias'] == 'VD4,VD5'
-        assert samples_details[3]['Sample Name'] == 'Lm_17_S8'
+        # sampleInVcf == 'sample4' so this must go into "Sample Name" in the old spreadsheet
+        assert samples_details[3]['Sample Name'] == 'sample4'
         assert samples_details[3]['Title'] == 'Bastet normal sample'
         assert samples_details[3]['collection_date'].strftime('%Y-%m-%d') == '2021-03-12'
         assert samples_details[3]['Description'] == 'Test Description'
-        assert samples_details[3]['Sample ID'] == 'sample4'
+        # "Sample ID" now holds the bioSampleName
+        assert samples_details[3]['Sample ID'] == 'Lm_17_S8'
         assert samples_details[3]['Scientific Name'] == 'Lemur catta'
         assert samples_details[3]['sex'] == 'Female'
         assert samples_details[3]['Tax Id'] == 9447
@@ -168,3 +171,19 @@ class TestJsonToXlsxConverter(TestCase):
             validator = EvaXlsxValidator(self.output_xlsx)
             validator.validate()
             assert validator.error_list == ['Check Analysis Alias vs Samples: VD4,VD5 present in Samples not in Analysis Alias']
+
+    def test_json_to_xlsx_converter_sample_check(self):
+        converter = JsonToXlsxConverter(self.test_input_json, self.output_xlsx)
+        converter.convert_json_to_xlsx()
+        # Mock to get samples per analysis matching the original JSON
+        with patch('eva_submission.samples_checker.get_vcf_file_paths', side_effect=[
+            ['VD1.vcf'], ['VD2.vcf'], ['VD3.vcf'], ['VD4.vcf'], ['VD5.vcf']
+        ]), patch('eva_submission.samples_checker.get_samples_from_vcf', side_effect=[
+            ['sample1', 'sample2'],  # VD1
+            ['sample1', 'sample2'],  # VD2
+            ['sample1', 'sample2', 'sample3'],  # VD3
+            ['sample4'],  # VD4
+            ['sample4']  # VD5
+        ]):
+            results_per_analysis_alias = compare_spreadsheet_and_vcf(self.output_xlsx, self.resources_folder)
+            assert all(val[0] == False for val in results_per_analysis_alias.values())
