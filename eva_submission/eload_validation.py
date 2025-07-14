@@ -267,7 +267,7 @@ class EloadValidation(Eload):
                 for alias, evidence in evidence_check_dict.items():
                     if alias != 'pass':
                         aggregation_check_dict[alias] = self._evidence_type_to_aggregation(evidence['evidence_type'])
-                self.eload_cfg('validation', 'aggregation_check', 'analyses', value=aggregation_check_dict)
+                self.eload_cfg.set('validation', 'aggregation_check', 'analyses', value=aggregation_check_dict)
         self.eload_cfg.set('validation', 'eva_sub_cli', 'pass', value=passed)
 
     def _evidence_type_to_aggregation(self, s):
