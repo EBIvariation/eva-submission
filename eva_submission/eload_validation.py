@@ -13,15 +13,12 @@ from eva_vcf_merge.utils import validate_aliases
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import resolve_single_file_path, detect_vcf_aggregation, get_nextflow_config_flag
-from eva_submission.samples_checker import compare_spreadsheet_and_vcf
-from eva_submission.xlsx.xlsx_validation import EvaXlsxValidator
+from eva_submission.eload_utils import resolve_single_file_path, get_nextflow_config_flag
 
 
 class EloadValidation(Eload):
 
-    all_validation_tasks = ['metadata_check', 'assembly_check', 'aggregation_check', 'vcf_check', 'sample_check',
-                            'structural_variant_check', 'naming_convention_check']
+    all_validation_tasks = ['eva_sub_cli', 'structural_variant_check', 'naming_convention_check']
 
     def validate(self, validation_tasks=None, set_as_valid=False, merge_per_analysis=False):
         if not validation_tasks:
@@ -33,18 +30,10 @@ class EloadValidation(Eload):
         for validation_task in validation_tasks:
             self.eload_cfg.set('validation', validation_task, value={})
 
-        if 'metadata_check' in validation_tasks:
-            self._validate_metadata_format()
-        if 'aggregation_check' in validation_tasks:
-            self._validate_genotype_aggregation()
-        if 'sample_check' in validation_tasks:
-            self._validate_sample_names()
-        if set(validation_tasks).intersection(
-                {'vcf_check', 'assembly_check', 'structural_variant_check', 'naming_convention_check'}
-        ):
-            output_dir = self._run_validation_workflow(validation_tasks)
-            self._collect_validation_workflow_results(output_dir, validation_tasks)
-            shutil.rmtree(output_dir)
+        # All validation tasks are run via nextflow
+        output_dir = self._run_validation_workflow(validation_tasks)
+        self._collect_validation_workflow_results(output_dir, validation_tasks)
+        shutil.rmtree(output_dir)
 
         if set_as_valid is True:
             for validation_task in validation_tasks:
@@ -84,60 +73,6 @@ class EloadValidation(Eload):
             for analysis_alias in valid_analysis_dict:
                 vcf_files[self._unique_alias(analysis_alias)] = valid_analysis_dict[analysis_alias]['vcf_files']
         return vcf_files
-
-    def _validate_metadata_format(self):
-        validator = EvaXlsxValidator(self.eload_cfg['submission']['metadata_spreadsheet'])
-        validator.validate()
-        self.eload_cfg['validation']['metadata_check']['metadata_spreadsheet'] = self.eload_cfg['submission']['metadata_spreadsheet']
-        self.eload_cfg['validation']['metadata_check']['errors'] = validator.error_list
-        self.eload_cfg['validation']['metadata_check']['pass'] = len(validator.error_list) == 0
-
-    def _validate_sample_names(self):
-        results_per_analysis_alias = compare_spreadsheet_and_vcf(
-            eva_files_sheet=self.eload_cfg['submission']['metadata_spreadsheet'],
-            vcf_dir=self._get_dir('vcf')
-        )
-        overall_differences = False
-        for analysis_alias in results_per_analysis_alias:
-            has_differences, diff_submitted_file_submission, diff_submission_submitted_file = results_per_analysis_alias[analysis_alias]
-            analysis_alias = self._unique_alias(analysis_alias)
-            if self.eload_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias) == 'basic':
-                # When genotypes are aggregated then there will be no samples in the VCF to validate against
-                # we expect to find sample in the metadata but not in the VCF
-                if diff_submission_submitted_file and not diff_submitted_file_submission:
-                    has_differences = False
-                    self.warning(f'for analysis {analysis_alias}, Sample differences between metadata and VCF will be ignored because the VCF has aggregated genotypes')
-            self.eload_cfg.set('validation', 'sample_check', 'analysis', analysis_alias, value={
-                'difference_exists': has_differences,
-                'in_VCF_not_in_metadata': diff_submitted_file_submission,
-                'in_metadata_not_in_VCF': diff_submission_submitted_file
-            })
-            overall_differences = overall_differences or has_differences
-        if not overall_differences:
-            self.info('No differences found between the samples in the Metadata sheet and the submitted VCF file(s)!')
-        self.eload_cfg.set('validation', 'sample_check', 'pass', value=not overall_differences)
-
-    def _validate_genotype_aggregation(self):
-        errors = []
-        for analysis_alias in self.eload_cfg.query('submission', 'analyses'):
-            aggregations = [
-                detect_vcf_aggregation(vcf_file)
-                for vcf_file in self.eload_cfg.query('submission', 'analyses', analysis_alias, 'vcf_files')
-            ]
-            analysis_alias = self._unique_alias(analysis_alias)
-            if len(set(aggregations)) == 1 and None not in aggregations:
-                aggregation = set(aggregations).pop()
-                self.eload_cfg.set('validation', 'aggregation_check', 'analyses', str(analysis_alias), value=aggregation)
-            elif None in aggregations:
-                indices = [i for i, x in enumerate(aggregations) if x is None]
-                errors.append(f'{analysis_alias}: VCF file aggregation could not be determined: ' + ', '.join([
-                    self.eload_cfg.query('submission', 'analyses', analysis_alias, 'vcf_files')[i]
-                    for i in indices
-                ]))
-            else:
-                errors.append(f'{analysis_alias}: Multiple aggregation found: {",".join(set(aggregations))}')
-        self.eload_cfg.set('validation', 'aggregation_check', 'errors', value=errors)
-        self.eload_cfg.set('validation', 'aggregation_check', 'pass', value=len(errors) == 0)
 
     def detect_and_optionally_merge(self, merge_per_analysis):
         """Detects merge type for each analysis, but performs merge only when merge_per_analysis is True."""
@@ -181,56 +116,6 @@ class EloadValidation(Eload):
             # Overwrite valid vcf files in config for just these analyses
             for alias, merged_file in merged_files.items():
                 self.eload_cfg.set('validation', 'valid', 'analyses', alias, 'vcf_files', value=[merged_file])
-
-    def parse_assembly_check_log(self, assembly_check_log):
-        error_list = []
-        nb_error, nb_mismatch = 0, 0
-        match = total = None
-        with open(assembly_check_log) as open_file:
-            for line in open_file:
-                if line.startswith('[error]'):
-                    nb_error += 1
-                    if nb_error < 11:
-                        error_list.append(line.strip()[len('[error]'):])
-                elif line.startswith('[info] Number of matches:'):
-                    match, total = line.strip()[len('[info] Number of matches: '):].split('/')
-                    match = int(match)
-                    total = int(total)
-        return error_list, nb_error, match, total
-
-    def parse_assembly_check_report(self, assembly_check_report):
-        mismatch_list = []
-        nb_mismatch = 0
-        nb_error = 0
-        error_list = []
-        with open(assembly_check_report) as open_file:
-            for line in open_file:
-                if 'does not match the reference sequence' in line:
-                    nb_mismatch += 1
-                    if nb_mismatch < 11:
-                        mismatch_list.append(line.strip())
-                elif 'Multiple synonyms' in line:
-                    nb_error += 1
-                    if nb_error < 11:
-                        error_list.append(line.strip())
-        return mismatch_list, nb_mismatch, error_list, nb_error
-
-    def parse_vcf_check_report(self, vcf_check_report):
-        valid = True
-        error_list = []
-        warning_count = error_count = 0
-        with open(vcf_check_report) as open_file:
-            for line in open_file:
-                if 'warning' in line:
-                    warning_count = 1
-                elif line.startswith('According to the VCF specification'):
-                    if 'not' in line:
-                        valid = False
-                else:
-                    error_count += 1
-                    if error_count < 11:
-                        error_list.append(line.strip())
-        return valid, error_list, error_count, warning_count
 
     def parse_sv_check_log(self, sv_check_log):
         with open(sv_check_log) as open_file:
@@ -302,90 +187,12 @@ class EloadValidation(Eload):
     def _collect_validation_workflow_results(self, output_dir, validation_tasks):
         # Collect information from the output and summarise in the config
         vcf_files = self._get_vcf_files()
-        if 'vcf_check' in validation_tasks:
-            self._collect_vcf_check_results(vcf_files, output_dir)
-        if 'assembly_check' in validation_tasks:
-            self._collect_assembly_check_results(vcf_files, output_dir)
+        if 'eva_sub_cli' in validation_tasks:
+            self._collect_eva_sub_cli_results(output_dir)
         if 'structural_variant_check' in validation_tasks:
             self._collect_structural_variant_check_results(vcf_files, output_dir)
         if 'naming_convention_check' in validation_tasks:
             self._collect_naming_convention_check_results(vcf_files, output_dir)
-        # eva-sub-cli does not have an associated task, but runs whenever the Nextflow is run and a metadata json exists
-        self._collect_eva_sub_cli_results(output_dir)
-
-    def _collect_vcf_check_results(self, vcf_files, output_dir):
-        total_error = 0
-        # detect output files for vcf check
-        for vcf_file in vcf_files:
-            vcf_name = os.path.basename(vcf_file)
-
-            tmp_vcf_check_log = resolve_single_file_path(
-                os.path.join(output_dir, 'validation_output', 'vcf_format', vcf_name + '.vcf_format.log')
-            )
-            tmp_vcf_check_text_report = resolve_single_file_path(
-                os.path.join(output_dir, 'validation_output', 'vcf_format', vcf_name + '.*.txt')
-            )
-
-            # move the output files
-            vcf_check_log = self._move_file(
-                tmp_vcf_check_log,
-                os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_format.log')
-            )
-            vcf_check_text_report = self._move_file(
-                tmp_vcf_check_text_report,
-                os.path.join(self._get_dir('vcf_check'), vcf_name + '.vcf_validator.txt')
-            )
-            if vcf_check_log and vcf_check_text_report:
-                valid, error_list, error_count, warning_count = self.parse_vcf_check_report(vcf_check_text_report)
-            else:
-                valid, error_list, error_count, warning_count = (False, ['Process failed'], 1, 0)
-            total_error += error_count
-
-            self.eload_cfg.set('validation', 'vcf_check', 'files', vcf_name, value={
-                'error_list': error_list, 'nb_error': error_count, 'nb_warning': warning_count,
-                'vcf_check_log': vcf_check_log, 'vcf_check_text_report': vcf_check_text_report
-            })
-        self.eload_cfg.set('validation', 'vcf_check', 'pass', value=total_error == 0)
-
-    def _collect_assembly_check_results(self, vcf_files, output_dir):
-        # detect output files for assembly check
-        total_error = 0
-        for vcf_file in vcf_files:
-            vcf_name = os.path.basename(vcf_file)
-
-            tmp_assembly_check_log = resolve_single_file_path(
-                os.path.join(output_dir, 'validation_output', 'assembly_check',  vcf_name + '.assembly_check.log')
-            )
-            tmp_assembly_check_text_report = resolve_single_file_path(
-                os.path.join(output_dir, 'validation_output', 'assembly_check', vcf_name + '*text_assembly_report*')
-            )
-
-            # move the output files
-            assembly_check_log = self._move_file(
-                tmp_assembly_check_log,
-                os.path.join(self._get_dir('assembly_check'), vcf_name + '.assembly_check.log')
-            )
-            assembly_check_text_report = self._move_file(
-                tmp_assembly_check_text_report,
-                os.path.join(self._get_dir('assembly_check'), vcf_name + '.text_assembly_report.txt')
-            )
-            if assembly_check_log and assembly_check_text_report:
-                error_list_from_log, nb_error_from_log, match, total = \
-                    self.parse_assembly_check_log(assembly_check_log)
-                mismatch_list, nb_mismatch, error_list_from_report, nb_error_from_report = \
-                    self.parse_assembly_check_report(assembly_check_text_report)
-                nb_error = nb_error_from_log + nb_error_from_report
-                error_list = error_list_from_log + error_list_from_report
-            else:
-                error_list, mismatch_list, nb_mismatch, nb_error, match, total = (['Process failed'], [], 0, 1, 0, 0)
-            total_error += nb_error + nb_mismatch
-            self.eload_cfg.set('validation', 'assembly_check', 'files', vcf_name, value={
-                'error_list': error_list, 'mismatch_list': mismatch_list, 'nb_mismatch': nb_mismatch,
-                'nb_error': nb_error, 'ref_match': match,
-                'nb_variant': total, 'assembly_check_log': assembly_check_log,
-                'assembly_check_text_report': assembly_check_text_report
-            })
-        self.eload_cfg.set('validation', 'assembly_check', 'pass', value=total_error == 0)
 
     def _collect_structural_variant_check_results(self, vcf_files, output_dir):
         # detect output files for structural variant check
@@ -440,81 +247,35 @@ class EloadValidation(Eload):
     def _collect_eva_sub_cli_results(self, output_dir):
         # Move the results to the validations folder
         results_path = resolve_single_file_path(os.path.join(output_dir, 'validation_results.yaml'))
-        self._move_file(results_path, os.path.join(self._get_dir('eva_sub_cli'), 'validation_results.yaml'))
-        report_path = resolve_single_file_path(os.path.join(output_dir, 'validation_output', 'report.html'))
-        self._move_file(report_path, os.path.join(self._get_dir('eva_sub_cli'), 'report.html'))
+        results_dest_path = os.path.join(self._get_dir('eva_sub_cli'), 'validation_results.yaml')
+        self._move_file(results_path, results_dest_path)
+        report_path = resolve_single_file_path(os.path.join(output_dir, 'validation_output', 'report.txt'))
+        self._move_file(report_path, os.path.join(self._get_dir('eva_sub_cli'), 'report.txt'))
+        self._update_config_with_cli_results(results_dest_path)
 
-    def _metadata_check_report(self):
-        reports = []
+    def _update_config_with_cli_results(self, results_dest_path):
+        """Update ELOAD config with pass/fail value and aggregation type (required for ingestion) from eva-sub-cli
+        results."""
+        passed = False
+        if os.path.exists(results_dest_path):
+            with open(results_dest_path) as open_yaml:
+                results = yaml.safe_load(open_yaml)
+                passed = results.get('ready_for_submission_to_eva', False)
 
-        results = self.eload_cfg.query('validation', 'metadata_check', ret_default={})
-        report_data = {
-            'metadata_spreadsheet': results.get('metadata_spreadsheet'),
-            'pass': 'PASS' if results.get('pass') else 'FAIL',
-            'nb_error': len(results.get('errors', [])),
-            'error_list': '\n'.join(results.get('errors', []))
-        }
-        reports.append("""  * {metadata_spreadsheet}: {pass}
-    - number of error: {nb_error}
-    - error messages: {error_list}
-""".format(**report_data))
-        return '\n'.join(reports)
+                evidence_check_dict = results.get('evidence_type_check', {})
+                aggregation_check_dict = {}
+                for alias, evidence in evidence_check_dict.items():
+                    if alias != 'pass':
+                        aggregation_check_dict[alias] = self._evidence_type_to_aggregation(evidence['evidence_type'])
+                self.eload_cfg('validation', 'aggregation_check', 'analyses', value=aggregation_check_dict)
+        self.eload_cfg.set('validation', 'eva_sub_cli', 'pass', value=passed)
 
-    def _vcf_check_report(self):
-        reports = []
-        for vcf_file in self.eload_cfg.query('validation', 'vcf_check', 'files', ret_default=[]):
-            results = self.eload_cfg.query('validation', 'vcf_check', 'files', vcf_file)
-            report_data = {
-                'vcf_file': vcf_file,
-                'pass': 'PASS' if results.get('nb_error') == 0 else 'FAIL',
-                '10_error_list': '\n'.join(results['error_list'])
-            }
-            report_data.update(results)
-            reports.append("""  * {vcf_file}: {pass}
-    - number of error: {nb_error}
-    - number of warning: {nb_warning}
-    - first 10 errors: {10_error_list}
-    - see report for detail: {vcf_check_text_report}
-""".format(**report_data))
-        return '\n'.join(reports)
-
-    def _assembly_check_report(self):
-        reports = []
-        for vcf_file in self.eload_cfg.query('validation', 'assembly_check', 'files', ret_default=[]):
-            results = self.eload_cfg.query('validation', 'assembly_check', 'files', vcf_file)
-            report_data = {
-                'vcf_file': vcf_file,
-                'pass': 'PASS' if results.get('nb_error') == 0 and results.get('nb_mismatch') == 0 else 'FAIL',
-                '10_error_list': '\n'.join(results['error_list']),
-                '10_mismatch_list': '\n'.join(results['mismatch_list']),
-                'perc': (results.get('ref_match') or 0) / (results.get('nb_variant') or 1)
-            }
-            report_data.update(results)
-            reports.append("""  * {vcf_file}: {pass}
-    - number of error: {nb_error}
-    - match results: {ref_match}/{nb_variant} ({perc:.1%})
-    - first 10 errors: {10_error_list}
-    - first 10 mismatches: {10_mismatch_list}
-    - see report for detail: {assembly_check_text_report}
-""".format(**report_data))
-        return '\n'.join(reports)
-
-    def _sample_check_report(self):
-        reports = []
-        for analysis_alias in self.eload_cfg.query('validation', 'sample_check', 'analysis', ret_default=[]):
-            results = self.eload_cfg.query('validation', 'sample_check', 'analysis', analysis_alias)
-            analysis_alias = self._unique_alias(analysis_alias)
-            report_data = {
-                'analysis_alias': analysis_alias,
-                'pass': 'FAIL' if results.get('difference_exists') else 'PASS',
-                'in_VCF_not_in_metadata': ', '.join(results['in_VCF_not_in_metadata']),
-                'in_metadata_not_in_VCF': ', '.join(results['in_metadata_not_in_VCF'])
-            }
-            reports.append("""  * {analysis_alias}: {pass}
-    - Samples that appear in the VCF but not in the Metadata sheet: {in_VCF_not_in_metadata}
-    - Samples that appear in the Metadata sheet but not in the VCF file(s): {in_metadata_not_in_VCF}
-""".format(**report_data))
-        return '\n'.join(reports)
+    def _evidence_type_to_aggregation(self, s):
+        if s == 'genotype':
+            return 'none'
+        if s == 'allele_frequency':
+            return 'basic'
+        return s
 
     def _vcf_merge_report(self):
         analysis_merge_dict = self.eload_cfg.query('validation', 'merge_type')
@@ -530,20 +291,6 @@ class EloadValidation(Eload):
             reports.append('  Errors:')
             for error in errors:
                 reports.append(f'  * {error}')
-        return '\n'.join(reports)
-
-    def _aggregation_report(self):
-        aggregation_dict = self.eload_cfg.query('validation', 'aggregation_check')
-        reports = []
-        if aggregation_dict:
-            for analysis_alias, aggregation in aggregation_dict.get('analyses', {}).items():
-                analysis_alias = self._unique_alias(analysis_alias)
-                reports.append(f"  * {analysis_alias}: {aggregation}")
-            reports.append("  * Errors:")
-            for error in aggregation_dict.get('errors', []):
-                reports.append(f'    - {error}')
-        else:
-            reports.append('Not performed')
         return '\n'.join(reports)
 
     def _structural_variant_check_report(self):
@@ -572,66 +319,37 @@ class EloadValidation(Eload):
         return '\n'.join(reports)
 
     def _eva_sub_cli_report(self):
-        report_path = os.path.join(self._get_dir('eva_sub_cli'), 'report.html')
+        report_path = os.path.join(self._get_dir('eva_sub_cli'), 'report.txt')
         if os.path.exists(report_path):
-            return f'See {report_path}'
+            with open(report_path) as open_report:
+                return open_report.read()
         if self.eload_cfg.query('submission', 'metadata_json'):
             return f'Process failed, check logs'
         return f'Did not run'
 
     def report(self):
         """Collect information from the config and write the report."""
-
         report_data = {
             'validation_date': self.eload_cfg.query('validation', 'validation_date'),
-            'metadata_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'metadata_check')),
-            'vcf_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'vcf_check')),
-            'assembly_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'assembly_check')),
-            'sample_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'sample_check')),
-            'aggregation_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'aggregation_check')),
+            'eva_sub_cli': self._check_pass_or_fail(self.eload_cfg.query('validation', 'eva_sub_cli')),
             'structural_variant_check': self._check_pass_or_fail(self.eload_cfg.query('validation',
                                                                                       'structural_variant_check')),
             'naming_convention_check': self._check_pass_or_fail(self.eload_cfg.query('validation',
                                                                                       'naming_convention_check')),
-            'metadata_check_report': self._metadata_check_report(),
-            'vcf_check_report': self._vcf_check_report(),
-            'assembly_check_report': self._assembly_check_report(),
-            'sample_check_report': self._sample_check_report(),
             'vcf_merge_report': self._vcf_merge_report(),
-            'aggregation_report': self._aggregation_report(),
             'structural_variant_check_report': self._structural_variant_check_report(),
             'naming_convention_check_report': self._naming_convention_check_report(),
             'eva_sub_cli_report': self._eva_sub_cli_report()
         }
 
         report = """Validation performed on {validation_date}
-Metadata check: {metadata_check}
-VCF check: {vcf_check}
-Assembly check: {assembly_check}
-Sample names check: {sample_check}
-Aggregation check: {aggregation_check}
+eva-sub-cli: {eva_sub_cli}
 Structural variant check: {structural_variant_check}
 Naming convention check: {naming_convention_check}
 ----------------------------------
 
-Metadata check:
-{metadata_check_report}
-----------------------------------
-
-VCF check:
-{vcf_check_report}
-----------------------------------
-
-Assembly check:
-{assembly_check_report}
-----------------------------------
-
-Sample names check:
-{sample_check_report}
-----------------------------------
-
-Aggregation:
-{aggregation_report}
+eva-sub-cli:
+{eva_sub_cli_report}
 
 ----------------------------------
 
@@ -648,10 +366,6 @@ Structural variant check:
 Naming convention check:
 {naming_convention_check_report}
 
-----------------------------------
-
-eva-sub-cli:
-{eva_sub_cli_report}
 ----------------------------------
 """
         print(report.format(**report_data))
