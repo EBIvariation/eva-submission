@@ -29,107 +29,56 @@ class TestEloadValidation(TestCase):
         self.validation.eload_cfg.content = self.original_cfg
         self.sv_validation.eload_cfg.content = self.original_sv_cfg
 
-    def test_parse_assembly_check_log_failed(self):
-        assembly_check_log = os.path.join(self.resources_folder, 'validations', 'failed_assembly_check.log')
-        expected = (
-            [" The assembly checking could not be completed: Contig '8' not found in assembly report"],
-            1,
-            0,
-            0
-        )
-        assert self.validation.parse_assembly_check_log(assembly_check_log) == expected
-
-    def test_parse_assembly_check_report_mismatch(self):
-        mismatch_assembly_report = os.path.join(self.resources_folder, 'validations', 'mismatch_text_assembly_report.txt')
-        expected = (
-            [
-                "Line 15: Chromosome Chr14, position 7387, reference allele 'T' does not match the reference sequence, expected 'C'",
-                "Line 18: Chromosome Chr14, position 8795, reference allele 'A' does not match the reference sequence, expected 'G'",
-                "Line 19: Chromosome Chr14, position 8796, reference allele 'C' does not match the reference sequence, expected 'T'",
-                "Line 20: Chromosome Chr14, position 9033, reference allele 'G' does not match the reference sequence, expected 'A'",
-                "Line 22: Chromosome Chr14, position 9539, reference allele 'C' does not match the reference sequence, expected 'T'",
-                "Line 24: Chromosome Chr14, position 9558, reference allele 'C' does not match the reference sequence, expected 'T'",
-                "Line 38: Chromosome Chr14, position 10200, reference allele 'A' does not match the reference sequence, expected 'c'",
-                "Line 49: Chromosome Chr14, position 10875, reference allele 'G' does not match the reference sequence, expected 'C'",
-                "Line 54: Chromosome Chr14, position 11665, reference allele 'A' does not match the reference sequence, expected 'T'",
-                "Line 55: Chromosome Chr14, position 11839, reference allele 'G' does not match the reference sequence, expected 'a'"
-            ],
-            14, [], 0
-        )
-        assert self.validation.parse_assembly_check_report(mismatch_assembly_report) == expected
-
-    def test_parse_assembly_check_report_duplicate_synonym(self):
-        mismatch_assembly_report = os.path.join(self.resources_folder, 'validations', 'multiple_synonyms_text_assembly_report.txt')
-        expected = (
-            [], 0,
-            [
-                "Line 3: Multiple synonyms  found for contig '1' in FASTA index file: CM000663.1 NC_000001.10",
-                "Line 4: Multiple synonyms  found for contig 'X' in FASTA index file: CM000685.1 NC_000023.10"
-            ],
-            2
-        )
-        assert self.validation.parse_assembly_check_report(mismatch_assembly_report) == expected
-
-    def test_parse_vcf_check_report(self):
-        vcf_check_report = os.path.join(self.resources_folder, 'validations', 'failed_file.vcf.errors.txt')
-
-        valid, error_list, nb_error, nb_warning = self.validation.parse_vcf_check_report(vcf_check_report)
-        assert valid is False
-        assert len(error_list) == 8
-        assert nb_error == 8
-        assert nb_warning == 1
-
     def test_parse_sv_check_log(self):
         sv_check_log = os.path.join(self.resources_folder, 'validations', 'sv_check.log')
         assert self.validation.parse_sv_check_log(sv_check_log) == 33
 
     def test_report(self):
         expected_report = '''Validation performed on 2020-11-01 10:37:54.755607
-Metadata check: PASS
-VCF check: PASS
-Assembly check: PASS
-Sample names check: PASS
-Aggregation check: PASS
+eva-sub-cli: PASS
 Structural variant check: PASS
 Naming convention check: PASS
 ----------------------------------
 
-Metadata check:
-  * /path/to/spreadsheet: PASS
-    - number of error: 0
-    - error messages: 
+eva-sub-cli:
 
-----------------------------------
+VALIDATION REPORT
+eva-sub-cli v0.4.9
+-
+PROJECT SUMMARY
+General details about the project
+	Project Title: My cool project
+	Validation Date: 2020-11-01 10:37:54
+	Submission Directory: eloads/ELOAD_2
+	Files mapping:
+		---
+		VCF File: input_passed.vcf
+		Fasta File: metadata_asm_match.fa
+		Analysis: A
+-
+METADATA VALIDATION RESULTS
+Ensures that required fields are present and values are formatted correctly.
+For requirements, please refer to the EVA website (https://www.ebi.ac.uk/eva/?Submit-Data).
+    ✔ Metadata validation check
+-
+VCF VALIDATION RESULTS
+Checks whether each file is compliant with the VCF specification (http://samtools.github.io/hts-specs/VCFv4.4.pdf).
+Also checks whether the variants' reference alleles match against the reference assembly.
+	input_passed.vcf
+		✔ Assembly check: 247/247 (100.0%)
+		✔ VCF check: 0 critical errors, 0 non-critical errors
+-
+SAMPLE NAME CONCORDANCE CHECK
+Checks whether information in the metadata is concordant with that contained in the VCF files, in particular sample names.
+	✔ Analysis A: Sample names in metadata match with those in VCF files
+-
+REFERENCE GENOME INSDC CHECK
+Checks that the reference sequences in the FASTA file used to call the variants are accessioned in INSDC.
+Also checks if the reference assembly accession in the metadata matches the one determined from the FASTA file.
+	metadata_asm_match.fa
+		✔ All sequences are INSDC accessioned.
+		✔ Analysis A: Assembly accession in metadata is compatible
 
-VCF check:
-  * test.vcf: PASS
-    - number of error: 0
-    - number of warning: 2
-    - first 10 errors: 
-    - see report for detail: /path/to/report
-
-----------------------------------
-
-Assembly check:
-  * test.vcf: PASS
-    - number of error: 0
-    - match results: 20/20 (100.0%)
-    - first 10 errors: 
-    - first 10 mismatches: 
-    - see report for detail: /path/to/report
-
-----------------------------------
-
-Sample names check:
-  * ELOAD_2_a1: PASS
-    - Samples that appear in the VCF but not in the Metadata sheet: 
-    - Samples that appear in the Metadata sheet but not in the VCF file(s): 
-
-----------------------------------
-
-Aggregation:
-  * ELOAD_2_a1: none
-  * Errors:
 
 ----------------------------------
 
@@ -148,10 +97,6 @@ Naming convention check:
   * Naming convention: enaSequenceName
     * test.vcf: enaSequenceName
 
-----------------------------------
-
-eva-sub-cli:
-Did not run
 ----------------------------------
 '''
         print(self.validation.report())
@@ -246,37 +191,6 @@ Did not run
                     'metadata_spreadsheet': '/path/to/the/spreadsheet'}
         assert self.validation.eload_cfg.query('validation', 'valid') == expected
 
-    def test_validate_sample_names(self):
-        metadata_file = os.path.join(self.resources_folder, 'metadata_2_analysis_same_samples.xlsx')
-        self.validation.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata_file)
-        self.validation.eload_cfg.set('validation', 'sample_check', value={})
-        with patch.object(self.validation, '_get_dir', return_value=os.path.join(self.resources_folder, 'vcf_dir')):
-            self.validation._validate_sample_names()
-        expected_results = {
-            'ELOAD_2_GAE': {'difference_exists': False, 'in_VCF_not_in_metadata': [], 'in_metadata_not_in_VCF': []},
-            'ELOAD_2_GAE2': {'difference_exists': False, 'in_VCF_not_in_metadata': [], 'in_metadata_not_in_VCF': []}
-        }
-        assert self.validation.eload_cfg.query('validation', 'sample_check', 'analysis') == expected_results
-
-    def test_validate_sample_names_no_aggregation(self):
-        metadata_file = os.path.join(self.resources_folder, 'metadata_aggregated.xlsx')
-        self.validation.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata_file)
-        self.validation.eload_cfg.set('validation', 'sample_check', value={})
-        with patch.object(self.validation, '_get_dir', return_value=os.path.join(self.resources_folder, 'vcf_dir_aggregated')):
-            self.validation._validate_sample_names()
-        # Found difference because there are no Sample in the VCF
-        expected_results = {
-            'ELOAD_2_GAE': {'difference_exists': True, 'in_VCF_not_in_metadata': [], 'in_metadata_not_in_VCF': ['POP']}
-        }
-        assert self.validation.eload_cfg.query('validation', 'sample_check', 'analysis') == expected_results
-
-        # Now if the aggregation check is set
-        self.validation.eload_cfg.set('validation', 'aggregation_check', 'analyses', value={'ELOAD_2_GAE': 'basic'})
-        with patch.object(self.validation, '_get_dir', return_value=os.path.join(self.resources_folder, 'vcf_dir_aggregated')):
-            self.validation._validate_sample_names()
-
-        # Found no differences
-        expected_results = {
-            'ELOAD_2_GAE': {'difference_exists': False, 'in_VCF_not_in_metadata': [], 'in_metadata_not_in_VCF': ['POP']}
-        }
-        assert self.validation.eload_cfg.query('validation', 'sample_check', 'analysis') == expected_results
+    def test_update_config_with_cli_results(self):
+        # TODO get an example results yaml from eva-sub-cli
+        pass

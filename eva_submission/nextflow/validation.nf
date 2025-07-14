@@ -72,10 +72,6 @@ process run_eva_sub_cli {
     path "validation_results.yaml", emit: eva_sub_cli_results
     path "validation_output/report.html", emit: eva_sub_cli_report
     path "validation_output/report.txt", emit: eva_sub_cli_text_report
-    path "validation_output/assembly_check/*text_assembly_report*", emit: assembly_check_report
-    path "validation_output/assembly_check/*.assembly_check.log", emit: assembly_check_log
-    path "validation_output/vcf_format/*.errors.*.txt", emit: vcf_validation_txt
-    path "validation_output/vcf_format/*.vcf_format.log", emit: vcf_validation_log
 
     script:
     """
