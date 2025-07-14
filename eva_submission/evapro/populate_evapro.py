@@ -45,7 +45,7 @@ class EvaProjectLoader(AppLogger):
     def __init__(self):
         self.ena_project_finder = OracleEnaProjectFinder()
 
-    def load_project_from_ena(self, project_accession, eload, analysis_accession_to_load=None):
+    def load_project_from_ena(self, project_accession, eload, analysis_accession_to_load=None, taxonomy_id_for_project=None):
         """
         Loads a project from ENA for the given ELOAD and adds it to the metadata database.
         If analysis_accession_to_load is specified, will only load that analysis; otherwise all analyses are added.
@@ -59,6 +59,11 @@ class EvaProjectLoader(AppLogger):
             study_id, project_accession, submission_id, center_name, project_alias, study_type, first_created,
             project_title, taxonomy_id, scientific_name, common_name, study_description
         ) = self.ena_project_finder.find_project_from_ena_database(project_accession)
+        if taxonomy_id is None and taxonomy_id_for_project:
+            taxonomy_id = taxonomy_id_for_project
+        if not taxonomy_id:
+            self.error(f"No taxonomy id found for project {project_accession}. Please set it in the config.")
+            raise ValueError('No taxonomy id found for project {}'.format(project_accession))
 
         project_obj = self.insert_project_in_evapro(
             project_accession=project_accession, center_name=center_name, project_alias=project_alias,

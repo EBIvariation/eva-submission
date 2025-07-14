@@ -233,9 +233,9 @@ class EloadIngestion(Eload):
             if check_project_exists_in_evapro(self.project_accession):
                 analyses = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
                 for analysis_accession in analyses.values():
-                    self.loader.load_project_from_ena(self.project_accession, self.eload_num, analysis_accession)
+                    self.loader.load_project_from_ena(self.project_accession, self.eload_num, analysis_accession, taxonomy_id_for_project=self.taxonomy)
             else:
-                self.loader.load_project_from_ena(self.project_accession, self.eload_num)
+                self.loader.load_project_from_ena(self.project_accession, self.eload_num, taxonomy_id_for_project=self.taxonomy)
 
             # Check aggregation type for each analysis in this submission to determine if we should load samples by file
             # or by analysis
