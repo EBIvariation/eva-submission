@@ -2,9 +2,7 @@ import os
 from unittest import TestCase
 
 from eva_submission import ROOT_DIR
-from eva_submission.samples_checker import get_samples_from_vcf, get_sample_names, compare_names_in_files_and_samples, \
-    compare_spreadsheet_and_vcf
-
+from eva_submission.sample_utils import get_samples_from_vcf
 
 class TestSampleChecker(TestCase):
 
