@@ -4,6 +4,7 @@ from itertools import cycle
 from unittest import TestCase
 from unittest.mock import patch
 
+import pytest
 import retry
 
 from eva_submission.eload_backlog import EloadBacklog
@@ -111,6 +112,7 @@ class TestEloadBacklog(TestCase):
             # incomplete config should still exist, even though filling config failed
             self.assertEqual(self.eload.eload_cfg.content, expected_config)
 
+    @pytest.mark.skip('Unreliable ENA API call to download file')
     def test_find_file_on_ena(self):
         self.eload.find_file_on_ena('IRIS_313-8755.snp.vcf.gz.tbi', 'ERZ325199')
         assert os.path.exists(os.path.join(self.eload._get_dir('vcf'), 'IRIS_313-8755.snp.vcf.gz.tbi'))
