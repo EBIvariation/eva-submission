@@ -20,7 +20,7 @@ params.metadata_json = null
 params.executable = ["vcf_assembly_checker": "vcf_assembly_checker", "vcf_validator": "vcf_validator", "bgzip": "bgzip",
                      "eva_sub_cli": "eva_sub_cli", "sub_cli_env": "sub_cli_env"]
 // validation tasks
-params.validation_tasks = ["assembly_check", "vcf_check", "structural_variant_check", "naming_convention_check"]
+params.validation_tasks = ["eva_sub_cli", "structural_variant_check", "naming_convention_check"]
 // help
 params.help = null
 
@@ -45,8 +45,7 @@ workflow {
         .splitCsv(header:true)
         .map{row -> tuple(file(row.vcf), row.assembly_accession)}
 
-	// eva-sub-cli is run as long as one of assembly_check or vcf_check is requested
-    if ("vcf_check" in params.validation_tasks || "assembly_check" in params.validation_tasks) {
+    if ("eva_sub_cli" in params.validation_tasks) {
             run_eva_sub_cli()
     }
     if ("structural_variant_check" in params.validation_tasks) {
