@@ -87,18 +87,22 @@ class RenameContigsInAssembly(AppLogger):
     @cached_property
     def contig_alias_map(self):
         """
-        Dictionary of INSDC accession to naming convention used in the VCF constructed based on the contig alias.
+        Dictionary of INSDC or Refseq accession to naming convention used in the VCF constructed based on the contig alias.
         """
         contig_alias_map_tmp = {}
         for entity in self.contig_alias_client.assembly_contig_iter(self.assembly_accession):
             for naming_convention in ['refseq', 'enaSequenceName', 'genbankSequenceName', 'ucscName']:
                 if naming_convention in entity and entity[naming_convention]:
-                    contig_alias_map_tmp[entity[naming_convention]] = entity['insdcAccession']
+                    contig_alias_map_tmp[entity[naming_convention]] = (entity.get('insdcAccession'), entity.get('refseq'))
         contig_alias_map = {}
         # Reverse the map to get the INSDC to Non-INSDC name found in the VCF files
         for contig in self.contigs_found_in_vcf:
             if contig in contig_alias_map_tmp:
-                contig_alias_map[contig_alias_map_tmp[contig]] = contig
+                insdc_acc, refseq_acc = contig_alias_map_tmp[contig]
+                if insdc_acc:
+                    contig_alias_map[insdc_acc] = contig
+                if refseq_acc:
+                    contig_alias_map[insdc_acc] = contig
         return contig_alias_map
 
     def rewrite_changing_names(self, output_fasta):
