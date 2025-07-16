@@ -18,8 +18,13 @@ class TestRenameContigs(TestCase):
         assert self.rename.contigs_found_in_vcf == {'I', 'II', 'III', 'MTR', 'MT'}
 
     def test_assembly_report_map(self):
+        print(self.rename.assembly_report_map)
         assert self.rename.assembly_report_map == {
-            'CU329670.1': 'I', 'CU329671.1': 'II', 'CU329672.1': 'III', 'X54421.1': 'MT', 'FP565355.1': 'MTR'
+            'CU329670.1': 'I', 'NC_003424.3': 'I',
+            'CU329671.1': 'II', 'NC_003423.3': 'II',
+            'CU329672.1': 'III', 'NC_003421.2': 'III',
+            'X54421.1': 'MT', 'NC_001326.1': 'MT',
+            'FP565355.1': 'MTR'
         }
 
     def test_contig_alias_map(self):
