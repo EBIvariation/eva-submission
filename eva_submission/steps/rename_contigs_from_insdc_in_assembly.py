@@ -78,8 +78,10 @@ class RenameContigsInAssembly(AppLogger):
             # Search if the contig name is found in the VCF
             for header in ['# Sequence-Name', 'GenBank-Accn', 'RefSeq-Accn', 'UCSC-style-name']:
                 if row[header] in self.contigs_found_in_vcf:
-                    assembly_report_map[row['GenBank-Accn']] = row[header]
-                    assembly_report_map[row['RefSeq-Accn']] = row[header]
+                    if row['GenBank-Accn'] and row['GenBank-Accn'] != 'na':
+                        assembly_report_map[row['GenBank-Accn']] = row[header]
+                    if row['RefSeq-Accn'] and row['RefSeq-Accn'] != 'na':
+                        assembly_report_map[row['RefSeq-Accn']] = row[header]
         return assembly_report_map
 
     @cached_property
