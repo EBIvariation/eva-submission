@@ -71,7 +71,7 @@ class RenameContigsInAssembly(AppLogger):
     @cached_property
     def assembly_report_map(self):
         """
-        Dictionary of INSDC accession to naming convention used in the VCF constructed based on the assembly report.
+        Dictionary of INSDC or Refseq accession to naming convention used in the VCF constructed based on the assembly report.
         """
         assembly_report_map = {}
         for row in self.assembly_report_rows:
@@ -79,6 +79,7 @@ class RenameContigsInAssembly(AppLogger):
             for header in ['# Sequence-Name', 'GenBank-Accn', 'RefSeq-Accn', 'UCSC-style-name']:
                 if row[header] in self.contigs_found_in_vcf:
                     assembly_report_map[row['GenBank-Accn']] = row[header]
+                    assembly_report_map[row['RefSeq-Accn']] = row[header]
         return assembly_report_map
 
     @cached_property
