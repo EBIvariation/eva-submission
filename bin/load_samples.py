@@ -32,7 +32,7 @@ from eva_submission.eload_backlog import EloadBacklog, list_to_sql_in_list
 from eva_submission.eload_utils import detect_vcf_aggregation, download_file
 from eva_submission.evapro.find_from_ena import OracleEnaProjectFinder, ApiEnaProjectFinder
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
-from eva_submission.samples_checker import get_samples_from_vcf
+from eva_submission.sample_utils import get_samples_from_vcf
 from eva_submission.submission_config import load_config
 
 

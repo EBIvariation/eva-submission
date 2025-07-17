@@ -20,7 +20,7 @@ from eva_submission.evapro.find_from_ena import OracleEnaProjectFinder
 from eva_submission.evapro.table import Project, Taxonomy, LinkedProject, Submission, ProjectEnaSubmission, \
     EvaSubmission, ProjectEvaSubmission, Analysis, AssemblySet, AccessionedAssembly, File, BrowsableFile, \
     Platform, ExperimentType, Sample, SampleInFile, ProjectSampleTemp1, ClusteredVariantUpdate
-from eva_submission.samples_checker import get_samples_from_vcf
+from eva_submission.sample_utils import get_samples_from_vcf
 
 ena_ftp_file_prefix_path = "/ftp.sra.ebi.ac.uk/vol1"
 

@@ -1,0 +1,37 @@
+
+VALIDATION REPORT
+eva-sub-cli v0.4.9
+-
+PROJECT SUMMARY
+General details about the project
+	Project Title: My cool project
+	Validation Date: 2020-11-01 10:37:54
+	Submission Directory: eloads/ELOAD_2
+	Files mapping:
+		---
+		VCF File: input_passed.vcf
+		Fasta File: metadata_asm_match.fa
+		Analysis: A
+-
+METADATA VALIDATION RESULTS
+Ensures that required fields are present and values are formatted correctly.
+For requirements, please refer to the EVA website (https://www.ebi.ac.uk/eva/?Submit-Data).
+    ✔ Metadata validation check
+-
+VCF VALIDATION RESULTS
+Checks whether each file is compliant with the VCF specification (http://samtools.github.io/hts-specs/VCFv4.4.pdf).
+Also checks whether the variants' reference alleles match against the reference assembly.
+	input_passed.vcf
+		✔ Assembly check: 247/247 (100.0%)
+		✔ VCF check: 0 critical errors, 0 non-critical errors
+-
+SAMPLE NAME CONCORDANCE CHECK
+Checks whether information in the metadata is concordant with that contained in the VCF files, in particular sample names.
+	✔ Analysis A: Sample names in metadata match with those in VCF files
+-
+REFERENCE GENOME INSDC CHECK
+Checks that the reference sequences in the FASTA file used to call the variants are accessioned in INSDC.
+Also checks if the reference assembly accession in the metadata matches the one determined from the FASTA file.
+	metadata_asm_match.fa
+		✔ All sequences are INSDC accessioned.
+		✔ Analysis A: Assembly accession in metadata is compatible
