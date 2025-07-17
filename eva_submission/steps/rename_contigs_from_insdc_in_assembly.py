@@ -102,7 +102,7 @@ class RenameContigsInAssembly(AppLogger):
                 if insdc_acc:
                     contig_alias_map[insdc_acc] = contig
                 if refseq_acc:
-                    contig_alias_map[insdc_acc] = contig
+                    contig_alias_map[refseq_acc] = contig
         return contig_alias_map
 
     def rewrite_changing_names(self, output_fasta):
