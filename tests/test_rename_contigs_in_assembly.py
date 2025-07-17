@@ -28,8 +28,12 @@ class TestRenameContigs(TestCase):
 
     def test_contig_alias_map(self):
         assert self.rename.contig_alias_map == {
-            'CU329670.1': 'I', 'CU329671.1': 'II', 'CU329672.1': 'III', 'X54421.1': 'MT'
+            'CU329670.1': 'I', 'NC_003424.3': 'I',
+            'CU329671.1': 'II', 'NC_003423.3': 'II',
+            'CU329672.1': 'III', 'NC_003421.2': 'III',
+            'X54421.1': 'MT', 'NC_001326.1': 'MT'
         }
+
 
     def test_rename_genome(self):
         assembly_custom = os.path.join(self.resources, 'GCA_000002945.2', 'GCA_000002945.2_custom.fa')
