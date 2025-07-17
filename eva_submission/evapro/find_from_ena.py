@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 
 import oracledb
 from ebi_eva_common_pyutils.config import cfg
+from ebi_eva_common_pyutils.ena_utils import download_xml_from_ena
 
 
 class ApiEnaProjectFinder:
@@ -14,11 +15,11 @@ class ApiEnaProjectFinder:
 
     def find_sample_aliases_per_accessions(self, accession_list):
         # Chunk the list in case it is too long
-        results = {}
+        results = []
         chunk_size = 100
         if accession_list:
             for i in range(0, len(accession_list), chunk_size):
-                results.update(self._find_sample_aliases_per_accessions(accession_list[i:i + chunk_size]))
+                results.extend(self._find_sample_aliases_per_accessions(accession_list[i:i + chunk_size]))
         return results
 
     def _find_sample_aliases_per_accessions(self, accession_list):
@@ -33,9 +34,9 @@ class ApiEnaProjectFinder:
         response = requests.get(url, params=params)
         response.raise_for_status()
         json_data = response.json()
-        samples = {}
+        samples = []
         for sample_data in json_data:
-            samples[sample_data['sample_accession']] = sample_data['sample_alias']
+            samples.append((sample_data['sample_accession'], sample_data['sample_alias']))
         return samples
 
     def find_samples_from_analysis(self, accession):
@@ -57,6 +58,28 @@ class ApiEnaProjectFinder:
             sample_accessions = [s for s in analysis_data.get('sample_accession').split(';') if s]
             results_per_analysis[analysis_data.get('analysis_accession')] = self.find_sample_aliases_per_accessions(sample_accessions)
         return results_per_analysis
+
+    def find_samples_from_analysis_xml(self, analysis_accession):
+        xml_root = download_xml_from_ena(f'https://www.ebi.ac.uk/ena/browser/api/xml/{analysis_accession}')
+        xml_samples = xml_root.xpath('/ANALYSIS_SET/ANALYSIS/SAMPLE_REF')
+        samples = []
+
+        if xml_samples:
+            for xml_sample in xml_samples:
+                ena_accession = xml_sample.get('accession')
+                sample_name = xml_sample.get('label')
+                external_ids = xml_sample.xpath('IDENTIFIERS/EXTERNAL_ID')
+                biosample_accession = None
+                if external_ids:
+                    for external_id in external_ids:
+                        if external_id.get('namespace') == 'BioSample':
+                            biosample_accession = external_id.text
+                if sample_name and biosample_accession:
+                    samples.append((biosample_accession, sample_name))
+        else:
+            print('No samples found')
+        return {analysis_accession: samples}
+
 
 class OracleEnaProjectFinder:
 

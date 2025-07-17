@@ -24,7 +24,9 @@ from copy import copy
 from functools import cached_property, lru_cache
 from itertools import zip_longest
 
+from ebi_eva_common_pyutils.biosamples_communicators import WebinHALCommunicator
 from ebi_eva_common_pyutils.common_utils import pretty_print
+from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query
 
@@ -194,9 +196,14 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             pretty_print(header, all_rows)
             all_rows = []
             print('## Potential mapping of remainging samples')
-            header = ['Sample in VCF', 'ENA sample in analysis', 'BioSample accession']
+            header = ['Sample in VCF', 'ENA sample in analysis', 'BioSample accession', 'Resolved']
+            resolved_mappings, unmatched_name_in_VCF, unmatched_names_in_ENA = self.resolve_unmatched_samples(unmatched_name_in_VCF, unmatched_names_in_ENA, unmatched_sample_accession)
+            for n1, n2, n3, match_type in resolved_mappings:
+                all_rows.append([n1, n2, n3, match_type])
+                if output_mapping:
+                    output_mapping.write(f'{n1}\t{n2}\t{n3}\t{match_type}\n')
             for n1, n2, n3 in zip_longest(sorted(unmatched_name_in_VCF), sorted(unmatched_names_in_ENA), unmatched_sample_accession, fillvalue=''):
-                all_rows.append([n1, n2, n3])
+                all_rows.append([n1, n2, n3, 'No'])
                 if output_mapping:
                     output_mapping.write(f'{n1}\t{n2}\t{n3}\n')
             pretty_print(header, all_rows)
@@ -247,12 +254,22 @@ class HistoricalProjectSampleLoader(EloadBacklog):
     def sample_name_2_accessions_per_analysis(self):
         """Retrieve the sample to biosample accession map from the ENA API"""
         sample_name_2_accessions_per_analysis = {}
-        if self.project_accession:
-            sample_accessions_per_analysis = self.api_ena_finder.find_samples_from_analysis(self.project_accession)
-            for analysis_accession in sample_accessions_per_analysis:
-                sample_name_2_accessions_per_analysis[analysis_accession] = {
-                    alias: accession for accession, alias in sample_accessions_per_analysis[analysis_accession].items()
-                }
+        sample_accessions_per_analysis = {}
+        # Check the XML first
+        if self.analysis_accessions:
+            for analysis_accession in self.analysis_accessions:
+                tmp = self.api_ena_finder.find_samples_from_analysis_xml(analysis_accession)
+                if tmp.get(analysis_accession):
+                    sample_accessions_per_analysis.update(tmp)
+        # If it does not yield anything then check the filereport
+        if not sample_accessions_per_analysis:
+            if self.project_accession:
+                sample_accessions_per_analysis = self.api_ena_finder.find_samples_from_analysis(self.project_accession)
+        # reverse the dictionary where sample name become the key and sample accession the value
+        for analysis_accession in sample_accessions_per_analysis:
+            sample_name_2_accessions_per_analysis[analysis_accession] = {
+                alias: accession for accession, alias in sample_accessions_per_analysis[analysis_accession]
+            }
         return sample_name_2_accessions_per_analysis
 
     @cached_property
@@ -369,6 +386,70 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                         os.remove(f)
             os.remove(self.downloaded_files_path)
 
+    @lru_cache(maxsize=2000)
+    def get_existing_biosamples(self, biosample_accession):
+
+        try:
+            communicator = WebinHALCommunicator(
+                cfg.query('biosamples', 'webin_url'), cfg.query('biosamples', 'bsd_url'),
+                cfg.query('biosamples', 'webin_username'), cfg.query('biosamples', 'webin_password')
+            )
+            sample_json = communicator.follows_link('samples', join_url=biosample_accession)
+            return sample_json
+        except Exception as e:
+            self.error(f'Error retrieving Biosample {biosample_accession}')
+            self._logger.exception(e)
+        return None
+
+    def resolve_unmatched_samples(self, unmatched_names_in_VCF, unmatched_names_in_ENA, unmatched_sample_accessions):
+        mapping = []
+        remaining_name_in_VCF = []
+        remaining_name_in_sample_accessions = []
+        for name_in_vcf in unmatched_names_in_VCF:
+            found = False
+            potential_matches_for_name = []
+            for name_in_ENA in unmatched_names_in_ENA:
+                # search the biosample accession associated with the sample in ENA
+                biosample_accession = self.sample_name_2_accession.get(name_in_ENA)
+                if biosample_accession:
+                    attribute, match_type = self.search_mapping_in_biosample(biosample_accession, name_in_vcf)
+                    if attribute and match_type == 'full':
+                        self.info(f'{name_in_vcf} in VCF matches {attribute} from {biosample_accession}:{name_in_ENA}')
+                        mapping.append((name_in_vcf, name_in_ENA, biosample_accession, 'Matched'))
+                        found = True
+                        break
+                    elif attribute and match_type == 'contained':
+                        self.info(f'{name_in_vcf} in VCF is contained in {attribute} from {biosample_accession}:{name_in_ENA}')
+                        potential_matches_for_name.append((attribute, name_in_ENA, biosample_accession))
+            if not found:
+                # Check potential matches
+                if len(set((biosample for  _, _, biosample in potential_matches_for_name))) == 1:
+                    # only one biosample matches
+                    name_in_ENA, biosample_accession = set((name, biosample) for _, name, biosample in potential_matches_for_name).pop()
+                    mapping.append((name_in_vcf, name_in_ENA, biosample_accession, 'Partial'))
+            if not found:
+                remaining_name_in_VCF.append(name_in_vcf)
+            else:
+                unmatched_names_in_ENA.remove(name_in_ENA)
+        return mapping, remaining_name_in_VCF, unmatched_names_in_ENA
+
+    def search_mapping_in_biosample(self, biosample_accession, sample_name, list_of_characteristics=None):
+        sample_json = self.get_existing_biosamples(biosample_accession)
+        if sample_json and 'characteristics' in sample_json:
+            for attribute in sample_json['characteristics']:
+                if not list_of_characteristics or attribute in list_of_characteristics:
+                    if sample_json['characteristics'][attribute][0]['text'] == sample_name:
+                        return attribute, 'full'
+            if sample_name in sample_json['name']:
+                return 'name', 'contained'
+            for attribute in sample_json['characteristics']:
+                if not list_of_characteristics or attribute in list_of_characteristics:
+                    if sample_name in sample_json['characteristics'][attribute][0]['text']:
+                        return attribute, 'contained'
+
+        return None, None
+
 
 if __name__ == "__main__":
     sys.exit(main())
+
