@@ -1,10 +1,17 @@
 Changelog for eva-submission
 ============================
 
-## 1.18.6 (unreleased)
+## 1.18.6 (2025-07-17)
 ----------------------
 
-- Nothing changed yet.
+- Convert from both INSDC and RefSeq contig accessions
+- Retrieve the taxonomy from the config when not in the ENA project
+- Remove files_from_ena
+- EVA-3855: Fix sample check when sampleInVCF != bioSampleName
+- Add trigger for integration tests
+- Wrap literal query with text() function
+- EVA-3854 - Make nextflow task fail when one of the command fails
+- Ensure failure when no archive folder is found
 
 
 ## 1.18.5 (2025-07-07)
