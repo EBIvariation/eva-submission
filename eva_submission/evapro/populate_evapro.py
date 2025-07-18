@@ -327,6 +327,8 @@ class EvaProjectLoader(AppLogger):
     def refresh_study_browser(self):
         self.begin_or_continue_transaction()
         self.eva_session.execute(text('REFRESH MATERIALIZED VIEW study_browser'))
+        self.eva_session.commit()
+
 
     def load_clustering_record(self, taxonomy, assembly, clustering_source):
         self.begin_or_continue_transaction()
