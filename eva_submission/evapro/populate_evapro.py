@@ -180,11 +180,18 @@ class EvaProjectLoader(AppLogger):
         self.eva_session.close()
 
 
-    def load_samples_from_vcf_file(self, sample_name_2_sample_accession, vcf_file, vcf_file_md5, sample_mapping = None):
-        """sample_mapping is a dict"""
+    def load_samples_from_vcf_file(self, sample_name_2_sample_accession, vcf_file, vcf_file_md5,
+                                   analysis_accession=None, sample_mapping = None):
+        """
+        Load like between samples in EVAPRO and VCF Files in EVAPRO.
+        sample_mapping is a dict containing mapping from sample name to sample accession.
+        analysis_accession is used to resolve the VCF file based on the name if the vcf_file_md5 does not resolve it already
+        """
         sample_names = get_samples_from_vcf(vcf_file)
         self.begin_or_continue_transaction()
-        file_obj = self.get_file(vcf_file_md5)
+        file_obj = self.get_file_from_md5(vcf_file_md5)
+        if not file_obj and vcf_file and analysis_accession:
+            file_obj = self.get_file_for_analysis_and_name(analysis_accession=analysis_accession, file_name=vcf_file)
         if not file_obj:
             self.error(f'Cannot find file {vcf_file} in EVAPRO for md5 {vcf_file_md5}: Rolling back')
             return False
@@ -552,7 +559,7 @@ class EvaProjectLoader(AppLogger):
         # TODO: Check if we still need to support this.
         pass
 
-    def get_file(self, file_md5):
+    def get_file_from_md5(self, file_md5):
         query = select(File).where(File.file_md5 == file_md5)
         result = self.eva_session.execute(query).fetchone()
         if result:
@@ -563,9 +570,18 @@ class EvaProjectLoader(AppLogger):
         query = select(File).join(Analysis, File.analyses).where(Analysis.analysis_accession == analysis_accession)
         return [result.File for result in self.eva_session.execute(query).fetchall()]
 
+    def get_file_for_analysis_and_name(self, analysis_accession, file_name):
+        query = select(File).join(Analysis, File.analyses).where(Analysis.analysis_accession == analysis_accession, File.file_name == file_name)
+        file_objs = [result.File for result in self.eva_session.execute(query).fetchall()]
+        if file_objs:
+            return file_objs[0]
+        else:
+            return None
+
+
     def insert_file(self, project_accession, assembly_set_id, ena_submission_file_id, filename, file_md5, file_type,
                     ftp_file, file_location=None, file_class='submitted', file_version=1, is_current=1):
-        file_obj = self.get_file(file_md5)
+        file_obj = self.get_file_from_md5(file_md5)
         if not file_obj:
             file_obj = File(
                 ena_submission_file_id=ena_submission_file_id, filename=filename, file_md5=file_md5,
