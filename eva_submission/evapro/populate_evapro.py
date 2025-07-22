@@ -191,9 +191,11 @@ class EvaProjectLoader(AppLogger):
         self.begin_or_continue_transaction()
         file_obj = self.get_file_from_md5(vcf_file_md5)
         if not file_obj and vcf_file and analysis_accession:
-            file_obj = self.get_file_for_analysis_and_name(analysis_accession=analysis_accession, file_name=vcf_file)
+            self.error(f'Cannot find file {vcf_file} in EVAPRO for md5 {vcf_file_md5}: try with file name {os.path.basename(vcf_file)} and accession {analysis_accession}')
+            file_obj = self.get_file_for_analysis_and_name(analysis_accession=analysis_accession, file_name=os.path.basename(vcf_file))
         if not file_obj:
             self.error(f'Cannot find file {vcf_file} in EVAPRO for md5 {vcf_file_md5}: Rolling back')
+            self.eva_session.rollback()
             return False
         for sample_name_in_vcf in sample_names:
             sample_accession = sample_name_2_sample_accession.get(sample_name_in_vcf)
@@ -571,7 +573,7 @@ class EvaProjectLoader(AppLogger):
         return [result.File for result in self.eva_session.execute(query).fetchall()]
 
     def get_file_for_analysis_and_name(self, analysis_accession, file_name):
-        query = select(File).join(Analysis, File.analyses).where(Analysis.analysis_accession == analysis_accession, File.file_name == file_name)
+        query = select(File).join(Analysis, File.analyses).where(Analysis.analysis_accession == analysis_accession, File.filename == file_name)
         file_objs = [result.File for result in self.eva_session.execute(query).fetchall()]
         if file_objs:
             return file_objs[0]
