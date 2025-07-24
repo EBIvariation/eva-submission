@@ -247,6 +247,38 @@ class EvaProjectLoader(AppLogger):
         self.eva_session.commit()
         return True
 
+    def load_vcf_files_from_config(self, project_accession,  analysis_accession, taxonomy_id, assembly_accession, vcf_file_dict):
+
+        assembly_set_obj = self.get_assembly_set(taxonomy_id=taxonomy_id, assembly_accession=assembly_accession)
+        if not assembly_set_obj:
+            raise ValueError(f'Cannot find assembly set for accession {assembly_accession} and taxonomy id {taxonomy_id}')
+        query = select(Analysis).where(Analysis.analysis_accession == analysis_accession)
+        result = self.eva_session.execute(query).fetchone()
+        if result:
+            analysis_obj = result.Analysis
+        else:
+            raise ValueError(f'Analysis accession {analysis_accession} not found in EVAPRO')
+
+        self.begin_or_continue_transaction()
+        for vcf_file in vcf_file_dict:
+            vcf_file_md5 = vcf_file_dict[vcf_file]['md5']
+            filename = os.path.basename(vcf_file)
+
+            ftp_file = get_ftp_path(filename=filename, analysis_accession_id=analysis_accession)
+            file_obj = self.insert_file(
+                project_accession=project_accession,
+                assembly_set_id=assembly_set_obj.assembly_set_id,
+                ena_submission_file_id=None,
+                filename=filename,
+                file_md5=vcf_file_md5,
+                file_type='VCF',
+                ftp_file=ftp_file
+            )
+            if file_obj not in analysis_obj.files:
+                analysis_obj.files.append(file_obj)
+            self.eva_session.add(file_obj)
+        self.eva_session.commit()
+
     def update_project_samples_temp1(self, project_accession):
         # This function assumes that all samples have been loaded to Sample/SampleFiles
         # TODO: Remove this when Sample have been back-filled and this can be calculated on the fly
@@ -402,6 +434,20 @@ class EvaProjectLoader(AppLogger):
             platform_obj = result.Platform
             return platform_obj
         return None
+
+    def get_assembly_set(self, taxonomy_id, assembly_accession, assembly_name=None):
+        if not assembly_name:
+            assembly_name = get_ncbi_assembly_name_from_term(assembly_accession, api_key=cfg.get('eutils_api_key'))
+        query = select(AssemblySet).where(AssemblySet.taxonomy_id == taxonomy_id,
+                                          AssemblySet.assembly_name == assembly_name)
+        result = self.eva_session.execute(query).fetchone()
+        assembly_set_obj = None
+        if result:
+            assembly_set_obj = result.AssemblySet
+
+        return assembly_set_obj
+
+
 
     def insert_project_in_evapro(self, project_accession, center_name, project_alias, title, description,
                                  ena_study_type, ena_secondary_study_id, scope='multi-isolate', material='DNA',
