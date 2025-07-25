@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import logging
+import os
 import sys
 from argparse import ArgumentParser
 
@@ -61,11 +62,12 @@ class HistoricalProjectFileLoader(EloadBacklog):
             for vcf_file in analysis_info.get('vcf_files'):
                 if 'md5' not in analysis_info.get('vcf_files'):
                     # create the md5 of the vcf
-                    run_command_with_output(f'calculate the md5 for {vcf_file}',
+                    if not os.path.exists(f'{vcf_file}.md5'):
+                        run_command_with_output(f'calculate the md5 for {vcf_file}',
                                             f'md5sum {vcf_file} > {vcf_file}.md5')
                     with open(f'{vcf_file}.md5') as open_file:
                         md5_value = open_file.readline().strip().split()[0]
-                        self.eload_cfg.set('brokering', 'analyses',analysis_alias,vcf_file,'md5', value=md5_value)
+                        analysis_info['vcf_files'][vcf_file]['md5'] = md5_value
             self.eva_project_loader.load_vcf_files_from_config(
                 project_accession=self.project_accession, analysis_accession=analysis_accession,
                 taxonomy_id=taxonomy_id, assembly_accession=analysis_info.get('assembly_accession'),
