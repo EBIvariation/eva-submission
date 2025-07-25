@@ -63,7 +63,6 @@ class ApiEnaProjectFinder:
         xml_root = download_xml_from_ena(f'https://www.ebi.ac.uk/ena/browser/api/xml/{analysis_accession}')
         xml_samples = xml_root.xpath('/ANALYSIS_SET/ANALYSIS/SAMPLE_REF')
         samples = []
-
         if xml_samples:
             for xml_sample in xml_samples:
                 ena_accession = xml_sample.get('accession')
@@ -74,6 +73,10 @@ class ApiEnaProjectFinder:
                     for external_id in external_ids:
                         if external_id.get('namespace') == 'BioSample':
                             biosample_accession = external_id.text
+                if not sample_name and biosample_accession:
+                    sample_info = self.find_sample_aliases_per_accessions([biosample_accession])[0]
+                    if sample_info:
+                        biosample_accession, sample_name = sample_info
                 if sample_name and biosample_accession:
                     samples.append((biosample_accession, sample_name))
         else:

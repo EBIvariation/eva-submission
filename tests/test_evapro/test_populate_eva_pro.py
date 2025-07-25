@@ -202,7 +202,7 @@ class TestEvaProjectLoader(TestCase):
                 self.loader.insert_sample(biosample_accession, biosample_accession)
             self.loader.eva_session.commit()
 
-            self.loader.load_samples_from_vcf_file(sample_name_2_sample_accession, vcf_file, vcf_file_md5)
+            self.loader.load_samples_from_vcf_file(sample_name_2_sample_accession, vcf_file, vcf_file_md5, analysis_accession=None)
             query = select(SampleInFile)
             expected_results = [
                 ('NA00001', 'SAME000001', vcf_file_name),

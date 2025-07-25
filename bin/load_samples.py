@@ -216,7 +216,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
         result = True
         for analysis_accession in self.analysis_accessions:
             # Add the sample that exists for this analysis
-            self.eva_project_loader.eva_session.begin()
+            self.eva_project_loader.begin_or_continue_transaction()
             for ena_sample_accession, biosample_accession in self.ena_project_finder.find_samples_in_ena(analysis_accession=analysis_accession):
                 self.eva_project_loader.insert_sample(biosample_accession=biosample_accession, ena_accession=ena_sample_accession)
             self.eva_project_loader.eva_session.commit()
@@ -227,7 +227,10 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                 result &= self.eva_project_loader.load_samples_from_analysis(self.sample_name_2_accession, analysis_accession)
             else:
                 for vcf_file, vcf_file_md5 in self.analysis_accession_2_file_info.get(analysis_accession, []):
-                    result &= self.eva_project_loader.load_samples_from_vcf_file(self.sample_name_2_accession, vcf_file, vcf_file_md5, self.sample_mapping)
+                    result &= self.eva_project_loader.load_samples_from_vcf_file(
+                        self.sample_name_2_accession, vcf_file, vcf_file_md5,
+                        analysis_accession=analysis_accession,
+                        sample_mapping=self.sample_mapping)
         if not result:
             self.error('Not all the Samples were properly loaded in EVAPRO')
             return 1
