@@ -64,7 +64,7 @@ def main():
     # Load the config_file from default location
     load_config()
     # Optionally Set the valid VCF and metadata file
-    with EloadBrokering(args.eload, args.vcf_files, args.metadata_file) as brokering:
+    with EloadBrokering(args.eload) as brokering:
         brokering.upgrade_to_new_version_if_needed()
         if not args.report:
             brokering.broker(brokering_tasks_to_force=args.force, existing_project=args.project_accession,

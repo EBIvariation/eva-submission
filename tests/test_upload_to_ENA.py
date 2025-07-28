@@ -101,7 +101,7 @@ class TestENAUploader(TestCase):
             mock_post.return_value = Mock(status_code=200, json=Mock(return_value=json_data))
             mock_get.return_value = Mock(status_code=200, text=self.receipt)
             self.assertFalse(os.path.isfile(self.uploader_async.converter.single_submission_file))
-            self.uploader_async.upload_xml_files_to_ena()
+            self.uploader_async.upload_metadata_files_to_ena()
             self.assertTrue(os.path.isfile(self.uploader_async.converter.single_submission_file))
             mock_post.assert_called_with(
                 'https://wwwdev.ebi.ac.uk/ena/submit/webin-v2/submit/queue',
@@ -119,7 +119,7 @@ class TestENAUploader(TestCase):
 
     def test_single_upload_xml_files_to_ena_failed(self):
         self.assertFalse(os.path.isfile(self.uploader_async.converter.single_submission_file))
-        self.uploader_async.upload_xml_files_to_ena()
+        self.uploader_async.upload_metadata_files_to_ena()
         self.assertTrue(os.path.isfile(self.uploader_async.converter.single_submission_file))
         self.assertEqual(self.uploader_async.results, {'errors': ['403']})
 
@@ -128,7 +128,7 @@ class TestENAUploader(TestCase):
              patch('eva_submission.ENA_submission.upload_to_ENA.requests.get') as mock_get, \
              patch.object(ENAUploaderAsync, 'info') as mock_info:
             self.assertFalse(os.path.isfile(self.uploader_async.converter.single_submission_file))
-            self.uploader_async.upload_xml_files_to_ena(dry_ena_upload=True)
+            self.uploader_async.upload_metadata_files_to_ena(dry_ena_upload=True)
             self.assertTrue(os.path.isfile(self.uploader_async.converter.single_submission_file))
             mock_info.assert_any_call('Would have uploaded the following XML files to ENA asynchronous submission '
                                       'endpoint:')
@@ -146,10 +146,10 @@ class TestENAUploader(TestCase):
             ftps.login(cfg.query('ena', 'username'), cfg.query('ena', 'password'))
             ftps.prot_p()
             list_files = ftps.nlst()
-            if self.uploader.eload in list_files:
-                ftps.cwd(self.uploader.eload)
+            if self.uploader.submission_id in list_files:
+                ftps.cwd(self.uploader.submission_id)
                 list_files = ftps.nlst()
-                if self.uploader.eload in list_files:
+                if self.uploader.submission_id in list_files:
                     ftps.delete(filename)
 
         files_to_upload = os.path.join(self.brokering_folder, filename)
@@ -162,8 +162,8 @@ class TestENAUploader(TestCase):
             ftps.login(cfg.query('ena', 'username'), cfg.query('ena', 'password'))
             ftps.prot_p()
             list_files = ftps.nlst()
-            assert self.uploader.eload in list_files
-            ftps.cwd(self.uploader.eload)
+            assert self.uploader.submission_id in list_files
+            ftps.cwd(self.uploader.submission_id)
             list_files = ftps.nlst()
             assert filename in list_files
 
