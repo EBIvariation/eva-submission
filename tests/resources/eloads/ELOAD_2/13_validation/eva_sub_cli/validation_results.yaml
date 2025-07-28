@@ -1,0 +1,10 @@
+evidence_type_check:
+  Analysis A:
+    errors: 'VCF file evidence type could not be determined: vcf_files_1, vcf_files_2'
+    evidence_type: null
+  Analysis B:
+    evidence_type: genotype
+  Analysis C:
+    evidence_type: allele_frequency
+  pass: false
+ready_for_submission_to_eva: false

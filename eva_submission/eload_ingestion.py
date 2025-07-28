@@ -173,7 +173,7 @@ class EloadIngestion(Eload):
                 self.eload_cfg.set(self.config_section, 'aggregation', analysis_acc, value=aggregation)
         if errors:
             raise ValueError(f'{len(errors)} analysis have not set the aggregation. '
-                             f'Rerun the validation with --validation_tasks aggregation_check')
+                             f'Rerun the validation with --validation_tasks eva_sub_cli')
 
     def get_db_name(self, assembly_accession):
         """
