@@ -27,7 +27,7 @@ class EnaJsonConverter(AppLogger):
 
         self.output_ena_json_file = os.path.join(self.output_folder, self.output_file_name + '.json')
 
-    def create_ena_submission(self):
+    def create_single_submission_file(self):
         ena_json_data = {}
 
         ena_projects_json_obj = (
@@ -106,12 +106,13 @@ class EnaJsonConverter(AppLogger):
     def _create_ena_analysis_json_obj(self, ):
         samples_per_analysis = self._samples_per_analysis(self.eva_json_data.get('sample', []))
         files_per_analysis = self._files_per_analysis(self.eva_json_data.get('files', []))
-
+        analyses_json = []
         for analysis in self.eva_json_data['analysis']:
             samples = samples_per_analysis[analysis.get('analysisAlias')]
             files = files_per_analysis[analysis.get('analysisAlias')]
 
-            self._add_analysis(analysis, samples, files, self.eva_json_data['project'])
+            analyses_json.append(self._add_analysis(analysis, samples, files, self.eva_json_data['project']))
+        return analyses_json
 
     def _add_analysis(self, analysis, samples, files, project):
         def get_centre(analysis, project):
@@ -165,12 +166,15 @@ class EnaJsonConverter(AppLogger):
             return analysis_attributes
 
         def get_file_objs(files):
+            # TODO: file type is not in the schema so need to infer from filename
             return [
                 {
                     'fileName': file['fileName'],
                     **({"fileType": file['fileType']} if 'fileType' in file else {}),
-                    **({"checksumMethod": 'MD5'} if 'checksum' in file else {}),
-                    **({"checksum": file['checksum']} if 'checksum' in file else {}),
+
+                    **({"fileType": 'vcf'} if file.get('fileName').endswith('vcf.gz') else {}),
+                    **({"checksumMethod": 'MD5'} if 'md5' in file else {}),
+                    **({"checksum": file.get('md5')} if 'md5' in file else {}),
                 }
                 for file in files
             ]

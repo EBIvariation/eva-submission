@@ -1,3 +1,4 @@
+import json
 import os
 import random
 import string
@@ -118,6 +119,47 @@ class Eload(AppLogger):
     def update_config_with_hold_date(self, project_accession, project_alias=None):
         hold_date = get_hold_date_from_ena(project_accession, project_alias)
         self.eload_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
+
+    def update_metadata_json(self, input_json_file, output_json_file, existing_project=None):
+        # TODO: Needs to add support for pre-existing project
+        with open(input_json_file) as open_file:
+            metadata_json = json.load(open_file)
+        sample_objects = []
+        for sample_obj in metadata_json.get('sample'):
+            if self.eload_cfg.query('brokering', 'Biosamples', 'Samples', sample_obj.get('Sample Name')):
+                sample_objects.append({
+                    'analysisAlias': sample_obj.get('analysisAlias'),
+                    'sampleInVCF': sample_obj.get('sampleInVCF'),
+                    'bioSampleAccession': self.eload_cfg['brokering']['Biosamples']['Samples'][sample_obj.get('sampleInVCF')]
+                })
+            else:
+                sample_objects.append(sample_obj)
+
+        file_objects = []
+        analyses = self.eload_cfg['brokering']['analyses']
+        for analysis in analyses:
+            for vcf_file_name in analyses[analysis]['vcf_files']:
+                vcf_file_info = self.eload_cfg['brokering']['analyses'][analysis]['vcf_files'][vcf_file_name]
+                # Add the vcf file
+                file_objects.append({
+                    'analysisAlias': self._unique_alias(analysis),
+                    'fileName': self.eload + '/' + os.path.basename(vcf_file_name),
+                    'fileType': 'vcf',
+                    'md5': vcf_file_info['md5']
+                })
+
+                # Add the index file
+                file_objects.append({
+                    'analysisAlias': self._unique_alias(analysis),
+                    'fileName': self.eload + '/' + os.path.basename(vcf_file_info['csi']),
+                    'fileType': 'csi',
+                    'md5': vcf_file_info['csi_md5']
+                })
+        metadata_json['sample'] = sample_objects
+        metadata_json['files'] = file_objects
+        with open(output_json_file, 'w') as open_file:
+            json.dump(metadata_json, open_file, indent=4)
+
 
     def update_metadata_spreadsheet(self, input_spreadsheet, output_spreadsheet=None, existing_project=None):
         reader = EvaXlsxReader(input_spreadsheet)
