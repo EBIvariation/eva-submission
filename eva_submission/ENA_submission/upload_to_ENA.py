@@ -9,6 +9,7 @@ from ebi_eva_common_pyutils.config import cfg
 from requests.auth import HTTPBasicAuth
 from retry import retry
 
+from eva_submission.ENA_submission.json_to_ENA_json import EnaJsonConverter
 from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsxConverter
 from eva_submission.eload_utils import get_file_content
 
@@ -29,10 +30,13 @@ class HackFTP_TLS(ftplib.FTP_TLS):
 
 
 class ENAUploader(AppLogger):
-    def __init__(self, eload, ena_spreadsheet, output_dir):
-        self.eload = eload
+    def __init__(self, submission_id, metadata_file, output_dir):
+        self.submission_id = submission_id
         self.results = {}
-        self.converter = EnaXlsxConverter(ena_spreadsheet, output_dir, self.eload)
+        if metadata_file.endswith('.xlsx'):
+            self.converter = EnaXlsxConverter(self.submission_id, metadata_file, output_dir, self.submission_id)
+        elif metadata_file.endswith('.json'):
+            self.converter = EnaJsonConverter(submission_id, metadata_file, output_dir, 'ENA_submission')
         self.ena_auth = HTTPBasicAuth(cfg.query('ena', 'username'), cfg.query('ena', 'password'))
 
     @retry(exceptions=ftplib.all_errors, tries=3, delay=2, backoff=1.2, jitter=(1, 3))
@@ -50,10 +54,10 @@ class ENAUploader(AppLogger):
             ftps.connect(host, port=int(cfg.query('ena', 'ftpport', ret_default=21)), timeout=timeout)
             ftps.login(cfg.query('ena', 'username'), cfg.query('ena', 'password'))
             ftps.prot_p()
-            if self.eload not in ftps.nlst():
-                self.info(f'Create {self.eload} directory')
-                ftps.mkd(self.eload)
-            ftps.cwd(self.eload)
+            if self.submission_id not in ftps.nlst():
+                self.info(f'Create {self.submission_id} directory')
+                ftps.mkd(self.submission_id)
+            ftps.cwd(self.submission_id)
             previous_content = ftps.nlst()
             for file_to_upload in files_to_upload:
                 file_name = os.path.basename(file_to_upload)
@@ -65,15 +69,15 @@ class ENAUploader(AppLogger):
                     ftps.storbinary('STOR %s' % file_name, open_file)
 
     @retry(requests.exceptions.ConnectionError, tries=3, delay=2, backoff=1.2, jitter=(1, 3))
-    def _post_xml_file_to_ena(self, url, file_dict):
+    def _post_metadata_file_to_ena(self, url, file_dict):
         response = requests.post(
             url, auth=self.ena_auth, files=file_dict
         )
         return response
 
-    def upload_xml_files_to_ena(self, dry_ena_upload=False):
+    def upload_metadata_files_to_ena(self, dry_ena_upload=False):
         """Upload the xml files to the webin submission endpoint and parse the receipt."""
-        submission_file, project_file, analysis_file = self.converter.create_submission_files(self.eload)
+        submission_file, project_file, analysis_file = self.converter.create_submission_files()
         file_dict = {
             'SUBMISSION': (os.path.basename(submission_file), get_file_content(submission_file), 'application/xml'),
             'ANALYSIS': (os.path.basename(analysis_file), get_file_content(analysis_file), 'application/xml')
@@ -86,7 +90,7 @@ class ENAUploader(AppLogger):
             for key, (file_path, _, _) in file_dict.items():
                 self.info(f'{key}: {file_path}')
             return
-        response = self._post_xml_file_to_ena(cfg.query('ena', 'submit_url'), file_dict)
+        response = self._post_metadata_file_to_ena(cfg.query('ena', 'submit_url'), file_dict)
         self.results['receipt'] = response.text
         self.results.update(self.parse_ena_receipt(response.text))
         if self.results['errors']:
@@ -114,19 +118,19 @@ class ENAUploader(AppLogger):
 
 class ENAUploaderAsync(ENAUploader):
 
-    def upload_xml_files_to_ena(self, dry_ena_upload=False):
+    def upload_metadata_files_to_ena(self, dry_ena_upload=False):
         """Upload the xml file to the asynchronous endpoint and monitor the results from the poll endpoint."""
 
-        webin_file = self.converter.create_single_submission_file(self.eload)
+        webin_file = self.converter.create_single_submission_file()
         file_dict = {
             'file': (os.path.basename(webin_file), get_file_content(webin_file), 'application/xml'),
         }
         if dry_ena_upload:
-            self.info(f'Would have uploaded the following XML files to ENA asynchronous submission endpoint:')
+            self.info(f'Would have uploaded the following metadata files to ENA asynchronous submission endpoint:')
             for key, (file_path, _, _) in file_dict.items():
                 self.info(f'{key}: {file_path}')
             return
-        response = self._post_xml_file_to_ena(cfg.query('ena', 'submit_async'), file_dict)
+        response = self._post_metadata_file_to_ena(cfg.query('ena', 'submit_async'), file_dict)
         if response.status_code == 200:
             json_data = response.json()
             self.results['submissionId'] = json_data.get('submissionId')
@@ -136,7 +140,7 @@ class ENAUploaderAsync(ENAUploader):
             else:
                 self.results['errors'] = [f'No links present in json document: {json_data}']
         else:
-            self.results['errors'] = [f'{response.status_code}']
+                self.results['errors'] = [f'{response.status_code}']
 
     def monitor_results(self, timeout=3600, wait_time=30):
         xml_link = self.results['poll-links']

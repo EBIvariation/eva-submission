@@ -2,11 +2,13 @@ import glob
 import os
 import shutil
 from unittest import TestCase
-from unittest.mock import patch, PropertyMock
+from unittest.mock import patch, PropertyMock, Mock
 
 from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission import NEXTFLOW_DIR
+from eva_submission.ENA_submission.upload_to_ENA import ENAUploader
+from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsxConverter
 from eva_submission.biosample_submission.biosamples_submitters import SampleMetadataSubmitter
 from eva_submission.eload_brokering import EloadBrokering
 from eva_submission.eload_submission import Eload
@@ -79,6 +81,24 @@ class TestEloadBrokering(TestCase):
         self.eload.eload_cfg.set('brokering', 'Biosamples', 'Samples', value={'sample1': 'SAMPLE1'})
         self.eload.eload_cfg.set('brokering', 'Biosamples', 'pass', value=True)
         self.eload.upload_to_bioSamples()
+
+    def test_broker_to_ena_xml(self):
+        self.eload.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
+                                 value=os.path.join(self.resources_folder, 'metadata.xlsx'))
+        self.eload.eload_cfg.set('brokering', 'analyses', value={'AA1':{'vcf_files':{}}})
+        response = Mock(text='')
+        with (patch.object(ENAUploader, 'upload_vcf_files_to_ena_ftp'),
+              patch.object(ENAUploader, '_post_metadata_file_to_ena', return_value=response)):
+            self.eload.broker_to_ena()
+
+    def test_broker_to_ena_json(self):
+        self.eload.eload_cfg.set('validation', 'valid', 'metadata_json',
+                                 value=os.path.join(self.resources_folder, 'brokering', 'eva_metadata_json.json'))
+        self.eload.eload_cfg.set('brokering', 'analyses', value={'AA1':{'vcf_files':{}}})
+        response = Mock(text='')
+        with (patch.object(ENAUploader, 'upload_vcf_files_to_ena_ftp'),
+              patch.object(ENAUploader, '_post_metadata_file_to_ena', return_value=response)):
+            self.eload.broker_to_ena(async_upload=True)
 
     def test_run_brokering_prep_workflow(self):
         self.eload.eload_cfg.set('validation', 'valid', 'analyses', value={
