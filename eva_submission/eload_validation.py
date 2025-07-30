@@ -55,8 +55,12 @@ class EloadValidation(Eload):
                     'validation', 'valid', 'analyses', u_analysis_alias, 'vcf_files',
                     value=self.eload_cfg.query('submission', 'analyses', analysis_alias, 'vcf_files')
                 )
-            self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
-                               value=self.eload_cfg.query('submission', 'metadata_spreadsheet'))
+            if self.eload_cfg.query('submission', 'metadata_json'):
+                self.eload_cfg.set('validation', 'valid', 'metadata_json',
+                                   value=self.eload_cfg.query('submission', 'metadata_json'))
+            elif self.eload_cfg.query('submission', 'metadata_spreadsheet'):
+                self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
+                                   value=self.eload_cfg.query('submission', 'metadata_spreadsheet'))
             self.detect_and_optionally_merge(merge_per_analysis)
 
     def _get_vcf_files(self):

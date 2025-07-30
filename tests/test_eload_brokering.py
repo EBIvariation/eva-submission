@@ -8,11 +8,10 @@ from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.ENA_submission.upload_to_ENA import ENAUploader
-from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsxConverter
 from eva_submission.biosample_submission.biosamples_submitters import SampleMetadataSubmitter
 from eva_submission.eload_brokering import EloadBrokering
 from eva_submission.eload_submission import Eload
-from eva_submission.submission_config import load_config
+from eva_submission.submission_config import load_config, EloadConfig
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 from tests.test_eload_preparation import touch
 
@@ -32,6 +31,7 @@ class TestEloadBrokering(TestCase):
         self.existing_eload = EloadBrokering(4)
 
     def tearDown(self) -> None:
+        EloadConfig.content = {}
         eloads = glob.glob(os.path.join(self.resources_folder, 'eloads', 'ELOAD_3'))
         for eload in eloads:
             shutil.rmtree(eload)
@@ -98,7 +98,7 @@ class TestEloadBrokering(TestCase):
         response = Mock(text='')
         with (patch.object(ENAUploader, 'upload_vcf_files_to_ena_ftp'),
               patch.object(ENAUploader, '_post_metadata_file_to_ena', return_value=response)):
-            self.eload.broker_to_ena(async_upload=True)
+            self.eload.broker_to_ena(async_upload=True  )
 
     def test_run_brokering_prep_workflow(self):
         self.eload.eload_cfg.set('validation', 'valid', 'analyses', value={
@@ -149,12 +149,12 @@ class TestEloadBrokering(TestCase):
             touch(os.path.join(output_dir, f), content=f'md5checksum {f}')
         touch(os.path.join(output_dir, 'vcf_file1.vcf_bcftools_norm.log'),
               content=f'Lines   total/split/realigned/skipped:  2/0/1/0')
-        self.eload.eload_cfg.set('validation', 'valid', 'analyses', 'analysis alias 1', value={
+        self.eload.eload_cfg.set('validation', 'valid', 'analyses',  value={'analysis alias 1':{
             'assembly_accession': 'GCA_000001000.1',
             'assembly_fasta': 'fasta.fa',
             'assembly_report': 'assembly_report.txt',
             'vcf_files': ['vcf_file1.vcf']
-        })
+        }})
         self.eload._collect_brokering_prep_results(output_dir)
         vcf_file1 = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.gz')
         vcf_file1_csi = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.csi')
