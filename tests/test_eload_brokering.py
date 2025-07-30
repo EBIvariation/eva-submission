@@ -87,8 +87,8 @@ class TestEloadBrokering(TestCase):
                                  value=os.path.join(self.resources_folder, 'metadata.xlsx'))
         self.eload.eload_cfg.set('brokering', 'analyses', value={'AA1':{'vcf_files':{}}})
         response = Mock(text='')
-        with (patch.object(ENAUploader, 'upload_vcf_files_to_ena_ftp'),
-              patch.object(ENAUploader, '_post_metadata_file_to_ena', return_value=response)):
+        with patch.object(ENAUploader, 'upload_vcf_files_to_ena_ftp'),\
+              patch.object(ENAUploader, '_post_metadata_file_to_ena', return_value=response):
             self.eload.broker_to_ena()
 
     def test_broker_to_ena_json(self):
@@ -96,8 +96,8 @@ class TestEloadBrokering(TestCase):
                                  value=os.path.join(self.resources_folder, 'brokering', 'eva_metadata_json.json'))
         self.eload.eload_cfg.set('brokering', 'analyses', value={'AA1':{'vcf_files':{}}})
         response = Mock(text='')
-        with (patch.object(ENAUploader, 'upload_vcf_files_to_ena_ftp'),
-              patch.object(ENAUploader, '_post_metadata_file_to_ena', return_value=response)):
+        with patch.object(ENAUploader, 'upload_vcf_files_to_ena_ftp'),\
+              patch.object(ENAUploader, '_post_metadata_file_to_ena', return_value=response):
             self.eload.broker_to_ena(async_upload=True  )
 
     def test_run_brokering_prep_workflow(self):
