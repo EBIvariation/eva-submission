@@ -76,7 +76,7 @@ json_to_xlsx_key_mapper = {
         "imputation": {'name': "Imputation", 'transform': lambda x: '1' if x == True else ''},
         "phasing": {'name': "Phasing", 'transform': lambda x: '1' if x == True else ''},
         "centre": "Centre",
-        "date": {'name': "Date", 'transform': lambda x: datetime.strptime(x, "%Y-%m-%d").date()},
+        "date": {'name': "Date", 'transform': parse_date},
         "links": {'name': "Link(s)", 'transform': lambda x: ','.join(x)},
         "runAccessions": {'name': "Run Accession(s)", 'transform': lambda x: ','.join(x)},
         'Dummy': {'name': "Project Title", 'link': 'project.title'}
