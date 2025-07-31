@@ -145,8 +145,3 @@ class TestApiEnaProjectFinder(unittest.TestCase):
         # Sometimes they DO NOT (and the XML is correct)
         assert sorted(api_finder.find_samples_from_analysis_xml(analysis_accession).get(analysis_accession)) != \
                sorted(api_finder.find_samples_from_analysis(analysis_accession).get(analysis_accession))
-
-    def test_find_samples_from_analysis_xml2(self):
-        api_finder = ApiEnaProjectFinder()
-        analysis_accession = 'ERZ127238'
-        print(api_finder.find_samples_from_analysis_xml(analysis_accession))
