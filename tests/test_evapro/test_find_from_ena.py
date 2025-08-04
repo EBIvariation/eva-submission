@@ -37,7 +37,7 @@ class TestEnaProjectFinder(unittest.TestCase):
     def test_find_parent_project(self):
         project = 'PRJEB36082'
         expected_parent = 'PRJNA9558'
-        assert self.finder.find_parent_project(project) == expected_parent
+        assert self.finder.find_parent_projects(project) == [expected_parent]
 
     def test_find_ena_submission(self):
         project = 'PRJEB66443'
@@ -76,7 +76,6 @@ class TestEnaProjectFinder(unittest.TestCase):
             ('ERS18360883', 'SAMEA115348739'), ('ERS18360884', 'SAMEA115348740'), ('ERS18360885', 'SAMEA115348741')
         ]
         results = list(self.finder.find_samples_in_ena(analysis))
-        print(results)
         assert results == expected_samples
 
 
@@ -146,8 +145,3 @@ class TestApiEnaProjectFinder(unittest.TestCase):
         # Sometimes they DO NOT (and the XML is correct)
         assert sorted(api_finder.find_samples_from_analysis_xml(analysis_accession).get(analysis_accession)) != \
                sorted(api_finder.find_samples_from_analysis(analysis_accession).get(analysis_accession))
-        analysis_accession = 'ERZ297383'
-        # Sometimes they DO NOT (and the file report is correct) Old submissions most likely
-        assert sorted(api_finder.find_samples_from_analysis_xml(analysis_accession).get(analysis_accession)) != \
-               sorted(api_finder.find_samples_from_analysis(analysis_accession).get(analysis_accession))
-

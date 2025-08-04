@@ -246,9 +246,11 @@ class EloadIngestion(Eload):
                     self.loader.load_samples_from_analysis(sample_name_2_accession, analysis_accession)
                 else:
                     analysis_info = self.eload_cfg.query('brokering', 'analyses', analysis_alias)
+                    analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
                     for vcf_file in analysis_info['vcf_files']:
                         vcf_file_md5 = analysis_info['vcf_files'][vcf_file]['md5']
-                        self.loader.load_samples_from_vcf_file(sample_name_2_accession, vcf_file, vcf_file_md5)
+                        self.loader.load_samples_from_vcf_file(sample_name_2_accession, vcf_file, vcf_file_md5,
+                                                               analysis_accession=analysis_accession)
             self.loader.update_project_samples_temp1(self.project_accession)
 
             self.loader.refresh_study_browser()

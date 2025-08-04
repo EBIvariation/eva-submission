@@ -180,13 +180,22 @@ class EvaProjectLoader(AppLogger):
         self.eva_session.close()
 
 
-    def load_samples_from_vcf_file(self, sample_name_2_sample_accession, vcf_file, vcf_file_md5, sample_mapping = None):
-        """sample_mapping is a dict"""
+    def load_samples_from_vcf_file(self, sample_name_2_sample_accession, vcf_file, vcf_file_md5,
+                                   analysis_accession=None, sample_mapping = None):
+        """
+        Load like between samples in EVAPRO and VCF Files in EVAPRO.
+        sample_mapping is a dict containing mapping from sample name to sample accession.
+        analysis_accession is used to resolve the VCF file based on the name if the vcf_file_md5 does not resolve it already
+        """
         sample_names = get_samples_from_vcf(vcf_file)
         self.begin_or_continue_transaction()
-        file_obj = self.get_file(vcf_file_md5)
+        file_obj = self.get_file_from_md5(vcf_file_md5)
+        if not file_obj and vcf_file and analysis_accession:
+            self.error(f'Cannot find file {vcf_file} in EVAPRO for md5 {vcf_file_md5}: try with file name {os.path.basename(vcf_file)} and accession {analysis_accession}')
+            file_obj = self.get_file_for_analysis_and_name(analysis_accession=analysis_accession, file_name=os.path.basename(vcf_file))
         if not file_obj:
             self.error(f'Cannot find file {vcf_file} in EVAPRO for md5 {vcf_file_md5}: Rolling back')
+            self.eva_session.rollback()
             return False
         for sample_name_in_vcf in sample_names:
             sample_accession = sample_name_2_sample_accession.get(sample_name_in_vcf)
@@ -237,6 +246,38 @@ class EvaProjectLoader(AppLogger):
                                            name_in_file=sample_name)
         self.eva_session.commit()
         return True
+
+    def load_vcf_files_from_config(self, project_accession,  analysis_accession, taxonomy_id, assembly_accession, vcf_file_dict):
+
+        assembly_set_obj = self.get_assembly_set(taxonomy_id=taxonomy_id, assembly_accession=assembly_accession)
+        if not assembly_set_obj:
+            raise ValueError(f'Cannot find assembly set for accession {assembly_accession} and taxonomy id {taxonomy_id}')
+        query = select(Analysis).where(Analysis.analysis_accession == analysis_accession)
+        result = self.eva_session.execute(query).fetchone()
+        if result:
+            analysis_obj = result.Analysis
+        else:
+            raise ValueError(f'Analysis accession {analysis_accession} not found in EVAPRO')
+
+        self.begin_or_continue_transaction()
+        for vcf_file in vcf_file_dict:
+            vcf_file_md5 = vcf_file_dict[vcf_file]['md5']
+            filename = os.path.basename(vcf_file)
+
+            ftp_file = get_ftp_path(filename=filename, analysis_accession_id=analysis_accession)
+            file_obj = self.insert_file(
+                project_accession=project_accession,
+                assembly_set_id=assembly_set_obj.assembly_set_id,
+                ena_submission_file_id=None,
+                filename=filename,
+                file_md5=vcf_file_md5,
+                file_type='VCF',
+                ftp_file=ftp_file
+            )
+            if file_obj not in analysis_obj.files:
+                analysis_obj.files.append(file_obj)
+            self.eva_session.add(file_obj)
+        self.eva_session.commit()
 
     def update_project_samples_temp1(self, project_accession):
         # This function assumes that all samples have been loaded to Sample/SampleFiles
@@ -396,6 +437,20 @@ class EvaProjectLoader(AppLogger):
             return platform_obj
         return None
 
+    def get_assembly_set(self, taxonomy_id, assembly_accession, assembly_name=None):
+        if not assembly_name:
+            assembly_name = get_ncbi_assembly_name_from_term(assembly_accession, api_key=cfg.get('eutils_api_key'))
+        query = select(AssemblySet).where(AssemblySet.taxonomy_id == taxonomy_id,
+                                          AssemblySet.assembly_name == assembly_name)
+        result = self.eva_session.execute(query).fetchone()
+        assembly_set_obj = None
+        if result:
+            assembly_set_obj = result.AssemblySet
+
+        return assembly_set_obj
+
+
+
     def insert_project_in_evapro(self, project_accession, center_name, project_alias, title, description,
                                  ena_study_type, ena_secondary_study_id, scope='multi-isolate', material='DNA',
                                  study_type='Control Set'):
@@ -554,7 +609,7 @@ class EvaProjectLoader(AppLogger):
         # TODO: Check if we still need to support this.
         pass
 
-    def get_file(self, file_md5):
+    def get_file_from_md5(self, file_md5):
         query = select(File).where(File.file_md5 == file_md5)
         result = self.eva_session.execute(query).fetchone()
         if result:
@@ -565,9 +620,18 @@ class EvaProjectLoader(AppLogger):
         query = select(File).join(Analysis, File.analyses).where(Analysis.analysis_accession == analysis_accession)
         return [result.File for result in self.eva_session.execute(query).fetchall()]
 
+    def get_file_for_analysis_and_name(self, analysis_accession, file_name):
+        query = select(File).join(Analysis, File.analyses).where(Analysis.analysis_accession == analysis_accession, File.filename == file_name)
+        file_objs = [result.File for result in self.eva_session.execute(query).fetchall()]
+        if file_objs:
+            return file_objs[0]
+        else:
+            return None
+
+
     def insert_file(self, project_accession, assembly_set_id, ena_submission_file_id, filename, file_md5, file_type,
                     ftp_file, file_location=None, file_class='submitted', file_version=1, is_current=1):
-        file_obj = self.get_file(file_md5)
+        file_obj = self.get_file_from_md5(file_md5)
         if not file_obj:
             file_obj = File(
                 ena_submission_file_id=ena_submission_file_id, filename=filename, file_md5=file_md5,
