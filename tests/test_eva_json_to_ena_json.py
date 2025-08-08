@@ -110,28 +110,25 @@ class TestEVAJsonToENAJsonConverter(TestCase):
                 {'accession': 'SAMEA7851611', 'alias': '201903VIBRIO1185679119'},
                 {'accession': 'SAMEA7851612', 'alias': '201903VIBRIO1185679120'},
                 {'accession': 'SAMEA7851613', 'alias': '201903VIBRIO1185679121'},
-                {'accession': 'SAMEA7851614', 'alias': '201903VIBRIO1185679122'}],
-            'runs': [],
-            'analysisType': 'SEQUENCE_VARIATION',
-            'assemblies': [{"assembly": {"custom": {"urlLink": "http://abc.com"}}}],
+                {'accession': 'SAMEA7851614', 'alias': '201903VIBRIO1185679122'}
+            ], 'runs': [], 'analysisType': 'SEQUENCE_VARIATION',
+            'assemblies': [{'assembly': {'custom': {'urlLink': 'http://abc.com'}}}],
             'experiments': ['Genotyping by array'],
-            "attributes": [
-                {'tag': 'SOFTWARE',
-                 'value': 'software package GCTA, Burrows-Wheeler Alignment tool (BWA), HTSeq-python package'},
-                {'tag': 'PLATFORM', 'value': 'BGISEQ-500'},
-                {'tag': 'IMPUTATION', 'value': '1'}
-            ],
+            'attributes': [{'tag': 'SOFTWARE', 'value': 'software package GCTA, Burrows-Wheeler Alignment tool (BWA), HTSeq-python package'},
+                           {'tag': 'PLATFORM', 'value': 'BGISEQ-500'},
+                           {'tag': 'IMPUTATION', 'value': '1'}],
             'files': [
-                {'fileName': 'Vibrio.chrom.fix2.final.debug.gwassnps.vcf.gz', 'fileType': 'vcf'},
-                {'fileName': 'Vibrio.chrom.fix2.final.debug.gwassnps.vcf.gz.tbi', 'fileType': 'tabix'}],
-            'links': [
-                {'urlLink': {'label': 'abc', 'url': 'http://www.abc.com'}},
-                {'urlLink': {'label': 'http://xyz.com', 'url': 'http://xyz.com'}},
-                {'xrefLink': {'db': 'PubMed', 'id': '123456'}},
-                {'xrefLink': {'db': 'PubMed', 'id': '789012', 'label': 'abcxyz'}}
-            ]}
+                {'fileName': 'Vibrio.chrom.fix2.final.debug.gwassnps.vcf.gz', 'fileType': 'vcf', 'checksumMethod': 'MD5', 'checksum': 'c263a486e9b273d6e1e4c5f46ca5ccb8'},
+                {'fileName': 'Vibrio.chrom.fix2.final.debug.gwassnps.vcf.gz.tbi', 'fileType': 'tabix', 'checksumMethod': 'MD5', 'checksum': '4b61e00524cc1f4c98e932b0ee27d94e'}
+            ], 'links': [
+                {'urlLink': {'label': 'abc', 'url': 'http://www.abc.com'}}, {
+                    'urlLink': {'label': 'http://xyz.com', 'url': 'http://xyz.com'}},
+                {'xrefLink': {'db': 'PubMed', 'id': '123456'}}, {'xrefLink': {'db': 'PubMed', 'id': '789012', 'label': 'abcxyz'}}
+            ]
+        }
 
         ena_analysis_json_obj = self.converter._add_analysis(self.analysis, self.samples, self.files, self.project)
+        print(ena_analysis_json_obj)
         self.assert_json_equal(expected_analysis_json_obj, ena_analysis_json_obj)
 
     def test_add_analysis_to_existing_project(self):
@@ -181,12 +178,12 @@ class TestEVAJsonToENAJsonConverter(TestCase):
         self.assert_json_equal(expected_submission_json_obj, ena_submission_json_obj)
 
     def test_create_ena_json_file(self):
-        output_ena_json = self.converter.create_ena_submission()
+        output_ena_json = self.converter.create_single_submission_file()
         assert os.path.exists(output_ena_json)
 
     def test_create_submission_json_obj_for_existing_project(self):
         with patch.object(EnaJsonConverter, 'existing_project', new_callable=PropertyMock(return_value='PRJEB00001')):
-            output_ena_json = self.converter.create_ena_submission()
+            output_ena_json = self.converter.create_single_submission_file()
             assert os.path.exists(output_ena_json)
 
             with open(output_ena_json, 'r') as file:

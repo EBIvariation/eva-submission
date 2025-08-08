@@ -13,7 +13,6 @@ from eva_sub_cli.executables.xlsx2json import XlsxParser
 from packaging.version import Version
 from retry import retry
 
-from eva_sub_cli_processing.sub_cli_to_eload_converter.json_to_xlsx_converter import JsonToXlsxConverter
 from eva_submission.eload_submission import Eload, directory_structure
 from eva_submission.eload_utils import resolve_accession_from_text, get_reference_fasta_and_report, NCBIAssembly, \
     create_assembly_report_from_fasta, is_vcf_file
@@ -46,21 +45,34 @@ class EloadPreparation(Eload):
     def replace_values_in_metadata(self, taxid=None, reference_accession=None):
         """Find and Replace the value in the metadata spreadsheet with the one provided """
         input_spreadsheet = self.eload_cfg.query('submission', 'metadata_spreadsheet')
-        reader = EvaXlsxReader(input_spreadsheet)
+        json_file = self.eload_cfg.query('submission', 'metadata_json')
+        if json_file:
+            with open(json_file, 'r') as open_file:
+                json_data = json.load(open_file)
+                if taxid:
+                    json_data['project']['taxId'] = taxid
+                if reference_accession:
+                    for analysis in json_data['analysis']:
+                        analysis['referenceGenome'] = reference_accession
+            with open(json_file, 'w') as open_file:
+                json.dump(json_data, open_file)
+        elif input_spreadsheet:
+            reader = EvaXlsxReader(input_spreadsheet)
 
-        # This will write the spreadsheet in place of the existing one
-        eva_xls_writer = EvaXlsxWriter(input_spreadsheet)
-        if taxid:
-            project = reader.project
-            project['Tax ID'] = taxid
-            eva_xls_writer.set_project(project)
-        if reference_accession:
-            analysis_rows = []
-            for analysis in reader.analysis:
-                analysis['Reference'] = reference_accession
-                analysis_rows.append(analysis)
-            eva_xls_writer.set_analysis(analysis_rows)
-        eva_xls_writer.save()
+            # This will write the spreadsheet in place of the existing one
+            eva_xls_writer = EvaXlsxWriter(input_spreadsheet)
+            if taxid:
+                project = reader.project
+                project['Tax ID'] = taxid
+                eva_xls_writer.set_project(project)
+            if reference_accession:
+                analysis_rows = []
+                for analysis in reader.analysis:
+                    analysis['Reference'] = reference_accession
+                    analysis_rows.append(analysis)
+                eva_xls_writer.set_analysis(analysis_rows)
+            eva_xls_writer.save()
+
 
     def detect_all(self, taxid=None, reference_accession=None):
         # New detection so the config should be backup and reset
@@ -69,64 +81,94 @@ class EloadPreparation(Eload):
             self.eload_cfg.backup()
             self.eload_cfg.clear()
         self.detect_submitted_metadata()
-        self.convert_new_spreadsheet_to_eload_spreadsheet_if_required()
+        self.convert_new_spreadsheet_to_json()
         self.detect_submitted_metadata()
         if taxid or reference_accession:
             self.replace_values_in_metadata(taxid=taxid, reference_accession=reference_accession)
         self.check_submitted_filenames()
         self.detect_metadata_attributes()
         self.find_genome()
-        self.update_metadata_json_if_required(taxid=taxid, reference_accession=reference_accession)
+        self.update_metadata_json_if_required()
 
     def detect_submitted_metadata(self):
         metadata_dir = os.path.join(self.eload_dir, directory_structure['metadata'])
         metadata_spreadsheets = glob.glob(os.path.join(metadata_dir, '*.xlsx'))
-        if len(metadata_spreadsheets) != 1:
-            self.critical('Found %s spreadsheet in %s', len(metadata_spreadsheets), metadata_dir)
-            raise ValueError('Found %s spreadsheet in %s' % (len(metadata_spreadsheets), metadata_dir))
-        self.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata_spreadsheets[0])
+        metadata_json = glob.glob(os.path.join(metadata_dir, '*.json'))
+        if len(metadata_json) == 1:
+            self.eload_cfg.set('submission', 'metadata_json', value=metadata_json[0])
+        elif len(metadata_spreadsheets) == 1:
+            self.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata_spreadsheets[0])
+        else:
+            msg = f'Found {len(metadata_json)} json file and {len(metadata_spreadsheets)} spreadsheet in {metadata_dir}'
+            self.critical(msg)
+            raise ValueError(msg)
 
     def check_submitted_filenames(self):
-        """Compares submitted vcf filenames with those in metadata sheet, and amends the metadata when possible."""
+        """Compares submitted vcf filenames with those in metadata sheet or json, and amends the metadata when possible."""
         vcf_dir = os.path.join(self.eload_dir, directory_structure['vcf'])
         uncompressed_vcf = glob.glob(os.path.join(vcf_dir, '*.vcf'))
         compressed_vcf = glob.glob(os.path.join(vcf_dir, '*.vcf.gz'))
         submitted_vcfs = [os.path.basename(vcf) for vcf in uncompressed_vcf + compressed_vcf]
         if len(submitted_vcfs) < 1:
             raise FileNotFoundError('Could not locate vcf file in %s', vcf_dir)
+        json_data = None
+        eva_files_json = self.eload_cfg.query('submission', 'metadata_json')
+        if eva_files_json:
+            with open(eva_files_json, 'r') as open_file:
+                json_data = json.load(open_file)
+            metadata_vcfs = [f.get('fileName') for f in json_data.get('files') if
+                                       is_vcf_file(f.get('fileName'))]
+            analysis_aliases = [a.get('analysisAlias') for a in json_data.get('analysis')]
 
-        eva_files_sheet = self.eload_cfg.query('submission', 'metadata_spreadsheet')
-        eva_xls_reader = EvaXlsxReader(eva_files_sheet)
-        spreadsheet_vcfs = [
-            os.path.basename(row['File Name']) for row in eva_xls_reader.files
-            if is_vcf_file(row['File Name'])
-        ]
+        else:
+            eva_files_sheet = self.eload_cfg.query('submission', 'metadata_spreadsheet')
+            eva_xls_reader = EvaXlsxReader(eva_files_sheet)
+            metadata_vcfs = [
+                os.path.basename(row['File Name']) for row in eva_xls_reader.files
+                if is_vcf_file(row['File Name'])
+            ]
+            analysis_aliases = [a.get('Analysis Alias') for a in eva_xls_reader.analysis]
 
-        if sorted(spreadsheet_vcfs) != sorted(submitted_vcfs):
-            self.warning('VCF files found in the spreadsheet does not match the ones submitted. '
-                         'Submitted VCF will be added to the spreadsheet')
-            self.debug(f'Difference between spreadsheet vcfs and submitted vcfs: '
-                       f'{", ".join(set(spreadsheet_vcfs).difference(set(submitted_vcfs)))}')
-            self.debug(f'Difference between submitted vcfs and spreadsheet vcfs: '
-                       f'{", ".join(set(submitted_vcfs).difference(set(spreadsheet_vcfs)))}')
-            analysis_alias = ''
-            if len(eva_xls_reader.analysis) == 1:
-                analysis_alias = eva_xls_reader.analysis[0].get('Analysis Alias') or ''
-            elif len(eva_xls_reader.analysis) > 1:
-                self.error("Multiple analyses found, can't add submitted VCF to spreadsheet")
-                raise ValueError("Multiple analyses found, can't add submitted VCF to spreadsheet")
-            eva_xls_writer = EvaXlsxWriter(eva_files_sheet)
-            eva_xls_writer.set_files([
-                {
-                    'File Name': vcf_file,
-                    'File Type': 'vcf',
-                    'Analysis Alias': analysis_alias,
-                    'MD5': ''  # Dummy md5 for now
-                } for vcf_file in submitted_vcfs
-            ])
-            eva_xls_writer.save()
+        if sorted(metadata_vcfs) != sorted(submitted_vcfs):
+            self.warning('VCF files found in the metadata does not match the ones submitted. '
+                         'Submitted VCF will be added to the metadata.')
+            self.debug(f'Difference between metadata vcfs and submitted vcfs: '
+                       f'{", ".join(set(metadata_vcfs).difference(set(submitted_vcfs)))}')
+            self.debug(f'Difference between submitted vcfs and metadata vcfs: '
+                       f'{", ".join(set(submitted_vcfs).difference(set(metadata_vcfs)))}')
+            if len(analysis_aliases) != 1:
+                self.error("Multiple analyses found, can't add submitted VCF to the metadata")
+                raise ValueError("Multiple analyses found, can't add submitted VCF to the metadata")
+            analysis_alias = analysis_aliases[0]
+            if json_data:
+                json_data['files'] = [
+                    {
+                        'fileName': vcf_file,
+                        'analysisAlias': analysis_alias
+                    } for vcf_file in submitted_vcfs
+                ]
+                with open(eva_files_json, 'w') as open_file:
+                    json.dump(json_data, open_file)
+            else:
+                eva_files_sheet = self.eload_cfg.query('submission', 'metadata_spreadsheet')
+                eva_xls_writer = EvaXlsxWriter(eva_files_sheet)
+                eva_xls_writer.set_files([
+                    {
+                        'File Name': vcf_file,
+                        'File Type': 'vcf',
+                        'Analysis Alias': analysis_alias,
+                        'MD5': ''  # Dummy md5 for now
+                    } for vcf_file in submitted_vcfs
+                ])
+                eva_xls_writer.save()
 
     def detect_metadata_attributes(self):
+        if self.eload_cfg.query('submission', 'metadata_json'):
+            self.detect_metadata_attributes_from_json()
+        else:
+            self.detect_metadata_attributes_from_spreadsheet()
+
+    def detect_metadata_attributes_from_spreadsheet(self):
         eva_metadata = EvaXlsxReader(self.eload_cfg.query('submission', 'metadata_spreadsheet'))
         analysis_reference = {}
         for analysis in eva_metadata.analysis:
@@ -167,6 +209,49 @@ class EloadPreparation(Eload):
             else:
                 self.error('Taxonomy id is missing for the submission')
 
+    def detect_metadata_attributes_from_json(self):
+        with open(self.eload_cfg.query('submission', 'metadata_json'), 'r') as open_file:
+            json_data = json.load(open_file)
+
+        analysis_reference = {}
+        for analysis in json_data.get('analysis', []):
+            reference_txt = analysis.get('referenceGenome')
+            analysis_alias = self._unique_alias(analysis.get('analysisAlias'))
+            assembly_accessions = resolve_accession_from_text(reference_txt) if reference_txt else None
+            if not assembly_accessions:
+                assembly_accession = None
+            elif len(assembly_accessions) == 1:
+                assembly_accession = assembly_accessions[0]
+            else:
+                self.warning(f"Multiple assemblies found for {analysis_alias}: {', '.join(assembly_accessions)} ")
+                assembly_accession = sorted(assembly_accessions)[-1]
+                self.warning(f"Will use the most recent assembly: {assembly_accession}")
+
+            if assembly_accession:
+                analysis_reference[analysis_alias] = {'assembly_accession': assembly_accession, 'vcf_files': []}
+            else:
+                self.error(f"Reference is missing for Analysis {analysis.get('Analysis Alias')}")
+
+        for file_entry in json_data.get('files'):
+            if is_vcf_file(file_entry.get('fileName')):
+                file_full = os.path.join(self.eload_dir, directory_structure['vcf'], os.path.basename(file_entry.get("fileName")))
+                analysis_alias = self._unique_alias(file_entry.get("analysisAlias"))
+                analysis_reference[analysis_alias]['vcf_files'].append(file_full)
+        self.eload_cfg.set('submission', 'analyses', value=analysis_reference)
+
+        self.eload_cfg.set('submission', 'project_title', value=json_data.get('project').get('title'))
+
+        taxonomy_id = json_data.get('project').get('taxId')
+        if taxonomy_id and (isinstance(taxonomy_id, int) or taxonomy_id.isdigit()):
+            self.eload_cfg.set('submission', 'taxonomy_id', value=int(taxonomy_id))
+            scientific_name = get_scientific_name_from_ensembl(taxonomy_id)
+            self.eload_cfg.set('submission', 'scientific_name', value=scientific_name)
+        else:
+            if taxonomy_id:
+                self.error('Taxonomy id %s is invalid:', taxonomy_id)
+            else:
+                self.error('Taxonomy id is missing for the submission')
+
     def find_genome(self):
         scientific_name = self.eload_cfg.query('submission', 'scientific_name')
         analyses = self.eload_cfg.query('submission', 'analyses')
@@ -196,7 +281,7 @@ class EloadPreparation(Eload):
         else:
             self.error('No scientific name specified')
 
-    def update_metadata_json_if_required(self, taxid=None, reference_accession=None):
+    def update_metadata_json_if_required(self):
         """Update metadata JSON to include paths to the assembly FASTAs and assembly reports located by find_genome.
         Also overwrites taxid and assembly accession values if requested, to mirror any updates done to the spreadsheet
         in replace_values_in_metadata."""
@@ -205,13 +290,6 @@ class EloadPreparation(Eload):
             return
         with open(metadata_json_path) as json_file:
             metadata_json = json.load(json_file)
-
-        # Overwrite taxid & assembly accession values, if specified
-        if taxid:
-            metadata_json['project']['taxId'] = taxid
-        if reference_accession:
-            for analysis in metadata_json['analysis']:
-                analysis['referenceGenome'] = reference_accession
 
         # Overwrite paths to assembly fasta and assembly report
         analyses_in_config = self.eload_cfg.query('submission', 'analyses')
@@ -245,8 +323,7 @@ class EloadPreparation(Eload):
             else:
                 self.error(f'Could not save Assembly accession {assembly} to Contig-Alias DB. Error : {response.text}')
 
-
-    def convert_new_spreadsheet_to_eload_spreadsheet_if_required(self):
+    def convert_new_spreadsheet_to_json(self):
         metadata_xlsx = self.eload_cfg.query('submission', 'metadata_spreadsheet')
         metadata_xlsx_name = os.path.basename(metadata_xlsx)
         version = metadata_xlsx_version(metadata_xlsx)
@@ -258,16 +335,13 @@ class EloadPreparation(Eload):
             os.rename(metadata_xlsx, os.path.join(metadata_cli_dir, metadata_xlsx_name))
             metadata_xlsx = os.path.join(metadata_cli_dir, metadata_xlsx_name)
 
-            # Convert to the old format
+            # Convert to json format
             conf_filename = os.path.join(eva_sub_cli.ETC_DIR, 'spreadsheet2json_conf.yaml')
             parser = XlsxParser(metadata_xlsx, conf_filename)
-            metadata_json_file_path = os.path.join(self._get_dir('metadata'), 'eva_sub_cli', 'eva_sub_cli_metadata.json')
+            metadata_json_file_path = os.path.join(self._get_dir('metadata'), 'eva_sub_cli_metadata.json')
             try:
                 parser.json(metadata_json_file_path)
-                # Store path to metadata json in the eload config
                 self.eload_cfg.set('submission', 'metadata_json', value=metadata_json_file_path)
-                eload_spreadsheet_file_path = os.path.join(self._get_dir('metadata'), metadata_xlsx_name)
-                JsonToXlsxConverter(metadata_json_file_path, eload_spreadsheet_file_path).convert_json_to_xlsx()
             except IndexError as e:
                 self.error(f'Could not convert metadata version {version} to JSON file: {metadata_xlsx}')
                 raise e

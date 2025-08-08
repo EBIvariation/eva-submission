@@ -6,11 +6,10 @@ from unittest import TestCase, mock
 
 import eva_sub_cli
 from ebi_eva_common_pyutils.config import cfg
-from ebi_eva_common_pyutils.spreadsheet.metadata_xlsx_utils import metadata_xlsx_version
 
 from eva_submission import ROOT_DIR
 from eva_submission.eload_preparation import EloadPreparation
-from eva_submission.submission_config import load_config
+from eva_submission.submission_config import load_config, EloadConfig
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
 
@@ -31,6 +30,7 @@ class TestEloadPreparation(TestCase):
         self.eload = EloadPreparation(1)
 
     def tearDown(self) -> None:
+        EloadConfig.content = {}
         eloads = glob.glob(os.path.join(self.resources_folder, 'eloads', 'ELOAD_1'))
         for eload in eloads:
             shutil.rmtree(eload)
@@ -46,8 +46,11 @@ class TestEloadPreparation(TestCase):
             paths.append(vcf)
         return paths
 
-    def create_metadata(self, num_analyses=0):
-        source_metadata = os.path.join(self.resources_folder, 'metadata.xlsx')
+    def create_metadata(self, v2=False, num_analyses=0):
+        if v2:
+            source_metadata = os.path.join(self.resources_folder, 'metadata_v2.xlsx')
+        else:
+            source_metadata = os.path.join(self.resources_folder, 'metadata.xlsx')
         metadata = os.path.join(self.eload.eload_dir, '10_submitted', 'metadata_file', 'metadata.xlsx')
         shutil.copyfile(source_metadata, metadata)
         if num_analyses:
@@ -78,6 +81,18 @@ class TestEloadPreparation(TestCase):
         # Check that the metadata spreadsheet is in the config file
         assert self.eload.eload_cfg.query('submission', 'metadata_spreadsheet') == metadata
 
+    def test_detect_submitted_metadata_json(self):
+        self.create_vcfs()
+        metadata = self.create_metadata(v2=True)
+        self.eload.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata)
+        self.eload.convert_new_spreadsheet_to_json()
+
+        self.eload.detect_metadata_attributes()
+        self.eload.check_submitted_filenames()
+        # Check that the metadata json is in the config file
+        metadata_json = metadata.replace('metadata.xlsx', 'eva_sub_cli_metadata.json')
+        assert self.eload.eload_cfg.query('submission', 'metadata_json') == metadata_json
+
     def test_detect_metadata_attributes(self):
         self.create_vcfs()
         metadata = self.create_metadata()
@@ -88,6 +103,22 @@ class TestEloadPreparation(TestCase):
         assert self.eload.eload_cfg.query('submission', 'taxonomy_id') == 9606
         assert self.eload.eload_cfg.query('submission', 'scientific_name') == 'Homo sapiens'
         assert self.eload.eload_cfg.query('submission', 'analyses', 'ELOAD_1_GAE', 'assembly_accession') == 'GCA_000001405.1'
+        vcf_files = self.eload.eload_cfg.query('submission', 'analyses', 'ELOAD_1_GAE', 'vcf_files')
+        assert len(vcf_files) == 1
+        assert '10_submitted/vcf_files/T100.vcf.gz' in vcf_files[0]
+
+    def test_detect_metadata_attributes_from_json(self):
+        self.create_vcfs()
+        metadata = self.create_metadata(v2=True)
+        self.eload.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata)
+        self.eload.convert_new_spreadsheet_to_json()
+        self.eload.detect_metadata_attributes_from_json()
+
+        assert self.eload.eload_cfg.query('submission', 'project_title') == 'Greatest project ever'
+        assert self.eload.eload_cfg.query('submission', 'taxonomy_id') == 9606
+        assert self.eload.eload_cfg.query('submission', 'scientific_name') == 'Homo sapiens'
+        assert self.eload.eload_cfg.query('submission', 'analyses', 'ELOAD_1_GAE',
+                                          'assembly_accession') == 'GCA_000001405.1'
         vcf_files = self.eload.eload_cfg.query('submission', 'analyses', 'ELOAD_1_GAE', 'vcf_files')
         assert len(vcf_files) == 1
         assert '10_submitted/vcf_files/T100.vcf.gz' in vcf_files[0]
@@ -107,10 +138,27 @@ class TestEloadPreparation(TestCase):
         reader = EvaXlsxReader(metadata)
         assert reader.project['Tax ID'] == 9606
         assert reader.analysis[0]['Reference'] == 'GCA_000001405.1'
+        self.eload.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata)
         self.eload.replace_values_in_metadata(taxid=10000, reference_accession='GCA_000009999.9')
         reader = EvaXlsxReader(metadata)
         assert reader.project['Tax ID'] == 10000
         assert reader.analysis[0]['Reference'] == 'GCA_000009999.9'
+
+    def test_replace_values_in_metadata_json(self):
+        metadata = self.create_metadata(v2=True)
+        metadata_json = metadata.replace('metadata.xlsx', 'eva_sub_cli_metadata.json')
+        self.eload.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata)
+        self.eload.convert_new_spreadsheet_to_json()
+        with open(metadata_json) as f:
+            metadata_content = json.load(f)
+            assert metadata_content['project']['taxId'] == 9606
+            assert metadata_content['analysis'][0]['referenceGenome'] == 'GCA_000001405.1'
+
+        self.eload.replace_values_in_metadata(taxid=10000, reference_accession='GCA_000009999.9')
+        with open(metadata_json) as f:
+            metadata_content = json.load(f)
+            assert metadata_content['project']['taxId'] == 10000
+            assert metadata_content['analysis'][0]['referenceGenome'] == 'GCA_000009999.9'
 
     def test_find_genome_single_sequence(self):
         cfg.content['eutils_api_key'] = None
@@ -139,24 +187,22 @@ class TestEloadPreparation(TestCase):
 
             mockput.assert_called_once_with('host/v1/admin/assemblies/GCA_000001405.10', auth=('user', 'pass'))
 
-    def test_convert_new_spreadsheet_to_eload_spreadsheet_if_required(self):
+    def test_convert_new_spreadsheet_to_json(self):
         metadata_example = os.path.join(eva_sub_cli.ETC_DIR , 'EVA_Submission_Example.xlsx')
         metadata_dir = self.eload._get_dir('metadata')
         # Make a copy so we preserve the example spreadsheet
         metadata_copy = shutil.copy(metadata_example, os.path.join(metadata_dir, 'metadata.xlsx'))
         self.eload.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata_copy)
 
-        self.eload.convert_new_spreadsheet_to_eload_spreadsheet_if_required()
+        self.eload.convert_new_spreadsheet_to_json()
         assert os.path.isfile(os.path.join(metadata_dir, 'eva_sub_cli', os.path.basename(metadata_copy)))
-        assert os.path.isfile(os.path.join(metadata_dir, os.path.basename(metadata_copy)))
-        metadata_xlsx = os.path.join(metadata_dir, os.path.basename(metadata_copy))
-        version = metadata_xlsx_version(metadata_xlsx)
-        assert version == '1.1.4'
-        reader = EvaXlsxReader(metadata_xlsx)
-        assert reader.project['Project Title'] == 'Investigation of human genetic variants'
-        assert reader.analysis[0]['Analysis Title'] == 'Human genetic variation analysis'
-        assert self.eload.eload_cfg.query('submission', 'metadata_json') == os.path.join(metadata_dir, 'eva_sub_cli',
-                                                                                         'eva_sub_cli_metadata.json')
+        json_file = os.path.join(metadata_dir, 'eva_sub_cli_metadata.json')
+        assert os.path.isfile(json_file)
+        with open(json_file, 'r') as f:
+            json_data = json.load(f)
+            assert json_data.get('project').get('title') == 'Investigation of human genetic variants'
+            assert json_data.get('analysis')[0].get('analysisTitle') == 'Human genetic variation analysis'
+            assert self.eload.eload_cfg.query('submission', 'metadata_json') == json_file
 
     def test_update_metadata_json_if_required(self):
         json_example = os.path.join(self.resources_folder, 'input_json_for_json_to_xlsx_converter.json')
@@ -183,12 +229,11 @@ class TestEloadPreparation(TestCase):
         assert 'assemblyReport' not in original_metadata['analysis'][2]
         assert original_metadata['files'][0]['fileName'] == 'example1.vcf.gz'
 
-        self.eload.update_metadata_json_if_required(taxid=10000)
+        self.eload.update_metadata_json_if_required()
 
         # assert updated metadata
         with open(json_copy) as open_json:
             updated_metadata = json.load(open_json)
-        assert updated_metadata['project']['taxId'] == 10000
         assert updated_metadata['analysis'][0]['referenceFasta'] == 'GCA_000009999.9_fasta.fa'
         assert updated_metadata['analysis'][0]['assemblyReport'] == 'GCA_000009999.9_report.txt'
         assert updated_metadata['analysis'][1]['referenceFasta'] == 'GCA_000001111.1_fasta.fa'

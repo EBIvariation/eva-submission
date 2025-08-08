@@ -1,4 +1,3 @@
-import datetime
 import glob
 import json
 import os
@@ -8,10 +7,9 @@ from unittest.mock import patch, PropertyMock, Mock
 
 from ebi_eva_common_pyutils.config import cfg
 
-from eva_sub_cli_processing.sub_cli_to_eload_converter.json_to_xlsx_converter import parse_date
 from eva_sub_cli_processing.sub_cli_to_eload_converter.sub_cli_to_eload_converter import SubCLIToEloadConverter
 from eva_submission import ROOT_DIR
-from eva_submission.submission_config import load_config
+from eva_submission.submission_config import load_config, EloadConfig
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxWriter, EvaXlsxReader
 
 
@@ -42,6 +40,7 @@ class TestSubCliToEloadConverter(TestCase):
         self.cli_to_eload = SubCLIToEloadConverter(1, submission_id=self.submission_id)
 
     def tearDown(self) -> None:
+        EloadConfig.content = {}
         eloads = glob.glob(os.path.join(self.resources_folder, 'eloads', 'ELOAD_1'))
         for eload in eloads:
             shutil.rmtree(eload)
@@ -99,9 +98,9 @@ class TestSubCliToEloadConverter(TestCase):
             self.cli_to_eload.retrieve_vcf_files_from_sub_cli_ftp_dir()
         assert os.listdir(os.path.join(self.cli_to_eload.eload_dir, '10_submitted', 'vcf_files')) == ['data.vcf.gz']
 
-    def test_download_metadata_json_and_convert_to_xlsx(self):
+    def test_download_metadata_json_and_store(self):
         with self.patch_submission_obj():
-            self.cli_to_eload.download_metadata_json_and_convert_to_xlsx()
+            self.cli_to_eload.download_metadata_json_and_store()
 
         # Check if json file was written correctly and converted to xlsx without any error
         metadata_json_file_path = os.path.join(self.cli_to_eload.eload_dir, '10_submitted', 'metadata_file',
@@ -109,16 +108,11 @@ class TestSubCliToEloadConverter(TestCase):
         metadata_xlsx_file_path = os.path.join(self.cli_to_eload.eload_dir, '10_submitted', 'metadata_file',
                                                'metadata_xlsx.xlsx')
         assert os.path.exists(metadata_json_file_path)
-        assert os.path.exists(metadata_xlsx_file_path)
         with open(metadata_json_file_path) as open_file:
             metadata_json = json.load(open_file)
             assert metadata_json.get('project').get('title') == 'Example Project'
             assert metadata_json.get('project').get('description') == 'An example project for demonstration purposes'
 
-        xls_reader = EvaXlsxReader(metadata_xlsx_file_path)
-        assert xls_reader.project.get('Project Title') == 'Example Project'
-        assert xls_reader.project.get('Description') == 'An example project for demonstration purposes'
-        assert self.cli_to_eload.eload_cfg.query('submission', 'metadata_json') == metadata_json_file_path
 
 
     def test_detect_submitted_metadata(self):
@@ -153,17 +147,6 @@ class TestSubCliToEloadConverter(TestCase):
         self.cli_to_eload.detect_submitted_metadata()
         with self.assertRaises(ValueError):
             self.cli_to_eload.check_submitted_filenames()
-
-    def test_replace_values_in_metadata(self):
-        metadata = self.create_metadata()
-
-        reader = EvaXlsxReader(metadata)
-        assert reader.project['Tax ID'] == 9606
-        assert reader.analysis[0]['Reference'] == 'GCA_000001405.1'
-        self.cli_to_eload.replace_values_in_metadata(taxid=10000, reference_accession='GCA_000009999.9')
-        reader = EvaXlsxReader(metadata)
-        assert reader.project['Tax ID'] == 10000
-        assert reader.analysis[0]['Reference'] == 'GCA_000009999.9'
 
     def test_find_genome_single_sequence(self):
         cfg.content['eutils_api_key'] = None
@@ -208,11 +191,3 @@ class TestSubCliToEloadConverter(TestCase):
             auth=(cfg['submissions']['webservice']['admin_username'],
                   cfg['submissions']['webservice']['admin_password']))
         assert submission_obj == {'json_property': 'json_value'}
-
-    def test_parse_date(self):
-        assert parse_date('2019-12-24') == datetime.date(2019, 12, 24)
-        assert parse_date('2019') == datetime.date(2019, 1, 1)
-        assert parse_date('2019-12') == datetime.date(2019, 12, 1)
-
-        assert parse_date('not provided') == 'not provided'
-

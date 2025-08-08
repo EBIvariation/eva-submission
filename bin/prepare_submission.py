@@ -55,7 +55,7 @@ def main():
         with SubCLIToEloadConverter(args.eload, args.submission_id) as sub_cli_eload:
             sub_cli_eload.check_status()
             sub_cli_eload.retrieve_vcf_files_from_sub_cli_ftp_dir()
-            sub_cli_eload.download_metadata_json_and_convert_to_xlsx()
+            sub_cli_eload.download_metadata_json_and_store()
             sub_cli_eload.detect_all(args.taxid, args.reference)
     else:
         with EloadPreparation(args.eload) as eload:

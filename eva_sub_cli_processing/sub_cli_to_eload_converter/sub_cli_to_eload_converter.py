@@ -5,7 +5,6 @@ from functools import cached_property
 
 from ebi_eva_common_pyutils.config import cfg
 
-from eva_sub_cli_processing.sub_cli_to_eload_converter.json_to_xlsx_converter import JsonToXlsxConverter
 from eva_sub_cli_processing.sub_cli_utils import sub_ws_url_build, get_from_sub_ws
 from eva_submission.eload_preparation import EloadPreparation
 from eva_submission.submission_config import EloadConfig
@@ -56,16 +55,14 @@ class SubCLIToEloadConverter(EloadPreparation):
                     shutil.copyfile(file_path, dest)
 
 
-    def download_metadata_json_and_convert_to_xlsx(self):
+    def download_metadata_json_and_store(self):
         metadata_dir = self._get_dir('metadata')
         metadata_json_file_path = os.path.join(metadata_dir, "metadata_json.json")
-        metadata_xlsx_file_path = os.path.join(metadata_dir, "metadata_xlsx.xlsx")
         # download metadata json
         self._download_metadata_json_file(metadata_json_file_path)
         # Store path to metadata json in the eload config
         self.eload_cfg.set('submission', 'metadata_json', value=metadata_json_file_path)
-        # convert metadata json to metadata xlsx
-        JsonToXlsxConverter(metadata_json_file_path, metadata_xlsx_file_path).convert_json_to_xlsx()
+
 
     def _download_metadata_json_file(self, metadata_json_file_path):
         with open(metadata_json_file_path, "w", encoding="utf-8") as open_file:

@@ -408,4 +408,3 @@ class TestEvaProjectLoader(TestCase):
         assert clustering_update_obj.assembly_accession == 'assembly'
         assert clustering_update_obj.source == 'source'
         assert clustering_update_obj.ingestion_time == now
-
