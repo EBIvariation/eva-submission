@@ -8,7 +8,8 @@ from functools import cached_property
 from ebi_eva_common_pyutils.logger import AppLogger
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 
-from eva_submission.eload_utils import check_project_format, check_existing_project_in_ena, is_single_insdc_sequence
+from eva_submission.eload_utils import check_project_format, check_existing_project_in_ena, is_single_insdc_sequence, \
+    is_vcf_file
 
 
 def today():
@@ -166,13 +167,19 @@ class EnaJsonConverter(AppLogger):
             return analysis_attributes
 
         def get_file_objs(files):
-            # TODO: file type is not in the schema so need to infer from filename
+            def _file_type(fn):
+                if is_vcf_file(fn):
+                    return {'fileType': 'vcf'}
+                elif fn.endswith('tbi'):
+                    return {'fileType': 'tabix'}
+                elif fn.endswith('csi'):
+                    return {'fileType': 'csi'}
+                return {}
+
             return [
                 {
                     'fileName': file['fileName'],
-                    **({"fileType": file['fileType']} if 'fileType' in file else {}),
-
-                    **({"fileType": 'vcf'} if file.get('fileName').endswith('vcf.gz') else {}),
+                    **(_file_type(file.get('fileName'))),
                     **({"checksumMethod": 'MD5'} if 'md5' in file else {}),
                     **({"checksum": file.get('md5')} if 'md5' in file else {}),
                 }

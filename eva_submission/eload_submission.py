@@ -122,17 +122,20 @@ class Eload(AppLogger):
 
     def update_metadata_json(self, input_json_file, output_json_file, existing_project=None):
         # TODO: Needs to add support for pre-existing project
+        if existing_project:
+            self.warning(f'Adding to existing project not yet supported, {existing_project} will be ignored')
         with open(input_json_file) as open_file:
             metadata_json = json.load(open_file)
         sample_objects = []
         for sample_obj in metadata_json.get('sample'):
             if self.eload_cfg.query('brokering', 'Biosamples', 'Samples', sample_obj.get('Sample Name')):
                 sample_objects.append({
-                    'analysisAlias': sample_obj.get('analysisAlias'),
+                    'analysisAlias': [self._unique_alias(a) for a in sample_obj.get('analysisAlias')],
                     'sampleInVCF': sample_obj.get('sampleInVCF'),
                     'bioSampleAccession': self.eload_cfg['brokering']['Biosamples']['Samples'][sample_obj.get('sampleInVCF')]
                 })
             else:
+                sample_obj['analysisAlias'] = [self._unique_alias(a) for a in sample_obj.get('analysisAlias')]
                 sample_objects.append(sample_obj)
 
         file_objects = []
@@ -155,11 +158,17 @@ class Eload(AppLogger):
                     'fileType': 'csi',
                     'md5': vcf_file_info['csi_md5']
                 })
+
+        analysis_objects = []
+        for analysis_obj in metadata_json.get('analysis'):
+            analysis_obj['analysisAlias'] = self._unique_alias(analysis_obj['analysisAlias'])
+            analysis_objects.append(analysis_obj)
+
         metadata_json['sample'] = sample_objects
         metadata_json['files'] = file_objects
+        metadata_json['analysis'] = analysis_objects
         with open(output_json_file, 'w') as open_file:
             json.dump(metadata_json, open_file, indent=4)
-
 
     def update_metadata_spreadsheet(self, input_spreadsheet, output_spreadsheet=None, existing_project=None):
         reader = EvaXlsxReader(input_spreadsheet)

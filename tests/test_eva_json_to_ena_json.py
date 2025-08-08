@@ -127,7 +127,6 @@ class TestEVAJsonToENAJsonConverter(TestCase):
             ]
         }
 
-
         ena_analysis_json_obj = self.converter._add_analysis(self.analysis, self.samples, self.files, self.project)
         print(ena_analysis_json_obj)
         self.assert_json_equal(expected_analysis_json_obj, ena_analysis_json_obj)
