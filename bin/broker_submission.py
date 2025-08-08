@@ -43,7 +43,7 @@ def main():
                           help='Use this option to set an existing project accession that will be used to attach the '
                                'new analyses from this ELOAD.')
     argparse.add_argument('--use_ena_v1', action='store_true', default=False,
-                          help='Change the mode of upload to ENA use the legacy API.')
+                          help='Change the mode of ENA upload to use the legacy API (necessary for XML upload).')
     argparse.add_argument('--dry_ena_upload', action='store_true', default=False,
                           help='Prevent the upload of files to ENA FTP and XML files to submission.')
     argparse.add_argument('--force', required=False, type=str, nargs='+', default=[],
