@@ -140,7 +140,7 @@ class ENAUploaderAsync(ENAUploader):
             else:
                 self.results['errors'] = [f'No links present in json document: {json_data}']
         else:
-                self.results['errors'] = [f'{response.status_code}']
+            self.results['errors'] = [f'{response.status_code}']
 
     def monitor_results(self, timeout=3600, wait_time=30):
         xml_link = self.results['poll-links']

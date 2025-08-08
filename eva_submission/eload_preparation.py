@@ -88,7 +88,7 @@ class EloadPreparation(Eload):
         self.check_submitted_filenames()
         self.detect_metadata_attributes()
         self.find_genome()
-        self.update_metadata_json_if_required(taxid=taxid, reference_accession=reference_accession)
+        self.update_metadata_json_if_required()
 
     def detect_submitted_metadata(self):
         metadata_dir = os.path.join(self.eload_dir, directory_structure['metadata'])
@@ -112,7 +112,6 @@ class EloadPreparation(Eload):
         if len(submitted_vcfs) < 1:
             raise FileNotFoundError('Could not locate vcf file in %s', vcf_dir)
         json_data = None
-        eva_xls_reader = None
         eva_files_json = self.eload_cfg.query('submission', 'metadata_json')
         if eva_files_json:
             with open(eva_files_json, 'r') as open_file:
@@ -130,7 +129,6 @@ class EloadPreparation(Eload):
             ]
             analysis_aliases = [a.get('Analysis Alias') for a in eva_xls_reader.analysis]
 
-
         if sorted(metadata_vcfs) != sorted(submitted_vcfs):
             self.warning('VCF files found in the metadata does not match the ones submitted. '
                          'Submitted VCF will be added to the metadata.')
@@ -138,10 +136,10 @@ class EloadPreparation(Eload):
                        f'{", ".join(set(metadata_vcfs).difference(set(submitted_vcfs)))}')
             self.debug(f'Difference between submitted vcfs and metadata vcfs: '
                        f'{", ".join(set(submitted_vcfs).difference(set(metadata_vcfs)))}')
-            analysis_alias = ''
             if len(analysis_aliases) != 1:
                 self.error("Multiple analyses found, can't add submitted VCF to the metadata")
                 raise ValueError("Multiple analyses found, can't add submitted VCF to the metadata")
+            analysis_alias = analysis_aliases[0]
             if json_data:
                 json_data['files'] = [
                     {
@@ -241,7 +239,7 @@ class EloadPreparation(Eload):
                 analysis_reference[analysis_alias]['vcf_files'].append(file_full)
         self.eload_cfg.set('submission', 'analyses', value=analysis_reference)
 
-        self.eload_cfg.set('submission', 'project_title', value=json_data.get('project').get('projectTitle'))
+        self.eload_cfg.set('submission', 'project_title', value=json_data.get('project').get('title'))
 
         taxonomy_id = json_data.get('project').get('taxId')
         if taxonomy_id and (isinstance(taxonomy_id, int) or taxonomy_id.isdigit()):
@@ -324,7 +322,6 @@ class EloadPreparation(Eload):
                 self.warning(f'Assembly accession {assembly} already exist in Contig-Alias DB. Response: {response.text}')
             else:
                 self.error(f'Could not save Assembly accession {assembly} to Contig-Alias DB. Error : {response.text}')
-
 
     def convert_new_spreadsheet_to_json(self):
         metadata_xlsx = self.eload_cfg.query('submission', 'metadata_spreadsheet')

@@ -104,7 +104,7 @@ class EloadBrokering(Eload):
         if metadata_json_file and os.path.exists(metadata_json_file):
             with open(metadata_json_file, 'r') as open_file:
                 metadata_json = json.load(open_file)
-                sample_submitter = SampleJSONSubmitter(metadata_json, ('create',))
+                sample_submitter = SampleJSONSubmitter(metadata_json)
         elif metadata_spreadsheet and os.path.exists(metadata_spreadsheet):
             sample_submitter = SampleMetadataSubmitter(metadata_spreadsheet)
         else:
