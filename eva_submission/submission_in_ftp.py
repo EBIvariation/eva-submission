@@ -49,6 +49,8 @@ class FtpDepositBox(AppLogger):
                     self._vcf_files.append((file_path, st.st_size, datetime.fromtimestamp(st.st_mtime)))
                 elif file_path.endswith('.xlsx'):
                     self._metadata_files.append((file_path, st.st_size, datetime.fromtimestamp(st.st_mtime)))
+                elif file_path.endswith('.json'):
+                    self._metadata_files.append((file_path, st.st_size, datetime.fromtimestamp(st.st_mtime)))
                 else:
                     self._other_files.append((file_path, st.st_size, datetime.fromtimestamp(st.st_mtime)))
 

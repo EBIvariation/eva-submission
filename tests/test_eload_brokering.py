@@ -1,16 +1,18 @@
 import glob
+import json
 import os
 import shutil
 from unittest import TestCase
-from unittest.mock import patch, PropertyMock
+from unittest.mock import patch, PropertyMock, Mock
 
 from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission import NEXTFLOW_DIR
+from eva_submission.ENA_submission.upload_to_ENA import ENAUploader
 from eva_submission.biosample_submission.biosamples_submitters import SampleMetadataSubmitter
 from eva_submission.eload_brokering import EloadBrokering
 from eva_submission.eload_submission import Eload
-from eva_submission.submission_config import load_config
+from eva_submission.submission_config import load_config, EloadConfig
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 from tests.test_eload_preparation import touch
 
@@ -30,6 +32,7 @@ class TestEloadBrokering(TestCase):
         self.existing_eload = EloadBrokering(4)
 
     def tearDown(self) -> None:
+        EloadConfig.content = {}
         eloads = glob.glob(os.path.join(self.resources_folder, 'eloads', 'ELOAD_3'))
         for eload in eloads:
             shutil.rmtree(eload)
@@ -80,6 +83,24 @@ class TestEloadBrokering(TestCase):
         self.eload.eload_cfg.set('brokering', 'Biosamples', 'pass', value=True)
         self.eload.upload_to_bioSamples()
 
+    def test_broker_to_ena_xml(self):
+        self.eload.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
+                                 value=os.path.join(self.resources_folder, 'metadata.xlsx'))
+        self.eload.eload_cfg.set('brokering', 'analyses', value={'AA1':{'vcf_files':{}}})
+        response = Mock(text='')
+        with patch.object(ENAUploader, 'upload_vcf_files_to_ena_ftp'),\
+              patch.object(ENAUploader, '_post_metadata_file_to_ena', return_value=response):
+            self.eload.broker_to_ena()
+
+    def test_broker_to_ena_json(self):
+        self.eload.eload_cfg.set('validation', 'valid', 'metadata_json',
+                                 value=os.path.join(self.resources_folder, 'brokering', 'eva_metadata_json.json'))
+        self.eload.eload_cfg.set('brokering', 'analyses', value={'AA1':{'vcf_files':{}}})
+        response = Mock(text='')
+        with patch.object(ENAUploader, 'upload_vcf_files_to_ena_ftp'),\
+              patch.object(ENAUploader, '_post_metadata_file_to_ena', return_value=response):
+            self.eload.broker_to_ena(async_upload=True)
+
     def test_run_brokering_prep_workflow(self):
         self.eload.eload_cfg.set('validation', 'valid', 'analyses', value={
             'analysis_alias1': {
@@ -119,7 +140,6 @@ class TestEloadBrokering(TestCase):
         expected = (["Reference allele mismatch at 20:17331 .. REF_SEQ:'TA' vs VCF:'GT'"], 0, 0, 0, 0)
         assert self.eload.parse_bcftools_norm_report(normalisation_log) == expected
 
-
     def test_collect_brokering_workflow_results(self):
         output_dir = os.path.join(self.eload.eload_dir, 'output')
         os.makedirs(output_dir)
@@ -129,12 +149,12 @@ class TestEloadBrokering(TestCase):
             touch(os.path.join(output_dir, f), content=f'md5checksum {f}')
         touch(os.path.join(output_dir, 'vcf_file1.vcf_bcftools_norm.log'),
               content=f'Lines   total/split/realigned/skipped:  2/0/1/0')
-        self.eload.eload_cfg.set('validation', 'valid', 'analyses', 'analysis alias 1', value={
+        self.eload.eload_cfg.set('validation', 'valid', 'analyses',  value={'analysis alias 1':{
             'assembly_accession': 'GCA_000001000.1',
             'assembly_fasta': 'fasta.fa',
             'assembly_report': 'assembly_report.txt',
             'vcf_files': ['vcf_file1.vcf']
-        })
+        }})
         self.eload._collect_brokering_prep_results(output_dir)
         vcf_file1 = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.gz')
         vcf_file1_csi = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.csi')
@@ -265,6 +285,66 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
         # Updated the reference genome to what the brokering contains
         assert source_reader.analysis[1]['Reference'] == 'GCA_000001405'
         assert reader.analysis[1]['Reference'] == 'GCA_000001405.1'
+
+    def test_update_metadata_json(self):
+        input_metadata_json = os.path.join(self.resources_folder, 'brokering', 'eva_metadata_json.json')
+        output_metadata_json = os.path.join(self.resources_folder, 'brokering', 'updated_metadata.json')
+        analyses = {
+            'ELOAD_3_VD1': {
+                'assembly_accession': 'GCA_000001405.1',
+                'vcf_files': {
+                    'path/to/example1.vcf.gz': {
+                        'csi': 'path/to/example1.vcf.gz.csi',
+                        'csi_md5': '',
+                        'md5': '',
+                        'original_vcf': 'path/to/original_example1.vcf.gz',
+                        'output_vcf_file': None
+                    }
+                }
+            },
+            'ELOAD_3_VD2': {
+                'assembly_accession': 'GCA_000001405.1',
+                'vcf_files': {
+                    'path/to/example2.vcf.gz': {
+                        'csi': 'path/to/example2.vcf.gz.csi',
+                        'csi_md5': '',
+                        'md5': '',
+                        'original_vcf': 'path/to/original_example2.vcf.gz',
+                        'output_vcf_file': None
+                    }
+                }
+            },
+            'ELOAD_3_VD3': {
+                'assembly_accession': 'GCA_000001405.1',
+                'vcf_files': {
+                    'path/to/example3.vcf.gz': {
+                        'csi': 'path/to/example3.vcf.gz.csi',
+                        'csi_md5': '',
+                        'md5': '',
+                        'original_vcf': 'path/to/original_example3.vcf.gz',
+                        'output_vcf_file': None
+                    }
+                }
+            }
+        }
+        self.eload.eload_cfg.set('brokering', 'analyses', value=analyses)
+
+        self.eload.update_metadata_json(input_metadata_json, output_metadata_json)
+        assert os.path.exists(output_metadata_json)
+        with open(output_metadata_json, 'r') as f:
+            updated_metadata = json.load(f)
+
+            # Analysis aliases have been modified
+            aliases_from_analysis = {a['analysisAlias'] for a in updated_metadata['analysis']}
+            aliases_from_samples = {a for s in updated_metadata['sample'] for a in s['analysisAlias']}
+            aliases_from_files = {f['analysisAlias'] for f in updated_metadata['files']}
+            assert all(alias.startswith('ELOAD_3_') for alias in aliases_from_analysis | aliases_from_samples | aliases_from_files)
+
+            # Files now includes index files
+            assert len(updated_metadata['files']) == 6
+            file_names = sorted([f['fileName'] for f in updated_metadata['files']])
+            assert file_names == ['ELOAD_3/example1.vcf.gz', 'ELOAD_3/example1.vcf.gz.csi', 'ELOAD_3/example2.vcf.gz',
+                                 'ELOAD_3/example2.vcf.gz.csi', 'ELOAD_3/example3.vcf.gz', 'ELOAD_3/example3.vcf.gz.csi']
 
     def test_archival_confirmation_text(self):
         self.eload.eload_cfg.set('submission', 'project_title', value='Great project')
