@@ -14,3 +14,5 @@ jobs:
           token: ${{ secrets.WORKFLOW_ACCESS_TOKEN }}
           repository: EBIvariation/eva-integration-tests
           event-type: trigger-eva-submission-tests
+          client-payload: '{"repository": "${{github.repository}}", "ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
+
