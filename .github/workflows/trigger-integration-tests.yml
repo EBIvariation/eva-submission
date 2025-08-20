@@ -2,7 +2,7 @@ name: Trigger Eva Submission Integration Tests
 
 on:
   push:
-    branches: [master]
+    branches: [master, trigger_from_specific_branch]
 
 jobs:
   trigger-integration-tests:
