@@ -87,7 +87,6 @@ class EnaJsonConverter(AppLogger):
         project_links = [self.get_link(link) for link in project_data.get("links", [])]
 
         ena_project_obj = {
-            "accession": project_accession,
             "alias": project_alias,
             "title": project_title,
             "description": project_description,
@@ -101,6 +100,8 @@ class EnaJsonConverter(AppLogger):
             "relatedProjects": related_projects,
             "projectLinks": project_links,
         }
+        if project_accession:
+            ena_project_obj["accession"] = project_accession
 
         return ena_project_obj
 
@@ -133,8 +134,10 @@ class EnaJsonConverter(AppLogger):
             return {}
 
         def get_samples(samples):
-            return [{"accession": sample['bioSampleAccession'], "alias": sample.get('sampleInVCF')}
-                    for sample in samples]
+            return [{
+                "accession": sample.get('bioSampleAccession') or sample.get('accession') ,
+                "alias": sample.get('sampleInVCF')
+            } for sample in samples]
 
         def get_runs(analysis):
             return analysis.get('runAccessions', [])
