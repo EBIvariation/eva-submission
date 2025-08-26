@@ -75,16 +75,17 @@ class ENAUploader(AppLogger):
         )
         return response
 
-    def upload_metadata_files_to_ena(self, dry_ena_upload=False):
-        """Upload the xml files to the webin submission endpoint and parse the receipt."""
-        submission_file, project_file, analysis_file = self.converter.create_submission_files()
+    def upload_metadata_file_to_ena(self, dry_ena_upload=False):
+        """Upload the xml file to the webin submission endpoint and parse the receipt."""
+        webin_file = self.converter.create_single_submission_file()
+        mime_type = 'application/xml'
+        if webin_file.endswith('.json'):
+            mime_type = 'application/json'
+
         file_dict = {
-            'SUBMISSION': (os.path.basename(submission_file), get_file_content(submission_file), 'application/xml'),
-            'ANALYSIS': (os.path.basename(analysis_file), get_file_content(analysis_file), 'application/xml')
+            'file': (os.path.basename(webin_file), get_file_content(webin_file), mime_type),
         }
-        # If we are uploading to an existing project the project_file is not set
-        if project_file:
-            file_dict['PROJECT'] = (os.path.basename(project_file), get_file_content(project_file), 'application/xml')
+        # submission_file, project_file, analysis_file = self.converter.create_single_submission_file()
         if dry_ena_upload:
             self.info(f'Would have uploaded the following XML files to ENA submission endpoint:')
             for key, (file_path, _, _) in file_dict.items():
@@ -118,12 +119,16 @@ class ENAUploader(AppLogger):
 
 class ENAUploaderAsync(ENAUploader):
 
-    def upload_metadata_files_to_ena(self, dry_ena_upload=False):
+    def upload_metadata_file_to_ena(self, dry_ena_upload=False):
         """Upload the xml file to the asynchronous endpoint and monitor the results from the poll endpoint."""
 
         webin_file = self.converter.create_single_submission_file()
+        mime_type = 'application/xml'
+        if webin_file.endswith('.json'):
+            mime_type = 'application/json'
+
         file_dict = {
-            'file': (os.path.basename(webin_file), get_file_content(webin_file), 'application/xml'),
+            'file': (os.path.basename(webin_file), get_file_content(webin_file), mime_type),
         }
         if dry_ena_upload:
             self.info(f'Would have uploaded the following metadata files to ENA asynchronous submission endpoint:')
