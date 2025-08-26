@@ -42,8 +42,8 @@ def main():
     argparse.add_argument('--project_accession', required=False, type=ENA_Project,
                           help='Use this option to set an existing project accession that will be used to attach the '
                                'new analyses from this ELOAD.')
-    argparse.add_argument('--use_ena_v1', action='store_true', default=False,
-                          help='Change the mode of ENA upload to use the legacy API (necessary for XML upload).')
+    argparse.add_argument('--use_async_upload', action='store_true', default=False,
+                          help='Change the mode of upload to ENA to use the async queue.')
     argparse.add_argument('--dry_ena_upload', action='store_true', default=False,
                           help='Prevent the upload of files to ENA FTP and XML files to submission.')
     argparse.add_argument('--force', required=False, type=str, nargs='+', default=[],
@@ -65,7 +65,7 @@ def main():
         brokering.upgrade_to_new_version_if_needed()
         if not args.report:
             brokering.broker(brokering_tasks_to_force=args.force, existing_project=args.project_accession,
-                             async_upload=not args.use_ena_v1, dry_ena_upload=args.dry_ena_upload)
+                             async_upload=args.use_async_upload, dry_ena_upload=args.dry_ena_upload)
         brokering.report()
 
 
