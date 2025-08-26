@@ -180,10 +180,7 @@ class TestEnaXlsConverter(TestCase):
     def test_process_metadata_spreadsheet(self):
         with patch('eva_submission.ENA_submission.xlsx_to_ENA_xml.get_scientific_name_from_ensembl') as m_sci_name:
             m_sci_name.return_value = 'Oncorhynchus mykiss'
-            self.converter.create_submission_files()
-        assert os.path.isfile(os.path.join(self.brokering_folder, 'TEST1.Submission.xml'))
-        assert os.path.isfile(os.path.join(self.brokering_folder, 'TEST1.Project.xml'))
-        assert os.path.isfile(os.path.join(self.brokering_folder, 'TEST1.Analysis.xml'))
+        assert os.path.isfile(os.path.join(self.brokering_folder, 'TEST1.SingleSubmission.xml'))
 
     def test_create_submission(self):
         expected_submission = '''
@@ -241,25 +238,16 @@ class TestEnaXlsConverter(TestCase):
         expected_root = ET.fromstring(expected_submission)
         assert elements_equal(root, expected_root)
 
-    def test_create_submission_files(self):
-        submission_file, project_file, analysis_file = self.converter.create_submission_files()
+    def test_create_single_submission_file(self):
+        submission_file = self.converter.create_single_submission_file()
         assert os.path.exists(submission_file)
-        assert os.path.exists(project_file)
-        assert os.path.exists(analysis_file)
 
     def test_create_submission_files_for_existing_project(self):
         # When the project already exist not PROJECT XML will be generated
         with patch.object(EnaXlsxConverter, 'existing_project', new_callable=PropertyMock(return_value='PRJEB00001')):
-            submission_file, project_file, analysis_file = self.converter.create_submission_files()
+            submission_file = self.converter.create_single_submission_file()
             assert os.path.exists(submission_file)
-            assert project_file is None
-            assert os.path.exists(analysis_file)
             assert not os.path.exists(self.converter.project_file)
             with open(submission_file) as open_file:
                 root = ET.fromstring(open_file.read())
-                assert list(root)[0].attrib['alias'] == 'PRJEB00001_TEST1'
-
-    def test_create_single_submission_files(self):
-        self.converter.create_single_submission_file()
-
-
+                assert list(root.findall('./SUBMISSION_SET/SUBMISSION'))[0].attrib['alias'] == 'PRJEB00001_TEST1'

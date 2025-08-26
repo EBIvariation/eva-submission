@@ -67,7 +67,6 @@ class TestEVAJsonToENAJsonConverter(TestCase):
 
     def test_create_ena_project_json_obj(self):
         expected_project_json_obj = {
-            'accession': None,
             'alias': 'Submission-12345',
             'title': 'Example Project',
             'description': 'An example project for demonstration purposes',

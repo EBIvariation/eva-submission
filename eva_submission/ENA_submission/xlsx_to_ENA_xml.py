@@ -352,30 +352,6 @@ class EnaXlsxConverter(AppLogger):
         with open(output_file, 'bw') as open_file:
             open_file.write(prettify(etree))
 
-    def create_submission_files(self):
-        files_to_submit = []
-        if not self.is_existing_project:
-            files_to_submit.append(
-                {'file_name': os.path.basename(self.project_file), 'schema': 'project'}
-            )
-            projects_elemt = self._create_project_xml()
-            self.write_xml_to_file(projects_elemt, self.project_file)
-            project_file = self.project_file
-        else:
-            project_file = None
-
-        analysis_elemt = self._create_analysis_xml()
-        self.write_xml_to_file(analysis_elemt, self.analysis_file)
-        files_to_submit.append(
-            {'file_name': os.path.basename(self.analysis_file), 'schema': 'analysis'}
-        )
-
-        action = 'ADD'
-        submission_elemt = self._create_submission_xml(files_to_submit, action, self.reader.project)
-        self.write_xml_to_file(submission_elemt, self.submission_file)
-
-        return self.submission_file, project_file, self.analysis_file
-
     def create_single_submission_file(self):
         root = Element('WEBIN')
         # Submission ELEMENT
