@@ -12,7 +12,7 @@ from eva_submission.submission_config import load_config
 
 
 class TestENAUploader(TestCase):
-    receipt = '''<?xml version="1.0" encoding="UTF-8"?>
+    receipt_xml = '''<?xml version="1.0" encoding="UTF-8"?>
     <?xml-stylesheet type="text/xsl" href="receipt.xsl"?>
     <RECEIPT receiptDate="2020-12-21T16:23:42.950Z" submissionFile="ELOAD_733.Submission.xml" success="true">
          <ANALYSIS accession="ERZ1695006" alias="FGV analysis b" status="PRIVATE"/>
@@ -26,6 +26,33 @@ class TestENAUploader(TestCase):
          <ACTIONS>ADD</ACTIONS>
          <ACTIONS>ADD</ACTIONS>
     </RECEIPT>'''
+    receipt_json = '''{
+  "success" : true,
+  "receiptDate" : "2020-12-21T16:23:42.950Z",
+  "projects" : [ {
+    "alias" : "ICFADS2b",
+    "accession" : "PRJEB42220",
+    "status" : "PRIVATE",
+    "holdUntilDate" : "2022-12-21Z",
+    "externalAccession" : {
+      "id" : "ERP126058",
+      "db" : "study"
+    }
+  } ],
+  "submission" : {
+    "alias" : "SICFADS2b",
+    "accession" : "ERA3202812"
+  },
+  "analyses": [ { 
+      "accession" : "ERZ1695006", 
+      "alias": "FGV analysis b", 
+      "status" : "PRIVATE"
+  }],
+  "messages" : {
+    "info" : [ "Submission has been committed." ]
+  },
+  "actions" : [ "ADD", "ADD" ]
+}'''
 
 
     def setUp(self) -> None:
@@ -35,15 +62,18 @@ class TestENAUploader(TestCase):
         config_file = os.path.join(self.resources_folder, 'submission_config.yml')
         load_config(config_file)
         metadata_file = os.path.join(self.brokering_folder, 'metadata_sheet.xlsx')
-        self.uploader = ENAUploader('ELOAD_1', metadata_file, self.brokering_folder)
-        self.uploader_async = ENAUploaderAsync('ELOAD_1', metadata_file, self.brokering_folder)
+        metadata_json = os.path.join(self.brokering_folder, 'eva_metadata_json.json')
+        self.uploader_xls = ENAUploader('ELOAD_1', metadata_file, self.brokering_folder)
+        self.uploader_async_xls = ENAUploaderAsync('ELOAD_1', metadata_file, self.brokering_folder)
+        self.uploader_json = ENAUploader('ELOAD_1', metadata_json, self.brokering_folder)
+        self.uploader_async_json = ENAUploaderAsync('ELOAD_1', metadata_json, self.brokering_folder)
 
     def tearDown(self) -> None:
-        if os.path.exists(self.uploader_async.converter.single_submission_file):
-            os.remove(self.uploader_async.converter.single_submission_file)
+        if os.path.exists(self.uploader_async_xls.converter.single_submission_file):
+            os.remove(self.uploader_async_xls.converter.single_submission_file)
 
-    def test_parse_ena_receipt(self):
-        assert self.uploader.parse_ena_receipt(self.receipt) == {
+    def test_parse_ena_xml_receipt(self):
+        assert self.uploader_xls.parse_ena_xml_receipt(self.receipt_xml) == {
             'errors': [],
             'ANALYSIS': {'FGV analysis b': 'ERZ1695006'},
             'PROJECT': 'PRJEB42220',
@@ -60,17 +90,17 @@ class TestENAUploader(TestCase):
      <ACTIONS>ADD</ACTIONS>
      <ACTIONS>ADD</ACTIONS>
 </RECEIPT>'''
-        assert self.uploader.parse_ena_receipt(receipt) == {
+        assert self.uploader_xls.parse_ena_xml_receipt(receipt) == {
             'errors': ['In submission, alias:"Sorghum GBS SNPs", accession:"". The object being added already exists in the submission account with accession: "ERA3030993".']
         }
 
     def test_parse_ena_receipt_failed(self):
         receipt = '''This is a random message that cannot be parsed by XML libraries'''
-        assert self.uploader.parse_ena_receipt(receipt) == {
+        assert self.uploader_xls.parse_ena_xml_receipt(receipt) == {
             'errors': ['Cannot parse ENA receipt: This is a random message that cannot be parsed by XML libraries']
         }
 
-    def test_parse_ena_receipt_multiple_analyses(self):
+    def test_parse_ena_xml_receipt_multiple_analyses(self):
         receipt = '''<?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="receipt.xsl"?>
 <RECEIPT receiptDate="2020-12-21T16:23:42.950Z" submissionFile="ELOAD_733.Submission.xml" success="true">
@@ -87,7 +117,7 @@ class TestENAUploader(TestCase):
      <ACTIONS>ADD</ACTIONS>
 </RECEIPT>'''
 
-        assert self.uploader.parse_ena_receipt(receipt) == {
+        assert self.uploader_xls.parse_ena_xml_receipt(receipt) == {
             'errors': [],
             'ANALYSIS': {'FGV analysis a': 'ERZ1695005', 'FGV analysis b': 'ERZ1695006'},
             'PROJECT': 'PRJEB42220',
@@ -99,37 +129,37 @@ class TestENAUploader(TestCase):
              patch('eva_submission.ENA_submission.upload_to_ENA.requests.get') as mock_get:
             json_data = {'submissionId': 'ERA123456', '_links': {'poll': {'href': 'https://example.com/link'}}}
             mock_post.return_value = Mock(status_code=200, json=Mock(return_value=json_data))
-            mock_get.return_value = Mock(status_code=200, text=self.receipt)
-            self.assertFalse(os.path.isfile(self.uploader_async.converter.single_submission_file))
-            self.uploader_async.upload_metadata_file_to_ena()
-            self.assertTrue(os.path.isfile(self.uploader_async.converter.single_submission_file))
+            mock_get.return_value = Mock(status_code=200, text=self.receipt_json)
+            self.assertFalse(os.path.isfile(self.uploader_async_xls.converter.single_submission_file))
+            self.uploader_async_xls.upload_metadata_file_to_ena()
+            self.assertTrue(os.path.isfile(self.uploader_async_xls.converter.single_submission_file))
             mock_post.assert_called_with(
                 'https://wwwdev.ebi.ac.uk/ena/submit/webin-v2/submit/queue',
                 {'file': (
                     'ELOAD_1.SingleSubmission.xml',
-                    get_file_content(self.uploader_async.converter.single_submission_file),
+                    get_file_content(self.uploader_async_xls.converter.single_submission_file),
                     'application/xml'
                 )}
             )
-            mock_get.assert_called_once_with('https://example.com/link', auth=self.uploader_async.ena_auth)
-            self.assertEqual(self.uploader_async.results, {
+            mock_get.assert_called_once_with('https://example.com/link', auth=self.uploader_async_xls.ena_auth, headers={'Accept': 'application/json'})
+            self.assertEqual({
                 'submissionId': 'ERA123456', 'poll-links': 'https://example.com/link', 'errors': [],
                 'ANALYSIS': {'FGV analysis b': 'ERZ1695006'}, 'PROJECT': 'PRJEB42220', 'SUBMISSION': 'ERA3202812'
-            })
+            }, self.uploader_async_xls.results)
 
     def test_single_upload_xml_files_to_ena_failed(self):
-        self.assertFalse(os.path.isfile(self.uploader_async.converter.single_submission_file))
-        self.uploader_async.upload_metadata_file_to_ena()
-        self.assertTrue(os.path.isfile(self.uploader_async.converter.single_submission_file))
-        self.assertEqual(self.uploader_async.results, {'errors': ['403']})
+        self.assertFalse(os.path.isfile(self.uploader_async_xls.converter.single_submission_file))
+        self.uploader_async_xls.upload_metadata_file_to_ena()
+        self.assertTrue(os.path.isfile(self.uploader_async_xls.converter.single_submission_file))
+        self.assertEqual(self.uploader_async_xls.results, {'errors': ['403']})
 
     def test_single_dry_upload_xml_files_to_ena(self):
         with patch.object(ENAUploader, '_post_metadata_file_to_ena') as mock_post,\
              patch('eva_submission.ENA_submission.upload_to_ENA.requests.get') as mock_get, \
              patch.object(ENAUploaderAsync, 'info') as mock_info:
-            self.assertFalse(os.path.isfile(self.uploader_async.converter.single_submission_file))
-            self.uploader_async.upload_metadata_file_to_ena(dry_ena_upload=True)
-            self.assertTrue(os.path.isfile(self.uploader_async.converter.single_submission_file))
+            self.assertFalse(os.path.isfile(self.uploader_async_xls.converter.single_submission_file))
+            self.uploader_async_xls.upload_metadata_file_to_ena(dry_ena_upload=True)
+            self.assertTrue(os.path.isfile(self.uploader_async_xls.converter.single_submission_file))
             mock_info.assert_any_call('Would have uploaded the following metadata files to ENA asynchronous submission '
                                       'endpoint:')
             mock_info.assert_any_call('file: ELOAD_1.SingleSubmission.xml')
@@ -146,14 +176,14 @@ class TestENAUploader(TestCase):
             ftps.login(cfg.query('ena', 'username'), cfg.query('ena', 'password'))
             ftps.prot_p()
             list_files = ftps.nlst()
-            if self.uploader.submission_id in list_files:
-                ftps.cwd(self.uploader.submission_id)
+            if self.uploader_xls.submission_id in list_files:
+                ftps.cwd(self.uploader_xls.submission_id)
                 list_files = ftps.nlst()
-                if self.uploader.submission_id in list_files:
+                if self.uploader_xls.submission_id in list_files:
                     ftps.delete(filename)
 
         files_to_upload = os.path.join(self.brokering_folder, filename)
-        self.uploader.upload_vcf_files_to_ena_ftp([files_to_upload])
+        self.uploader_xls.upload_vcf_files_to_ena_ftp([files_to_upload])
 
         with HackFTP_TLS() as ftps:
             # Connect to check that the file has been uploaded
@@ -162,14 +192,14 @@ class TestENAUploader(TestCase):
             ftps.login(cfg.query('ena', 'username'), cfg.query('ena', 'password'))
             ftps.prot_p()
             list_files = ftps.nlst()
-            assert self.uploader.submission_id in list_files
-            ftps.cwd(self.uploader.submission_id)
+            assert self.uploader_xls.submission_id in list_files
+            ftps.cwd(self.uploader_xls.submission_id)
             list_files = ftps.nlst()
             assert filename in list_files
 
         # Attempt to load again: It should not load the file
         with patch.object(ENAUploader, 'warning') as mock_warning:
-            self.uploader.upload_vcf_files_to_ena_ftp([files_to_upload])
+            self.uploader_xls.upload_vcf_files_to_ena_ftp([files_to_upload])
             mock_warning.assert_called_once_with(
                 'test_vcf_file.vcf Already exist and has the same size on the FTP. Skip upload.'
             )

@@ -1,4 +1,5 @@
 import ftplib
+import json
 import os
 import time
 from xml.etree import ElementTree as ET
@@ -71,7 +72,7 @@ class ENAUploader(AppLogger):
     @retry(requests.exceptions.ConnectionError, tries=3, delay=2, backoff=1.2, jitter=(1, 3))
     def _post_metadata_file_to_ena(self, url, file_dict):
         response = requests.post(
-            url, auth=self.ena_auth, files=file_dict
+            url, auth=self.ena_auth, files=file_dict, headers={"Accept": "application/json"}
         )
         return response
 
@@ -93,11 +94,11 @@ class ENAUploader(AppLogger):
             return
         response = self._post_metadata_file_to_ena(cfg.query('ena', 'submit_url'), file_dict)
         self.results['receipt'] = response.text
-        self.results.update(self.parse_ena_receipt(response.text))
+        self.results.update(self.parse_ena_json_receipt(response.text))
         if self.results['errors']:
             self.error('\n'.join(self.results['errors']))
 
-    def parse_ena_receipt(self, ena_xml_receipt):
+    def parse_ena_xml_receipt(self, ena_xml_receipt):
         results = {'errors': []}
         try:
             receipt = ET.fromstring(ena_xml_receipt)
@@ -116,6 +117,25 @@ class ENAUploader(AppLogger):
             results['errors'].append('Cannot parse ENA receipt: ' + ena_xml_receipt)
         return results
 
+    def parse_ena_json_receipt(self, ena_json_receipt):
+        results = {'errors': []}
+        try:
+            receipt = json.loads(ena_json_receipt)
+            messages = receipt.get('messages')
+            if "error" in messages:
+                results['errors'].extend(messages['error'][0])
+            for key in receipt:
+                if key == 'analyses':
+                    results['ANALYSIS'] = {a['alias']: a['accession'] for a in receipt[key]}
+                elif key == 'projects':
+                    results['PROJECT'] = receipt[key][0]['accession']
+                elif key == 'submission':
+                    results['SUBMISSION'] = receipt[key]['accession']
+        except Exception as e:
+            self.error('Cannot parse ENA json receipt: ' + ena_json_receipt)
+            results['errors'].append('Cannot parse ENA json receipt: ' + ena_json_receipt)
+        return results
+
 
 class ENAUploaderAsync(ENAUploader):
 
@@ -126,7 +146,6 @@ class ENAUploaderAsync(ENAUploader):
         mime_type = 'application/xml'
         if webin_file.endswith('.json'):
             mime_type = 'application/json'
-
         file_dict = {
             'file': (os.path.basename(webin_file), get_file_content(webin_file), mime_type),
         }
@@ -148,8 +167,8 @@ class ENAUploaderAsync(ENAUploader):
             self.results['errors'] = [f'{response.status_code}']
 
     def monitor_results(self, timeout=3600, wait_time=30):
-        xml_link = self.results['poll-links']
-        response = requests.get(xml_link, auth=self.ena_auth)
+        poll_link = self.results['poll-links']
+        response = requests.get(poll_link, auth=self.ena_auth, headers={"Accept": "application/json"})
         time_lapsed = 0
         while response.status_code == 202:
             if time_lapsed > timeout:
@@ -158,9 +177,8 @@ class ENAUploaderAsync(ENAUploader):
             time.sleep(wait_time)
             time_lapsed += wait_time
 
-            response = requests.get(xml_link, auth=self.ena_auth)
-        self.parse_ena_receipt(response.text)
-        self.results.update(self.parse_ena_receipt(response.text))
+            response = requests.get(poll_link, auth=self.ena_auth, headers={"Accept": "application/json"})
+        self.results.update(self.parse_ena_json_receipt(response.text))
         if self.results['errors']:
             self.error('\n'.join(self.results['errors']))
 

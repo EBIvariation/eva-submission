@@ -43,10 +43,10 @@ class EnaJsonConverter(AppLogger):
 
         ena_json_data.update({
             'submission': ena_submission_json_obj,
-            **({'projects': ena_projects_json_obj} if ena_projects_json_obj else {}),
-            'analysis': ena_analysis_json_obj
+            'analyses': ena_analysis_json_obj
         })
-
+        if ena_projects_json_obj:
+            ena_json_data['projects'] = [ena_projects_json_obj]
         self.write_to_json(ena_json_data, self.output_ena_json_file)
 
         return self.output_ena_json_file
