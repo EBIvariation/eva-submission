@@ -39,7 +39,7 @@ nextflow:
   remapping: /path/to/remapping.nf
 
 ena:
-  submit_url: https://www-test.ebi.ac.uk/ena/submit/drop-box/submit/
+  submit_url: https://wwwdev.ebi.ac.uk/ena/submit/webin-v2/submit
   submit_async: https://wwwdev.ebi.ac.uk/ena/submit/webin-v2/submit/queue
   ftphost: test.rebex.net
   ftpport: 22

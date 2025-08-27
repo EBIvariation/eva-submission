@@ -69,8 +69,11 @@ class TestENAUploader(TestCase):
         self.uploader_async_json = ENAUploaderAsync('ELOAD_1', metadata_json, self.brokering_folder)
 
     def tearDown(self) -> None:
-        if os.path.exists(self.uploader_async_xls.converter.single_submission_file):
-            os.remove(self.uploader_async_xls.converter.single_submission_file)
+        for f in [self.uploader_xls.converter.single_submission_file,
+                  self.uploader_async_xls.converter.single_submission_file,
+                  self.uploader_json.converter.output_ena_json_file]:
+            if os.path.exists(f):
+                os.remove(f)
 
     def test_parse_ena_xml_receipt(self):
         assert self.uploader_xls.parse_ena_xml_receipt(self.receipt_xml) == {
@@ -165,6 +168,34 @@ class TestENAUploader(TestCase):
             mock_info.assert_any_call('file: ELOAD_1.SingleSubmission.xml')
             mock_post.assert_not_called()
             mock_get.assert_not_called()
+
+    def test_parse_ena_json_receipt(self):
+        assert {
+                   'errors': [],
+                   'PROJECT': 'PRJEB42220',
+                   'SUBMISSION': 'ERA3202812',
+                   'ANALYSIS': {'FGV analysis b': 'ERZ1695006'}
+               } == self.uploader_json.parse_ena_json_receipt(self.receipt_json)
+
+    def test_single_upload_json_files_to_ena(self):
+        with patch.object(ENAUploader, '_post_metadata_file_to_ena') as mock_post:
+            mock_post.return_value = Mock(status_code=200, text=self.receipt_json)
+            self.assertFalse(os.path.isfile(self.uploader_json.converter.output_ena_json_file))
+            self.uploader_json.upload_metadata_file_to_ena()
+            self.assertTrue(os.path.isfile(self.uploader_json.converter.output_ena_json_file))
+            mock_post.assert_called_with(
+                'https://wwwdev.ebi.ac.uk/ena/submit/webin-v2/submit',
+                {'file': (
+                    'ENA_submission.json',
+                    get_file_content(self.uploader_json.converter.output_ena_json_file),
+                    'application/json'
+                )}
+            )
+            self.assertEqual({
+            'errors': [],
+                'ANALYSIS': {'FGV analysis b': 'ERZ1695006'}, 'PROJECT': 'PRJEB42220', 'SUBMISSION': 'ERA3202812', 'receipt': self.receipt_json
+            }, self.uploader_json.results)
+
 
     @pytest.mark.skip(reason="Need to use real ENA credentials in submission_config.yml for this test to work")
     def test_upload_FTP(self):
