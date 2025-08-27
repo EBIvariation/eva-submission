@@ -86,7 +86,6 @@ class ENAUploader(AppLogger):
         file_dict = {
             'file': (os.path.basename(webin_file), get_file_content(webin_file), mime_type),
         }
-        # submission_file, project_file, analysis_file = self.converter.create_single_submission_file()
         if dry_ena_upload:
             self.info(f'Would have uploaded the following XML files to ENA submission endpoint:')
             for key, (file_path, _, _) in file_dict.items():
@@ -123,7 +122,7 @@ class ENAUploader(AppLogger):
             receipt = json.loads(ena_json_receipt)
             messages = receipt.get('messages')
             if "error" in messages:
-                results['errors'].extend(messages['error'][0])
+                results['errors'].extend(messages['error'])
             for key in receipt:
                 if key == 'analyses':
                     results['ANALYSIS'] = {a['alias']: a['accession'] for a in receipt[key]}
@@ -132,6 +131,7 @@ class ENAUploader(AppLogger):
                 elif key == 'submission':
                     results['SUBMISSION'] = receipt[key]['accession']
         except Exception as e:
+            print(repr(e))
             self.error('Cannot parse ENA json receipt: ' + ena_json_receipt)
             results['errors'].append('Cannot parse ENA json receipt: ' + ena_json_receipt)
         return results
