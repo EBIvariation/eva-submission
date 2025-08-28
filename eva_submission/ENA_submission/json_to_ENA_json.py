@@ -154,7 +154,7 @@ class EnaJsonConverter(AppLogger):
                     assembly["standard"] = reference_genome
                 return [{"assembly": assembly}]
 
-        def get_experiments(analysis):
+        def get_experiment_types(analysis):
             return [experiment.strip().capitalize()
                     for experiment in analysis.get('experimentType', '').split(':')]
 
@@ -207,7 +207,7 @@ class EnaJsonConverter(AppLogger):
             "runs": get_runs(analysis),
             "analysisType": "SEQUENCE_VARIATION",
             "assemblies": get_assemblies(analysis),
-            # "experiments": get_experiments(analysis),
+            "experimentTypes": get_experiment_types(analysis),
             "attributes": get_analyses_attributes(analysis),
             "files": get_file_objs(files),
             "links": get_analysis_links(analysis),
