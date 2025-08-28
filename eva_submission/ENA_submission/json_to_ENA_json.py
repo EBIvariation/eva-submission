@@ -198,6 +198,7 @@ class EnaJsonConverter(AppLogger):
             return None
 
         analysis_json_obj = {
+            "alias": analysis['analysisAlias'],
             "title": analysis['analysisTitle'],
             "description": analysis['description'],
             "centreName": get_centre(analysis, project),
@@ -206,7 +207,7 @@ class EnaJsonConverter(AppLogger):
             "runs": get_runs(analysis),
             "analysisType": "SEQUENCE_VARIATION",
             "assemblies": get_assemblies(analysis),
-            "experiments": get_experiments(analysis),
+            # "experiments": get_experiments(analysis),
             "attributes": get_analyses_attributes(analysis),
             "files": get_file_objs(files),
             "links": get_analysis_links(analysis),

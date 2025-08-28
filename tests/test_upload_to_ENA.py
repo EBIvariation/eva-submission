@@ -196,7 +196,6 @@ class TestENAUploader(TestCase):
                 'ANALYSIS': {'FGV analysis b': 'ERZ1695006'}, 'PROJECT': 'PRJEB42220', 'SUBMISSION': 'ERA3202812', 'receipt': self.receipt_json
             }, self.uploader_json.results)
 
-
     @pytest.mark.skip(reason="Need to use real ENA credentials in submission_config.yml for this test to work")
     def test_upload_FTP(self):
         filename = 'test_vcf_file.vcf'

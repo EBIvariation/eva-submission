@@ -100,6 +100,7 @@ class TestEVAJsonToENAJsonConverter(TestCase):
 
     def test_add_analysis(self):
         expected_analysis_json_obj = {
+            'alias': 'GRM',
             'title': 'Genomic Relationship Matrix',
             'description': 'A genomic relationship matrix (GRM) was computed',
             'centreName': 'University of Example',
@@ -112,7 +113,6 @@ class TestEVAJsonToENAJsonConverter(TestCase):
                 {'accession': 'SAMEA7851614', 'alias': '201903VIBRIO1185679122'}
             ], 'runs': [], 'analysisType': 'SEQUENCE_VARIATION',
             'assemblies': [{'assembly': {'custom': {'urlLink': 'http://abc.com'}}}],
-            'experiments': ['Genotyping by array'],
             'attributes': [{'tag': 'SOFTWARE', 'value': 'software package GCTA, Burrows-Wheeler Alignment tool (BWA), HTSeq-python package'},
                            {'tag': 'PLATFORM', 'value': 'BGISEQ-500'},
                            {'tag': 'IMPUTATION', 'value': '1'}],
@@ -127,7 +127,6 @@ class TestEVAJsonToENAJsonConverter(TestCase):
         }
 
         ena_analysis_json_obj = self.converter._add_analysis(self.analysis, self.samples, self.files, self.project)
-        print(ena_analysis_json_obj)
         self.assert_json_equal(expected_analysis_json_obj, ena_analysis_json_obj)
 
     def test_add_analysis_to_existing_project(self):

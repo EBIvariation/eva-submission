@@ -109,6 +109,7 @@ class EloadBrokering(Eload):
             sample_submitter = SampleMetadataSubmitter(metadata_spreadsheet)
         else:
             self.error('No metadata spreadsheet or metadata json file present in the config')
+            return
 
         if sample_submitter.check_submit_done():
             self.info('Biosamples accession already provided in the metadata, Skip!')
