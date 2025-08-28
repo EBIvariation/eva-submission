@@ -106,13 +106,15 @@ class TestEVAJsonToENAJsonConverter(TestCase):
             'centreName': 'University of Example',
             'study': {'alias': 'Example Project'},
             'samples': [
-                {'accession': 'SAMEA7851610', 'alias': '201903VIBRIO1185679118'},
+                {'accession': ''
+                              'SAMEA7851610', 'alias': '201903VIBRIO1185679118'},
                 {'accession': 'SAMEA7851611', 'alias': '201903VIBRIO1185679119'},
                 {'accession': 'SAMEA7851612', 'alias': '201903VIBRIO1185679120'},
                 {'accession': 'SAMEA7851613', 'alias': '201903VIBRIO1185679121'},
                 {'accession': 'SAMEA7851614', 'alias': '201903VIBRIO1185679122'}
             ], 'runs': [], 'analysisType': 'SEQUENCE_VARIATION',
             'assemblies': [{'assembly': {'custom': {'urlLink': 'http://abc.com'}}}],
+            'experimentTypes': ['Genotyping by array'],
             'attributes': [{'tag': 'SOFTWARE', 'value': 'software package GCTA, Burrows-Wheeler Alignment tool (BWA), HTSeq-python package'},
                            {'tag': 'PLATFORM', 'value': 'BGISEQ-500'},
                            {'tag': 'IMPUTATION', 'value': '1'}],
