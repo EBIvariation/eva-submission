@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.8, 3.9]
-        nextflow-version: [22.10.7]
+        nextflow-version: [23.10.0]
         java-version: [11]
 
     steps:
