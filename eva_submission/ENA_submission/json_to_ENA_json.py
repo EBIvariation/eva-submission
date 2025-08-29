@@ -18,11 +18,16 @@ def today():
 
 class EnaJsonConverter(AppLogger):
 
-    def __init__(self, submission_id, input_eva_json, output_folder, output_file_name):
+    def __init__(self, submission_id, input_eva_json, output_folder, output_file_name, existing_project_accession=None):
         self.submission_id = submission_id
         self.input_eva_json = input_eva_json
         self.output_folder = output_folder
         self.output_file_name = output_file_name
+        self.existing_project_accession = existing_project_accession
+        if self.existing_project_accession:
+            assert check_project_format(self.existing_project_accession), f'{self.existing_project_accession} does not match a project accession pattern'
+            assert check_existing_project_in_ena(self.existing_project_accession) , f'{self.existing_project_accession} does not seem to exist or is not public'
+
         with open(self.input_eva_json, 'r') as file:
             self.eva_json_data = json.load(file)
 
@@ -32,7 +37,7 @@ class EnaJsonConverter(AppLogger):
         ena_json_data = {}
 
         ena_projects_json_obj = (
-            [self._create_ena_project_json_obj(self.eva_json_data['project'], self.submission_id)]
+            [self._create_ena_project_json_obj(self.eva_json_data['project'])]
             if not self.is_existing_project else []
         )
 
@@ -46,19 +51,20 @@ class EnaJsonConverter(AppLogger):
             'analyses': ena_analysis_json_obj
         })
         if ena_projects_json_obj:
-            ena_json_data['projects'] = [ena_projects_json_obj]
+            ena_json_data['projects'] = ena_projects_json_obj
         self.write_to_json(ena_json_data, self.output_ena_json_file)
 
         return self.output_ena_json_file
 
     def write_to_json(self, json_data, json_file):
-        with open(json_file, 'w') as file:
-            json.dump(json_data, file, indent=4)
+        with open(json_file, 'w') as open_file:
+            json.dump(json_data, open_file, indent=4)
 
-    def _create_ena_project_json_obj(self, project_data, submission_id):
-        project_alias = (f"{self.existing_project}_{submission_id}" if self.is_existing_project else submission_id)
+    @property
+    def _project_alias(self):
+        return f"{self.existing_project_accession}_{self.submission_id}" if self.is_existing_project else self.submission_id
 
-        project_accession = self.existing_project
+    def _create_ena_project_json_obj(self, project_data):
         project_title = project_data.get("title", "Unknown Title")
         project_description = project_data.get("description", "No description provided")
         project_centre_name = project_data.get("centre", "Unknown Centre")
@@ -87,7 +93,7 @@ class EnaJsonConverter(AppLogger):
         project_links = [self.get_link(link) for link in project_data.get("links", [])]
 
         ena_project_obj = {
-            "alias": project_alias,
+            "alias": self._project_alias,
             "title": project_title,
             "description": project_description,
             "centreName": project_centre_name,
@@ -100,8 +106,8 @@ class EnaJsonConverter(AppLogger):
             "relatedProjects": related_projects,
             "projectLinks": project_links,
         }
-        if project_accession:
-            ena_project_obj["accession"] = project_accession
+        if self.existing_project_accession:
+            ena_project_obj["accession"] = self.existing_project_accession
 
         return ena_project_obj
 
@@ -121,16 +127,10 @@ class EnaJsonConverter(AppLogger):
             return analysis.get('centre') or project.get('centre')
 
         def get_study_attr(project):
-            alias = project.get('alias', '')
-            title = project.get('title', '')
-            if re.match(r'^PRJ(EB|NA)', alias):
-                return {"accession": alias}
-            elif re.match(r'^PRJ(EB|NA)', title):
-                return {"accession": title}
-            elif alias:
-                return {"alias": alias}
-            elif title:
-                return {"alias": title}
+            if self.is_existing_project:
+                return {"accession": self.existing_project_accession}
+            elif self._project_alias:
+                return {"alias": self._project_alias}
             return {}
 
         def get_samples(samples):
@@ -237,7 +237,7 @@ class EnaJsonConverter(AppLogger):
         centreName = project_data.get('centre')
 
         submission_alias = (
-            f"{self.existing_project}_{submission_id}" if self.is_existing_project else submission_id
+            f"{self.existing_project_accession}_{submission_id}" if self.is_existing_project else submission_id
         )
 
         hold_date = project_data.get('holdDate') or (today() + timedelta(days=3))
@@ -259,17 +259,7 @@ class EnaJsonConverter(AppLogger):
 
     @cached_property
     def is_existing_project(self):
-        return self.existing_project is not None
-
-    @cached_property
-    def existing_project(self):
-        prj_alias = self.submission_id
-        prj_title = self.eva_json_data['project']['title']
-        if check_project_format(prj_alias) and check_existing_project_in_ena(prj_alias):
-            return prj_alias
-        elif check_project_format(prj_title) and check_existing_project_in_ena(prj_title):
-            return prj_title
-        return None
+        return self.existing_project_accession is not None
 
     def get_link(self, link):
         if re.match(r'^(ftp:|http:|file:|https:)', link):

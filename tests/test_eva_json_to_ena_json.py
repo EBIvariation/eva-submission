@@ -94,8 +94,7 @@ class TestEVAJsonToENAJsonConverter(TestCase):
 
         with patch('eva_submission.ENA_submission.json_to_ENA_json.get_scientific_name_from_ensembl') as m_sci_name:
             m_sci_name.return_value = 'Oncorhynchus mykiss'
-            ena_project_json_obj = self.converter._create_ena_project_json_obj(self.project,
-                                                                               "Submission-12345")
+            ena_project_json_obj = self.converter._create_ena_project_json_obj(self.project)
             self.assert_json_equal(expected_project_json_obj, ena_project_json_obj)
 
     def test_add_analysis(self):
@@ -104,7 +103,7 @@ class TestEVAJsonToENAJsonConverter(TestCase):
             'title': 'Genomic Relationship Matrix',
             'description': 'A genomic relationship matrix (GRM) was computed',
             'centreName': 'University of Example',
-            'study': {'alias': 'Example Project'},
+            'study': {'alias': 'Submission-12345'},
             'samples': [
                 {'accession': ''
                               'SAMEA7851610', 'alias': '201903VIBRIO1185679118'},
@@ -132,7 +131,7 @@ class TestEVAJsonToENAJsonConverter(TestCase):
         self.assert_json_equal(expected_analysis_json_obj, ena_analysis_json_obj)
 
     def test_add_analysis_to_existing_project(self):
-        self.project['alias'] = 'PRJEB00001'
+        self.converter.existing_project_accession = 'PRJEB00001'
         ena_analysis_json_obj = self.converter._add_analysis(self.analysis, self.samples, self.files, self.project)
         assert ena_analysis_json_obj['study']["accession"] == 'PRJEB00001'
 
@@ -182,14 +181,14 @@ class TestEVAJsonToENAJsonConverter(TestCase):
         assert os.path.exists(output_ena_json)
 
     def test_create_submission_json_obj_for_existing_project(self):
-        with patch.object(EnaJsonConverter, 'existing_project', new_callable=PropertyMock(return_value='PRJEB00001')):
-            output_ena_json = self.converter.create_single_submission_file()
-            assert os.path.exists(output_ena_json)
+        self.converter.existing_project_accession = 'PRJEB00001'
+        output_ena_json = self.converter.create_single_submission_file()
+        assert os.path.exists(output_ena_json)
 
-            with open(output_ena_json, 'r') as file:
-                ena_json_data = json.load(file)
-                assert 'submission' in ena_json_data
-                assert ena_json_data['submission']['alias'] == 'PRJEB00001_Submission-12345'
+        with open(output_ena_json, 'r') as file:
+            ena_json_data = json.load(file)
+            assert 'submission' in ena_json_data
+            assert ena_json_data['submission']['alias'] == 'PRJEB00001_Submission-12345'
 
     def assert_json_equal(self, json1, json2):
         if json.dumps(json1, sort_keys=True) != json.dumps(json2, sort_keys=True):
