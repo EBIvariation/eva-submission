@@ -68,7 +68,7 @@ class EloadBrokering(Eload):
 
             if ena_uploader.converter.is_existing_project:
                 # Set the project in the config, based on the spreadsheet
-                self.eload_cfg.set('brokering', 'ena', 'PROJECT', value=ena_uploader.converter.existing_project)
+                self.eload_cfg.set('brokering', 'ena', 'PROJECT', value=ena_uploader.converter.existing_project_accession)
                 self.eload_cfg.set('brokering', 'ena', 'existing_project', value=True)
 
             # Upload the VCF to ENA FTP
