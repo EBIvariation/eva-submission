@@ -128,7 +128,7 @@ class Eload(AppLogger):
             metadata_json = json.load(open_file)
         sample_objects = []
         for sample_obj in metadata_json.get('sample'):
-            if self.eload_cfg.query('brokering', 'Biosamples', 'Samples', sample_obj.get('Sample Name')):
+            if self.eload_cfg.query('brokering', 'Biosamples', 'Samples', sample_obj.get('sampleInVCF')):
                 sample_objects.append({
                     'analysisAlias': [self._unique_alias(a) for a in sample_obj.get('analysisAlias')],
                     'sampleInVCF': sample_obj.get('sampleInVCF'),
