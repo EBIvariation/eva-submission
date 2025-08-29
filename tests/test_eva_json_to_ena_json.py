@@ -105,8 +105,7 @@ class TestEVAJsonToENAJsonConverter(TestCase):
             'centreName': 'University of Example',
             'study': {'alias': 'Submission-12345'},
             'samples': [
-                {'accession': ''
-                              'SAMEA7851610', 'alias': '201903VIBRIO1185679118'},
+                {'accession': 'SAMEA7851610', 'alias': '201903VIBRIO1185679118'},
                 {'accession': 'SAMEA7851611', 'alias': '201903VIBRIO1185679119'},
                 {'accession': 'SAMEA7851612', 'alias': '201903VIBRIO1185679120'},
                 {'accession': 'SAMEA7851613', 'alias': '201903VIBRIO1185679121'},
