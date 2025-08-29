@@ -87,7 +87,7 @@ class ENAUploader(AppLogger):
             'file': (os.path.basename(webin_file), get_file_content(webin_file), mime_type),
         }
         if dry_ena_upload:
-            self.info(f'Would have uploaded the following XML files to ENA submission endpoint:')
+            self.info(f'Would have uploaded the following files to ENA submission endpoint:')
             for key, (file_path, _, _) in file_dict.items():
                 self.info(f'{key}: {file_path}')
             return
@@ -131,7 +131,6 @@ class ENAUploader(AppLogger):
                 elif key == 'submission':
                     results['SUBMISSION'] = receipt[key]['accession']
         except Exception as e:
-            print(repr(e))
             self.error('Cannot parse ENA json receipt: ' + ena_json_receipt)
             results['errors'].append('Cannot parse ENA json receipt: ' + ena_json_receipt)
         return results
@@ -171,6 +170,7 @@ class ENAUploaderAsync(ENAUploader):
         response = requests.get(poll_link, auth=self.ena_auth, headers={"Accept": "application/json"})
         time_lapsed = 0
         while response.status_code == 202:
+            self.debug(f'{poll_link} -> {response.status_code} : {response.text}')
             if time_lapsed > timeout:
                 raise TimeoutError(f'Waiting for ENA receipt for more than {timeout} seconds')
             self.info(f'Waiting {wait_time} for submission to ENA to be processed')

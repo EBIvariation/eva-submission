@@ -145,13 +145,14 @@ class EnaJsonConverter(AppLogger):
         def get_assemblies(analysis):
             reference_genome = analysis.get('referenceGenome', '').strip()
             if is_single_insdc_sequence(reference_genome):
-                return [{"assembly": {"accession": reference_genome}}]
+                return [{"sequence": {"accession": reference_genome}}]
             else:
                 assembly = {}
                 if reference_genome.split(':')[0] in ['file', 'http', 'ftp']:
                     assembly["custom"] = {"urlLink": reference_genome}
                 else:
-                    assembly["standard"] = reference_genome
+                    assembly["accession"] = reference_genome
+                    assembly["refname"] = reference_genome
                 return [{"assembly": assembly}]
 
         def get_experiment_types(analysis):
