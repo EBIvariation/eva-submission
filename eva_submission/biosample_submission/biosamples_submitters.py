@@ -355,28 +355,30 @@ class SampleJSONSubmitter(SampleSubmitter):
     def _convert_json_to_bsd_json(self):
         payloads = []
         for sample in self.metadata_json.get('sample'):
+            # Currently no ability to overwrite or curate existing samples via JSON, so we skip any existing samples
+            if 'bioSampleObject' not in sample:
+                continue
             bsd_sample_entry = {'characteristics': {}}
-
-            if 'sampleAccession' in sample:
-                bsd_sample_entry['accession'] = sample['sampleAccession']
-            if 'bioSampleObject' in sample:
-                bsd_sample_entry.update(sample['bioSampleObject'])
-                if 'submitterDetails' in self.metadata_json:
-                    # add the submitter information to each BioSample
-                    contacts = []
-                    organisations = []
-                    for submitter in self.metadata_json.get('submitterDetails'):
-                        contact = {}
-                        organisation = {}
-                        for key in submitter:
-                            self.apply_mapping(contact, self.submitter_mapping.get(key), submitter[key])
-                            self.apply_mapping(organisation, self.organisation_mapping.get(key), submitter[key])
-                        if contact:
-                            contacts.append(contact)
-                        if organisation:
-                            organisations.append(organisation)
-                    self.apply_mapping(bsd_sample_entry, 'contact', contacts)
-                    self.apply_mapping(bsd_sample_entry, 'organization', organisations)
+            bsd_sample_entry.update(sample['bioSampleObject'])
+            # Taxonomy ID should be present at top level as well
+            if 'taxId' in sample['bioSampleObject']['characteristics']:
+                bsd_sample_entry['taxId'] = sample['bioSampleObject']['characteristics']['taxId'][0]['text']
+            if 'submitterDetails' in self.metadata_json:
+                # add the submitter information to each BioSample
+                contacts = []
+                organisations = []
+                for submitter in self.metadata_json.get('submitterDetails'):
+                    contact = {}
+                    organisation = {}
+                    for key in submitter:
+                        self.apply_mapping(contact, self.submitter_mapping.get(key), submitter[key])
+                        self.apply_mapping(organisation, self.organisation_mapping.get(key), submitter[key])
+                    if contact:
+                        contacts.append(contact)
+                    if organisation:
+                        organisations.append(organisation)
+                self.apply_mapping(bsd_sample_entry, 'contact', contacts)
+                self.apply_mapping(bsd_sample_entry, 'organization', organisations)
             bsd_sample_entry['release'] = _now
             # Custom attributes added to all the BioSample we create/modify
             bsd_sample_entry['characteristics']['last_updated_by'] = [{'text': 'EVA'}]
