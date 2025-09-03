@@ -65,10 +65,10 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
 
     def test_get_vep_versions_from_ensembl(self):
         vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('GCA_000827895.1')
-        self.assertEqual(vep_version, 114)
-        self.assertEqual(cache_version, 61)
+        self.assertEqual(vep_version, 115)
+        self.assertEqual(cache_version, 62)
         assert os.path.exists(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei'))
-        assert os.listdir(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei')) == ['61_ASM82789v1']
+        assert os.listdir(os.path.join(cfg['vep_cache_path'], 'thelohanellus_kitauei')) == ['62_ASM82789v1']
 
     def test_get_vep_versions_from_ensembl_not_found(self):
         vep_version, cache_version = get_vep_and_vep_cache_version_from_ensembl('GCA_015220235.1')
@@ -144,7 +144,7 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
             'GCA_000473445.2': ('anopheles_farauti', 'Anop_fara_FAR1_V2', True, '69004'),
             'GCA_001704415.1': ('capra_hircus', 'ARS1', True, '9925'),
             'GCA_002263795.2': ('bos_taurus', 'ARS-UCD1.2', False, '9913'),
-            'GCA_002742125.1': ('ovis_aries_rambouillet', 'Oar_rambouillet_v1.0', False, '9940'),
+            'GCA_002742125.1': ('ovis_aries', 'Oar_rambouillet_v1.0', False, '9940'),
             'GCA_002863925.1': ('equus_caballus', 'EquCab3.0', True, '9796')
         }
         for assembly in assemblies2results:
@@ -156,5 +156,5 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
             assert get_releases(ftp, 'pub', current_only=True) == {115: 'pub/release-115'}
 
         with get_ftp_connection(ensembl_genome_ftp_url) as ftp:
-            assert get_releases(ftp, ensembl_genome_dirs[0], current_only=True) == {61: 'ensemblgenomes/pub/plants/release-61'}
+            assert get_releases(ftp, ensembl_genome_dirs[0], current_only=True) == {62: 'ensemblgenomes/pub/plants/release-62'}
 
