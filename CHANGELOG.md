@@ -1,11 +1,23 @@
 Changelog for eva-submission
 ============================
 
-## 1.18.7 (unreleased)
+## 1.19.0 (2025-09-04)
 ----------------------
 
-- Nothing changed yet.
+### Validation: 
+ - Use eva-sub-cli to validate the submission instead of individual tests
+ - Validation through individual task is deprecated
 
+### Brokering:
+ - Use the metadata JSON to broker to BioSamples and ENA
+ - The brokering through the XML is deprecated
+
+### Ingestion: 
+ - Ensure the EVAPRO refresh of the study browser is committed
+
+### Other:
+ - Old ELOAD samples resolution is improved
+ - Specify the branch from which the integration test will be triggered 
 
 ## 1.18.6 (2025-07-17)
 ----------------------
