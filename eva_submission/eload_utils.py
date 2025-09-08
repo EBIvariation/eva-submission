@@ -134,17 +134,22 @@ def get_hold_date_from_ena(project_accession, project_alias=None):
            </SUBMISSION>
        </SUBMISSION_SET>'''
     response = requests.post(
-        cfg.query('ena', 'submit_url'),
+        cfg.query('ena', 'webin_v1_url'),
         auth=HTTPBasicAuth(cfg.query('ena', 'username'), cfg.query('ena', 'password')),
         files={'SUBMISSION': xml_request}
     )
-    receipt = ET.fromstring(response.text)
+
     hold_date = None
-    try:
-        hold_date = receipt.findall('PROJECT')[0].attrib['holdUntilDate']
-        hold_date = datetime.strptime(hold_date.replace(':', ''), '%Y-%m-%d%z')
-    except (IndexError, KeyError):
-        # if there's no hold date, assume it's already been made public
+
+    if response.status_code != 200:
+        receipt = ET.fromstring(response.text)
+        try:
+            hold_date = receipt.findall('PROJECT')[0].attrib['holdUntilDate']
+            hold_date = datetime.strptime(hold_date.replace(':', ''), '%Y-%m-%d%z')
+        except (IndexError, KeyError):
+            # if there's no hold date, assume it's already been made public
+            pass
+    if not hold_date:
         xml_root = download_xml_from_ena(f'https://www.ebi.ac.uk/ena/browser/api/xml/{project_accession}')
         attributes = xml_root.xpath('/PROJECT_SET/PROJECT/PROJECT_ATTRIBUTES/PROJECT_ATTRIBUTE')
         for attr in attributes:
@@ -152,8 +157,8 @@ def get_hold_date_from_ena(project_accession, project_alias=None):
                 hold_date = attr.findall('VALUE')[0].text
                 hold_date = datetime.strptime(hold_date, '%Y-%m-%d')
                 break
-        if not hold_date:
-            raise ValueError(f"Couldn't get hold date from ENA for {project_accession} ({project_alias})")
+    if not hold_date:
+        raise ValueError(f"Couldn't get hold date from ENA for {project_accession} ({project_alias})")
     return hold_date
 
 def encode_url_preserve_base(url: str) -> str:
