@@ -40,6 +40,7 @@ nextflow:
 
 ena:
   submit_url: https://wwwdev.ebi.ac.uk/ena/submit/webin-v2/submit
+  webin_v1_url: https://wwwdev.ebi.ac.uk/ena/submit/drop-box/submit
   submit_async: https://wwwdev.ebi.ac.uk/ena/submit/webin-v2/submit/queue
   ftphost: test.rebex.net
   ftpport: 22

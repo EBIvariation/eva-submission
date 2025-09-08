@@ -1,10 +1,12 @@
 import os
 import shutil
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import patch, Mock
+
+from lxml import etree
 
 from eva_submission.eload_utils import check_existing_project_in_ena, detect_vcf_aggregation, \
-    check_project_exists_in_evapro, create_assembly_report_from_fasta
+    check_project_exists_in_evapro, create_assembly_report_from_fasta, get_hold_date_from_ena
 from eva_submission.submission_config import load_config
 
 
@@ -65,3 +67,42 @@ class TestEloadUtils(TestCase):
         report_file = create_assembly_report_from_fasta(c_fasta_file)
         assert os.path.isfile(report_file)
 
+    def test_get_hold_date_from_ena(self):
+        expected_receipt_xml_public = '''<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="receipt.xsl"?>
+<RECEIPT receiptDate="2025-09-08T11:30:38.041+01:00" submissionFile="SUBMISSION" success="true">
+     <ANALYSIS accession="ERZ279016" alias="ELOAD_82_A16G_analysis_13" status="PUBLIC"/>
+     <STUDY accession="ERP014624" alias="Anopheles 16 genomes project - Anopheles epiroticus variant calls" status="PUBLIC">
+          <EXT_ID accession="PRJEB13088" type="Project"/>
+     </STUDY>
+     <PROJECT accession="PRJEB13088" alias="Anopheles 16 genomes project - Anopheles epiroticus variant calls" status="PUBLIC"/>
+     <SUBMISSION accession="ERA583656" alias="Anopheles 16 genomes project - Anopheles epiroticus variant calls"/>
+
+     <ACTIONS>RECEIPT</ACTIONS>
+</RECEIPT>
+        '''
+        expected_project_xml_public = '''<PROJECT_SET>
+<PROJECT accession="PRJEB13088" alias="Anopheles 16 genomes project - Anopheles epiroticus variant calls" broker_name="European Bioinformatics Institute" center_name="European Bioinformatics Institute">
+  <IDENTIFIERS>
+    <PRIMARY_ID>PRJEB13088</PRIMARY_ID>
+    <SECONDARY_ID>ERP014624</SECONDARY_ID>
+    <SUBMITTER_ID namespace="European Bioinformatics Institute">Anopheles 16 genomes project - Anopheles epiroticus variant calls</SUBMITTER_ID>
+  </IDENTIFIERS>
+  <TITLE>Highly evolvable malaria vectors: The genomes of 16 Anopheles mosquitoes. Anopheles epiroticus samples.</TITLE>
+  <DESCRIPTION>Anopheles epiroticus subset of project sequencing</DESCRIPTION>
+  <PROJECT_ATTRIBUTES>
+    <PROJECT_ATTRIBUTE>
+      <TAG>ENA-FIRST-PUBLIC</TAG>
+      <VALUE>2016-03-17</VALUE>
+    </PROJECT_ATTRIBUTE>
+    <PROJECT_ATTRIBUTE>
+      <TAG>ENA-LAST-UPDATE</TAG>
+      <VALUE>2021-01-08</VALUE>
+    </PROJECT_ATTRIBUTE>
+  </PROJECT_ATTRIBUTES>
+</PROJECT>
+</PROJECT_SET>'''
+        expected_project_xml_public_as_ET = etree.XML(bytes(expected_project_xml_public, encoding='utf-8'))
+        with patch('eva_submission.eload_utils.requests.post', return_value=Mock(status_code=200, text=expected_receipt_xml_public)),\
+                patch('eva_submission.eload_utils.download_xml_from_ena', return_value=expected_project_xml_public_as_ET):
+            get_hold_date_from_ena(project_accession='PRJEB13088', project_alias='Anopheles 16 genomes project - Anopheles epiroticus variant calls')
