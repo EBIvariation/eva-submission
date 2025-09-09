@@ -1,5 +1,6 @@
 import os
 import shutil
+from datetime import datetime
 from unittest import TestCase
 from unittest.mock import patch, Mock
 
@@ -105,4 +106,5 @@ class TestEloadUtils(TestCase):
         expected_project_xml_public_as_ET = etree.XML(bytes(expected_project_xml_public, encoding='utf-8'))
         with patch('eva_submission.eload_utils.requests.post', return_value=Mock(status_code=200, text=expected_receipt_xml_public)),\
                 patch('eva_submission.eload_utils.download_xml_from_ena', return_value=expected_project_xml_public_as_ET):
-            get_hold_date_from_ena(project_accession='PRJEB13088', project_alias='Anopheles 16 genomes project - Anopheles epiroticus variant calls')
+            hold_date = get_hold_date_from_ena(project_accession='PRJEB13088', project_alias='Anopheles 16 genomes project - Anopheles epiroticus variant calls')
+            assert hold_date == datetime.strptime('2016-03-17', '%Y-%m-%d')
