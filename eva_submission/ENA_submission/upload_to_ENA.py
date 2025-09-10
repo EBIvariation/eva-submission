@@ -70,9 +70,9 @@ class ENAUploader(AppLogger):
                     ftps.storbinary('STOR %s' % file_name, open_file)
 
     @retry(requests.exceptions.ConnectionError, tries=3, delay=2, backoff=1.2, jitter=(1, 3))
-    def _post_metadata_file_to_ena(self, url, file_dict):
+    def _post_metadata_file_to_ena(self, url, file_dict, mime_type='application/json'):
         response = requests.post(
-            url, auth=self.ena_auth, files=file_dict, headers={"Accept": "application/json"}
+            url, auth=self.ena_auth, files=file_dict, headers={"Accept": mime_type}
         )
         return response
 
@@ -91,9 +91,12 @@ class ENAUploader(AppLogger):
             for key, (file_path, _, _) in file_dict.items():
                 self.info(f'{key}: {file_path}')
             return
-        response = self._post_metadata_file_to_ena(cfg.query('ena', 'submit_url'), file_dict)
+        response = self._post_metadata_file_to_ena(cfg.query('ena', 'submit_url'), file_dict, mime_type)
         self.results['receipt'] = response.text
-        self.results.update(self.parse_ena_json_receipt(response.text))
+        if response.headers['Content-Type'] == 'application/xml':
+            self.results.update(self.parse_ena_xml_receipt(response.text))
+        else:
+            self.results.update(self.parse_ena_json_receipt(response.text))
         if self.results['errors']:
             self.error('\n'.join(self.results['errors']))
 
@@ -153,7 +156,7 @@ class ENAUploaderAsync(ENAUploader):
             for key, (file_path, _, _) in file_dict.items():
                 self.info(f'{key}: {file_path}')
             return
-        response = self._post_metadata_file_to_ena(cfg.query('ena', 'submit_async'), file_dict)
+        response = self._post_metadata_file_to_ena(cfg.query('ena', 'submit_async'), file_dict, mime_type)
         if response.status_code == 200:
             json_data = response.json()
             self.results['submissionId'] = json_data.get('submissionId')

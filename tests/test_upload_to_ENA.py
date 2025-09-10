@@ -131,7 +131,7 @@ class TestENAUploader(TestCase):
         with patch.object(ENAUploader, '_post_metadata_file_to_ena') as mock_post,\
              patch('eva_submission.ENA_submission.upload_to_ENA.requests.get') as mock_get:
             json_data = {'submissionId': 'ERA123456', '_links': {'poll': {'href': 'https://example.com/link'}}}
-            mock_post.return_value = Mock(status_code=200, json=Mock(return_value=json_data))
+            mock_post.return_value = Mock(status_code=200, json=Mock(return_value=json_data), headers={'Content-Type': 'application/json'})
             mock_get.return_value = Mock(status_code=200, text=self.receipt_json)
             self.assertFalse(os.path.isfile(self.uploader_async_xls.converter.single_submission_file))
             self.uploader_async_xls.upload_metadata_file_to_ena()
@@ -142,7 +142,7 @@ class TestENAUploader(TestCase):
                     'ELOAD_1.SingleSubmission.xml',
                     get_file_content(self.uploader_async_xls.converter.single_submission_file),
                     'application/xml'
-                )}
+                )}, 'application/xml'
             )
             mock_get.assert_called_once_with('https://example.com/link', auth=self.uploader_async_xls.ena_auth, headers={'Accept': 'application/json'})
             self.assertEqual({
@@ -179,7 +179,7 @@ class TestENAUploader(TestCase):
 
     def test_single_upload_json_files_to_ena(self):
         with patch.object(ENAUploader, '_post_metadata_file_to_ena') as mock_post:
-            mock_post.return_value = Mock(status_code=200, text=self.receipt_json)
+            mock_post.return_value = Mock(status_code=200, text=self.receipt_json, headers={'Content-Type': 'application/json'})
             self.assertFalse(os.path.isfile(self.uploader_json.converter.output_ena_json_file))
             self.uploader_json.upload_metadata_file_to_ena()
             self.assertTrue(os.path.isfile(self.uploader_json.converter.output_ena_json_file))
@@ -189,7 +189,7 @@ class TestENAUploader(TestCase):
                     'ENA_submission.json',
                     get_file_content(self.uploader_json.converter.output_ena_json_file),
                     'application/json'
-                )}
+                )}, 'application/json'
             )
             self.assertEqual({
             'errors': [],

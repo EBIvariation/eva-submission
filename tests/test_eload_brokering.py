@@ -87,7 +87,7 @@ class TestEloadBrokering(TestCase):
         self.eload.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
                                  value=os.path.join(self.resources_folder, 'metadata.xlsx'))
         self.eload.eload_cfg.set('brokering', 'analyses', value={'AA1':{'vcf_files':{}}})
-        response = Mock(text='')
+        response = Mock(text='', headers={'Content-Type': 'application/xml'})
         with patch.object(ENAUploader, 'upload_vcf_files_to_ena_ftp'),\
               patch.object(ENAUploader, '_post_metadata_file_to_ena', return_value=response):
             self.eload.broker_to_ena()
@@ -96,7 +96,7 @@ class TestEloadBrokering(TestCase):
         self.eload.eload_cfg.set('validation', 'valid', 'metadata_json',
                                  value=os.path.join(self.resources_folder, 'brokering', 'eva_metadata_json.json'))
         self.eload.eload_cfg.set('brokering', 'analyses', value={'AA1':{'vcf_files':{}}})
-        response = Mock(text='')
+        response = Mock(text='', headers={'Content-Type': 'application/json'})
         with patch.object(ENAUploader, 'upload_vcf_files_to_ena_ftp'),\
               patch.object(ENAUploader, '_post_metadata_file_to_ena', return_value=response):
             self.eload.broker_to_ena(async_upload=True)
