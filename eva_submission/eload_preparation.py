@@ -81,8 +81,8 @@ class EloadPreparation(Eload):
             self.eload_cfg.backup()
             self.eload_cfg.clear()
         self.detect_submitted_metadata()
-        self.convert_new_spreadsheet_to_json()
-        self.detect_submitted_metadata()
+        if self.eload_cfg.query('submission', 'metadata_spreadsheet'):
+            self.convert_new_spreadsheet_to_json()
         if taxid or reference_accession:
             self.replace_values_in_metadata(taxid=taxid, reference_accession=reference_accession)
         self.check_submitted_filenames()
