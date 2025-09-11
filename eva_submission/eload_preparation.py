@@ -325,9 +325,8 @@ class EloadPreparation(Eload):
 
     def convert_new_spreadsheet_to_json(self):
         metadata_xlsx = self.eload_cfg.query('submission', 'metadata_spreadsheet')
-        if not metadata_xlsx:
-            return
-        if metadata_xlsx:metadata_xlsx_name = os.path.basename(metadata_xlsx)
+        if metadata_xlsx:
+            metadata_xlsx_name = os.path.basename(metadata_xlsx)
         version = metadata_xlsx_version(metadata_xlsx)
         if Version(version) >= Version("1.1.6"):
             self.info(f'Convert spreadsheet version {version} to Eload spreadsheet')
