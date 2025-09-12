@@ -227,13 +227,15 @@ class OracleEnaProjectFinder:
                 if action_type == "HOLD":
                     hold_date = child.attrib.get("HoldUntilDate")
                     continue
-                schema = child.attrib.get("schema")
-                source = child.attrib.get("source")
-                actions.append({"type": action_type, "schema": schema, "source": source})
+                action = {"type": action_type}
+                for attribute in  ["schema", "source"]:
+                    if attribute in child.attrib:
+                        action[attribute] = child.attrib[attribute]
+                actions.append(action)
         # Prioritise actions -- Select project if present then analysis then something else
-        project_action = [action for action in actions if action['schema'] == 'project']
-        analysis_action = [action for action in actions if action['schema'] == 'analysis']
-        other_actions = [action for action in actions if action['schema'] not in ['project', 'analysis']]
+        project_action = [action for action in actions if action.get('schema') == 'project']
+        analysis_action = [action for action in actions if action.get('schema') == 'analysis']
+        other_actions = [action for action in actions if action.get('schema') not in ['project', 'analysis']]
         if project_action:
             action = project_action[0]
         elif analysis_action:
