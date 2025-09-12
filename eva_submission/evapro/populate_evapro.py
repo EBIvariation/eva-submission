@@ -130,7 +130,7 @@ class EvaProjectLoader(AppLogger):
                                                             action=action.get('type'),
                                                             submission_alias=alias, submission_date=last_updated,
                                                             brokered=1,
-                                                            submission_type=action.get('schema').upper())
+                                                            submission_type=action.get('schema', 'PROJECT').upper())
                 if submission_obj not in analysis_obj.submissions:
                     analysis_obj.submissions.append(submission_obj)
             ###

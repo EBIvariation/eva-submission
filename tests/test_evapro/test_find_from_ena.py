@@ -49,6 +49,16 @@ class TestEnaProjectFinder(unittest.TestCase):
             submission_actions = list(self.finder.find_ena_submission_for_project(project))
             assert submission_actions == expected_actions
 
+    def test_find_ena_submission_no_action(self):
+        project = 'PRJEB97324'
+        expected_actions = [
+            ('ERA34898855', 'ELOAD_1499', datetime.datetime(2025, 9, 10, 15, 6, 54),
+             '2025-09-13', {'type': 'ADD'})
+        ]
+        for project in [project]:
+            submission_actions = list(self.finder.find_ena_submission_for_project(project))
+            assert submission_actions == expected_actions
+
     def test_find_analysis_in_ena(self):
         project = 'PRJEB25731'
         expected_analysis = [

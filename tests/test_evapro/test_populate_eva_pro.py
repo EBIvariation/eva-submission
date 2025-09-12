@@ -28,34 +28,34 @@ class TestEvaProjectLoader(TestCase):
         metadata.create_all(engine)
         return patch.object(self.loader, '_evapro_engine', side_effect=PropertyMock(return_value=engine))
 
-    @pytest.mark.skip(reason='Needs access to ERA database')
-    def test_load_project_from_ena(self):
-        project = 'PRJEB66443'
+    def load_project_from_ena_and_assert(self, project_accession, linked_project_info, taxonomies_info_set,
+                                         submissions_info_set, analyses_set, platform, experiment_types, assembly_info):
         eload = 101
         engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
         with self.patch_evapro_engine(engine):
             metadata.create_all(engine)
             # Prepare the platforms that are supposed to be in the database before the load
-            platform = Platform(platform='Illumina NextSeq 500', manufacturer='Illumina')
-            self.loader.eva_session.add(platform)
+            platform_obj = Platform(platform='Illumina NextSeq 500', manufacturer='Illumina')
+            self.loader.eva_session.add(platform_obj)
             self.loader.eva_session.commit()
 
-            self.loader.load_project_from_ena(project, eload)
+            self.loader.load_project_from_ena(project_accession, eload)
             session = self.loader.eva_session
 
             # Loaded project
             result = session.execute(select(Project)).fetchone()
             project = result.Project
-            assert project.project_accession == 'PRJEB66443'
+            assert project.project_accession == project_accession
 
-            # Loaded Project Link
-            result = session.execute(select(LinkedProject)).fetchone()
-            linked_project = result.LinkedProject
-            assert (
-                       linked_project.project_accession,
-                       linked_project.linked_project_accession,
-                       linked_project.linked_project_relation
-                   ) == ('PRJEB66443', 'PRJNA167609', 'PARENT')
+            if linked_project_info:
+                # Loaded Project Link
+                result = session.execute(select(LinkedProject)).fetchone()
+                linked_project = result.LinkedProject
+                assert (
+                           linked_project.project_accession,
+                           linked_project.linked_project_accession,
+                           linked_project.linked_project_relation
+                       ) == linked_project_info
 
             # Loaded Taxonomies
             taxonomies = [
@@ -63,8 +63,7 @@ class TestEvaProjectLoader(TestCase):
                 for result in session.execute(select(Taxonomy)).fetchall()
             ]
             assert set([(taxonomy.taxonomy_id, taxonomy.common_name, taxonomy.scientific_name, taxonomy.taxonomy_code)
-                        for taxonomy in taxonomies]) == {
-                       (217634, 'Asian longhorned beetle', 'Anoplophora glabripennis', 'aglabripennis')}
+                        for taxonomy in taxonomies]) == taxonomies_info_set
 
             # Loaded Submissions
             submissions = [
@@ -72,21 +71,49 @@ class TestEvaProjectLoader(TestCase):
                 for result in session.execute(select(Submission)).fetchall()
             ]
             assert set([(submission.submission_accession, submission.action, submission.type) for submission in
-                        submissions]) == {('ERA27275681', 'ADD', 'PROJECT')}
+                        submissions]) == submissions_info_set
 
             # Loaded analysis
             analyses = [
                 result.Analysis
                 for result in session.execute(select(Analysis)).fetchall()
             ]
-            assert set([analysis.analysis_accession for analysis in analyses]) == {'ERZ21826811'}
+            assert set([analysis.analysis_accession for analysis in analyses]) == analyses_set
             analysis = analyses[0]
-            assert set(p.platform for p in analysis.platforms) == {'Illumina NextSeq 500'}
-            assert set(e.experiment_type for e in analysis.experiment_types) == {'Genotyping by sequencing'}
+            if platform:
+                assert set(p.platform for p in analysis.platforms).pop() == platform
+            assert set(e.experiment_type for e in analysis.experiment_types).pop() == experiment_types
             assert (
                        analysis.assembly_set.taxonomy_id, analysis.assembly_set.assembly_name,
                        analysis.assembly_set.assembly_code
-                   ) == (217634, 'Agla_2.0', 'agla20')
+                   ) == assembly_info
+
+
+    @pytest.mark.skip(reason='Needs access to ERA database')
+    def     test_load_project_from_ena(self):
+        self.load_project_from_ena_and_assert(
+            project_accession='PRJEB66443',
+            linked_project_info=('PRJEB66443', 'PRJNA167609', 'PARENT'),
+            taxonomies_info_set={(217634, 'Asian longhorned beetle', 'Anoplophora glabripennis', 'aglabripennis')},
+            submissions_info_set={('ERA27275681', 'ADD', 'PROJECT')},
+            analyses_set={'ERZ21826811'},
+            platform=None,
+            experiment_types='Genotyping by sequencing',
+            assembly_info=(217634, 'Agla_2.0', 'agla20')
+        )
+
+    @pytest.mark.skip(reason='Needs access to ERA database')
+    def test_load_new_project_from_ena(self):
+        self.load_project_from_ena_and_assert(
+            project_accession='PRJEB97324',
+            linked_project_info=None,
+            taxonomies_info_set= {(207598, None, 'Homininae', 'h')},
+            submissions_info_set={('ERA34898855', 'ADD', 'PROJECT')},
+            analyses_set={'ERZ28437207'},
+            platform='Illumina NextSeq 500',
+            experiment_types='Curation',
+            assembly_info=(207598, 'GRCh38', 'grch38')
+        )
 
     def test_load_project_without_ERA(self):
         engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
