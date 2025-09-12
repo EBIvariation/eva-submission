@@ -90,7 +90,7 @@ class TestEvaProjectLoader(TestCase):
 
 
     @pytest.mark.skip(reason='Needs access to ERA database')
-    def     test_load_project_from_ena(self):
+    def test_load_project_from_ena(self):
         self.load_project_from_ena_and_assert(
             project_accession='PRJEB66443',
             linked_project_info=('PRJEB66443', 'PRJNA167609', 'PARENT'),
