@@ -7,9 +7,6 @@ import subprocess
 import yaml
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
-from eva_vcf_merge.detect import detect_merge_type, MergeType
-from eva_vcf_merge.merge import VCFMerger
-from eva_vcf_merge.utils import validate_aliases
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
@@ -20,7 +17,7 @@ class EloadValidation(Eload):
 
     all_validation_tasks = ['eva_sub_cli', 'structural_variant_check', 'naming_convention_check']
 
-    def validate(self, validation_tasks=None, set_as_valid=False, merge_per_analysis=False):
+    def validate(self, validation_tasks=None, set_as_valid=False):
         if not validation_tasks:
             validation_tasks = self.all_validation_tasks
 
@@ -39,9 +36,9 @@ class EloadValidation(Eload):
             for validation_task in validation_tasks:
                 self.eload_cfg.set('validation', validation_task, 'forced', value=True)
 
-        self.mark_valid_files_and_metadata(merge_per_analysis)
+        self.mark_valid_files_and_metadata()
 
-    def mark_valid_files_and_metadata(self, merge_per_analysis):
+    def mark_valid_files_and_metadata(self):
         if all([
             self.eload_cfg.query('validation', validation_task, 'pass', ret_default=False) or
             self.eload_cfg.query('validation', validation_task, 'forced', ret_default=False)
@@ -61,7 +58,6 @@ class EloadValidation(Eload):
             elif self.eload_cfg.query('submission', 'metadata_spreadsheet'):
                 self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
                                    value=self.eload_cfg.query('submission', 'metadata_spreadsheet'))
-            self.detect_and_optionally_merge(merge_per_analysis)
 
     def _get_vcf_files(self):
         vcf_files = []
@@ -78,48 +74,6 @@ class EloadValidation(Eload):
                 vcf_files[self._unique_alias(analysis_alias)] = valid_analysis_dict[analysis_alias]['vcf_files']
         return vcf_files
 
-    def detect_and_optionally_merge(self, merge_per_analysis):
-        """Detects merge type for each analysis, but performs merge only when merge_per_analysis is True."""
-        vcfs_by_analysis = self._get_valid_vcf_files_by_analysis()
-        vcfs_to_horizontal_merge = {}
-        vcfs_to_vertical_concat = {}
-        for analysis_alias, vcf_files in vcfs_by_analysis.items():
-            if len(vcf_files) < 2:
-                continue
-            analysis_alias = self._unique_alias(analysis_alias)
-            merge_type = detect_merge_type(vcf_files)
-            if merge_type:
-                self.eload_cfg.set('validation', 'merge_type', analysis_alias, value=merge_type.value)
-            if merge_type == MergeType.HORIZONTAL:
-                vcfs_to_horizontal_merge[analysis_alias] = vcf_files
-            elif merge_type == MergeType.VERTICAL:
-                vcfs_to_vertical_concat[analysis_alias] = vcf_files
-            else:
-                self.error('Unsupported merge type!')
-
-        if merge_per_analysis:
-            if not validate_aliases(vcfs_by_analysis.keys()):
-                self.error('Analysis aliases not valid as unique merged filenames, will not merge.')
-                self.eload_cfg.set(
-                    'validation', 'merge_errors',
-                    value=['Analysis aliases not valid as unique merged filenames']
-                )
-                return
-            merger = VCFMerger(
-                bcftools_binary=cfg['executable']['bcftools'],
-                bgzip_binary=cfg['executable']['bgzip'],
-                nextflow_binary=cfg['executable']['nextflow'],
-                nextflow_config=None,  # uses default Nextflow config
-                output_dir=self._get_dir('merge')
-            )
-            merged_files = {}
-            if vcfs_to_horizontal_merge:
-                merged_files.update(merger.horizontal_merge(vcfs_to_horizontal_merge))
-            if vcfs_to_vertical_concat:
-                merged_files.update(merger.vertical_merge(vcfs_to_vertical_concat))
-            # Overwrite valid vcf files in config for just these analyses
-            for alias, merged_file in merged_files.items():
-                self.eload_cfg.set('validation', 'valid', 'analyses', alias, 'vcf_files', value=[merged_file])
 
     def parse_sv_check_log(self, sv_check_log):
         with open(sv_check_log) as open_file:
@@ -281,22 +235,6 @@ class EloadValidation(Eload):
             return 'basic'
         return s
 
-    def _vcf_merge_report(self):
-        analysis_merge_dict = self.eload_cfg.query('validation', 'merge_type')
-        if not analysis_merge_dict:
-            return '  No mergeable VCFs\n'
-        reports = ['  Merge types:']
-        for analysis_alias, merge_type in analysis_merge_dict.items():
-            analysis_alias = self._unique_alias(analysis_alias)
-            reports.append(f'  * {analysis_alias}: {merge_type}')
-
-        errors = self.eload_cfg.query('validation', 'merge_errors')
-        if errors:
-            reports.append('  Errors:')
-            for error in errors:
-                reports.append(f'  * {error}')
-        return '\n'.join(reports)
-
     def _structural_variant_check_report(self):
         sv_dict = self.eload_cfg.query('validation', 'structural_variant_check', 'files')
         reports = []
@@ -340,7 +278,6 @@ class EloadValidation(Eload):
                                                                                       'structural_variant_check')),
             'naming_convention_check': self._check_pass_or_fail(self.eload_cfg.query('validation',
                                                                                       'naming_convention_check')),
-            'vcf_merge_report': self._vcf_merge_report(),
             'structural_variant_check_report': self._structural_variant_check_report(),
             'naming_convention_check_report': self._naming_convention_check_report(),
             'eva_sub_cli_report': self._eva_sub_cli_report()
@@ -354,12 +291,6 @@ Naming convention check: {naming_convention_check}
 
 eva-sub-cli:
 {eva_sub_cli_report}
-
-----------------------------------
-
-VCF merge:
-{vcf_merge_report}
-
 ----------------------------------
 
 Structural variant check:
