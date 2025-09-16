@@ -26,7 +26,6 @@ directory_structure = {
     'sv_check': '13_validation/structural_variant',
     'naming_convention_check': '13_validation/naming_convention',
     'eva_sub_cli': '13_validation/eva_sub_cli',
-    'merge': '14_merge',
     'biosamples': '18_brokering/biosamples',
     'ena': '18_brokering/ena',
     'scratch': '20_scratch'

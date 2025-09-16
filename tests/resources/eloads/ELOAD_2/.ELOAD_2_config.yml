@@ -10,8 +10,6 @@ validation:
   aggregation_check:
     analyses:
       a1: none
-  merge_type:
-    a1: horizontal
   structural_variant_check:
     files:
       test.vcf:

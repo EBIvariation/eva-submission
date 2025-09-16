@@ -3,9 +3,6 @@ from copy import deepcopy
 from unittest import TestCase
 from unittest.mock import patch
 
-from eva_vcf_merge.detect import MergeType
-from eva_vcf_merge.merge import VCFMerger
-
 from eva_submission import ROOT_DIR
 from eva_submission.eload_validation import EloadValidation
 from eva_submission.submission_config import load_config
@@ -79,13 +76,6 @@ Also checks if the reference assembly accession in the metadata matches the one 
 		✔ All sequences are INSDC accessioned.
 		✔ Analysis A: Assembly accession in metadata is compatible
 
-
-----------------------------------
-
-VCF merge:
-  Merge types:
-  * ELOAD_2_a1: horizontal
-
 ----------------------------------
 
 Structural variant check:
@@ -102,90 +92,12 @@ Naming convention check:
         print(self.validation.report())
         with patch('builtins.print') as mprint:
             self.validation.report()
+
         mprint.assert_called_once_with(expected_report)
-
-    def test_detect_and_optionally_merge(self):
-        original_content = deepcopy(self.validation.eload_cfg.content)
-        analysis_alias = 'ELOAD_2_alias'
-        valid_files = ['file1', 'file2']
-        merged_files = {analysis_alias: 'merged.vcf.gz'}
-        self.validation.eload_cfg.set('validation', 'valid', 'analyses', analysis_alias, 'vcf_files', value=valid_files)
-
-        with patch('eva_submission.eload_validation.detect_merge_type', return_value=MergeType.HORIZONTAL), \
-                patch.object(VCFMerger, 'horizontal_merge', return_value=merged_files):
-            # Should detect merge type but not actually merge
-            self.validation.detect_and_optionally_merge(False)
-            self.assertEqual(
-                self.validation.eload_cfg.query('validation', 'merge_type', analysis_alias),
-                MergeType.HORIZONTAL.value
-            )
-            self.assertEqual(
-                self.validation.eload_cfg.query('validation', 'valid', 'analyses', analysis_alias, 'vcf_files'),
-                valid_files
-            )
-            # Should perform the merge
-            self.validation.detect_and_optionally_merge(True)
-            self.assertEqual(
-                self.validation.eload_cfg.query('validation', 'valid', 'analyses', analysis_alias, 'vcf_files'),
-                ['merged.vcf.gz']
-            )
-        self.validation.eload_cfg.content = original_content
-
-    def test_merge_multiple_analyses(self):
-        valid_files = {
-            'horizontal': ['h1', 'h2'],
-            'vertical': ['v1', 'v2'],
-            'neither': ['n1', 'n2']
-        }
-        detections = [MergeType.HORIZONTAL, MergeType.VERTICAL, None]
-        horiz_merged_files = {'horizontal': 'h.vcf.gz'}
-        vert_merged_files = {'vertical': 'v.vcf.gz'}
-        for analysis_alias, vcf_files in valid_files.items():
-            self.validation.eload_cfg.set('validation', 'valid', 'analyses',
-                                          analysis_alias, 'vcf_files', value=vcf_files)
-
-        with patch('eva_submission.eload_validation.detect_merge_type', side_effect=detections), \
-                patch.object(VCFMerger, 'horizontal_merge', return_value=horiz_merged_files), \
-                patch.object(VCFMerger, 'vertical_merge', return_value=vert_merged_files):
-            self.validation.detect_and_optionally_merge(True)
-            self.assertEqual(
-                self.validation.eload_cfg.query('validation', 'valid', 'analyses', 'horizontal', 'vcf_files'),
-                ['h.vcf.gz']
-            )
-            self.assertEqual(
-                self.validation.eload_cfg.query('validation', 'valid', 'analyses', 'vertical', 'vcf_files'),
-                ['v.vcf.gz']
-            )
-            self.assertEqual(
-                self.validation.eload_cfg.query('validation', 'valid', 'analyses', 'neither', 'vcf_files'),
-                ['n1', 'n2']
-            )
-
-    def test_merge_multiple_analyses_same_name(self):
-        valid_files = {
-            'a!': ['h1', 'h2'],
-            'a@': ['v1', 'v2'],
-            'a2': ['n1', 'n2']
-        }
-        detections = [MergeType.HORIZONTAL, MergeType.VERTICAL, None]
-        analyses_dict = {
-            analysis_alias: {'vcf_files': vcf_files}
-            for analysis_alias, vcf_files in valid_files.items()
-        }
-        self.validation.eload_cfg.set('validation', 'valid', 'analyses', value=analyses_dict)
-
-        with patch('eva_submission.eload_validation.detect_merge_type', side_effect=detections):
-            self.validation.detect_and_optionally_merge(True)
-            # Valid files should be unchanged even though merge is detected
-            self.assertEqual(self.validation.eload_cfg.query('validation', 'valid', 'analyses'), analyses_dict)
-            self.assertEqual(
-                self.validation.eload_cfg.query('validation', 'merge_errors'),
-                ['Analysis aliases not valid as unique merged filenames']
-            )
 
     def test_mark_valid_files_and_metadata(self):
         assert self.validation.eload_cfg.query('validation', 'valid') is None
-        self.validation.mark_valid_files_and_metadata(merge_per_analysis=False)
+        self.validation.mark_valid_files_and_metadata()
         # Check that the normalised file was picked up instead of the original file
         expected = {'analyses': {'ELOAD_2_analysis_alias': {'vcf_files': ['test.vcf']}},
                     'metadata_spreadsheet': '/path/to/the/spreadsheet'}
