@@ -225,7 +225,8 @@ class EloadValidation(Eload):
         with open(report_file) as open_file:
             content = open_file.read()
         with open(report_file, 'w') as open_file:
-            open_file.write(re.sub(content, os.path.join(old_path, 'nex'), new_path))
+            search_path = str(os.path.join(old_path, r'\w{2}', r'\w{30}'))
+            open_file.write(re.sub(search_path, new_path, content))
 
     def _update_config_with_cli_results(self, results_dest_path):
         """Update ELOAD config with pass/fail value and aggregation type (required for ingestion) from eva-sub-cli
