@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import csv
 import os
+import re
 import shutil
 import subprocess
 
@@ -207,9 +208,24 @@ class EloadValidation(Eload):
         results_path = resolve_single_file_path(os.path.join(output_dir, 'validation_results.yaml'))
         results_dest_path = os.path.join(self._get_dir('eva_sub_cli'), 'validation_results.yaml')
         self._move_file(results_path, results_dest_path)
-        report_path = resolve_single_file_path(os.path.join(output_dir, 'validation_output', 'report.txt'))
-        self._move_file(report_path, os.path.join(self._get_dir('eva_sub_cli'), 'report.txt'))
+        source_validation_dir_path = resolve_single_file_path(os.path.join(output_dir, 'validation_output'))
+        dest_validation_dir_path = os.path.join(self._get_dir('eva_sub_cli'), 'validation_output')
+        # move the whole validation_output directory
+        if os.path.exists(dest_validation_dir_path):
+            shutil.rmtree(dest_validation_dir_path)
+        self._move_file(source_validation_dir_path, dest_validation_dir_path)
+
         self._update_config_with_cli_results(results_dest_path)
+        report_txt = resolve_single_file_path(os.path.join(dest_validation_dir_path, 'report.txt'))
+        report_html = resolve_single_file_path(os.path.join(dest_validation_dir_path, 'report.html'))
+        self._update_cli_report_with_new_path(report_txt, source_validation_dir_path, dest_validation_dir_path)
+        self._update_cli_report_with_new_path(report_html, source_validation_dir_path, dest_validation_dir_path)
+
+    def _update_cli_report_with_new_path(self, report_file, old_path, new_path):
+        with open(report_file) as open_file:
+            content = open_file.read()
+        with open(report_file, 'w') as open_file:
+            open_file.write(re.sub(content, os.path.join(old_path, 'nex'), new_path))
 
     def _update_config_with_cli_results(self, results_dest_path):
         """Update ELOAD config with pass/fail value and aggregation type (required for ingestion) from eva-sub-cli
@@ -261,7 +277,7 @@ class EloadValidation(Eload):
         return '\n'.join(reports)
 
     def _eva_sub_cli_report(self):
-        report_path = os.path.join(self._get_dir('eva_sub_cli'), 'report.txt')
+        report_path = os.path.join(self._get_dir('eva_sub_cli'), 'validation_output', 'report.txt')
         if os.path.exists(report_path):
             with open(report_path) as open_report:
                 return open_report.read()
