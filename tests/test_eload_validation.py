@@ -30,6 +30,23 @@ class TestEloadValidation(TestCase):
         sv_check_log = os.path.join(self.resources_folder, 'validations', 'sv_check.log')
         assert self.validation.parse_sv_check_log(sv_check_log) == 33
 
+    def test_update_cli_report_with_new_path(self):
+        report_file = os.path.join(self.resources_folder, 'tmp_report.txt')
+        old_path = '/path/to/old/dir'
+        new_path = '/path/to/new/dir'
+        with open(report_file, 'w') as f:
+            f.writelines([
+                'line does not match\n',
+                f'line does match: {old_path}/80/154577d76dbd9e2e05b80842ec410d/important_report.txt'
+            ])
+        self.validation._update_cli_report_with_new_path(report_file, old_path, new_path)
+        with open(report_file) as f:
+            assert f.readlines() == [
+                'line does not match\n',
+                'line does match: /path/to/new/dir/important_report.txt'
+            ]
+
+
     def test_report(self):
         expected_report = '''Validation performed on 2020-11-01 10:37:54.755607
 eva-sub-cli: PASS
