@@ -218,16 +218,18 @@ class EloadValidation(Eload):
         self._update_config_with_cli_results(results_dest_path)
         report_txt = resolve_single_file_path(os.path.join(dest_validation_dir_path, 'report.txt'))
         report_html = resolve_single_file_path(os.path.join(dest_validation_dir_path, 'report.html'))
-        self._update_cli_report_with_new_path(report_txt, source_validation_dir_path, dest_validation_dir_path)
-        self._update_cli_report_with_new_path(report_html, source_validation_dir_path, dest_validation_dir_path)
-        self._update_cli_report_with_new_path(results_path, source_validation_dir_path, dest_validation_dir_path)
+        self._update_cli_report_with_new_path(report_txt, output_dir, dest_validation_dir_path)
+        self._update_cli_report_with_new_path(report_html, output_dir, dest_validation_dir_path)
+        self._update_cli_report_with_new_path(results_dest_path, output_dir, dest_validation_dir_path)
 
-    def _update_cli_report_with_new_path(self, report_file, old_path, new_path):
+    def _update_cli_report_with_new_path(self, report_file, nextflow_dir,  new_path):
         with open(report_file) as open_file:
             content = open_file.read()
         with open(report_file, 'w') as open_file:
-            search_path = str(os.path.join(old_path, r'\w{2}', r'\w{30}'))
-            open_file.write(re.sub(search_path, new_path, content))
+            nextflow_validation_output = os.path.join(nextflow_dir, 'validation_output')
+            tmp = re.sub(nextflow_validation_output, new_path, content)
+            nextflow_validation_output = os.path.join(nextflow_dir, r'\w{2}', r'\w{30}', 'validation_output')
+            open_file.write(re.sub(nextflow_validation_output, new_path, tmp))
 
     def _update_config_with_cli_results(self, results_dest_path):
         """Update ELOAD config with pass/fail value and aggregation type (required for ingestion) from eva-sub-cli
