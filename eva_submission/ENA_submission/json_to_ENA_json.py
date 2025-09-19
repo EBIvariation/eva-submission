@@ -162,7 +162,10 @@ class EnaJsonConverter(AppLogger):
         def get_analyses_attributes(analysis):
             analysis_attributes = []
             if analysis.get('software'):
-                analysis_attributes.append({"tag": "SOFTWARE", "value": analysis['software'].strip()})
+                analysis_attributes.extend([
+                    {"tag": "SOFTWARE", "value": a.strip()}
+                    for a in analysis.get('software')
+                ])
             if analysis.get('platform'):
                 analysis_attributes.append({"tag": "PLATFORM", "value": analysis['platform'].strip()})
             if str(analysis.get('imputation', '')).strip() == '1':
