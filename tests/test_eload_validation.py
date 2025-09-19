@@ -43,7 +43,7 @@ class TestEloadValidation(TestCase):
         with open(report_file) as f:
             assert f.readlines() == [
                 'line does not match\n',
-                'line does match: /path/to/new/dir/important_report.txt'
+                f'line does match: {new_path}/important_report.txt'
             ]
 
 

@@ -220,6 +220,7 @@ class EloadValidation(Eload):
         report_html = resolve_single_file_path(os.path.join(dest_validation_dir_path, 'report.html'))
         self._update_cli_report_with_new_path(report_txt, source_validation_dir_path, dest_validation_dir_path)
         self._update_cli_report_with_new_path(report_html, source_validation_dir_path, dest_validation_dir_path)
+        self._update_cli_report_with_new_path(results_path, source_validation_dir_path, dest_validation_dir_path)
 
     def _update_cli_report_with_new_path(self, report_file, old_path, new_path):
         with open(report_file) as open_file:
