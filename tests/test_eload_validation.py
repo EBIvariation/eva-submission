@@ -37,12 +37,14 @@ class TestEloadValidation(TestCase):
         with open(report_file, 'w') as f:
             f.writelines([
                 'line does not match\n',
-                f'line does match: {old_path}/80/154577d76dbd9e2e05b80842ec410d/validation_ouput/important_report.txt'
+                f'line does match: {old_path}/80/154577d76dbd9e2e05b80842ec410d/validation_output/important_report.txt\n',
+                f'line does match: {old_path}/validation_output/important_report.txt'
             ])
         self.validation._update_cli_report_with_new_path(report_file, old_path, new_path)
         with open(report_file) as f:
             assert f.readlines() == [
                 'line does not match\n',
+                f'line does match: {new_path}/important_report.txt\n',
                 f'line does match: {new_path}/important_report.txt'
             ]
 
