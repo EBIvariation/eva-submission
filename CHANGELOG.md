@@ -1,10 +1,23 @@
 Changelog for eva-submission
 ============================
 
-## 1.19.1 (unreleased)
+## 1.19.1 (2025-09-24)
 ----------------------
 
-- Nothing changed yet.
+### Validation
+ - Convert spreadsheet to json only if it is present
+ - Remove the option to merge for eva-submission
+ - Copy entire validation_output directory
+ - Fix how aggregation type saved to config
+
+### Brokering
+ - Parse the ENA receipt based on the content of the response
+ - Fix the software list provided to ENA
+ - Convert Biosample with the wrong properties
+
+### Ingestion
+ - Use webin v1 when getting the hold date for a receipt
+ - Fix Ingestion of metadata from ENA
 
 
 ## 1.19.0 (2025-09-04)

@@ -1,7 +1,7 @@
 cached-property
 cerberus
 ebi-eva-common-pyutils[eva-internal]>=0.7.0, ==0.*
-eva_sub_cli>=0.4.13
+eva_sub_cli>=0.4.14
 humanize
 lxml
 openpyxl
