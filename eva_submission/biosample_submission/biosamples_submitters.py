@@ -358,6 +358,16 @@ class SampleJSONSubmitter(SampleSubmitter):
             # Currently no ability to overwrite or curate existing samples via JSON, so we skip any existing samples
             if 'bioSampleObject' not in sample:
                 continue
+            # FIXME: handle BioSample JSON that uses old representation correctly
+            if any(
+                    old_attribute in sample['bioSampleObject']['characteristics'] and
+                    new_attribute not in sample['bioSampleObject']['characteristics']
+                    for old_attribute, new_attribute in [
+                        ('geographicLocationCountrySea', 'geographic location (country and/or sea)'),
+                        ('scientificName', 'scientific name'), ('collectionDate', 'collection date')
+                    ]):
+                raise ValueError(f'This sample cannot be converted to BioSample JSON because it use an old representation of the JSON object:\n{sample}')
+
             bsd_sample_entry = {'characteristics': {}}
             bsd_sample_entry.update(sample['bioSampleObject'])
             # Taxonomy ID should be present at top level as well
