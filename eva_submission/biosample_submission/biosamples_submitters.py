@@ -21,6 +21,7 @@ from ebi_eva_common_pyutils.biosamples_communicators import WebinHALCommunicator
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 
+from eva_submission.biosample_submission.biosample_converter_utils import convert_sample
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 _now = datetime.now().isoformat()
@@ -365,8 +366,8 @@ class SampleJSONSubmitter(SampleSubmitter):
                     for old_attribute, new_attribute in [
                         ('geographicLocationCountrySea', 'geographic location (country and/or sea)'),
                         ('scientificName', 'scientific name'), ('collectionDate', 'collection date')
-                    ]):
-                raise ValueError(f'This sample cannot be converted to BioSample JSON because it use an old representation of the JSON object:\n{sample}')
+                ]):
+                sample = convert_sample(sample)
 
             bsd_sample_entry = {'characteristics': {}}
             bsd_sample_entry.update(sample['bioSampleObject'])
