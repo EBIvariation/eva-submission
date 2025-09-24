@@ -40,7 +40,9 @@ workflow {
 
     fasta_channel = Channel.fromPath(params.vcf_files_mapping)
         .splitCsv(header:true)
-        .map{row -> tuple(file(row.fasta), file(row.report), row.assembly_accession, file(row.vcf))}
+        .map{row -> tuple(file(row.vcf).name, file(row.fasta), file(row.report), row.assembly_accession)}
+        .combine(compress_vcf.out.compressed_vcf_tuple, by: 0)  // Join compressed VCF based on input file name
+        .map{tuple(it[1], it[2], it[3], it[4])}                 // Reorder to get assembly first and drop input file name
         .groupTuple(by: [0, 1, 2])
     prepare_genome(fasta_channel)
 
