@@ -107,9 +107,9 @@ Naming convention check:
         self.validation._update_config_with_cli_results(
             os.path.join(self.validation._get_dir('eva_sub_cli'), 'validation_results.yaml'))
         expected_aggregation = {
-            'Analysis A': None,
-            'Analysis B': 'none',
-            'Analysis C': 'basic',
+            'ELOAD_2_Analysis A': None,
+            'ELOAD_2_Analysis B': 'none',
+            'ELOAD_2_Analysis C': 'basic',
         }
         assert self.validation.eload_cfg.query('validation', 'aggregation_check', 'analyses') == expected_aggregation
         assert self.validation.eload_cfg.query('validation', 'eva_sub_cli')['pass'] == False
