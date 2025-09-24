@@ -244,7 +244,7 @@ class EloadValidation(Eload):
                 aggregation_check_dict = {}
                 for alias, evidence in evidence_check_dict.items():
                     if alias not in ['pass', 'report_path']:
-                        aggregation_check_dict[alias] = self._evidence_type_to_aggregation(evidence['evidence_type'])
+                        aggregation_check_dict[self._unique_alias(alias)] = self._evidence_type_to_aggregation(evidence['evidence_type'])
                 self.eload_cfg.set('validation', 'aggregation_check', 'analyses', value=aggregation_check_dict)
         self.eload_cfg.set('validation', 'eva_sub_cli', 'pass', value=passed)
 
