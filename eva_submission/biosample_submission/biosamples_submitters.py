@@ -461,19 +461,6 @@ class SampleJSONSubmitter(SampleSubmitter):
         return [sample_json.get('nameInVcf') for sample_json in self.metadata_json.get('sample')]
 
 
-class SampleJSONModifier(SampleJSONSubmitter):
-    def __init__(self, accessions):
-        # Load with dummy data
-        SampleJSONSubmitter.__init__(self,{'sample': []}, submit_type=('overwrite',))
-        # overwrite the metadata_json from BioSamples
-        self.metadata_json = self._load_existing_from_accessions(accessions)
-
-    def _load_existing_from_accessions(self, accessions):
-        samples = []
-        for accession in accessions:
-            samples.append({"bioSampleObject": self.submitter._get_existing_sample(accession)})
-        return {'sample': samples}
-
 class SampleMetadataSubmitter(SampleSubmitter):
     """Class that maps old version (before version 2) of the spreadsheet to Biosample json that can be submitted"""
     sample_mapping = {
