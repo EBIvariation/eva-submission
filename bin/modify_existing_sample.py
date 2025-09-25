@@ -19,7 +19,7 @@ import logging
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.biosample_submission.biosamples_submitters import SampleMetadataSubmitter
+from eva_submission.biosample_submission.biosamples_submitters import SampleMetadataSubmitter, SampleJSONSubmitter
 from eva_submission.submission_config import load_config
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxWriter, EvaXlsxReader
 
@@ -48,7 +48,12 @@ def main():
 
     # Load the config_file from default location
     load_config()
-    sample_submitter = SampleMetadataSubmitter(args.metadata_file, submit_type=(args.action,))
+    if args.metadata_file.endswith('.xlsx'):
+        sample_submitter = SampleMetadataSubmitter(args.metadata_file, submit_type=(args.action,))
+    elif args.metadata_file.endswith('.json'):
+        sample_submitter = SampleJSONSubmitter(args.metadata_file, submit_type=(args.action,))
+    else:
+        raise ValueError(f'Unsupported file type for {args.metadata_file}')
     sample_name_to_accession = sample_submitter.submit_to_bioSamples()
     if args.action == 'derive':
         # When deriving samples we need to copy the resulting accessions in the spreadsheet.

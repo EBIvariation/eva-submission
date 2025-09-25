@@ -38,7 +38,6 @@ class BioSamplesSubmitter(AppLogger):
         assert set(submit_type) <= set(self.valid_actions), f'all actions must be in {self.valid_actions}'
         self.default_communicator = communicators[0]
         self.communicators = communicators
-        self.sample_name_to_accession = {}
         self.submit_type = submit_type
         self.allow_removal = allow_removal
 
@@ -85,16 +84,16 @@ class BioSamplesSubmitter(AppLogger):
         else:
             self.warning(f'Sample {sample.get("accession")} cannot be overridden because it is not an NCBI sample ')
 
-    def validate_in_bsd(self, samples_data):
-        for sample in samples_data:
-            if self.can_overwrite(sample):
-                sample = self.create_sample_to_overwrite(sample)
+    def validate_in_bsd(self, sample_data):
+        sample = deepcopy(sample_data)
+        if self.can_overwrite(sample):
+            sample = self.create_sample_to_overwrite(sample)
 
-            # If we're only retrieving don't need to validate.
-            if self.can_create(sample) or self.can_overwrite(sample):
-                if self.can_create(sample):
-                    sample.update(self.default_communicator.communicator_attributes)
-                self.default_communicator.follows_link('samples', join_url='validate', method='POST', json=sample)
+        # If we're only retrieving don't need to validate.
+        if self.can_create(sample) or self.can_overwrite(sample):
+            if self.can_create(sample):
+                sample.update(self.default_communicator.communicator_attributes)
+            self.default_communicator.follows_link('samples', join_url='validate', method='POST', json=sample)
 
     def convert_sample_data_to_curation_object(self, future_sample):
         """Curation object can only change 3 attributes characteristics, externalReferences and relationships"""
@@ -188,6 +187,7 @@ class BioSamplesSubmitter(AppLogger):
     def create_sample_to_overwrite(self, sample):
         """Create the sample that will be used to overwrite the exising ones"""
         # We only add existing characteristics if we do not want to remove anything
+        destination_sample = None
         if self.can_overwrite(sample) and not self.allow_removal:
             # retrieve the sample without any curation and add the new data on top
             destination_sample = self._get_existing_sample(sample.get('accession'))
@@ -210,6 +210,58 @@ class BioSamplesSubmitter(AppLogger):
             derived_sample['release'] = _now
             return derived_sample, source_accessions
 
+    def submit_biosample_to_bsd(self, biosample_json):
+        """
+        Based on the submit_type, this function will:
+          - Create sample from provided annotation
+          - Overwrite existing samples in BioSamples
+          - Create curation objects and apply them to an existing sample
+          - Derive a sample from an existing sample carrying over all its characteristics
+        Then it returns the resulting sample json that Biosample generate and the action taken.
+        """
+        sample = deepcopy(biosample_json)
+        if self.can_create(biosample_json):
+            action_taken = 'create'
+            sample.update(self.default_communicator.communicator_attributes)
+            sample_json = self.default_communicator.follows_link('samples', method='POST', json=sample)
+            self.debug('Accession sample ' + sample.get('name', '') + ' as ' + sample_json.get('accession'))
+        elif self.can_overwrite(sample):
+            action_taken = 'overwrite'
+            sample_to_overwrite = self.create_sample_to_overwrite(sample)
+            self.debug('Overwrite sample ' + sample_to_overwrite.get('name', '') + ' with accession ' + sample_to_overwrite.get('accession'))
+            # Use the communicator that can own the sample to overwrite it.
+            communicator = self._get_communicator_for_sample(sample)
+            sample_json = communicator.follows_link('samples', method='PUT', join_url=sample.get('accession'),
+                                                                 json=sample_to_overwrite)
+        elif self.can_curate(sample):
+            action_taken = 'curate'
+            self.debug('Update sample ' + sample.get('name', '') + ' with accession ' + sample.get('accession'))
+            curation_object = self.convert_sample_data_to_curation_object(sample)
+            curation_json = self.default_communicator.follows_link(
+                'samples', method='POST', join_url=sample.get('accession')+'/curationlinks', json=curation_object
+            )
+            sample_json = sample
+        elif self.can_derive(sample):
+            action_taken = 'derive'
+            sample.update(self.default_communicator.communicator_attributes)
+            derived_sample, original_accessions = self.create_derived_sample(sample)
+            sample_json = self.default_communicator.follows_link('samples', method='POST', json=derived_sample)
+            if 'relationships' not in sample_json:
+                sample_json['relationships'] = []
+            for original_accession in original_accessions:
+                sample_json['relationships'].append(
+                    {'type': "derived from", 'target': original_accession, 'source': sample_json['accession']}
+                )
+            sample_json = self.default_communicator.follows_link('samples', method='PUT',
+                                                                 join_url=sample_json.get('accession'), json=sample_json)
+            self.debug(f'Accession sample {sample.get("name")} as {sample_json.get("accession")} derived from'
+                       f' {original_accessions}')
+        # Otherwise Keep the sample as is and retrieve the name so that list of sample to accession is complete
+        else:
+            action_taken = 'None'
+            sample_json = self._get_existing_sample(sample.get('accession'))
+        return sample_json, action_taken
+
     def submit_biosamples_to_bsd(self, samples_data):
         """
         This function iterate through the multiple sample data to process and based on each sample characteristics and
@@ -218,46 +270,13 @@ class BioSamplesSubmitter(AppLogger):
           - Overwrite existing samples in BioSamples
           - Create curation objects and apply them to an existing sample
           - Derive a sample from an existing sample carrying over all its characteristics
-        Then it returns a map of sample name to sample accession.
+        Then it returns a list containing the source sample the resulting sample json that Biosample and the biosample accession
         """
+        sample_info_list = []
         for sample in samples_data:
-            if self.can_create(sample):
-                sample.update(self.default_communicator.communicator_attributes)
-                sample_json = self.default_communicator.follows_link('samples', method='POST', json=sample)
-                self.debug('Accession sample ' + sample.get('name', '') + ' as ' + sample_json.get('accession'))
-            elif self.can_overwrite(sample):
-                sample_to_overwrite = self.create_sample_to_overwrite(sample)
-
-                self.debug('Overwrite sample ' + sample_to_overwrite.get('name', '') + ' with accession ' + sample_to_overwrite.get('accession'))
-                # Use the communicator that can own the sample to overwrite it.
-                communicator = self._get_communicator_for_sample(sample)
-                sample_json = communicator.follows_link('samples', method='PUT', join_url=sample.get('accession'),
-                                                                     json=sample_to_overwrite)
-            elif self.can_curate(sample):
-                self.debug('Update sample ' + sample.get('name', '') + ' with accession ' + sample.get('accession'))
-                curation_object = self.convert_sample_data_to_curation_object(sample)
-                curation_json = self.default_communicator.follows_link(
-                    'samples', method='POST', join_url=sample.get('accession')+'/curationlinks', json=curation_object
-                )
-                sample_json = sample
-            elif self.can_derive(sample):
-                sample.update(self.default_communicator.communicator_attributes)
-                derived_sample, original_accessions = self.create_derived_sample(sample)
-                sample_json = self.default_communicator.follows_link('samples', method='POST', json=derived_sample)
-                if 'relationships' not in sample_json:
-                    sample_json['relationships'] = []
-                for original_accession in original_accessions:
-                    sample_json['relationships'].append(
-                        {'type': "derived from", 'target': original_accession, 'source': sample_json['accession']}
-                    )
-                sample_json = self.default_communicator.follows_link('samples', method='PUT',
-                                                                     join_url=sample_json.get('accession'), json=sample_json)
-                self.debug(f'Accession sample {sample.get("name")} as {sample_json.get("accession")} derived from'
-                           f' {original_accessions}')
-            # Otherwise Keep the sample as is and retrieve the name so that list of sample to accession is complete
-            else:
-                sample_json = self._get_existing_sample(sample.get('accession'))
-            self.sample_name_to_accession[sample_json.get('name')] = sample_json.get('accession')
+            sample_json, action_taken = self.submit_biosample_to_bsd()
+            sample_info_list.append({'source_sample': sample, 'biosample': sample_json, 'accession': sample_json.get('accession'), 'action_taken': action_taken})
+        return sample_info_list
 
 
 class SampleSubmitter(AppLogger):
@@ -268,13 +287,12 @@ class SampleSubmitter(AppLogger):
 
     def __init__(self, submit_type):
         communicators = []
-        # If the config has the credential for using webin with BioSamples use webin first
+        # If the config has the credential for using webin with BioSamples use webin
         communicators.append(WebinHALCommunicator(
             cfg.query('biosamples', 'webin_url'), cfg.query('biosamples', 'bsd_url'),
             cfg.query('biosamples', 'webin_username'), cfg.query('biosamples', 'webin_password')
         ))
         self.submitter = BioSamplesSubmitter(communicators, submit_type)
-        self.sample_data = None
 
     @staticmethod
     def map_key(key, mapping):
@@ -317,7 +335,7 @@ class SampleSubmitter(AppLogger):
                 bsd_data[map_key] = value
 
     def check_submit_done(self):
-        return all((s.get("accession") for s in self.sample_data))
+        raise NotImplementedError()
 
     def already_submitted_sample_names_to_accessions(self):
         raise NotImplementedError()
@@ -325,18 +343,44 @@ class SampleSubmitter(AppLogger):
     def all_sample_names(self):
         raise NotImplementedError()
 
-    def submit_to_bioSamples(self):
-        # Check that the data exists
-        if self.sample_data:
-            self.info('Validate {} sample(s) in BioSample'.format(len(self.sample_data)))
-            self.submitter.validate_in_bsd(self.sample_data)
-            self.info('Upload {} sample(s) '.format(len(self.sample_data)))
-            self.submitter.submit_biosamples_to_bsd(self.sample_data)
+    def _convert_metadata(self):
+        """
+        Returns a tuple containing the biosample in json the unique sample name associated and the biosample accession.
+        If the biosample is None then the accession  needs to be present
+        If both the biosample and the accession are present then the Biosample will be overwritten
+        """
+        raise NotImplementedError()
 
-        return self.submitter.sample_name_to_accession
+    def submit_to_bioSamples(self):
+        sample_name_to_accession = {}
+        nb_sample_uploaded = 0
+        for source_sample_json, sample_name_from_metadata, sample_accession in self._convert_metadata():
+            if source_sample_json:
+                self.submitter.validate_in_bsd(source_sample_json)
+                sample_json, action_taken = self.submitter.submit_biosample_to_bsd(source_sample_json)
+                # When a name is provided in the metadata we use it to keep track when not provided use the BioSample name
+                if sample_name_from_metadata:
+                    sample_name = sample_name_from_metadata
+                else:
+                    sample_name = sample_json.get('name')
+                if sample_name not in sample_name_to_accession:
+                    sample_name_to_accession[sample_name] = sample_json.get('accession')
+                else:
+                    self.error(f'Sample {sample_name} is not a unique name. Sample {sample_accession} will not be stored')
+                nb_sample_uploaded += 1
+            elif sample_accession:
+                sample_name_to_accession[sample_name] = sample_accession
+        self.info(f'Uploaded {nb_sample_uploaded} sample(s)')
+        return sample_name_to_accession
 
 
 class SampleJSONSubmitter(SampleSubmitter):
+    """
+    Class that maps the biosample submitted in JSON through eva-sub-cli to the JSON format that biosample accepts.
+    The conversion should be minimals but this class tracks the association between the sample submitted and accession
+    assigned.
+    """
+
     submitter_mapping = {
         'email': 'E-mail',
         'firstName': 'FirstName',
@@ -351,13 +395,12 @@ class SampleJSONSubmitter(SampleSubmitter):
     def __init__(self, metadata_json, submit_type=('create',)):
         super().__init__(submit_type=submit_type)
         self.metadata_json = metadata_json
-        self.sample_data = self._convert_json_to_bsd_json()
 
-    def _convert_json_to_bsd_json(self):
-        payloads = []
+    def _convert_metadata(self):
         for sample in self.metadata_json.get('sample'):
             # Currently no ability to overwrite or curate existing samples via JSON, so we skip any existing samples
             if 'bioSampleObject' not in sample:
+                yield None, sample.get('nameInVcf'), sample.get('bioSampleAccession')
                 continue
             # FIXME: handle BioSample JSON that uses old representation correctly
             if any(
@@ -370,6 +413,10 @@ class SampleJSONSubmitter(SampleSubmitter):
                 sample = convert_sample(sample)
 
             bsd_sample_entry = {'characteristics': {}}
+            # TODO: Name should be set correctly by eva-sub-cli
+            if 'name' not in sample['bioSampleObject']:
+                sample['bioSampleObject']['name'] = sample['bioSampleObject'].get('bioSampleName')
+                del sample['bioSampleObject']['bioSampleName']
             bsd_sample_entry.update(sample['bioSampleObject'])
             # Taxonomy ID should be present at top level as well
             if 'taxId' in sample['bioSampleObject']['characteristics']:
@@ -393,26 +440,42 @@ class SampleJSONSubmitter(SampleSubmitter):
             bsd_sample_entry['release'] = _now
             # Custom attributes added to all the BioSample we create/modify
             bsd_sample_entry['characteristics']['last_updated_by'] = [{'text': 'EVA'}]
-            payloads.append(bsd_sample_entry)
+            yield bsd_sample_entry, sample.get('nameInVcf'), sample.get('accession')
 
-        return payloads
+    def check_submit_done(self):
+        return all([
+            sample_json.get('bioSampleAccession')
+            for sample_json in self.metadata_json.get('sample')
+        ])
 
     def already_submitted_sample_names_to_accessions(self):
         """Provide a dict of name to BioSamples accession for pre-submitted samples."""
-        if self.check_submit_done():
-            return dict([
-                (sample_json.get('sampleInVCF'), sample_json.get('bioSampleAccession'))
-                for sample_json in self.metadata_json.get('sample')
-                if 'bioSampleAccession' in sample_json
-            ])
+        return dict([
+            (sample_json.get('nameInVcf'), sample_json.get('bioSampleAccession'))
+            for sample_json in self.metadata_json.get('sample')
+            if 'bioSampleAccession' in sample_json
+        ])
 
     def all_sample_names(self):
         """This provides all the sample names regardless of their submission status"""
-        return [sample_json.get('sampleInVCF') for sample_json in self.metadata_json.get('sample')]
+        return [sample_json.get('nameInVcf') for sample_json in self.metadata_json.get('sample')]
 
+
+class SampleJSONModifier(SampleJSONSubmitter):
+    def __init__(self, accessions):
+        # Load with dummy data
+        SampleJSONSubmitter.__init__(self,{'sample': []}, submit_type=('overwrite',))
+        # overwrite the metadata_json from BioSamples
+        self.metadata_json = self._load_existing_from_accessions(accessions)
+
+    def _load_existing_from_accessions(self, accessions):
+        samples = []
+        for accession in accessions:
+            samples.append({"bioSampleObject": self.submitter._get_existing_sample(accession)})
+        return {'sample': samples}
 
 class SampleMetadataSubmitter(SampleSubmitter):
-
+    """Class that maps old version (before version 2) of the spreadsheet to Biosample json that can be submitted"""
     sample_mapping = {
         'Sample Name': 'name',
         'Sample Accession': 'accession',
@@ -451,7 +514,6 @@ class SampleMetadataSubmitter(SampleSubmitter):
         super().__init__(submit_type=submit_type)
         self.metadata_spreadsheet = metadata_spreadsheet
         self.reader = EvaXlsxReader(self.metadata_spreadsheet)
-        self.sample_data = self.map_metadata_to_bsd_data()
 
     @staticmethod
     def serialize(value):
@@ -460,8 +522,7 @@ class SampleMetadataSubmitter(SampleSubmitter):
             return value.strftime('%Y-%m-%d')
         return str(value)
 
-    def map_metadata_to_bsd_data(self):
-        payloads = []
+    def _convert_metadata(self):
         for sample_row in self.reader.samples:
             bsd_sample_entry = {'characteristics': {}}
             description_list = []
@@ -529,18 +590,15 @@ class SampleMetadataSubmitter(SampleSubmitter):
             bsd_sample_entry['release'] = _now
             # Custom attributes added to all the BioSample we create/modify
             bsd_sample_entry['characteristics']['last_updated_by'] = [{'text': 'EVA'}]
-            payloads.append(bsd_sample_entry)
-
-        return payloads
+            yield bsd_sample_entry, bsd_sample_entry.get('name'), bsd_sample_entry.get('accession')
 
     def check_submit_done(self):
-        return all((s.get("accession") for s in self.sample_data))
+        return all(sample_row.get('Sample Accession') for sample_row in self.reader.samples)
 
     def already_submitted_sample_names_to_accessions(self):
-        if self.check_submit_done():
-            return dict([
-                (sample_row.get('Sample ID'), sample_row.get('Sample Accession')) for sample_row in self.reader.samples
-            ])
+        return dict([
+            (sample_row.get('Sample ID'), sample_row.get('Sample Accession')) for sample_row in self.reader.samples
+        ])
 
     def all_sample_names(self):
         # We need to get back to the reader to get all the names that were present in the spreadsheet
@@ -553,10 +611,8 @@ class SampleReferenceSubmitter(SampleSubmitter):
         super().__init__(submit_type=('curate',))
         self.biosample_accession_list = biosample_accession_list
         self.project_accession = project_accession
-        self.sample_data = self.retrieve_biosamples()
 
-    def retrieve_biosamples(self):
-        biosample_objects = []
+    def _convert_metadata(self):
         eva_study_url = f'https://www.ebi.ac.uk/eva/?eva-study={self.project_accession}'
         for sample_accession in self.biosample_accession_list:
             sample_json = self.submitter._get_existing_sample(sample_accession)
@@ -575,6 +631,5 @@ class SampleReferenceSubmitter(SampleSubmitter):
                     dict([(k, v) for k, v in external_ref.items() if v is not None])
                     for external_ref in sample_json['externalReferences']
                 ]
-            biosample_objects.append(sample_json)
+            yield sample_json, sample_json.get('name'), sample_accession
 
-        return biosample_objects
