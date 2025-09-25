@@ -1,6 +1,7 @@
 import copy
 import os
 from copy import deepcopy
+from pprint import pprint
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -202,7 +203,7 @@ class TestSampleMetadataSubmitter(BSDTestCase):
         self.submitter = SampleMetadataSubmitter(metadata_file2)
         self.submitter_partial_biosample_ids = SampleMetadataSubmitter(metadata_partial_file)
 
-    def test_map_metadata_to_bsd_data(self):
+    def test_convert_metadata(self):
         now = '2020-07-06T19:09:29.090Z'
         biosamples_submitters._now = now
 
@@ -227,10 +228,10 @@ class TestSampleMetadataSubmitter(BSDTestCase):
             'label': [{'text': '576-168-1-1'}],
             'tree.ind': [{'text': '168-B1-R1'}]
         })
-        payload = self.submitter.map_metadata_to_bsd_data()
-        print(payload)
-        assert payload == expected_payload
-        self.assertEqual(payload, expected_payload)
+        for index, (sample_json, sample_name, sample_accession) in enumerate(self.submitter._convert_metadata()):
+            assert sample_json == expected_payload[index]
+            assert sample_name == f'S{index + 1}'
+            assert sample_accession is None
 
     def test_map_partial_metadata_to_bsd_data(self):
         now = '2020-07-06T19:09:29.090Z'
@@ -274,9 +275,13 @@ class TestSampleMetadataSubmitter(BSDTestCase):
                             'last_updated_by': [{'text': 'EVA'}]
                         }} for i in range(20, 100)]
 
-        expected_payload = updated_samples + existing_samples + new_samples
-        payload = self.submitter_partial_biosample_ids.map_metadata_to_bsd_data()
-        assert expected_payload == payload
+        expected_jsons = updated_samples + existing_samples + new_samples
+        expected_sample_accessions = [d.get('accession') for d in expected_jsons]
+        self.submitter_partial_biosample_ids._convert_metadata()
+        for index, (sample_json, sample_name, sample_accession) in enumerate(self.submitter_partial_biosample_ids._convert_metadata()):
+            assert sample_json == expected_jsons[index]
+            assert sample_name == sample_json.get('name')
+            assert sample_accession == expected_sample_accessions[index]
 
     def test_check_submit_done(self):
         # This data has already been brokered to BioSamples
@@ -294,12 +299,12 @@ class TestSampleReferenceSubmitter(BSDTestCase):
         project_accession = 'PRJEB001'
         sample_1 = {"name": "FakeSample1", "accession": "SAME001", "domain": "self.ExampleDomain", "_links": {}, 'externalReferences': [{'url': 'test_url', 'duo': None}]}
         sample_2 = {"name": "FakeSample2", "accession": "SAME002", "domain": "self.ExampleDomain", "_links": {}}
-        with patch.object(HALCommunicator, 'follows_link', side_effect=[sample_1, sample_2]):
+        with patch.object(WebinHALCommunicator, 'follows_link', side_effect=[sample_1, sample_2]):
             self.submitter = SampleReferenceSubmitter(sample_accessions, project_accession)
-        assert self.submitter.sample_data == [
-            {'name': 'FakeSample1', 'accession': 'SAME001', 'domain': 'self.ExampleDomain', 'externalReferences': [{'url': 'test_url'}, {'url': 'https://www.ebi.ac.uk/eva/?eva-study=PRJEB001'}]},
-            {'name': 'FakeSample2', 'accession': 'SAME002', 'domain': 'self.ExampleDomain', 'externalReferences': [{'url': 'https://www.ebi.ac.uk/eva/?eva-study=PRJEB001'}]}
-        ]
+            assert list(self.submitter._convert_metadata()) == [
+                ({'name': 'FakeSample1', 'accession': 'SAME001', 'domain': 'self.ExampleDomain', 'externalReferences': [{'url': 'test_url'}, {'url': 'https://www.ebi.ac.uk/eva/?eva-study=PRJEB001'}]}, 'FakeSample1', 'SAME001'),
+                ({'name': 'FakeSample2', 'accession': 'SAME002', 'domain': 'self.ExampleDomain', 'externalReferences': [{'url': 'https://www.ebi.ac.uk/eva/?eva-study=PRJEB001'}]}, 'FakeSample2', 'SAME002')
+            ]
 
 
 class TestSampleMetadataOverrider(BSDTestCase):
@@ -376,47 +381,50 @@ class TestSampleJSONSubmitter(BSDTestCase):
 
     def assert_convertion_json_to_bsd_json(self, bio_sample_object):
         json_data = {'sample': [
-            # Exising sample should be skipped when brokering
-            {'analysisAlias': 'alias1', 'sampleInVCF': 'S1', 'bioSampleAccession': 'SAME000001'},
-            {'analysisAlias': 'alias1', 'sampleInVCF': 'S2', 'bioSampleObject': bio_sample_object}
+            {'analysisAlias': 'alias1', 'nameInVcf': 'S1', 'bioSampleAccession': 'SAME000001'},
+            {'analysisAlias': 'alias1', 'nameInVcf': 'S2', 'bioSampleObject': bio_sample_object}
         ], 'submitterDetails': [
             {'lastName': 'Doe', 'firstName': 'Jane', 'email': 'jane.doe@example.com', 'laboratory': 'Lab',
              'address': '5 common road'}
         ]}
 
-        expected_bsd_json = [
-            {'characteristics': {
-                "title": [{"text": "yellow croaker sample 12"}],
-                'description': [{'text': 'yellow croaker sample 12'}],
-                'geographic location (country and/or sea)': [{'text': 'China'}],
-                'geographic location (region and locality)': [{'text': 'East China Sea,Liuheng, Putuo, Zhejiang'}],
-                'taxId': [{'text': '334908'}],
-                'scientific name': [{'text': 'Larimichthys polyactis'}],
-                "species": [{"text": "yellow croaker"}],
-                'collection date': [{'text': '2021-03-12'}],
-                'last_updated_by': [{'text': 'EVA'}],
-            },
-            'name': 'LH1',
-            'taxId': '334908',
-            'contact': [
-                {'LastName': 'Doe', 'FirstName': 'Jane', 'E-mail': 'jane.doe@example.com'}
-            ],
-            'organization': [
-                {'Name': 'Lab', 'Address': '5 common road'},
-            ]}
-        ]
+        expected_bsd_json = {'characteristics': {
+            "title": [{"text": "yellow croaker sample 12"}],
+            'description': [{'text': 'yellow croaker sample 12'}],
+            'geographic location (country and/or sea)': [{'text': 'China'}],
+            'geographic location (region and locality)': [{'text': 'East China Sea,Liuheng, Putuo, Zhejiang'}],
+            'taxId': [{'text': '334908'}],
+            'scientific name': [{'text': 'Larimichthys polyactis'}],
+            "species": [{"text": "yellow croaker"}],
+            'collection date': [{'text': '2021-03-12'}],
+            'last_updated_by': [{'text': 'EVA'}],
+        },
+        'name': 'LH1',
+        'taxId': '334908',
+        'contact': [
+            {'LastName': 'Doe', 'FirstName': 'Jane', 'E-mail': 'jane.doe@example.com'}
+        ],
+        'organization': [
+            {'Name': 'Lab', 'Address': '5 common road'},
+        ]}
 
         self.submitter = SampleJSONSubmitter(json_data)
-        result = self.submitter._convert_json_to_bsd_json()
+        gen = self.submitter._convert_metadata()
+        sample_json, sample_name, sample_accession = next(gen)
+        assert sample_json is None
+        assert sample_name == 'S1'
+        assert sample_accession == 'SAME000001'
+        sample_json, sample_name, sample_accession = next(gen)
         # Remove release timestamps to enable comparison
-        for sample in result:
-            sample.pop('release', None)
-        assert result == expected_bsd_json
+        sample_json.pop('release', None)
+        assert sample_json == expected_bsd_json
+        assert sample_name == 'S2'
+        assert sample_accession is None
 
     def test_convert_json_to_bsd_json(self):
         # JSON as generated by eva-sub-cli xlsx2json
         bio_sample_object = {
-            "name": "LH1",
+            "bioSampleName": "LH1",
             "characteristics": {
                 "title": [{"text": "yellow croaker sample 12"}],
                 'description': [{'text': 'yellow croaker sample 12'}],
@@ -433,7 +441,7 @@ class TestSampleJSONSubmitter(BSDTestCase):
     def test_convert_old_json_to_bsd_json(self):
         # JSON as generated by eva-sub-cli xlsx2json prior to v0.4.13
         bio_sample_object = {
-            "name": "LH1",
+            "bioSampleName": "LH1",
             "characteristics": {
                 "title": [{"text": "yellow croaker sample 12"}],
                 'description': [{'text': 'yellow croaker sample 12'}],
@@ -447,4 +455,6 @@ class TestSampleJSONSubmitter(BSDTestCase):
         }
 
         self.assert_convertion_json_to_bsd_json(bio_sample_object)
+
+
 
