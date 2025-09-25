@@ -72,8 +72,7 @@ class TestEloadBrokering(TestCase):
 
         with patch.object(SampleMetadataSubmitter, 'check_submit_done', return_value=True) as check_submit_done:
             self.eload.upload_to_bioSamples()
-        assert check_submit_done.call_count == 2
-        assert check_submit_done.call_count == 2
+        assert check_submit_done.call_count == 1
         assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'pass')
 
     def test_upload_to_bioSamples_done(self):
