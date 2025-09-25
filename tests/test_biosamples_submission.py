@@ -1,7 +1,6 @@
 import copy
 import os
 from copy import deepcopy
-from pprint import pprint
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -455,6 +454,3 @@ class TestSampleJSONSubmitter(BSDTestCase):
         }
 
         self.assert_convertion_json_to_bsd_json(bio_sample_object)
-
-
-
