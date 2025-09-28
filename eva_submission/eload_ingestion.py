@@ -2,6 +2,7 @@ import csv
 import os
 import shutil
 import subprocess
+from copy import copy
 from pathlib import Path
 
 import requests
@@ -44,7 +45,7 @@ SUPPORTED_ASSEMBLY_TRACKER_TABLE = "evapro.supported_assembly_tracker"
 
 class EloadIngestion(Eload):
     config_section = 'ingestion'  # top-level config key
-    all_tasks = ['metadata_load', 'accession', 'variant_load', 'optional_remap_and_cluster']
+    all_tasks = ['archive_only', 'metadata_load', 'accession', 'variant_load', 'optional_remap_and_cluster']
     nextflow_complete_value = '<complete>'
 
     def __init__(self, eload_number, config_object: EloadConfig = None):
@@ -66,13 +67,23 @@ class EloadIngestion(Eload):
         clustering_performed_on_assembly = None
         self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
         self.project_dir = self.setup_project_dir()
+
+        if not tasks:
+            tasks = copy(self.all_tasks)
+            tasks.remove('archive_only')
+
+
+        if 'archive_only' in tasks:
+            # Remove any other tasks if archive_only is present
+            tasks = ['archive_only']
+
         # Pre ingestion checks
         self.check_aggregation_done()
         self.check_brokering_done()
-        self.check_variant_db()
-
-        if not tasks:
-            tasks = self.all_tasks
+        if  'archive_only' not in tasks:
+            self.check_variant_db()
+        else:
+            self.archive_only()
 
         if 'metadata_load' in tasks:
             self.load_from_ena()
@@ -223,7 +234,19 @@ class EloadIngestion(Eload):
         for db_info in assembly_to_db_name.values():
             provision_new_database_for_variant_warehouse(db_info['db_name'])
 
-    def load_from_ena(self):
+    def archive_only(self, resume=False):
+        self.load_from_ena(archive_only=True)
+        vcf_files_to_ingest = self._generate_csv_mappings_to_ingest()
+        accession_config = {
+            'valid_vcfs': vcf_files_to_ingest,
+            'project_accession': self.project_accession,
+            'public_ftp_dir': cfg['public_ftp_dir'],
+            'public_dir': os.path.join(self.project_dir, project_dirs['public']),
+        }
+        tasks = ['archive_only']
+        self.run_nextflow('simple_archive.nf', accession_config, resume, tasks)
+
+    def load_from_ena(self, archive_only=False):
         """
         Loads Project and Analysis metadata from ENA into EVAPRO to the project associated with this ELOAD.
         """
@@ -233,9 +256,15 @@ class EloadIngestion(Eload):
             if check_project_exists_in_evapro(self.project_accession):
                 analyses = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
                 for analysis_accession in analyses.values():
-                    self.loader.load_project_from_ena(self.project_accession, self.eload_num, analysis_accession, taxonomy_id_for_project=self.taxonomy)
+                    self.loader.load_project_from_ena(self.project_accession,
+                                                      self.eload_num, analysis_accession,
+                                                      taxonomy_id_for_project=self.taxonomy,
+                                                      load_browsable_files=False if archive_only else True)
             else:
-                self.loader.load_project_from_ena(self.project_accession, self.eload_num, taxonomy_id_for_project=self.taxonomy)
+                self.loader.load_project_from_ena(self.project_accession,
+                                                  self.eload_num,
+                                                  taxonomy_id_for_project=self.taxonomy,
+                                                  load_browsable_files=False if archive_only else True)
 
             # Check aggregation type for each analysis in this submission to determine if we should load samples by file
             # or by analysis

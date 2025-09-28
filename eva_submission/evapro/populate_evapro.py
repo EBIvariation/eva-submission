@@ -45,7 +45,8 @@ class EvaProjectLoader(AppLogger):
     def __init__(self):
         self.ena_project_finder = OracleEnaProjectFinder()
 
-    def load_project_from_ena(self, project_accession, eload, analysis_accession_to_load=None, taxonomy_id_for_project=None):
+    def load_project_from_ena(self, project_accession, eload, analysis_accession_to_load=None,
+                              taxonomy_id_for_project=None, load_browsable_files=True):
         """
         Loads a project from ENA for the given ELOAD and adds it to the metadata database.
         If analysis_accession_to_load is specified, will only load that analysis; otherwise all analyses are added.
@@ -165,7 +166,8 @@ class EvaProjectLoader(AppLogger):
                     filename=filename,
                     file_md5=file_md5,
                     file_type=file_type,
-                    ftp_file=ftp_file
+                    ftp_file=ftp_file,
+                    add_to_browsable=load_browsable_files
                 )
                 if file_obj not in analysis_obj.files:
                     analysis_obj.files.append(file_obj)
@@ -630,7 +632,7 @@ class EvaProjectLoader(AppLogger):
 
 
     def insert_file(self, project_accession, assembly_set_id, ena_submission_file_id, filename, file_md5, file_type,
-                    ftp_file, file_location=None, file_class='submitted', file_version=1, is_current=1):
+                    ftp_file, file_location=None, file_class='submitted', file_version=1, is_current=1, add_to_browsable=True):
         file_obj = self.get_file_from_md5(file_md5)
         if not file_obj:
             file_obj = File(
@@ -642,7 +644,7 @@ class EvaProjectLoader(AppLogger):
             self.eva_session.add(file_obj)
             self.info(f'Add File {filename} {file_md5} to EVAPRO')
 
-        if file_type.lower() in {'vcf', 'vcf_aggregate'}:
+        if add_to_browsable and file_type.lower() in {'vcf', 'vcf_aggregate'}:
             query = select(BrowsableFile).where(BrowsableFile.file_id == file_obj.file_id)
             result = self.eva_session.execute(query).fetchone()
             if result:
