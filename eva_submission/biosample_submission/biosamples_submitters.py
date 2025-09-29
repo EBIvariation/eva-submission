@@ -343,6 +343,9 @@ class SampleSubmitter(AppLogger):
     def all_sample_names(self):
         raise NotImplementedError()
 
+    def _get_sample_name(self, sample_metadata):
+        raise sample_metadata.get('sampleInVcf')
+
     def _convert_metadata(self):
         """
         Returns a tuple containing the biosample in json the unique sample name associated and the biosample accession.
@@ -401,7 +404,7 @@ class SampleJSONSubmitter(SampleSubmitter):
         for sample in self.metadata_json.get('sample'):
             # Currently no ability to overwrite or curate existing samples via JSON, so we skip any existing samples
             if 'bioSampleObject' not in sample:
-                yield None, sample.get('nameInVcf'), sample.get('bioSampleAccession')
+                yield None, sample.get('sampleInVcf'), sample.get('bioSampleAccession')
                 continue
             # FIXME: handle BioSample JSON that uses old representation correctly
             if any(
@@ -441,7 +444,7 @@ class SampleJSONSubmitter(SampleSubmitter):
             bsd_sample_entry['release'] = _now
             # Custom attributes added to all the BioSample we create/modify
             bsd_sample_entry['characteristics']['last_updated_by'] = [{'text': 'EVA'}]
-            yield bsd_sample_entry, sample.get('nameInVcf'), sample.get('accession')
+            yield bsd_sample_entry, sample.get('sampleInVcf'), sample.get('accession')
 
     def check_submit_done(self):
         return all([
@@ -452,14 +455,14 @@ class SampleJSONSubmitter(SampleSubmitter):
     def already_submitted_sample_names_to_accessions(self):
         """Provide a dict of name to BioSamples accession for pre-submitted samples."""
         return dict([
-            (sample_json.get('nameInVcf'), sample_json.get('bioSampleAccession'))
+            (sample_json.get('sampleInVcf'), sample_json.get('bioSampleAccession'))
             for sample_json in self.metadata_json.get('sample')
             if 'bioSampleAccession' in sample_json
         ])
 
     def all_sample_names(self):
         """This provides all the sample names regardless of their submission status"""
-        return [sample_json.get('nameInVcf') for sample_json in self.metadata_json.get('sample')]
+        return [sample_json.get('sampleInVcf') for sample_json in self.metadata_json.get('sample')]
 
 
 class SampleMetadataSubmitter(SampleSubmitter):
