@@ -262,22 +262,6 @@ class BioSamplesSubmitter(AppLogger):
             sample_json = self._get_existing_sample(sample.get('accession'))
         return sample_json, action_taken
 
-    def submit_biosamples_to_bsd(self, samples_data):
-        """
-        This function iterate through the multiple sample data to process and based on each sample characteristics and
-        the submit_type will:
-          - Create sample from provided annotation
-          - Overwrite existing samples in BioSamples
-          - Create curation objects and apply them to an existing sample
-          - Derive a sample from an existing sample carrying over all its characteristics
-        Then it returns a list containing the source sample the resulting sample json that Biosample and the biosample accession
-        """
-        sample_info_list = []
-        for sample in samples_data:
-            sample_json, action_taken = self.submit_biosample_to_bsd(sample)
-            sample_info_list.append({'source_sample': sample, 'biosample': sample_json, 'accession': sample_json.get('accession'), 'action_taken': action_taken})
-        return sample_info_list
-
 
 class SampleSubmitter(AppLogger):
 
@@ -342,9 +326,6 @@ class SampleSubmitter(AppLogger):
 
     def all_sample_names(self):
         raise NotImplementedError()
-
-    def _get_sample_name(self, sample_metadata):
-        raise sample_metadata.get('sampleInVcf')
 
     def _convert_metadata(self):
         """
