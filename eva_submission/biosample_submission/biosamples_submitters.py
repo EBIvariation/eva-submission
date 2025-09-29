@@ -274,7 +274,7 @@ class BioSamplesSubmitter(AppLogger):
         """
         sample_info_list = []
         for sample in samples_data:
-            sample_json, action_taken = self.submit_biosample_to_bsd()
+            sample_json, action_taken = self.submit_biosample_to_bsd(sample)
             sample_info_list.append({'source_sample': sample, 'biosample': sample_json, 'accession': sample_json.get('accession'), 'action_taken': action_taken})
         return sample_info_list
 
