@@ -358,7 +358,8 @@ class SampleSubmitter(AppLogger):
             if source_sample_json:
                 self.submitter.validate_in_bsd(source_sample_json)
                 sample_json, action_taken = self.submitter.submit_biosample_to_bsd(source_sample_json)
-                # When a name is provided in the metadata we use it to keep track when not provided use the BioSample name
+                # When a name is provided in the metadata, we use it to keep track of which samples have been accessioned.
+                # When not provided, use the BioSample name
                 if sample_name_from_metadata:
                     sample_name = sample_name_from_metadata
                 else:
