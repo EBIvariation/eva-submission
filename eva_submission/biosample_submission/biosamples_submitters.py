@@ -398,10 +398,17 @@ class SampleJSONSubmitter(SampleSubmitter):
                 sample = convert_sample(sample)
 
             bsd_sample_entry = {'characteristics': {}}
-            # TODO: Name should be set correctly by eva-sub-cli
+            # TODO: Name should be set correctly by eva-sub-cli post v0.4.14. Remove this Hack when we don't want to support earlier version
             if 'name' not in sample['bioSampleObject']:
-                sample['bioSampleObject']['name'] = sample['bioSampleObject'].get('bioSampleName')
-                del sample['bioSampleObject']['bioSampleName']
+                sample_name = None
+                if 'bioSampleName' in sample['bioSampleObject']:
+                    sample_name = sample['bioSampleObject']['bioSampleName']
+                    del sample['bioSampleObject']['bioSampleName']
+                if 'bioSampleName' in sample['bioSampleObject']['characteristics']:
+                    sample_name = sample['bioSampleObject']['characteristics']['bioSampleName'][0].get('text')
+                    del sample['bioSampleObject']['characteristics']['bioSampleName']
+                if sample_name:
+                    sample['bioSampleObject']['name'] = sample_name
             bsd_sample_entry.update(sample['bioSampleObject'])
             # Taxonomy ID should be present at top level as well
             if 'taxId' in sample['bioSampleObject']['characteristics']:
