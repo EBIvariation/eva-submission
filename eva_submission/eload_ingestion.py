@@ -83,7 +83,7 @@ class EloadIngestion(Eload):
         if  'archive_only' not in tasks:
             self.check_variant_db()
         else:
-            self.archive_only()
+            self.archive_only(resume=resume)
 
         if 'metadata_load' in tasks:
             self.load_from_ena()
