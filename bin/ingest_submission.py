@@ -16,6 +16,7 @@
 
 import logging
 from argparse import ArgumentParser
+from copy import copy
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from eva_submission.eload_ingestion import EloadIngestion
@@ -25,10 +26,12 @@ logger = log_cfg.get_logger(__name__)
 
 
 def main():
+    default_tasks = copy(EloadIngestion.all_tasks)
+    default_tasks.remove('archive_only')
     argparse = ArgumentParser(description='Accession and ingest submission data into EVA')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission.')
     argparse.add_argument('--tasks', required=False, type=str, nargs='+',
-                          default=EloadIngestion.all_tasks, choices=EloadIngestion.all_tasks,
+                          default=default_tasks, choices=EloadIngestion.all_tasks,
                           help='Task or set of tasks to perform during ingestion.')
     argparse.add_argument('--vep_cache_assembly_name', required=False, type=str,
                           help='The assembly name used in the VEP cache to help the script to find the correct cache '
