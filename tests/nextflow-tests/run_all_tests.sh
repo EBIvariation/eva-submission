@@ -1,7 +1,10 @@
 #!/bin/bash
 
 set -Eeuo pipefail
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
+cwd=${PWD}
+cd ${SCRIPT_DIR}
 echo "run_tests_validation.sh"
 run_tests_validation.sh
 
@@ -22,3 +25,5 @@ run_tests_clustering.sh
 
 echo "run_tests_remapping_clustering.sh"
 run_tests_remapping_clustering.sh
+
+cd ${cwd}
