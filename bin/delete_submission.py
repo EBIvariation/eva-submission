@@ -28,9 +28,9 @@ logger = log_cfg.get_logger(__name__)
 def main():
     argparse = ArgumentParser(description='Delete/Archive submission')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number of the submission.')
-    argparse.add_argument('--ftp_box', required=True, type=int, choices=range(1, 21),
+    argparse.add_argument('--ftp_box', required=False, type=int, choices=range(1, 21), default=None,
                           help='box number where the data has been uploaded')
-    argparse.add_argument('--submitter', required=True, type=str, help='the name of the directory for the submitter')
+    argparse.add_argument('--submitter', required=False, type=str, help='the name of the directory for the submitter')
     argparse.add_argument('-f', '--force_delete', action="store_true",
                           help='force delete the existing eload tar file in LTS directory')
     argparse.add_argument('--debug', action='store_true', default=False,

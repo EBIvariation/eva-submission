@@ -38,13 +38,13 @@ class EloadQC(Eload):
         self.profile = cfg['maven']['environment']
         self.private_config_xml_file = cfg['maven']['settings_file']
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
-        self.path_to_data_dir = Path(cfg['projects_dir'], self.project_accession)
-        self.path_to_logs_dir = os.path.join(self.path_to_data_dir, '00_logs')
-        # If the project folder does not exist then it is located in the eload folder
-        if not os.path.exists(self.path_to_logs_dir):
+        if 'projects_dir' in cfg and self.project_accession:
+            path_to_data_dir = Path(cfg['projects_dir'], self.project_accession)
+            self.path_to_logs_dir = os.path.join(path_to_data_dir, '00_logs')
+        else:
             self.path_to_logs_dir = os.path.join(self.eload_dir, '00_logs')
         self.taxonomy = self.eload_cfg.query('submission', 'taxonomy_id')
-        self.analyses = self.eload_cfg.query('brokering', 'analyses')
+        self.analyses = self.eload_cfg.query('brokering', 'analyses', ret_default={})
 
     @cached_property
     def vcf_files(self):
@@ -57,7 +57,7 @@ class EloadQC(Eload):
     @cached_property
     def analysis_to_file_names(self):
         analysis_to_file_names = {}
-        for analysis_alias, analysis_accession in self.eload_cfg.query('brokering', 'ena', 'ANALYSIS').items():
+        for analysis_alias, analysis_accession in self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={}).items():
             # Find the files associated with this analysis
             analysis_to_file_names[analysis_accession] = [
                 os.path.basename(f) for f in self.analyses.get(analysis_alias).get('vcf_files')
@@ -316,7 +316,7 @@ class EloadQC(Eload):
     def check_if_vep_completed_successfully(self):
         failed_analysis = {}
         any_vep_run = False
-        for analysis_alias, analysis_accession in self.eload_cfg.query('brokering', 'ena', 'ANALYSIS').items():
+        for analysis_alias, analysis_accession in self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={}).items():
             # annotation only happens if a VEP cache can be found
             assembly_accession = self.eload_cfg.query('brokering', 'analyses', analysis_alias, 'assembly_accession')
             if self.eload_cfg.query('ingestion', 'vep', assembly_accession, 'cache_version') is not None:
@@ -339,7 +339,7 @@ class EloadQC(Eload):
     def check_if_variant_statistic_completed_successfully(self):
         failed_analysis = {}
         any_stats_run = False
-        for analysis_alias, analysis_accession in self.eload_cfg.query('brokering', 'ena', 'ANALYSIS').items():
+        for analysis_alias, analysis_accession in self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={}).items():
             if self.eload_cfg.query('ingestion', 'aggregation', analysis_accession) == 'none':
                 any_stats_run = True
                 logs_to_check = []
@@ -363,7 +363,7 @@ class EloadQC(Eload):
     def check_if_study_statistic_completed_successfully(self):
         failed_analysis = {}
         any_stats_run = False
-        for analysis_alias, analysis_accession in self.eload_cfg.query('brokering', 'ena', 'ANALYSIS').items():
+        for analysis_alias, analysis_accession in self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={}).items():
             if self.eload_cfg.query('ingestion', 'aggregation', analysis_accession) == 'none':
                 any_stats_run = True
                 logs_to_check = []
