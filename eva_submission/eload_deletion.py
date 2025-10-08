@@ -15,7 +15,8 @@ class EloadDeletion(Eload):
     def __init__(self, eload_number):
         super().__init__(eload_number)
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
-        self.project_dir = os.path.join(cfg['projects_dir'], self.project_accession)
+        if self.project_accession:
+            self.project_dir = os.path.join(cfg['projects_dir'], self.project_accession)
         archive_dir = os.path.join(cfg['eloads_lts_dir'])
         assert os.path.isdir(archive_dir), f'Archive directory {archive_dir} does not exist. Are you on a datamover nodes ?'
         self.lts_archive_file = os.path.join(archive_dir, f'{self.eload}.tar')
@@ -35,9 +36,11 @@ class EloadDeletion(Eload):
         self.archive_eload()
 
         # delete
-        ftp_dir = deposit_box(ftp_box, submitter)
-        self.delete_ftp_dir(ftp_dir)
-        self.delete_project_dir(self.project_dir)
+        if ftp_box and submitter:
+            ftp_dir = deposit_box(ftp_box, submitter)
+            self.delete_ftp_dir(ftp_dir)
+        if self.project_dir:
+            self.delete_project_dir(self.project_dir)
         self.delete_eload_dir(self.eload_dir)
 
     def check_qc_successful(self):
@@ -103,7 +106,12 @@ class EloadDeletion(Eload):
         src_ena_dir = os.path.join(self.eload_dir, '18_brokering/ena')
         archive_ena_dir = os.path.join(archive_dir, '18_brokering/ena')
         os.makedirs(archive_ena_dir, exist_ok=True)
-        shutil.copy(os.path.join(src_ena_dir, 'metadata_spreadsheet.xlsx'), archive_ena_dir)
+        metadata_spreadsheet = os.path.join(src_ena_dir, 'metadata_spreadsheet.xlsx')
+        if os.path.exists(metadata_spreadsheet):
+            shutil.copy(metadata_spreadsheet, archive_ena_dir)
+        metadata_json = os.path.join(src_ena_dir, 'metadata_json.json')
+        if os.path.exists(metadata_json):
+            shutil.copy(metadata_json, archive_ena_dir)
         for file in Path(src_ena_dir).glob("*.vcf.gz"):
             shutil.copy(file, archive_ena_dir)
         for file in Path(src_ena_dir).glob("*.csi"):
