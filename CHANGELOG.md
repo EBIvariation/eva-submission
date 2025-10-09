@@ -1,10 +1,14 @@
 Changelog for eva-submission
 ============================
 
-## 1.19.2 (unreleased)
+## 1.19.2 (2025-10-09)
 ----------------------
 
-- Nothing changed yet.
+### Brokering
+ - Keep track of Sample names when they differ in the VCF and the BioSample
+
+### Ingestion
+ - New simple archiving that only loads the metadata and save files to the FTP
 
 
 ## 1.19.1 (2025-09-24)

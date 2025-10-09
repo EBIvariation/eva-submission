@@ -329,7 +329,7 @@ class EloadPreparation(Eload):
             metadata_xlsx_name = os.path.basename(metadata_xlsx)
         version = metadata_xlsx_version(metadata_xlsx)
         if Version(version) >= Version("1.1.6"):
-            self.info(f'Convert spreadsheet version {version} to Eload spreadsheet')
+            self.info(f'Convert spreadsheet version {version} to eva-sub-cli JSON')
             # Create a subdirectory and move the submitted file there to avoid confusion
             metadata_cli_dir = os.path.join(self._get_dir('metadata'), 'eva_sub_cli')
             os.makedirs(metadata_cli_dir, exist_ok=True)
