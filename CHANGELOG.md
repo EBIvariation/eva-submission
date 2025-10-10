@@ -1,10 +1,11 @@
 Changelog for eva-submission
 ============================
 
-## 1.19.3 (unreleased)
+## 1.19.3 (2025-10-10)
 ----------------------
 
-- Nothing changed yet.
+### Deletion
+ - Support for deletion of ELOAD even if not completed
 
 
 ## 1.19.2 (2025-10-09)
