@@ -16,7 +16,14 @@ from eva_submission.eload_utils import resolve_single_file_path, get_nextflow_co
 
 class EloadValidation(Eload):
 
-    all_validation_tasks = ['eva_sub_cli', 'structural_variant_check', 'naming_convention_check']
+    # eva-sub-cli tasks and their mapping to granular tasks
+    sub_cli_tasks = {
+        'vcf_check': ['vcf_check', 'evidence_type_check'],
+        'assembly_check': ['assembly_check', 'fasta_check'],
+        'metadata_check': ['metadata_check'],
+        'sample_check': ['sample_check']
+    }
+    all_validation_tasks = list(sub_cli_tasks.keys()) + ['structural_variant_check', 'naming_convention_check']
 
     def validate(self, validation_tasks=None, set_as_valid=False):
         if not validation_tasks:
@@ -74,7 +81,6 @@ class EloadValidation(Eload):
             for analysis_alias in valid_analysis_dict:
                 vcf_files[self._unique_alias(analysis_alias)] = valid_analysis_dict[analysis_alias]['vcf_files']
         return vcf_files
-
 
     def parse_sv_check_log(self, sv_check_log):
         with open(sv_check_log) as open_file:
@@ -146,7 +152,7 @@ class EloadValidation(Eload):
     def _collect_validation_workflow_results(self, output_dir, validation_tasks):
         # Collect information from the output and summarise in the config
         vcf_files = self._get_vcf_files()
-        if 'eva_sub_cli' in validation_tasks:
+        if any(task in validation_tasks for task in self.sub_cli_tasks):
             self._collect_eva_sub_cli_results(output_dir)
         if 'structural_variant_check' in validation_tasks:
             self._collect_structural_variant_check_results(vcf_files, output_dir)
@@ -232,21 +238,22 @@ class EloadValidation(Eload):
             open_file.write(re.sub(nextflow_validation_output, new_path, tmp))
 
     def _update_config_with_cli_results(self, results_dest_path):
-        """Update ELOAD config with pass/fail value and aggregation type (required for ingestion) from eva-sub-cli
+        """Update ELOAD config with pass/fail values and aggregation type (required for ingestion) from eva-sub-cli
         results."""
-        passed = False
         if os.path.exists(results_dest_path):
             with open(results_dest_path) as open_yaml:
                 results = yaml.safe_load(open_yaml)
-                passed = results.get('ready_for_submission_to_eva', False)
+                for task, granular_tasks in self.sub_cli_tasks.items():
+                    passed = all(results.get(t, {}).get('pass', False) for t in granular_tasks)
+                    self.eload_cfg.set('validation', task, 'pass', value=passed)
 
+                # Store evidence/aggregation type separately as it's required for ingestion
                 evidence_check_dict = results.get('evidence_type_check', {})
                 aggregation_check_dict = {}
                 for alias, evidence in evidence_check_dict.items():
                     if alias not in ['pass', 'report_path']:
                         aggregation_check_dict[self._unique_alias(alias)] = self._evidence_type_to_aggregation(evidence['evidence_type'])
                 self.eload_cfg.set('validation', 'aggregation_check', 'analyses', value=aggregation_check_dict)
-        self.eload_cfg.set('validation', 'eva_sub_cli', 'pass', value=passed)
 
     def _evidence_type_to_aggregation(self, s):
         if s == 'genotype':
@@ -293,7 +300,10 @@ class EloadValidation(Eload):
         """Collect information from the config and write the report."""
         report_data = {
             'validation_date': self.eload_cfg.query('validation', 'validation_date'),
-            'eva_sub_cli': self._check_pass_or_fail(self.eload_cfg.query('validation', 'eva_sub_cli')),
+            'vcf_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'vcf_check')),
+            'assembly_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'assembly_check')),
+            'metadata_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'metadata_check')),
+            'sample_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'sample_check')),
             'structural_variant_check': self._check_pass_or_fail(self.eload_cfg.query('validation',
                                                                                       'structural_variant_check')),
             'naming_convention_check': self._check_pass_or_fail(self.eload_cfg.query('validation',
@@ -304,7 +314,10 @@ class EloadValidation(Eload):
         }
 
         report = """Validation performed on {validation_date}
-eva-sub-cli: {eva_sub_cli}
+VCF checks: {vcf_check}
+Assembly checks: {assembly_check}
+Metadata check: {metadata_check}
+Sample check: {sample_check}
 Structural variant check: {structural_variant_check}
 Naming convention check: {naming_convention_check}
 ----------------------------------
