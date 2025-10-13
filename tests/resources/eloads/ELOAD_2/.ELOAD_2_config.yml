@@ -5,7 +5,13 @@ submission:
       vcf_files:
         - test.vcf
 validation:
-  eva_sub_cli:
+  vcf_check:
+    pass: true
+  assembly_check:
+    pass: true
+  metadata_check:
+    pass: true
+  sample_check:
     pass: true
   aggregation_check:
     analyses:
