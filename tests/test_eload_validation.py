@@ -51,7 +51,10 @@ class TestEloadValidation(TestCase):
 
     def test_report(self):
         expected_report = '''Validation performed on 2020-11-01 10:37:54.755607
-eva-sub-cli: PASS
+VCF checks: PASS
+Assembly checks: PASS
+Metadata check: PASS
+Sample check: PASS
 Structural variant check: PASS
 Naming convention check: PASS
 ----------------------------------
@@ -127,8 +130,10 @@ Naming convention check:
             os.path.join(self.validation._get_dir('eva_sub_cli'), 'validation_results.yaml'))
         expected_aggregation = {
             'ELOAD_2_Analysis A': None,
-            'ELOAD_2_Analysis B': 'none',
-            'ELOAD_2_Analysis C': 'basic',
+            'ELOAD_2_Analysis B': 'basic',
         }
         assert self.validation.eload_cfg.query('validation', 'aggregation_check', 'analyses') == expected_aggregation
-        assert self.validation.eload_cfg.query('validation', 'eva_sub_cli')['pass'] == False
+        assert self.validation.eload_cfg.query('validation', 'vcf_check')['pass'] == False
+        assert self.validation.eload_cfg.query('validation', 'assembly_check')['pass'] == True
+        assert self.validation.eload_cfg.query('validation', 'metadata_check')['pass'] == True
+        assert self.validation.eload_cfg.query('validation', 'sample_check')['pass'] == True
