@@ -20,7 +20,8 @@ params.metadata_json = null
 params.executable = ["vcf_assembly_checker": "vcf_assembly_checker", "vcf_validator": "vcf_validator", "bgzip": "bgzip",
                      "eva_sub_cli": "eva_sub_cli", "sub_cli_env": "sub_cli_env"]
 // validation tasks
-params.validation_tasks = ["eva_sub_cli", "structural_variant_check", "naming_convention_check"]
+sub_cli_tasks = ["vcf_check", "assembly_check", "metadata_check", "sample_check"]
+params.validation_tasks = sub_cli_tasks + ["structural_variant_check", "naming_convention_check"]
 // help
 params.help = null
 
@@ -45,8 +46,9 @@ workflow {
         .splitCsv(header:true)
         .map{row -> tuple(file(row.vcf), row.assembly_accession)}
 
-    if ("eva_sub_cli" in params.validation_tasks) {
-            run_eva_sub_cli()
+    tasks_for_cli = sub_cli_tasks.intersect(params.validation_tasks)
+    if (tasks_for_cli.size() > 0) {
+        run_eva_sub_cli(tasks_for_cli)
     }
     if ("structural_variant_check" in params.validation_tasks) {
         detect_sv(vcf_info_ch)
@@ -67,6 +69,9 @@ process run_eva_sub_cli {
         overwrite: false,
         mode: "copy"
 
+    input:
+    val tasks
+
     output:
     path "validation_results.yaml", emit: eva_sub_cli_results
     path "validation_output", emit: eva_sub_cli_validation_dir
@@ -74,7 +79,7 @@ process run_eva_sub_cli {
     script:
     """
     source $params.executable.sub_cli_env
-    $params.executable.eva_sub_cli --submission_dir . --metadata_json ${params.metadata_json} --tasks VALIDATE
+    $params.executable.eva_sub_cli --submission_dir . --metadata_json ${params.metadata_json} --tasks VALIDATE --validation_tasks ${tasks}
     """
 }
 
