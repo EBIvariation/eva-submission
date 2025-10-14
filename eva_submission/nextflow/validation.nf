@@ -19,8 +19,7 @@ params.output_dir = null
 params.metadata_json = null
 params.nextflow_config = null
 // executables
-params.executable = ["vcf_assembly_checker": "vcf_assembly_checker", "vcf_validator": "vcf_validator", "bgzip": "bgzip",
-                     "eva_sub_cli": "eva_sub_cli", "sub_cli_env": "sub_cli_env"]
+params.executable = ["bgzip": "bgzip", "eva_sub_cli": "eva_sub_cli", "sub_cli_env": "sub_cli_env"]
 // validation tasks
 sub_cli_tasks = ["vcf_check", "assembly_check", "metadata_check", "sample_check"]
 params.validation_tasks = sub_cli_tasks + ["structural_variant_check", "naming_convention_check"]
@@ -50,7 +49,7 @@ workflow {
 
     tasks_for_cli = sub_cli_tasks.intersect(params.validation_tasks)
     if (tasks_for_cli.size() > 0) {
-        run_eva_sub_cli(tasks_for_cli)
+        run_eva_sub_cli(tasks_for_cli.join(" "))
     }
     if ("structural_variant_check" in params.validation_tasks) {
         detect_sv(vcf_info_ch)
