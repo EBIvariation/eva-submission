@@ -16,6 +16,7 @@ assembly_check:
     report_path: /path/to/B_assembly.txt
     total: 1136778
   pass: true
+  run_status: true
 evidence_type_check:
   Analysis A:
     errors: 'VCF file evidence type could not be determined: A.vcf'
@@ -25,6 +26,7 @@ evidence_type_check:
     evidence_type: allele_frequency
   pass: false
   report_path: /path/to/evidence_type_checker.yml
+  run_status: true
 fasta_check:
   GCA_000001405.1.fa:
     all_insdc: true
@@ -43,10 +45,12 @@ fasta_check:
       sequence_md5: a0d9851da00400dec1098a9255ac712e
       sequence_name: CM000664.1
   pass: true
+  run_status: true
 metadata_check:
   json_errors: []
   json_report_path: /path/to/metadata_validation.txt
   pass: true
+  run_status: true
 ready_for_submission_to_eva: false
 sample_check:
   overall_differences: false
@@ -63,6 +67,7 @@ sample_check:
       more_metadata_submitted_files: [ ]
       more_per_submitted_files_metadata: { }
       more_submitted_files_metadata: [ ]
+  run_status: true
 vcf_check:
   A.vcf:
     critical_count: 1038485
@@ -102,3 +107,4 @@ vcf_check:
     valid: true
     warning_count: 1
   pass: false
+  run_status: true
