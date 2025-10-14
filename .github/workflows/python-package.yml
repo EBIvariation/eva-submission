@@ -7,7 +7,7 @@ on:
   push:
     branches: [ master ]
   pull_request:
-    branches: [ master, cli-integration-dev ]
+    branches: [ master, cli-tasks-integration ]
 
 jobs:
   build:
