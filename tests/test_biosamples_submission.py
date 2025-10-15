@@ -380,8 +380,8 @@ class TestSampleJSONSubmitter(BSDTestCase):
 
     def assert_convertion_json_to_bsd_json(self, bio_sample_object):
         json_data = {'sample': [
-            {'analysisAlias': 'alias1', 'sampleInVcf': 'S1', 'bioSampleAccession': 'SAME000001'},
-            {'analysisAlias': 'alias1', 'sampleInVcf': 'S2', 'bioSampleObject': bio_sample_object}
+            {'analysisAlias': 'alias1', 'sampleInVCF': 'S1', 'bioSampleAccession': 'SAME000001'},
+            {'analysisAlias': 'alias1', 'sampleInVCF': 'S2', 'bioSampleObject': bio_sample_object}
         ], 'submitterDetails': [
             {'lastName': 'Doe', 'firstName': 'Jane', 'email': 'jane.doe@example.com', 'laboratory': 'Lab',
              'address': '5 common road'}
