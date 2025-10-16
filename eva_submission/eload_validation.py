@@ -12,11 +12,16 @@ from ebi_eva_common_pyutils.config import cfg
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import resolve_single_file_path, get_nextflow_config_flag
+from eva_submission.submission_config import EloadConfig
 
 
 class EloadValidation(Eload):
 
     all_validation_tasks = ['eva_sub_cli', 'structural_variant_check', 'naming_convention_check']
+
+    def __init__(self, eload_number: int, config_object: EloadConfig = None, nextflow_config=None):
+        super().__init__(eload_number, config_object)
+        self.nextflow_config = nextflow_config
 
     def validate(self, validation_tasks=None, set_as_valid=False):
         if not validation_tasks:
@@ -113,7 +118,8 @@ class EloadValidation(Eload):
             'output_dir': output_dir,
             'metadata_json': metadata_json,
             'executable': cfg['executable'],
-            'validation_tasks': validation_tasks
+            'validation_tasks': validation_tasks,
+            'nextflow_config': self.nextflow_config
         }
         # run the validation
         validation_config_file = os.path.join(self.eload_dir, 'validation_config_file.yaml')
@@ -128,7 +134,7 @@ class EloadValidation(Eload):
                     cfg['executable']['nextflow'], validation_script,
                     '-params-file', validation_config_file,
                     '-work-dir', output_dir,
-                    get_nextflow_config_flag()
+                    get_nextflow_config_flag(self.nextflow_config)
                 ))
             )
         except subprocess.CalledProcessError:

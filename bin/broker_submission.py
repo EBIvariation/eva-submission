@@ -53,6 +53,9 @@ def main():
                                'previous status')
     argparse.add_argument('--report', action='store_true', default=False,
                           help='Set the script to only report the results based on previously run brokering.')
+    argparse.add_argument('--nextflow_config', type=str, required=False,
+                          help='Path to the configuration file that will be applied to the Nextflow process. '
+                               'This will override other nextflow configuration files on the filesystem')
 
     log_cfg.add_stdout_handler()
     args = argparse.parse_args()
@@ -61,7 +64,7 @@ def main():
 
     # Load the config_file from default location
     load_config()
-    with EloadBrokering(args.eload) as brokering:
+    with EloadBrokering(args.eload, nextflow_config=args.nextflow_config) as brokering:
         brokering.upgrade_to_new_version_if_needed()
         if not args.report:
             brokering.broker(brokering_tasks_to_force=args.force, existing_project=args.project_accession,

@@ -48,7 +48,7 @@ class EloadIngestion(Eload):
     all_tasks = ['archive_only', 'metadata_load', 'accession', 'variant_load', 'optional_remap_and_cluster']
     nextflow_complete_value = '<complete>'
 
-    def __init__(self, eload_number, config_object: EloadConfig = None):
+    def __init__(self, eload_number, config_object: EloadConfig = None, nextflow_config=None):
         super().__init__(eload_number, config_object)
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
         self.taxonomy = self.eload_cfg.query('submission', 'taxonomy_id')
@@ -57,6 +57,7 @@ class EloadIngestion(Eload):
         self.mongo_uri = get_mongo_uri_for_eva_profile(self.maven_profile, self.private_settings_file)
         self.properties_generator = SpringPropertiesGenerator(self.maven_profile, self.private_settings_file)
         self.loader = EvaProjectLoader()
+        self.nextflow_config = nextflow_config
 
     def ingest(
             self,
@@ -655,7 +656,7 @@ class EloadIngestion(Eload):
                     '-params-file', params_file,
                     '-work-dir', work_dir,
                     '-resume' if resume else '',
-                    get_nextflow_config_flag()
+                    get_nextflow_config_flag(self.nextflow_config)
                 ))
             )
             shutil.rmtree(work_dir)

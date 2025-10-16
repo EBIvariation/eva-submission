@@ -54,6 +54,9 @@ def main():
                                'evaluation')
     argparse.add_argument('--report', action='store_true', default=False,
                           help='Set the script to only report the results based on previously run preparation.')
+    argparse.add_argument('--nextflow_config', type=str, required=False,
+                          help='Path to the configuration file that will be applied to the Nextflow process. '
+                               'This will override other nextflow configuration files on the filesystem')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
 
@@ -72,7 +75,7 @@ def main():
         if not args.report and not args.keep_config:
             preparation.fill_in_config(args.force_config)
     # Pass the eload config object to validation so that the two objects share the same state
-    with EloadValidation(args.eload, preparation.eload_cfg) as validation:
+    with EloadValidation(args.eload, preparation.eload_cfg, nextflow_config=args.nextflow_config) as validation:
         if not args.report:
             validation.validate(args.validation_tasks)
             # Also mark the other validation tasks as force so they are all passable
@@ -87,7 +90,7 @@ def main():
     if not validation.eload_cfg.query('validation', 'valid', 'analyses'):
         raise ValueError('Cannot proceed to the Brokering preparation because one of the validation did not pass.')
 
-    with EloadBrokering(args.eload, config_object=preparation.eload_cfg) as eload_brokering:
+    with EloadBrokering(args.eload, config_object=preparation.eload_cfg, nextflow_config=args.nextflow_config) as eload_brokering:
         eload_brokering.prepare_brokering()
 
     preparation.report()
