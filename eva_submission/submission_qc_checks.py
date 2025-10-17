@@ -38,11 +38,12 @@ class EloadQC(Eload):
         self.profile = cfg['maven']['environment']
         self.private_config_xml_file = cfg['maven']['settings_file']
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
-        if 'projects_dir' in cfg and self.project_accession:
+        self.path_to_logs_dir = os.path.join(self.eload_dir, '00_logs')
+        if not os.path.isdir(self.path_to_logs_dir) and 'projects_dir' in cfg and self.project_accession:
             path_to_data_dir = Path(cfg['projects_dir'], self.project_accession)
             self.path_to_logs_dir = os.path.join(path_to_data_dir, '00_logs')
-        else:
-            self.path_to_logs_dir = os.path.join(self.eload_dir, '00_logs')
+        if not os.path.isdir(self.path_to_logs_dir):
+            raise ValueError(f'Cannot locate the log directory for ELOAD {self.eload}')
         self.taxonomy = self.eload_cfg.query('submission', 'taxonomy_id')
         self.analyses = self.eload_cfg.query('brokering', 'analyses', ret_default={})
 
