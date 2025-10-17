@@ -120,9 +120,6 @@ class Eload(AppLogger):
         self.eload_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
 
     def update_metadata_json(self, input_json_file, output_json_file, existing_project=None):
-        # TODO: Needs to add support for pre-existing project
-        if existing_project:
-            self.warning(f'Adding to existing project not yet supported, {existing_project} will be ignored')
         with open(input_json_file) as open_file:
             metadata_json = json.load(open_file)
         sample_objects = []
@@ -166,6 +163,11 @@ class Eload(AppLogger):
         metadata_json['sample'] = sample_objects
         metadata_json['files'] = file_objects
         metadata_json['analysis'] = analysis_objects
+
+        if existing_project:
+            self.warning('Information about the project will be overwritten ' + metadata_json.get('project'))
+            metadata_json['project'] = {'projectAccession' : existing_project}
+
         with open(output_json_file, 'w') as open_file:
             json.dump(metadata_json, open_file, indent=4)
 
