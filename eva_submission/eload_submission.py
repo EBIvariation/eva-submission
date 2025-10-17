@@ -105,11 +105,13 @@ class Eload(AppLogger):
             upgrade_version_0_1(self.eload_cfg, analysis_alias)
             upgrade_version_1_14_to_1_15(self.eload_cfg)
             upgrade_version_1_15_to_1_16(self.eload_cfg, self.eload_dir)
+            self.eload_cfg.write()
         elif version.parse(self.eload_cfg.query('version')) < version.parse("1.15"):
             self.debug(f'Pre version 1.15, upgrading to version from {version} to {__version__}.')
             self.eload_cfg.backup()
             upgrade_version_1_14_to_1_15(self.eload_cfg)
             upgrade_version_1_15_to_1_16(self.eload_cfg, self.eload_dir)
+            self.eload_cfg.write()
         elif version.parse(self.eload_cfg.query('version')) < version.parse("1.16"):
             upgrade_version_1_15_to_1_16(self.eload_cfg, self.eload_dir)
         else:
