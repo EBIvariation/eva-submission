@@ -11,6 +11,7 @@ from eva_submission.eload_submission import Eload
 from eva_submission.submission_in_ftp import deposit_box
 
 
+
 class EloadDeletion(Eload):
     def __init__(self, eload_number):
         super().__init__(eload_number)
@@ -94,13 +95,21 @@ class EloadDeletion(Eload):
             print(f"Error copying archive to LTS: {e}")
             raise e
 
+    def safe_copy(self, src, dst):
+        if os.path.isfile(src):
+            shutil.copyfile(src, dst)
+        elif os.path.isdir(src):
+            shutil.copytree(src, dst)
+        else:
+            self.warning(f'{src} Does not exist so will not be archived')
+
     def copy_eload_files(self, archive_dir):
         # copy config file
-        shutil.copy(self.config_path, archive_dir)
+        self.safe_copy(self.config_path, archive_dir)
 
         # copy submission logs
         for file in Path(self.eload_dir).glob("*_submission.log"):
-            shutil.copy(file, archive_dir)
+            self.safe_copy(file, archive_dir)
 
         # copy metadata spreadsheet and vcf files along with index
         src_ena_dir = os.path.join(self.eload_dir, '18_brokering/ena')
@@ -108,21 +117,21 @@ class EloadDeletion(Eload):
         os.makedirs(archive_ena_dir, exist_ok=True)
         metadata_spreadsheet = os.path.join(src_ena_dir, 'metadata_spreadsheet.xlsx')
         if os.path.exists(metadata_spreadsheet):
-            shutil.copy(metadata_spreadsheet, archive_ena_dir)
+            self.safe_copy(metadata_spreadsheet, archive_ena_dir)
         metadata_json = os.path.join(src_ena_dir, 'metadata_json.json')
         if os.path.exists(metadata_json):
-            shutil.copy(metadata_json, archive_ena_dir)
+            self.safe_copy(metadata_json, archive_ena_dir)
         for file in Path(src_ena_dir).glob("*.vcf.gz"):
-            shutil.copy(file, archive_ena_dir)
+            self.safe_copy(file, archive_ena_dir)
         for file in Path(src_ena_dir).glob("*.csi"):
             if file.name.endswith(".vcf.gz.csi") or file.name.endswith(".vcf.csi"):
-                shutil.copy(file, archive_ena_dir)
+                self.safe_copy(file, archive_ena_dir)
 
         # copy 00_logs
         src_log_dir = os.path.join(self.eload_dir, '00_logs')
         real_src_log_dir = os.path.realpath(src_log_dir)
         archive_log_dir = os.path.join(archive_dir, '00_logs')
-        shutil.copytree(real_src_log_dir, archive_log_dir)
+        self.safe_copy(real_src_log_dir, archive_log_dir)
 
         # copy accessioned files from 60_eva_public
         src_accessioned_files_dir = os.path.join(self.eload_dir, "60_eva_public")
@@ -131,7 +140,7 @@ class EloadDeletion(Eload):
         os.makedirs(archive_accession_files_dir, exist_ok=True)
         for file in Path(real_accessioned_files_dir).glob("*.accessioned.vcf.gz*"):
             if file.name.endswith(".accessioned.vcf.gz") or file.name.endswith(".accessioned.vcf.gz.csi"):
-                shutil.copy(file, archive_accession_files_dir)
+                self.safe_copy(file, archive_accession_files_dir)
 
     def delete_ftp_dir(self, ftp_dir):
         self.info(f'Deleting FTP directory {ftp_dir}')
