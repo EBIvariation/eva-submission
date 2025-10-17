@@ -397,13 +397,13 @@ class SampleJSONSubmitter(SampleSubmitter):
     def _convert_metadata(self):
         for sample in self.metadata_json.get('sample'):
             # Currently no ability to overwrite or curate existing samples via JSON, so we skip any existing samples
-            if BIOSAMPLE_ACCESSION not in sample:
+            if BIOSAMPLE_OBJECT not in sample:
                 yield None, sample.get(SAMPLE_IN_VCF), sample.get(BIOSAMPLE_ACCESSION)
                 continue
             # FIXME: handle BioSample JSON that uses old representation correctly
             if any(
-                    old_attribute in sample[BIOSAMPLE_ACCESSION][CHARACTERISTICS] and
-                    new_attribute not in sample[BIOSAMPLE_ACCESSION][CHARACTERISTICS]
+                    old_attribute in sample[BIOSAMPLE_OBJECT][CHARACTERISTICS] and
+                    new_attribute not in sample[BIOSAMPLE_OBJECT][CHARACTERISTICS]
                     for old_attribute, new_attribute in [
                         ('geographicLocationCountrySea', 'geographic location (country and/or sea)'),
                         ('scientificName', 'scientific name'), ('collectionDate', 'collection date')
@@ -412,20 +412,20 @@ class SampleJSONSubmitter(SampleSubmitter):
 
             bsd_sample_entry = {CHARACTERISTICS: {}}
             # TODO: Name should be set correctly by eva-sub-cli post v0.4.14. Remove this Hack when we don't want to support earlier version
-            if 'name' not in sample[BIOSAMPLE_ACCESSION]:
+            if 'name' not in sample[BIOSAMPLE_OBJECT]:
                 sample_name = None
-                if 'bioSampleName' in sample[BIOSAMPLE_ACCESSION]:
+                if 'bioSampleName' in sample[BIOSAMPLE_OBJECT]:
                     sample_name = sample[BIOSAMPLE_ACCESSION]['bioSampleName']
-                    del sample[BIOSAMPLE_ACCESSION]['bioSampleName']
-                if 'bioSampleName' in sample[BIOSAMPLE_ACCESSION][CHARACTERISTICS]:
-                    sample_name = sample[BIOSAMPLE_ACCESSION][CHARACTERISTICS]['bioSampleName'][0].get('text')
-                    del sample[BIOSAMPLE_ACCESSION][CHARACTERISTICS]['bioSampleName']
+                    del sample[BIOSAMPLE_OBJECT]['bioSampleName']
+                if 'bioSampleName' in sample[BIOSAMPLE_OBJECT][CHARACTERISTICS]:
+                    sample_name = sample[BIOSAMPLE_OBJECT][CHARACTERISTICS]['bioSampleName'][0].get('text')
+                    del sample[BIOSAMPLE_OBJECT][CHARACTERISTICS]['bioSampleName']
                 if sample_name:
-                    sample[BIOSAMPLE_ACCESSION]['name'] = sample_name
-            bsd_sample_entry.update(sample[BIOSAMPLE_ACCESSION])
+                    sample[BIOSAMPLE_OBJECT]['name'] = sample_name
+            bsd_sample_entry.update(sample[BIOSAMPLE_OBJECT])
             # Taxonomy ID should be present at top level as well
-            if TAX_ID in sample[BIOSAMPLE_ACCESSION][CHARACTERISTICS]:
-                bsd_sample_entry[TAX_ID] = sample[BIOSAMPLE_ACCESSION][CHARACTERISTICS][TAX_ID][0]['text']
+            if TAX_ID in sample[BIOSAMPLE_OBJECT][CHARACTERISTICS]:
+                bsd_sample_entry[TAX_ID] = sample[BIOSAMPLE_OBJECT][CHARACTERISTICS][TAX_ID][0]['text']
             if 'submitterDetails' in self.metadata_json:
                 # add the submitter information to each BioSample
                 contacts = []
