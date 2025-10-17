@@ -23,7 +23,7 @@ def upgrade_version_1_15_to_1_16(eload_cfg, eload_dir):
         source = os.path.join(project_dir, sub_dir_or_file)
         dest = os.path.join(eload_dir, sub_dir_or_file)
         if os.path.exists(dest):
-            if os.path.islink(dest) and os.readlink(dest) == source:
+            if (os.path.islink(dest) and os.readlink(dest) == source) or dest == source:
                 logger.debug(f'symbolic link {dest} already exist and is correct')
             else:
                 raise ValueError(f'Attempting to create a link from {source} to {dest} but {source} already exist')
