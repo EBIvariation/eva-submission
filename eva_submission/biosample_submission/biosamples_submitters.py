@@ -415,7 +415,7 @@ class SampleJSONSubmitter(SampleSubmitter):
             if 'name' not in sample[BIOSAMPLE_OBJECT]:
                 sample_name = None
                 if 'bioSampleName' in sample[BIOSAMPLE_OBJECT]:
-                    sample_name = sample[BIOSAMPLE_ACCESSION]['bioSampleName']
+                    sample_name = sample[BIOSAMPLE_OBJECT]['bioSampleName']
                     del sample[BIOSAMPLE_OBJECT]['bioSampleName']
                 if 'bioSampleName' in sample[BIOSAMPLE_OBJECT][CHARACTERISTICS]:
                     sample_name = sample[BIOSAMPLE_OBJECT][CHARACTERISTICS]['bioSampleName'][0].get('text')
