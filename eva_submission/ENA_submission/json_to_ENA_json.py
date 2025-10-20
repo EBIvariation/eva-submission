@@ -248,7 +248,7 @@ class EnaJsonConverter(AppLogger):
         centreName = project_data.get('centre')
 
         submission_alias = (
-            f"{self.existing_project_accession}_{submission_id}" if self.is_existing_project else submission_id
+            f"{self.existing_project}_{submission_id}" if self.is_existing_project else submission_id
         )
 
         hold_date = project_data.get('holdDate') or (today() + timedelta(days=3))
@@ -270,7 +270,7 @@ class EnaJsonConverter(AppLogger):
 
     @cached_property
     def is_existing_project(self):
-        return self.existing_project_accession is not None
+        return self.existing_project is not None
 
     def get_link(self, link):
         if re.match(r'^(ftp:|http:|file:|https:)', link):

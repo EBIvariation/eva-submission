@@ -132,7 +132,8 @@ class TestEVAJsonToENAJsonConverter(TestCase):
         self.assert_json_equal(expected_analysis_json_obj, ena_analysis_json_obj)
 
     def test_add_analysis_to_existing_project(self):
-        self.converter.existing_project_accession = 'PRJEB00001'
+        # Override the cached property
+        self.converter.existing_project = 'PRJEB00001'
         ena_analysis_json_obj = self.converter._add_analysis(self.analysis, self.samples, self.files, self.project)
         assert ena_analysis_json_obj['study']["accession"] == 'PRJEB00001'
 
