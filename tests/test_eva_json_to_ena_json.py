@@ -183,7 +183,8 @@ class TestEVAJsonToENAJsonConverter(TestCase):
         assert os.path.exists(output_ena_json)
 
     def test_create_submission_json_obj_for_existing_project(self):
-        self.converter.existing_project_accession = 'PRJEB00001'
+        # Override the cached property
+        self.converter.existing_project = 'PRJEB00001'
         output_ena_json = self.converter.create_single_submission_file()
         assert os.path.exists(output_ena_json)
 
