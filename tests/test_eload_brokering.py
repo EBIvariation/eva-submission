@@ -100,6 +100,16 @@ class TestEloadBrokering(TestCase):
               patch.object(ENAUploader, '_post_metadata_file_to_ena', return_value=response):
             self.eload.broker_to_ena(async_upload=True)
 
+    def test_broker_to_ena_json_existing_project(self):
+        self.eload.eload_cfg.set('validation', 'valid', 'metadata_json',
+                                 value=os.path.join(self.resources_folder, 'brokering', 'eva_metadata_existing_project.json'))
+        self.eload.eload_cfg.set('brokering', 'analyses', value={'AA1':{'vcf_files':{}}})
+        response = Mock(text='', headers={'Content-Type': 'application/json'})
+        with patch.object(ENAUploader, 'upload_vcf_files_to_ena_ftp'),\
+              patch.object(ENAUploader, '_post_metadata_file_to_ena', return_value=response),\
+              patch('eva_submission.ENA_submission.json_to_ENA_json.check_existing_project_in_ena', return_value=True):
+            self.eload.broker_to_ena(async_upload=True)
+
     def test_run_brokering_prep_workflow(self):
         self.eload.eload_cfg.set('validation', 'valid', 'analyses', value={
             'analysis_alias1': {
