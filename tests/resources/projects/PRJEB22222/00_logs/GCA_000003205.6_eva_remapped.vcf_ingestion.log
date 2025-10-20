@@ -1,7 +1,0 @@
-2023-04-15 23:11:32.450  INFO 1111439 --- [           main] o.s.b.c.l.support.SimpleJobLauncher      : Job: [SimpleJob: [name=INGEST_REMAPPED_VARIANTS_FROM_VCF_JOB]] launched with the following parameters: []
-2023-04-15 23:11:32.502  INFO 1111439 --- [           main] o.s.batch.core.job.SimpleStepHandler     : Executing step: [STORE_REMAPPING_METADATA_STEP]
-2023-04-15 23:11:33.071  INFO 1111439 --- [           main] o.s.batch.core.job.SimpleStepHandler     : Executing step: [INGEST_REMAPPED_VARIANTS_FROM_VCF_STEP]
-2023-04-15 23:12:05.681  INFO 1111439 --- [           main] u.a.e.e.a.c.b.l.GenericProgressListener  : INGEST_REMAPPED_VARIANTS_FROM_VCF_STEP: Items read = 10572, items written = 10572
-2023-04-15 23:12:05.681  INFO 1111439 --- [           main] u.a.e.e.r.i.b.l.RemappingIngestCounts    : Step INGEST_REMAPPED_VARIANTS_FROM_VCF_STEP finished: Items (remapped ss) read = 10572, ss ingested = 1, ss skipped (duplicate) = 10569, ss discarded from db = 2
-023-04-26 10:45:35.204 ERROR 2166396 --- [cTaskExecutor-1] o.s.batch.core.step.AbstractStep         : Encountered an error executing step INGEST_REMAPPED_VARIANTS_FROM_VCF_STEP in job INGEST_REMAPPED_VARIANTS_FROM_VCF_JOB
-2023-04-15 23:12:05.688  INFO 1111439 --- [           main] o.s.b.c.l.support.SimpleJobLauncher      : Job: [SimpleJob: [name=INGEST_REMAPPED_VARIANTS_FROM_VCF_STEP]] completed with the following parameters: [] and the following status: [FAILED]

@@ -25,7 +25,6 @@ brokering:
     PROJECT: PRJEB33333
     hold_date: 2021-01-04
 ingestion:
-  project_dir: tests/resources/projects/PRJEB33333
   remap_and_cluster:
     target_assembly: GCA_000247795.2
   aggregation:

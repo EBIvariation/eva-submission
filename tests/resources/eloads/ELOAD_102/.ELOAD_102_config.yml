@@ -19,7 +19,6 @@ brokering:
     PROJECT: PRJEB22222
     hold_date: 2021-01-04
 ingestion:
-  project_dir: tests/resources/projects/PRJEB22222
   vep:
     GCA_000001000.1:
       cache_version: 1
