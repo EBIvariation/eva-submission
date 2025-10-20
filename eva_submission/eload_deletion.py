@@ -97,7 +97,7 @@ class EloadDeletion(Eload):
 
     def safe_copy(self, src, dst):
         if os.path.isfile(src):
-            shutil.copyfile(src, dst)
+            shutil.copy(src, dst)
         elif os.path.isdir(src):
             shutil.copytree(src, dst)
         else:
