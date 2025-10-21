@@ -337,7 +337,11 @@ class EloadPreparation(Eload):
             metadata_xlsx = os.path.join(metadata_cli_dir, metadata_xlsx_name)
 
             # Convert to json format
-            conf_filename = os.path.join(eva_sub_cli.ETC_DIR, 'spreadsheet2json_conf.yaml')
+            if Version(version) < Version('3.0.0'):
+                conf_filename = os.path.join(eva_sub_cli.ETC_DIR, 'spreadsheet2json_conf_V2.yaml')
+            else:
+                conf_filename = os.path.join(eva_sub_cli.ETC_DIR, 'spreadsheet2json_conf.yaml')
+
             parser = XlsxParser(metadata_xlsx, conf_filename)
             metadata_json_file_path = os.path.join(self._get_dir('metadata'), 'eva_sub_cli_metadata.json')
             try:
