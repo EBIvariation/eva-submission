@@ -11,7 +11,7 @@ from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import resolve_single_file_path, get_nextflow_config_flag
+from eva_submission.eload_utils import resolve_single_file_path, get_nextflow_config_flag, get_nextflow_config
 from eva_submission.submission_config import EloadConfig
 
 
@@ -119,7 +119,7 @@ class EloadValidation(Eload):
             'metadata_json': metadata_json,
             'executable': cfg['executable'],
             'validation_tasks': validation_tasks,
-            'nextflow_config': self.nextflow_config
+            'nextflow_config': get_nextflow_config(self.nextflow_config)
         }
         # run the validation
         validation_config_file = os.path.join(self.eload_dir, 'validation_config_file.yaml')

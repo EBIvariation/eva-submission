@@ -23,7 +23,7 @@ from ebi_eva_internal_pyutils.spring_properties import SpringPropertiesGenerator
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import provision_new_database_for_variant_warehouse, check_project_exists_in_evapro, \
-    get_nextflow_config_flag
+    get_nextflow_config_flag, get_nextflow_config
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
 from eva_submission.submission_config import EloadConfig
 from eva_submission.vep_utils import get_vep_and_vep_cache_version
@@ -415,7 +415,8 @@ class EloadIngestion(Eload):
             'extraction_properties': extraction_properties_file,
             'ingestion_properties': ingestion_properties_file,
             'clustering_properties': clustering_template_file,
-            'remapping_config': cfg.config_file
+            'remapping_config': cfg.config_file,
+            'nextflow_config': get_nextflow_config(self.nextflow_config)
         }
         for part in ['executable', 'nextflow', 'jar']:
             remap_cluster_config[part] = cfg[part]

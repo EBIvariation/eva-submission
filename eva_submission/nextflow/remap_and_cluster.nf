@@ -19,6 +19,7 @@ def helpMessage() {
             --output_dir                    path to the directory where the output file should be copied.
             --logs_dir                      logs directory
             --remapping_config              path to the remapping configuration file
+            --nextflow_config               nextflow config to run the workflow with (optional)
     """
 }
 
@@ -26,6 +27,7 @@ params.source_assemblies = null
 params.target_assembly_accession = null
 params.species_name = null
 params.logs_dir = null
+params.nextflow_config = null
 // help
 params.help = null
 
@@ -167,6 +169,7 @@ process remap_variants {
 
     script:
     basename_source_vcf = source_vcf.getBaseName()
+    nextflow_config_arg = params.nextflow_config ? "-c ${params.nextflow_config}" : ""
     """
     # Setup the PATH so that the variant remapping pipeline can access its dependencies
     mkdir bin
@@ -176,7 +179,7 @@ process remap_variants {
     PATH=`pwd`/bin:\$PATH
     source $params.executable.python_activate
     # Nextflow needs the full path to the input parameters hence the pwd
-    $params.executable.nextflow run $params.nextflow.remapping -resume \
+    $params.executable.nextflow run $params.nextflow.remapping -resume ${nextflow_config_arg}  \
       --oldgenome `pwd`/${source_fasta} \
       --newgenome `pwd`/${target_fasta} \
       --vcffile `pwd`/${source_vcf} \
