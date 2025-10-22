@@ -1,11 +1,14 @@
 Changelog for eva-submission
 ============================
 
-## 1.19.4 (unreleased)
+## 1.19.4 (2025-10-22)
 ----------------------
 
-- Nothing changed yet.
+### All
+- Add new command line parameter to pass nextflow configuration 
 
+### Deletion
+ - Add multiple fixes for deletion of incomplete ELOAD
 
 ## 1.19.3 (2025-10-10)
 ----------------------
