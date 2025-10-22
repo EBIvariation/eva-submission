@@ -10,7 +10,6 @@ from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission import NEXTFLOW_DIR
-from eva_submission.ENA_submission.json_to_ENA_json import EnaJsonConverter
 from eva_submission.ENA_submission.upload_to_ENA import ENAUploader, ENAUploaderAsync
 from eva_submission.biosample_submission.biosamples_submitters import SampleMetadataSubmitter, SampleReferenceSubmitter, \
     SampleJSONSubmitter
@@ -23,8 +22,9 @@ class EloadBrokering(Eload):
 
     all_brokering_tasks = ['preparation', 'biosamples', 'ena', 'update_biosamples']
 
-    def __init__(self, eload_number: int, config_object: EloadConfig = None):
+    def __init__(self, eload_number: int, config_object: EloadConfig = None, nextflow_config=None):
         super().__init__(eload_number, config_object)
+        self.nextflow_config = nextflow_config
         if 'validation' not in self.eload_cfg:
             self.eload_cfg['validation'] = {}
 
@@ -195,7 +195,7 @@ class EloadBrokering(Eload):
                     cfg['executable']['nextflow'], brokering_script,
                     '-params-file', brokering_config_file,
                     '-work-dir', output_dir,
-                    get_nextflow_config_flag()
+                    get_nextflow_config_flag(self.nextflow_config)
                 ))
             )
         except subprocess.CalledProcessError as e:

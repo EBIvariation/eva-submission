@@ -37,6 +37,9 @@ def main():
                                'evaluation')
     argparse.add_argument('--report', action='store_true', default=False,
                           help='Set the script to only report the results based on previously run validation.')
+    argparse.add_argument('--nextflow_config', type=str, required=False,
+                          help='Path to the configuration file that will be applied to the Nextflow process. '
+                               'This will override other nextflow configuration files on the filesystem')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
 
@@ -49,7 +52,7 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    with EloadValidation(args.eload) as eload:
+    with EloadValidation(args.eload, nextflow_config=args.nextflow_config) as eload:
         eload.upgrade_to_new_version_if_needed()
         if not args.report:
             eload.validate(args.validation_tasks, args.set_as_valid)

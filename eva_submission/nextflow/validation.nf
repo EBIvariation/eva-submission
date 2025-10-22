@@ -9,13 +9,15 @@ def helpMessage() {
     Inputs:
             --vcf_files_mapping     csv file with the mappings for vcf files, fasta and assembly report
             --output_dir            output_directory where the reports will be output
-            --metadata_json         metadata JSON to be validated with eva-sub-cli (optional)
+            --metadata_json         metadata JSON to be validated with eva-sub-cli
+            --nextflow_config       nextflow config to run the workflow with (optional)
     """
 }
 
 params.vcf_files_mapping = null
 params.output_dir = null
 params.metadata_json = null
+params.nextflow_config = null
 // executables
 params.executable = ["vcf_assembly_checker": "vcf_assembly_checker", "vcf_validator": "vcf_validator", "bgzip": "bgzip",
                      "eva_sub_cli": "eva_sub_cli", "sub_cli_env": "sub_cli_env"]
@@ -72,9 +74,11 @@ process run_eva_sub_cli {
     path "validation_output", emit: eva_sub_cli_validation_dir
 
     script:
+    def nf_config_arg = params.nextflow_config ? "--nextflow_config ${params.nextflow_config}" : ""
+
     """
     source $params.executable.sub_cli_env
-    $params.executable.eva_sub_cli --submission_dir . --metadata_json ${params.metadata_json} --tasks VALIDATE
+    $params.executable.eva_sub_cli --submission_dir . --metadata_json ${params.metadata_json} --tasks VALIDATE $nf_config_arg
     """
 }
 
