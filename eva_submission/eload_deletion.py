@@ -64,13 +64,14 @@ class EloadDeletion(Eload):
         archive_dir = os.path.join(self.eload_dir, 'archive_dir')
         # delete if already exists
         shutil.rmtree(archive_dir, ignore_errors=True)
-        os.makedirs(archive_dir, exist_ok=True)
+        eload_archive_dir = os.path.join(archive_dir, f'ELOAD_{self.eload_num}')
+        os.makedirs(eload_archive_dir, exist_ok=True)
 
         # copy relevant files to the archive_dir
-        self.copy_eload_files(archive_dir)
+        self.copy_eload_files(eload_archive_dir)
 
         # gzip each file if they are not already compressed
-        for root, _, files in os.walk(archive_dir):
+        for root, _, files in os.walk(eload_archive_dir):
             for file in files:
                 file_path = os.path.join(root, file)
                 if not self.is_compressed_or_index_file(file):
@@ -79,10 +80,10 @@ class EloadDeletion(Eload):
                         shutil.copyfileobj(f_in, f_out)
                     os.remove(file_path)
 
-        # Create a tar archive of the entire archive_dir
+        # Create a tar archive of the entire eload_archive_dir
         archive_tar_file = os.path.join(self.eload_dir, f'{self.eload}.tar')
         with tarfile.open(archive_tar_file, mode="w") as tar:
-            for root, _, files in os.walk(archive_dir):
+            for root, _, files in os.walk(eload_archive_dir):
                 for file in files:
                     file_path = os.path.join(root, file)
                     arcname = os.path.relpath(file_path, start=archive_dir)  # Avoid nesting archive_dir

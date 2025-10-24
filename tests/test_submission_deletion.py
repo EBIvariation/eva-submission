@@ -180,13 +180,10 @@ class TestEloadDeletion(TestCase):
 
         # extract archived tar file
         src_tar_file = os.path.join(cfg['eloads_lts_dir'], f"{self.eload_deletion.eload}.tar")
-        target_tar_file = os.path.join(self.sub_del_test_dir, f"{self.eload_deletion.eload}")
-        if os.path.exists(target_tar_file):
-            os.remove(target_tar_file)
+
 
         with tarfile.open(src_tar_file, "r:*") as tar:
-            tar.extractall(path=target_tar_file)
-
+            tar.extractall(path=self.sub_del_test_dir)
         # assert file copied
         assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '.ELOAD_1_config.yml.gz'))
         assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', 'ELOAD_1_submission.log.gz'))
@@ -232,12 +229,9 @@ class TestEloadDeletion(TestCase):
 
         # extract archived tar file
         src_tar_file = os.path.join(cfg['eloads_lts_dir'], f"{self.eload_deletion.eload}.tar")
-        target_tar_file = os.path.join(self.sub_del_test_dir, f"{self.eload_deletion.eload}")
-        if os.path.exists(target_tar_file):
-            os.remove(target_tar_file)
 
         with tarfile.open(src_tar_file, "r:*") as tar:
-            tar.extractall(path=target_tar_file)
+            tar.extractall(path=self.sub_del_test_dir)
 
         # assert file copied
         assert os.path.exists(os.path.join(self.sub_del_test_dir, 'ELOAD_1', '.ELOAD_1_config.yml.gz'))
