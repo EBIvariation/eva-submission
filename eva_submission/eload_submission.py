@@ -167,7 +167,7 @@ class Eload(AppLogger):
         metadata_json['analysis'] = analysis_objects
 
         if existing_project:
-            self.warning('Information about the project will be overwritten ' + metadata_json.get('project'))
+            self.warning('Information about the project will be overwritten ' + str(metadata_json.get('project')))
             metadata_json['project'] = {'projectAccession' : existing_project}
 
         with open(output_json_file, 'w') as open_file:
