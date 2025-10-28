@@ -124,7 +124,8 @@ workflow {
                 .combine(normalise_vcf.out.vcf_tuples, by:0)     // Join based on the vcf_filename
                 .map {tuple(it[0], it[6], it[2], it[3], it[4], it[5])}   // vcf_filename, normalised vcf, assembly_accession, aggregation, fasta, report
             accession_vcf(normalised_vcfs_ch)
-            sort_and_compress_vcf(accession_vcf.out.accession_done)
+            qc_accession_vcf(accession_vcf.out.accession_done)
+            sort_and_compress_vcf(qc_accession_vcf.out.qc_accession_done)
             csi_vcfs = sort_and_compress_vcf.out.compressed_vcf
             accessioned_files_to_rm = accession_vcf.out.accessioned_filenames
             all_accession_complete = sort_and_compress_vcf.out.compressed_vcf.collect()
@@ -223,7 +224,7 @@ process accession_vcf {
 
     output:
     val accessioned_filename, emit: accessioned_filenames
-    path "${accessioned_filename}.tmp", emit: accession_done
+    tuple val(vcf_filename), val(vcf_file), val(assembly_accession), val(aggregation), val(fasta), val(report), path("${log_filename}"), emit: accession_done
 
     script:
     def pipeline_parameters = ""
@@ -238,20 +239,50 @@ process accession_vcf {
 
     pipeline_parameters += " --parameters.outputVcf=" + "${params.public_dir}/${accessioned_filename}"
 
+    """
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.accession_pipeline --spring.batch.job.name=SUBSNP_ACCESSION_JOB --spring.config.location=file:$params.accession_job_props $pipeline_parameters
+    """
+}
+
+
+process qc_accession_vcf {
+    label 'long_time', 'med_mem'
+
+    clusterOptions "-o $params.logs_dir/${log_filename}.log \
+                    -e $params.logs_dir/${log_filename}.err"
+
+    input:
+    tuple val(vcf_filename), val(vcf_file), val(assembly_accession), val(aggregation), val(fasta), val(report), path(accession_log_file)
+
+    output:
+    path "${accessioned_filename}_qc.tmp", emit: qc_accession_done
+
+    script:
+    def pipeline_parameters = ""
+    pipeline_parameters += " --parameters.assemblyAccession=" + assembly_accession.toString()
+    pipeline_parameters += " --parameters.vcfAggregation=" + aggregation.toString()
+    pipeline_parameters += " --parameters.fasta=" + fasta.toString()
+    pipeline_parameters += " --parameters.assemblyReportUrl=file:" + report.toString()
+    pipeline_parameters += " --parameters.vcf=" + vcf_file.toString()
+
+    accessioned_filename = vcf_filename.take(vcf_filename.indexOf(".vcf")) + ".accessioned.vcf"
+    log_filename = "qc_accession.${vcf_filename}"
+
+    pipeline_parameters += " --parameters.outputVcf=" + "${params.public_dir}/${accessioned_filename}"
 
     """
-    (java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.accession_pipeline --spring.config.location=file:$params.accession_job_props $pipeline_parameters) || java_exit_code=\$?
+    (java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.accession_pipeline --spring.batch.job.name=QC_SUBSNP_ACCESSION_JOB --spring.config.location=file:$params.accession_job_props $pipeline_parameters) || java_exit_code=\$?
     # need this line to ensure we do not get unbound variable when the java process is successful
     if [ \${java_exit_code:-"Not set"} == "Not set" ]; then java_exit_code=0; fi
     # If accessioning fails due to missing variants, but the only missing variants are structural variants,
     # then we should treat this as a success from the perspective of the automation.
     # TODO revert once accessioning pipeline properly registers structural variants
 
-    grep -oP '\\d+(?= unaccessioned variants need to be checked)' ${params.logs_dir}/${log_filename}.log || grep_exit_code=\$?
+    grep -oP '\\d+(?= unaccessioned variants need to be checked)' $accession_log_file || grep_exit_code=\$?
     if [ \${grep_exit_code:-"Not set"} == "Not set" ]; then grep_exit_code=0; fi
 
     # First grep finds the "Structural variant" reported by the accessioning process, remove the duplicates, remove the * alleles and count
-    SV_IN_ACCESSION=\$(grep 'Skipped processing structural variant' ${params.logs_dir}/${log_filename}.log  | grep  -v "alternate='*'" | cut -d ' ' -f 10- | sort -u | wc -l)
+    SV_IN_ACCESSION=\$(grep 'Skipped processing structural variant' $accession_log_file | grep -v "alternate='*'" | cut -d ' ' -f 10- | sort -u | wc -l)
     # Second grep count the number of missing variants in the Accessioning report after removing the * alleles
     SV_IN_QC_REPORT=\$(grep ' variants that were not found in the accession report' ${params.logs_dir}/${log_filename}.log | sed 's/, AbstractVariant/\\n AbstractVariant/g' | grep  -v "alternate='*'" | wc -l)
 
@@ -261,7 +292,7 @@ process accession_vcf {
     echo "SV_IN_QC_REPORT \$SV_IN_QC_REPORT"
     # If the java is successful OR  QC reports missing variants (only valid reason for failure) and QC has the same number of skipped variant as the accession
     [[ \$java_exit_code == 0 ]] || ([[ \$grep_exit_code == 0 ]] && [[ \$SV_IN_ACCESSION == \$SV_IN_QC_REPORT ]])
-    echo "done" > ${accessioned_filename}.tmp
+    echo "done" > ${accessioned_filename}_qc.tmp
     """
 }
 
