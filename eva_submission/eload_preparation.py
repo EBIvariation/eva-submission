@@ -116,7 +116,7 @@ class EloadPreparation(Eload):
         if eva_files_json:
             with open(eva_files_json, 'r') as open_file:
                 json_data = json.load(open_file)
-            metadata_vcfs = [f.get('fileName') for f in json_data.get('files') if
+            metadata_vcfs = [os.path.basename(f.get('fileName')) for f in json_data.get('files') if
                                        is_vcf_file(f.get('fileName'))]
             analysis_aliases = [a.get('analysisAlias') for a in json_data.get('analysis')]
 
