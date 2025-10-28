@@ -268,10 +268,6 @@ class EnaJsonConverter(AppLogger):
 
         return ena_submission_obj
 
-    @cached_property
-    def is_existing_project(self):
-        return self.existing_project is not None
-
     def get_link(self, link):
         if re.match(r'^(ftp:|http:|file:|https:)', link):
             sp_link = link.split('|', maxsplit=1)
