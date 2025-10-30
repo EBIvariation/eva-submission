@@ -30,7 +30,7 @@ class EloadValidation(Eload):
         super().__init__(eload_number, config_object)
         self.nextflow_config = nextflow_config
 
-    def validate(self, validation_tasks=None):
+    def validate(self, validation_tasks=None, shallow_validation=False):
         if not validation_tasks:
             validation_tasks = self.all_validation_tasks
 
@@ -41,7 +41,7 @@ class EloadValidation(Eload):
             self.eload_cfg.set('validation', validation_task, value={})
 
         # All validation tasks are run via nextflow
-        output_dir = self._run_validation_workflow(validation_tasks)
+        output_dir = self._run_validation_workflow(validation_tasks, shallow_validation)
         self._collect_validation_workflow_results(output_dir, validation_tasks)
         shutil.rmtree(output_dir)
 
@@ -119,7 +119,7 @@ class EloadValidation(Eload):
                     self.warning(f"VCF files for analysis {analysis_alias} not found")
         return vcf_files_mapping_csv
 
-    def _run_validation_workflow(self, validation_tasks):
+    def _run_validation_workflow(self, validation_tasks, shallow_validation=False):
         assert self.eload_cfg.query('submission', 'metadata_json'), 'Metadata json is not set in the config file, Cannot proceed with validation'
         metadata_json = self.eload_cfg.query('submission', 'metadata_json')
         assert os.path.isfile(metadata_json), f'Metadata json {metadata_json} does not exist. Cannot proceed with validation'
@@ -132,7 +132,8 @@ class EloadValidation(Eload):
             'metadata_json': metadata_json,
             'executable': cfg['executable'],
             'validation_tasks': validation_tasks,
-            'nextflow_config': get_nextflow_config(self.nextflow_config)
+            'nextflow_config': get_nextflow_config(self.nextflow_config),
+            'shallow_validation': shallow_validation
         }
         # run the validation
         validation_config_file = os.path.join(self.eload_dir, 'validation_config_file.yaml')
