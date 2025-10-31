@@ -35,6 +35,9 @@ def main():
                           help='Set the script to consider all validation tasks performed as valid in the final '
                                'evaluation. This does not affect the actual report but only change the final '
                                'evaluation')
+    argparse.add_argument('--shallow_validation', action='store_true', default=False,
+                           help='Set the validation to be performed on the first 10000 records of the VCF. '
+                                'Only applies if the number of records exceed 10000')
     argparse.add_argument('--report', action='store_true', default=False,
                           help='Set the script to only report the results based on previously run validation.')
     argparse.add_argument('--nextflow_config', type=str, required=False,
@@ -55,7 +58,7 @@ def main():
     with EloadValidation(args.eload, nextflow_config=args.nextflow_config) as eload:
         eload.upgrade_to_new_version_if_needed()
         if not args.report:
-            eload.validate(args.validation_tasks, args.set_as_valid)
+            eload.validate(args.validation_tasks, args.set_as_valid, args.shallow_validation)
         eload.report()
 
 
