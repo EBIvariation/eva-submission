@@ -1,10 +1,17 @@
 Changelog for eva-submission
 ============================
 
-## 1.19.5 (unreleased)
+## 1.19.5 (2025-11-04)
 ----------------------
 
-- Nothing changed yet.
+### Preparation 
+ - Compare file names using their base names between metadata and file system
+
+### Brokering
+ - Support adding analysis to existing project
+
+### Deletion
+ - Archive the content of the ELOAD directory with the ELOAD directory at the top
 
 
 ## 1.19.4 (2025-10-22)
