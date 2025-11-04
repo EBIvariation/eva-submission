@@ -320,7 +320,7 @@ class EloadValidation(Eload):
         }
 
         report = """Validation performed on {validation_date}
-eva-sub-cli: 
+eva-sub-cli:
   VCF checks: {vcf_check}
   Assembly checks: {assembly_check}
   Metadata check: {metadata_check}

@@ -51,10 +51,11 @@ class TestEloadValidation(TestCase):
 
     def test_report(self):
         expected_report = '''Validation performed on 2020-11-01 10:37:54.755607
-VCF checks: PASS
-Assembly checks: PASS
-Metadata check: PASS
-Sample check: PASS
+eva-sub-cli:
+  VCF checks: PASS
+  Assembly checks: PASS
+  Metadata check: PASS
+  Sample check: PASS
 Structural variant check: PASS
 Naming convention check: PASS
 ----------------------------------
