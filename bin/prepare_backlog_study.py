@@ -77,14 +77,7 @@ def main():
     # Pass the eload config object to validation so that the two objects share the same state
     with EloadValidation(args.eload, preparation.eload_cfg, nextflow_config=args.nextflow_config) as validation:
         if not args.report:
-            validation.validate(args.validation_tasks)
-            # Also mark the other validation tasks as force so they are all passable
-
-            if args.set_as_valid:
-                forced_validation_tasks = validation.all_validation_tasks
-            for validation_task in forced_validation_tasks:
-                validation.eload_cfg.set('validation', validation_task, 'forced', value=True)
-            validation.mark_valid_files_and_metadata()
+            validation.validate(args.validation_tasks, set_as_valid=args.set_as_valid)
 
     # Stop the processing if the validation did not pass
     if not validation.eload_cfg.query('validation', 'valid', 'analyses'):

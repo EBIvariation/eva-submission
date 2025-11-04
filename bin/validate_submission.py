@@ -52,6 +52,9 @@ def main():
     # Load the config_file from default location
     load_config()
 
+    if args.report and args.set_as_valid:
+        raise ValueError('You can either generate the report or set the validations as valid, but not both at the same time.')
+
     with EloadValidation(args.eload, nextflow_config=args.nextflow_config) as eload:
         eload.upgrade_to_new_version_if_needed()
         if not args.report:
