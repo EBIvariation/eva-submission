@@ -54,7 +54,7 @@ def main():
                                'evaluation')
     argparse.add_argument('--shallow_validation', action='store_true', default=False,
                           help='Set the validation to be performed on the first 10000 records of the VCF. '
-                               'Only applies if the number of records exceed 10000')
+                               'Only applied if the number of records exceed 10000')
     argparse.add_argument('--report', action='store_true', default=False,
                           help='Set the script to only report the results based on previously run preparation.')
     argparse.add_argument('--nextflow_config', type=str, required=False,
