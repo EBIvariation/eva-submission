@@ -8,14 +8,11 @@ import subprocess
 import yaml
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
-from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import resolve_single_file_path, get_nextflow_config_flag, get_nextflow_config
 from eva_submission.submission_config import EloadConfig
-
-logger = log_cfg.get_logger(__name__)
 
 
 class EloadValidation(Eload):
@@ -33,19 +30,7 @@ class EloadValidation(Eload):
         super().__init__(eload_number, config_object)
         self.nextflow_config = nextflow_config
 
-    def validate(self, validation_tasks=None, set_as_valid=False):
-        if set_as_valid:
-            for validation_task in validation_tasks:
-                if validation_task not in self.eload_cfg.query('validation'):
-                    logger.warning(f"Validation task {validation_task} has not been run yet.")
-                    self.eload_cfg.set('validation', validation_task, 'forced', value=True)
-                else:
-                    if not self.eload_cfg.query('validation', validation_task, 'pass', ret_default=False):
-                        self.eload_cfg.set('validation', validation_task, 'forced', value=True)
-
-            self.mark_valid_files_and_metadata()
-            return
-
+    def validate(self, validation_tasks=None):
         if not validation_tasks:
             validation_tasks = self.all_validation_tasks
 
@@ -59,6 +44,17 @@ class EloadValidation(Eload):
         output_dir = self._run_validation_workflow(validation_tasks)
         self._collect_validation_workflow_results(output_dir, validation_tasks)
         shutil.rmtree(output_dir)
+
+        self.mark_valid_files_and_metadata()
+
+    def set_validation_task_result_valid(self, validation_tasks):
+        for validation_task in validation_tasks:
+            if validation_task not in self.eload_cfg.query('validation'):
+                self.warning(f"Validation task {validation_task} has not been run yet.")
+                self.eload_cfg.set('validation', validation_task, 'forced', value=True)
+            else:
+                if not self.eload_cfg.query('validation', validation_task, 'pass', ret_default=False):
+                    self.eload_cfg.set('validation', validation_task, 'forced', value=True)
 
         self.mark_valid_files_and_metadata()
 

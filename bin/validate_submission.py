@@ -31,12 +31,15 @@ def main():
     argparse.add_argument('--validation_tasks', required=False, type=str, nargs='+',
                           default=EloadValidation.all_validation_tasks, choices=EloadValidation.all_validation_tasks,
                           help='task or set of tasks to perform during validation')
-    argparse.add_argument('--set_as_valid', action='store_true', default=False,
-                          help='Set the script to consider all validation tasks performed as valid in the final '
-                               'evaluation. This does not affect the actual report but only change the final '
-                               'evaluation')
-    argparse.add_argument('--report', action='store_true', default=False,
-                          help='Set the script to only report the results based on previously run validation.')
+    group = argparse.add_argument_group('report or set-as-valid',
+                                        'Either generate report or set validation result as valid')
+    group = group.add_mutually_exclusive_group(required=False)
+    group.add_argument('--set_as_valid', action='store_true', default=False,
+                       help='Set the script to consider the validation tasks performed as valid in the final '
+                            'evaluation. This does not affect the actual report but only change the final '
+                            'evaluation')
+    group.add_argument('--report', action='store_true', default=False,
+                       help='Set the script to only report the results based on previously run validation.')
     argparse.add_argument('--nextflow_config', type=str, required=False,
                           help='Path to the configuration file that will be applied to the Nextflow process. '
                                'This will override other nextflow configuration files on the filesystem')
@@ -52,14 +55,14 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    if args.report and args.set_as_valid:
-        raise ValueError('You can either generate the report or set the validations as valid, but not both at the same time.')
-
     with EloadValidation(args.eload, nextflow_config=args.nextflow_config) as eload:
         eload.upgrade_to_new_version_if_needed()
-        if not args.report:
-            eload.validate(args.validation_tasks, args.set_as_valid)
-        eload.report()
+        if args.report:
+            eload.report()
+        elif args.set_as_valid:
+            eload.set_validation_task_result_valid(args.validation_tasks)
+        else:
+            eload.validate(args.validation_tasks)
 
 
 if __name__ == "__main__":
