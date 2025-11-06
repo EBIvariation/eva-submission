@@ -16,6 +16,7 @@ class EloadDeletion(Eload):
     def __init__(self, eload_number):
         super().__init__(eload_number)
         self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
+        self.project_dir = None
         if self.project_accession:
             self.project_dir = os.path.join(cfg['projects_dir'], self.project_accession)
         archive_dir = os.path.join(cfg['eloads_lts_dir'])
