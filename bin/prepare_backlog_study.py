@@ -52,6 +52,9 @@ def main():
                           help='Set the script to consider all validation tasks performed as valid in the final '
                                'evaluation. This does not affect the actual report but only change the final '
                                'evaluation')
+    argparse.add_argument('--shallow_validation', action='store_true', default=False,
+                          help='Set the validation to be performed on the first 10000 records of the VCF. '
+                               'Only applied if the number of records exceed 10000')
     argparse.add_argument('--report', action='store_true', default=False,
                           help='Set the script to only report the results based on previously run preparation.')
     argparse.add_argument('--nextflow_config', type=str, required=False,
@@ -80,7 +83,7 @@ def main():
             if args.set_as_valid:
                 validation.set_validation_task_result_valid(args.validation_tasks)
             else:
-                validation.validate(args.validation_tasks)
+                validation.validate(args.validation_tasks, args.shallow_validation)
 
     # Stop the processing if the validation did not pass
     if not validation.eload_cfg.query('validation', 'valid', 'analyses'):

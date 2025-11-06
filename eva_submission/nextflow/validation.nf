@@ -11,6 +11,7 @@ def helpMessage() {
             --output_dir            output_directory where the reports will be output
             --metadata_json         metadata JSON to be validated with eva-sub-cli
             --nextflow_config       nextflow config to run the workflow with (optional)
+            --shallow_validation    option to run shallow validation (validate only the first 10k lines) in eva-sub-cli (optional)
     """
 }
 
@@ -18,6 +19,7 @@ params.vcf_files_mapping = null
 params.output_dir = null
 params.metadata_json = null
 params.nextflow_config = null
+params.shallow_validation = false
 // executables
 params.executable = ["bgzip": "bgzip", "eva_sub_cli": "eva_sub_cli", "sub_cli_env": "sub_cli_env"]
 // validation tasks
@@ -79,10 +81,11 @@ process run_eva_sub_cli {
 
     script:
     def nf_config_arg = params.nextflow_config ? "--nextflow_config ${params.nextflow_config}" : ""
+    def shallow_validation_arg = params.shallow_validation ? "--shallow ${params.shallow_validation}" : ""
 
     """
     source $params.executable.sub_cli_env
-    $params.executable.eva_sub_cli --submission_dir . --metadata_json ${params.metadata_json} --tasks VALIDATE --validation_tasks ${tasks} $nf_config_arg
+    $params.executable.eva_sub_cli --submission_dir . --metadata_json ${params.metadata_json} --tasks VALIDATE --validation_tasks ${tasks} $nf_config_arg $shallow_validation_arg
     """
 }
 
