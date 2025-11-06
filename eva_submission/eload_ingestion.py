@@ -245,7 +245,7 @@ class EloadIngestion(Eload):
             'public_dir': os.path.join(self.project_dir, project_dirs['public']),
         }
         tasks = ['archive_only']
-        self.run_nextflow('simple_archive.nf', accession_config, resume, tasks)
+        self.run_nextflow('simple_archive', accession_config, resume, tasks)
 
     def load_from_ena(self, archive_only=False):
         """
