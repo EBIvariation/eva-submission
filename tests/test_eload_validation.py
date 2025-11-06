@@ -51,7 +51,11 @@ class TestEloadValidation(TestCase):
 
     def test_report(self):
         expected_report = '''Validation performed on 2020-11-01 10:37:54.755607
-eva-sub-cli: PASS
+eva-sub-cli:
+  VCF checks: PASS
+  Assembly checks: PASS
+  Metadata check: PASS
+  Sample check: PASS
 Structural variant check: PASS
 Naming convention check: PASS
 ----------------------------------
@@ -127,8 +131,28 @@ Naming convention check:
             os.path.join(self.validation._get_dir('eva_sub_cli'), 'validation_results.yaml'))
         expected_aggregation = {
             'ELOAD_2_Analysis A': None,
-            'ELOAD_2_Analysis B': 'none',
-            'ELOAD_2_Analysis C': 'basic',
+            'ELOAD_2_Analysis B': 'basic',
         }
         assert self.validation.eload_cfg.query('validation', 'aggregation_check', 'analyses') == expected_aggregation
-        assert self.validation.eload_cfg.query('validation', 'eva_sub_cli')['pass'] == False
+        assert self.validation.eload_cfg.query('validation', 'vcf_check')['pass'] == False
+        assert self.validation.eload_cfg.query('validation', 'assembly_check')['pass'] == True
+        assert self.validation.eload_cfg.query('validation', 'metadata_check')['pass'] == True
+        assert self.validation.eload_cfg.query('validation', 'sample_check')['pass'] == True
+
+    def test_set_validation_task_result_valid(self):
+        self.validation.eload_cfg.set('validation', 'vcf_check', 'pass', value=False)
+        self.validation.eload_cfg.set('validation', 'assembly_check', 'pass', value=True)
+        del self.validation.eload_cfg['validation']['metadata_check']
+
+        validation_tasks = ['vcf_check', 'assembly_check', 'metadata_check']
+        self.validation.set_validation_task_result_valid(validation_tasks)
+
+        assert self.validation.eload_cfg.query('validation', 'vcf_check')['pass'] == False
+        assert self.validation.eload_cfg.query('validation', 'vcf_check')['forced'] == True
+
+        assert self.validation.eload_cfg.query('validation', 'assembly_check')['pass'] == True
+        assert 'forced' not in self.validation.eload_cfg.query('validation', 'assembly_check')
+
+        assert 'pass' not in self.validation.eload_cfg.query('validation', 'metadata_check')
+        assert self.validation.eload_cfg.query('validation', 'metadata_check')['forced'] == True
+

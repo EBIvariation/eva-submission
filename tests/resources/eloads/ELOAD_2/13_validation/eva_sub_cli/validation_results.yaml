@@ -1,10 +1,110 @@
+assembly_check:
+  A.vcf:
+    error_list: []
+    match: 1136778
+    mismatch_list: []
+    nb_error: 0
+    nb_mismatch: 0
+    report_path: /path/to/A_assembly.txt
+    total: 1136778
+  B.vcf:
+    error_list: [ ]
+    match: 1136778
+    mismatch_list: [ ]
+    nb_error: 0
+    nb_mismatch: 0
+    report_path: /path/to/B_assembly.txt
+    total: 1136778
+  pass: true
+  run_status: true
 evidence_type_check:
   Analysis A:
-    errors: 'VCF file evidence type could not be determined: vcf_files_1, vcf_files_2'
+    errors: 'VCF file evidence type could not be determined: A.vcf'
     evidence_type: null
   Analysis B:
-    evidence_type: genotype
-  Analysis C:
+    errors: null
     evidence_type: allele_frequency
   pass: false
+  report_path: /path/to/evidence_type_checker.yml
+  run_status: true
+fasta_check:
+  GCA_000001405.1.fa:
+    all_insdc: true
+    assembly_in_metadata: GCA_000001405.1
+    associated_analyses: !!set
+      Analysis A: null
+      Analysis B: null
+    metadata_assembly_compatible: false
+    possible_assemblies: !!set
+      GCA_000001405.6: null
+    sequences:
+    - insdc: true
+      sequence_md5: 1b22b98cdeb4a9304cb5d48026a85128
+      sequence_name: CM000663.1
+    - insdc: true
+      sequence_md5: a0d9851da00400dec1098a9255ac712e
+      sequence_name: CM000664.1
+  pass: true
+  run_status: true
+metadata_check:
+  json_errors: []
+  json_report_path: /path/to/metadata_validation.txt
+  pass: true
+  run_status: true
 ready_for_submission_to_eva: false
+sample_check:
+  overall_differences: false
+  pass: true
+  report_path: /path/to/sample_checker.yml
+  results_per_analysis:
+    Analysis A:
+      difference: false
+      more_metadata_submitted_files: []
+      more_per_submitted_files_metadata: {}
+      more_submitted_files_metadata: []
+    Analysis B:
+      difference: false
+      more_metadata_submitted_files: [ ]
+      more_per_submitted_files_metadata: { }
+      more_submitted_files_metadata: [ ]
+  run_status: true
+vcf_check:
+  A.vcf:
+    critical_count: 1038485
+    critical_list:
+    - 'Line 10: Metadata ID contains a character different from alphanumeric, dot,
+      underscore and dash.'
+    - 'Line 129: Sample #1, GQ does not match the specification Type=Integer (not
+      in integer format). GQ=3.01.'
+    - 'Line 135: Sample #1, GQ does not match the specification Type=Integer (not
+      in integer format). GQ=97.21.'
+    - 'Line 136: Sample #1, GQ does not match the specification Type=Integer (not
+      in integer format). GQ=37.88.'
+    - 'Line 137: Sample #1, GQ does not match the specification Type=Integer (not
+      in integer format). GQ=88.17.'
+    - 'Line 138: Sample #1, GQ does not match the specification Type=Integer (not
+      in integer format). GQ=88.18.'
+    - 'Line 142: Sample #1, GQ does not match the specification Type=Integer (not
+      in integer format). GQ=64.42.'
+    - 'Line 145: Sample #1, GQ does not match the specification Type=Integer (not
+      in integer format). GQ=36.04.'
+    - 'Line 146: Sample #1, GQ does not match the specification Type=Integer (not
+      in integer format). GQ=3.01.'
+    - 'Line 147: Sample #1, GQ does not match the specification Type=Integer (not
+      in integer format). GQ=30.98.'
+    error_count: 1
+    error_list:
+    - 'Line 14: FORMAT GQ metadata Type is not Integer.'
+    report_path: /path/to/A.errors.txt
+    valid: false
+    warning_count: 1
+  B.vcf:
+    critical_count: 0
+    critical_list: []
+    error_count: 0
+    error_list: []
+    report_path: /path/to/B.errors.txt
+    valid: true
+    warning_count: 1
+  pass: false
+  run_status: true
