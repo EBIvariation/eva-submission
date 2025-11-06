@@ -138,3 +138,21 @@ Naming convention check:
         assert self.validation.eload_cfg.query('validation', 'assembly_check')['pass'] == True
         assert self.validation.eload_cfg.query('validation', 'metadata_check')['pass'] == True
         assert self.validation.eload_cfg.query('validation', 'sample_check')['pass'] == True
+
+    def test_set_validation_task_result_valid(self):
+        self.validation.eload_cfg.set('validation', 'vcf_check', 'pass', value=False)
+        self.validation.eload_cfg.set('validation', 'assembly_check', 'pass', value=True)
+        del self.validation.eload_cfg['validation']['metadata_check']
+
+        validation_tasks = ['vcf_check', 'assembly_check', 'metadata_check']
+        self.validation.set_validation_task_result_valid(validation_tasks)
+
+        assert self.validation.eload_cfg.query('validation', 'vcf_check')['pass'] == False
+        assert self.validation.eload_cfg.query('validation', 'vcf_check')['forced'] == True
+
+        assert self.validation.eload_cfg.query('validation', 'assembly_check')['pass'] == True
+        assert 'forced' not in self.validation.eload_cfg.query('validation', 'assembly_check')
+
+        assert 'pass' not in self.validation.eload_cfg.query('validation', 'metadata_check')
+        assert self.validation.eload_cfg.query('validation', 'metadata_check')['forced'] == True
+
