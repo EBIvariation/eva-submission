@@ -389,6 +389,11 @@ class SampleJSONSubmitter(SampleSubmitter):
         'address': 'Address',
     }
 
+    characteristic_defaults = {
+        'collection date': 'not provided',
+        'geographic location (country and/or sea)': 'not provided'
+    }
+
     def __init__(self, metadata_json, submit_type=('create',)):
         super().__init__(submit_type=submit_type)
         self.metadata_json = metadata_json
@@ -425,6 +430,15 @@ class SampleJSONSubmitter(SampleSubmitter):
             # Taxonomy ID should be present at top level as well
             if TAX_ID_PROP in sample[BIOSAMPLE_OBJECT_PROP][CHARACTERISTICS_PROP]:
                 bsd_sample_entry[TAX_ID_PROP] = sample[BIOSAMPLE_OBJECT_PROP][CHARACTERISTICS_PROP][TAX_ID_PROP][0]['text']
+
+            # Apply defaults if the key doesn't already exist
+            for key in self.characteristic_defaults:
+                if key not in bsd_sample_entry[CHARACTERISTICS_PROP]:
+                    self.apply_mapping(
+                        bsd_sample_entry[CHARACTERISTICS_PROP],
+                        key,
+                        [{'text': self.characteristic_defaults[key]}]
+                        )
             if 'submitterDetails' in self.metadata_json:
                 # add the submitter information to each BioSample
                 contacts = []
