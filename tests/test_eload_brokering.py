@@ -349,6 +349,10 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
             aliases_from_files = {f['analysisAlias'] for f in updated_metadata['files']}
             assert all(alias.startswith('ELOAD_3_') for alias in aliases_from_analysis | aliases_from_samples | aliases_from_files)
 
+            # Analysis references have been modified
+            reference_for_each_analysis = [a['referenceGenome'] for a in updated_metadata['analysis']]
+            assert reference_for_each_analysis == ['GCA_000001405.1', 'GCA_000001405.1', 'GCA_000001405.1']
+
             # Files now includes index files
             assert len(updated_metadata['files']) == 6
             file_names = sorted([f['fileName'] for f in updated_metadata['files']])
