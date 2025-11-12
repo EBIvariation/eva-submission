@@ -378,7 +378,7 @@ class TestSampleMetadataOverrider(BSDTestCase):
 
 class TestSampleJSONSubmitter(BSDTestCase):
 
-    def assert_convertion_json_to_bsd_json(self, bio_sample_object):
+    def assert_convertion_json_to_bsd_json(self, bio_sample_object, with_default=False):
         json_data = {'sample': [
             {'analysisAlias': 'alias1', 'sampleInVCF': 'S1', 'bioSampleAccession': 'SAME000001'},
             {'analysisAlias': 'alias1', 'sampleInVCF': 'S2', 'bioSampleObject': bio_sample_object}
@@ -406,6 +406,9 @@ class TestSampleJSONSubmitter(BSDTestCase):
         'organization': [
             {'Name': 'Lab', 'Address': '5 common road'},
         ]}
+        if with_default:
+            expected_bsd_json['characteristics']['geographic location (country and/or sea)'] = [{'text': 'not provided'}]
+            expected_bsd_json['characteristics']['collection date'] = [{'text': 'not provided'}]
 
         self.submitter = SampleJSONSubmitter(json_data)
         gen = self.submitter._convert_metadata()
@@ -454,3 +457,18 @@ class TestSampleJSONSubmitter(BSDTestCase):
         }
 
         self.assert_convertion_json_to_bsd_json(bio_sample_object)
+
+    def test_convert_with_default(self):
+        bio_sample_object = {
+            "name": "LH1",
+            "characteristics": {
+                "title": [{"text": "yellow croaker sample 12"}],
+                'description': [{'text': 'yellow croaker sample 12'}],
+                'geographic location (region and locality)': [{'text': 'East China Sea,Liuheng, Putuo, Zhejiang'}],
+                'taxId': [{'text': '334908'}],
+                'scientific name': [{'text': 'Larimichthys polyactis'}],
+                "species": [{"text": "yellow croaker"}],
+            }
+        }
+
+        self.assert_convertion_json_to_bsd_json(bio_sample_object, with_default=True)

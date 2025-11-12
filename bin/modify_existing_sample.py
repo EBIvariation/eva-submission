@@ -19,21 +19,20 @@ import logging
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.biosample_submission.biosamples_submitters import SampleMetadataSubmitter
+from eva_submission.biosample_submission.biosamples_submitters import SampleJSONSubmitter
 from eva_submission.submission_config import load_config
-from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxWriter, EvaXlsxReader
 
 
 def main():
     arg_parser = argparse.ArgumentParser(
-        description='Update an existing BioSample using information present in a Spreadsheet. '
-                    'The spreadsheet needs to contain a Sheet called Sample.')
+        description='Update an existing BioSample using information present in a JSON. '
+                    'The json file needs to contain a section called sample.')
     arg_parser.add_argument('--metadata_file', required=True,
-                            help='Spreadsheet file containing the sample information')
+                            help='JSON file containing the sample information')
     arg_parser.add_argument('--action', required=True, choices=('overwrite', 'curate', 'derive', 'override'),
                             help='Type of modification of the BioSamples that should be made. '
                                  '"overwrite" and "override" will both change the original sample (precuration) with '
-                                 'the modified sample defined in the spreadsheet. overwrite will use EVA credentials '
+                                 'the modified sample defined in the JSON. overwrite will use EVA credentials '
                                  'where override will use superuser credentials. overwrite require that EVA owns the '
                                  'BioSample entity. override requires that the samples are from NCBI.'
                                   '"curate" will create curation object on top of the BioSample. These are not '
@@ -48,22 +47,10 @@ def main():
 
     # Load the config_file from default location
     load_config()
-    sample_submitter = SampleMetadataSubmitter(args.metadata_file, submit_type=(args.action,))
+    sample_submitter = SampleJSONSubmitter(args.metadata_file, submit_type=(args.action,))
     sample_name_to_accession = sample_submitter.submit_to_bioSamples()
-    if args.action == 'derive':
-        # When deriving samples we need to copy the resulting accessions in the spreadsheet.
-        eva_xls_reader = EvaXlsxReader(args.metadata_file)
-        eva_xls_writer = EvaXlsxWriter(args.metadata_file)
-        sample_rows = []
-        for sample_row in eva_xls_reader.samples:
-            if sample_row.get('Sample Name') in sample_name_to_accession:
-                sample_row['Sample Accession'] = sample_name_to_accession[sample_row.get('Sample Name')]
-                sample_row['Sample ID'] = sample_row.get('Sample ID')
-            elif sample_row.get('Sample ID') in sample_name_to_accession:
-                sample_row['Sample Accession'] = sample_name_to_accession[sample_row.get('Sample ID')]
-            sample_rows.append(sample_row)
-        eva_xls_writer.set_samples(sample_rows)
-        eva_xls_writer.save()
+    for sample_name, accession in sample_name_to_accession.items():
+        print(f'{sample_name}: {accession}')
 
 
 if __name__ == "__main__":
