@@ -160,9 +160,11 @@ class Eload(AppLogger):
         analysis_objects = []
         for analysis_obj in metadata_json.get('analysis'):
             analysis_obj['analysisAlias'] = self._unique_alias(analysis_obj['analysisAlias'])
-            analysis_obj['referenceGenome'] = self.eload_cfg.query(
+            validation_assembly = self.eload_cfg.query(
                 'brokering', 'analyses', analysis_obj['analysisAlias'], 'assembly_accession'
             )
+            if validation_assembly and validation_assembly != analysis_obj['referenceGenome']:
+                analysis_obj['referenceGenome'] = validation_assembly
             analysis_objects.append(analysis_obj)
 
         metadata_json['sample'] = sample_objects
