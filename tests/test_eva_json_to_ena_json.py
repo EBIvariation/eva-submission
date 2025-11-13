@@ -117,7 +117,8 @@ class TestEVAJsonToENAJsonConverter(TestCase):
                            {'tag': 'SOFTWARE', 'value': 'Burrows-Wheeler Alignment tool (BWA)'},
                            {'tag': 'SOFTWARE', 'value': 'HTSeq-python package'},
                            {'tag': 'PLATFORM', 'value': 'BGISEQ-500'},
-                           {'tag': 'IMPUTATION', 'value': '1'}],
+                           {'tag': 'IMPUTATION', 'value': '1'},
+                           {'tag': 'EXPERIMENT_TYPE', 'value': 'Genotyping by array'}],
             'files': [
                 {'fileName': 'Vibrio.chrom.fix2.final.debug.gwassnps.vcf.gz', 'fileType': 'vcf', 'checksumMethod': 'MD5', 'checksum': 'c263a486e9b273d6e1e4c5f46ca5ccb8'},
                 {'fileName': 'Vibrio.chrom.fix2.final.debug.gwassnps.vcf.gz.tbi', 'fileType': 'tabix', 'checksumMethod': 'MD5', 'checksum': '4b61e00524cc1f4c98e932b0ee27d94e'}
@@ -129,6 +130,7 @@ class TestEVAJsonToENAJsonConverter(TestCase):
         }
 
         ena_analysis_json_obj = self.converter._add_analysis(self.analysis, self.samples, self.files, self.project)
+        print(ena_analysis_json_obj)
         self.assert_json_equal(expected_analysis_json_obj, ena_analysis_json_obj)
 
     def test_add_analysis_to_existing_project(self):
