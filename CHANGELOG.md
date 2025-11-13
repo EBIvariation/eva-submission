@@ -1,11 +1,17 @@
 Changelog for eva-submission
 ============================
 
-## 1.19.6 (unreleased)
+## 1.19.6 (2025-11-13)
 ----------------------
 
-- Nothing changed yet.
+### Validation
+ - Integrate eva-sub-cli tasks for more flexibility
 
+### Brokering
+ - Update the reference with the one used in the validation before brokering 
+ - Add default for collection date and geographic location when missing 
+
+Other small fixes from prod
 
 ## 1.19.5 (2025-11-04)
 ----------------------

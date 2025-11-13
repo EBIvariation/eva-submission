@@ -178,7 +178,11 @@ class EnaJsonConverter(AppLogger):
                 analysis_attributes.append({"tag": "PLATFORM", "value": analysis['platform'].strip()})
             if str(analysis.get('imputation', '')).strip() == '1':
                 analysis_attributes.append({"tag": "IMPUTATION", "value": "1"})
-
+            if analysis.get('experimentType', ''):
+                analysis_attributes.extend([
+                    {"tag": "EXPERIMENT_TYPE", "value": experiment}
+                    for experiment in analysis.get('experimentType', '').split(':')
+                ])
             return analysis_attributes
 
         def get_file_objs(files):
