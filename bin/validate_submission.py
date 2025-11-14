@@ -66,6 +66,7 @@ def main():
             eload.set_validation_task_result_valid(args.validation_tasks)
         else:
             eload.validate(args.validation_tasks, args.shallow_validation)
+            eload.report()
 
 
 if __name__ == "__main__":
