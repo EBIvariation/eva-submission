@@ -27,11 +27,12 @@ class RenameContigsInAssembly(AppLogger):
     """
     This class renames sequences based on the one provided in a set of VCFs
     """
-    def __init__(self, assembly_accession, assembly_fasta_path, assembly_report_path, input_vcfs):
+    def __init__(self, assembly_accession, assembly_fasta_path, assembly_report_path, input_vcfs, get_contig_from_vcf):
         self.input_vcfs = input_vcfs
         self.assembly_accession = assembly_accession
         self.assembly_fasta_path = assembly_fasta_path
         self.assembly_report_path = assembly_report_path
+        self.get_contig_from_vcf = get_contig_from_vcf
         self.contig_alias_client = ContigAliasClient()
 
     def _contigs_found_in_vcf_data(self):
@@ -69,8 +70,10 @@ class RenameContigsInAssembly(AppLogger):
 
     @cached_property
     def contigs_found_in_vcf(self):
-        contigs = self._contigs_found_in_vcf_header()
-        if not contigs:
+        contigs = None
+        if 'header' in self.get_contig_from_vcf:
+            contigs = self._contigs_found_in_vcf_header()
+        if 'data' in self.get_contig_from_vcf or not contigs:
             contigs = self._contigs_found_in_vcf_data()
         return contigs
 
@@ -160,12 +163,13 @@ def main():
                           help='The path to the file containing the assembly report')
     argparse.add_argument('--vcf_files', required=True, type=str, nargs='+',
                           help='Path to one or several VCF files')
-    argparse.add_argument('--get_contig_from_vcf', nargs='+', choices=['header', 'data'], default=['header', 'data'],
+    argparse.add_argument('--get_contig_from_vcf', nargs='+', choices=['header', 'data'], default=['header'],
                           help='Set which part of the VCF will be used to retrieve the contig names')
     args = argparse.parse_args()
     RenameContigsInAssembly(
         assembly_accession=args.assembly_accession, assembly_fasta_path=args.assembly_fasta,
-        assembly_report_path=args.assembly_report, input_vcfs=args.vcf_files
+        assembly_report_path=args.assembly_report, input_vcfs=args.vcf_files,
+        get_contig_from_vcf=args.get_contig_from_vcf
     ).rewrite_changing_names(args.custom_fasta)
 
 

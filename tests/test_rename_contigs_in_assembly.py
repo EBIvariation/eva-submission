@@ -12,7 +12,8 @@ class TestRenameContigs(TestCase):
         input_vcf = os.path.join(self.resources, 'vcf_files', 'vcf_file_ASM294v2.vcf')
         assembly_report_path = os.path.join(self.resources, 'GCA_000002945.2', 'GCA_000002945.2_assembly_report.txt')
         assembly_fasta_path = os.path.join(self.resources, 'GCA_000002945.2', 'GCA_000002945.2.fa')
-        self.rename = RenameContigsInAssembly(assembly_accession, assembly_fasta_path, assembly_report_path, [input_vcf])
+        self.rename = RenameContigsInAssembly(assembly_accession, assembly_fasta_path, assembly_report_path,
+                                              [input_vcf], get_contig_from_vcf=['header'])
 
     def test_required_contigs_from_vcf(self):
         assert self.rename.contigs_found_in_vcf == {'I', 'II', 'III', 'MTR', 'MT'}
