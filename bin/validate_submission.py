@@ -60,13 +60,12 @@ def main():
 
     with EloadValidation(args.eload, nextflow_config=args.nextflow_config) as eload:
         eload.upgrade_to_new_version_if_needed()
-        if args.report:
-            eload.report()
-        elif args.set_as_valid:
-            eload.set_validation_task_result_valid(args.validation_tasks)
-        else:
-            eload.validate(args.validation_tasks, args.shallow_validation)
-            eload.report()
+        if not args.report:
+            if args.set_as_valid:
+                eload.set_validation_task_result_valid(args.validation_tasks)
+            else:
+                eload.validate(args.validation_tasks, args.shallow_validation)
+        eload.report()
 
 
 if __name__ == "__main__":
