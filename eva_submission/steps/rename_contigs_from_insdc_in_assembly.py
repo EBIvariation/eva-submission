@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import gzip
+import re
 from argparse import ArgumentParser
 from csv import DictReader, excel_tab
 
@@ -33,9 +34,8 @@ class RenameContigsInAssembly(AppLogger):
         self.assembly_report_path = assembly_report_path
         self.contig_alias_client = ContigAliasClient()
 
-    @cached_property
-    def contigs_found_in_vcf(self):
-        """Provides the contigs present in the VCF file"""
+    def _contigs_found_in_vcf_data(self):
+        """Provides the contigs present in the VCF data lines"""
         contigs = set()
         for input_vcf in self.input_vcfs:
             if input_vcf.endswith('.gz'):
@@ -46,6 +46,32 @@ class RenameContigsInAssembly(AppLogger):
                 if line.startswith("#"):
                     continue
                 contigs.add(line.split('\t')[0])
+        return contigs
+
+    def _contigs_found_in_vcf_header(self):
+        """Provides the contigs present in the VCF header lines"""
+        contigs = set()
+        for input_vcf in self.input_vcfs:
+            if input_vcf.endswith('.gz'):
+                vcf_in = gzip.open(input_vcf, mode="rt")
+            else:
+                vcf_in = open(input_vcf, mode="r")
+            for line in vcf_in:
+                if line.startswith("##contig=<ID="):
+                    match_results = re.match("##contig=<(.+)>", line)
+                    if match_results:
+                        for key_value  in match_results.group(1).split(','):
+                            key, value = key_value.split('=')
+                            if key == 'ID':
+                                contigs.add(value)
+                                break
+        return contigs
+
+    @cached_property
+    def contigs_found_in_vcf(self):
+        contigs = self._contigs_found_in_vcf_header()
+        if not contigs:
+            contigs = self._contigs_found_in_vcf_data()
         return contigs
 
     @staticmethod
@@ -134,7 +160,8 @@ def main():
                           help='The path to the file containing the assembly report')
     argparse.add_argument('--vcf_files', required=True, type=str, nargs='+',
                           help='Path to one or several VCF files')
-
+    argparse.add_argument('--get_contig_from_vcf', nargs='+', choices=['header', 'data'], default=['header', 'data'],
+                          help='Set which part of the VCF will be used to retrieve the contig names')
     args = argparse.parse_args()
     RenameContigsInAssembly(
         assembly_accession=args.assembly_accession, assembly_fasta_path=args.assembly_fasta,

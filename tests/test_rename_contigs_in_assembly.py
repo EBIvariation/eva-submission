@@ -34,9 +34,11 @@ class TestRenameContigs(TestCase):
             'X54421.1': 'MT', 'NC_001326.1': 'MT'
         }
 
-
     def test_rename_genome(self):
         assembly_custom = os.path.join(self.resources, 'GCA_000002945.2', 'GCA_000002945.2_custom.fa')
         self.rename.rewrite_changing_names(assembly_custom)
 
+
+    def test_contigs_found_in_vcf_header(self):
+        assert self.rename._contigs_found_in_vcf_header() == {'III', 'MTR', 'I', 'II', 'MT'}
 

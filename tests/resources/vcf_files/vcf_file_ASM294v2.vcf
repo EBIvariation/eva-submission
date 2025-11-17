@@ -1,4 +1,9 @@
 ##fileformat=VCFv4.2
+##contig=<ID=I>
+##contig=<ID=II>
+##contig=<ID=III>
+##contig=<ID=MT,length=1>
+##contig=<ID=MTR,descriptions="test">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	S1
 I	721105	.	A	T	.	PASS	DP=40	GT:DP	1/1:30
 II	721105	.	A	T	.	PASS	DP=40	GT:DP	1/1:30
