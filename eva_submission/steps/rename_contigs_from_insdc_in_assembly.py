@@ -16,11 +16,9 @@ import re
 from argparse import ArgumentParser
 from csv import DictReader, excel_tab
 
-import requests
 from cached_property import cached_property
 from ebi_eva_common_pyutils.contig_alias.contig_alias import ContigAliasClient
 from ebi_eva_common_pyutils.logger import AppLogger
-from retry import retry
 
 
 class RenameContigsInAssembly(AppLogger):
@@ -66,6 +64,8 @@ class RenameContigsInAssembly(AppLogger):
                             if key == 'ID':
                                 contigs.add(value)
                                 break
+                elif line.startswith("#CHROM"):
+                    break
         return contigs
 
     @cached_property
