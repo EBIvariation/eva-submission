@@ -12,10 +12,11 @@ class TestRenameContigs(TestCase):
         input_vcf = os.path.join(self.resources, 'vcf_files', 'vcf_file_ASM294v2.vcf')
         assembly_report_path = os.path.join(self.resources, 'GCA_000002945.2', 'GCA_000002945.2_assembly_report.txt')
         assembly_fasta_path = os.path.join(self.resources, 'GCA_000002945.2', 'GCA_000002945.2.fa')
-        self.rename = RenameContigsInAssembly(assembly_accession, assembly_fasta_path, assembly_report_path, [input_vcf])
+        self.rename = RenameContigsInAssembly(assembly_accession, assembly_fasta_path, assembly_report_path,
+                                              [input_vcf], get_contig_from_vcf=['header'])
 
     def test_required_contigs_from_vcf(self):
-        assert self.rename.contigs_found_in_vcf == {'I', 'II', 'III', 'MTR', 'MT'}
+        assert self.rename.contigs_found_in_vcf == {'I', 'II', 'III', 'MTR', 'MT', 'chr=1'}
 
     def test_assembly_report_map(self):
         assert self.rename.assembly_report_map == {
@@ -34,9 +35,11 @@ class TestRenameContigs(TestCase):
             'X54421.1': 'MT', 'NC_001326.1': 'MT'
         }
 
-
     def test_rename_genome(self):
         assembly_custom = os.path.join(self.resources, 'GCA_000002945.2', 'GCA_000002945.2_custom.fa')
         self.rename.rewrite_changing_names(assembly_custom)
 
+
+    def test_contigs_found_in_vcf_header(self):
+        assert self.rename._contigs_found_in_vcf_header() == {'III', 'MTR', 'I', 'II', 'MT', 'chr=1'}
 
