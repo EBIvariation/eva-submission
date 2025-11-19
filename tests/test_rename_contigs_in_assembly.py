@@ -16,7 +16,7 @@ class TestRenameContigs(TestCase):
                                               [input_vcf], get_contig_from_vcf=['header'])
 
     def test_required_contigs_from_vcf(self):
-        assert self.rename.contigs_found_in_vcf == {'I', 'II', 'III', 'MTR', 'MT'}
+        assert self.rename.contigs_found_in_vcf == {'I', 'II', 'III', 'MTR', 'MT', 'chr=1'}
 
     def test_assembly_report_map(self):
         assert self.rename.assembly_report_map == {
@@ -41,5 +41,5 @@ class TestRenameContigs(TestCase):
 
 
     def test_contigs_found_in_vcf_header(self):
-        assert self.rename._contigs_found_in_vcf_header() == {'III', 'MTR', 'I', 'II', 'MT'}
+        assert self.rename._contigs_found_in_vcf_header() == {'III', 'MTR', 'I', 'II', 'MT', 'chr=1'}
 

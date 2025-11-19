@@ -4,6 +4,7 @@
 ##contig=<ID=III>
 ##contig=<ID=MT,length=1>
 ##contig=<ID=MTR,descriptions="test">
+##contig=<ID=chr=1,descriptions="strange_contig name">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	S1
 I	721105	.	A	T	.	PASS	DP=40	GT:DP	1/1:30
 II	721105	.	A	T	.	PASS	DP=40	GT:DP	1/1:30
