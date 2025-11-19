@@ -60,7 +60,8 @@ class RenameContigsInAssembly(AppLogger):
                     match_results = re.match("##contig=<(.+)>", line)
                     if match_results:
                         for key_value  in match_results.group(1).split(','):
-                            key, value = key_value.split('=')
+                            key, value = key_value.split('=', 1)
+
                             if key == 'ID':
                                 contigs.add(value)
                                 break
