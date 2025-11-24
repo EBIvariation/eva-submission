@@ -2,7 +2,11 @@
 
 nextflow.enable.dsl=2
 
+// executables
+params.executable = ["bcftools": "bcftools", "tabix": "tabix", "bgzip": "bgzip", "samtools": "samtools"]
+
 include { copy_to_ftp } from './common_processes.nf'
+include { chunk_vcf } from './chunk_vcf.nf'
 
 
 def helpMessage() {
@@ -36,8 +40,6 @@ params.load_job_props = null
 params.acc_import_job_props = null
 params.annotation_only = null
 
-// executables
-params.executable = ["bcftools": "bcftools", "tabix": "tabix", "bgzip": "bgzip"]
 // java jars
 params.jar = ["accession_pipeline": "accession_pipeline", "eva_pipeline": "eva_pipeline"]
 // ingestion tasks
@@ -123,15 +125,17 @@ workflow {
                 .map{row -> tuple(file(row.vcf_file).name, file(row.vcf_file), row.assembly_accession, row.aggregation, file(row.fasta), file(row.report))}
                 .combine(normalise_vcf.out.vcf_tuples, by:0)     // Join based on the vcf_filename
                 .map {tuple(it[0], it[6], it[2], it[3], it[4], it[5])}   // vcf_filename, normalised vcf, assembly_accession, aggregation, fasta, report
-            accession_vcf(normalised_vcfs_ch)
+            chunk_vcf(normalised_vcfs_ch)
+            accession_vcf(chunk_vcf.out.chunked_vcfs.transpose())
             qc_accession_vcf(accession_vcf.out.accession_done)
             sort_and_compress_vcf(qc_accession_vcf.out.qc_accession_done)
-            csi_vcfs = sort_and_compress_vcf.out.compressed_vcf
-            accessioned_files_to_rm = accession_vcf.out.accessioned_filenames
-            all_accession_complete = sort_and_compress_vcf.out.compressed_vcf.collect()
+            all_compressed = sort_and_compress_vcf.out.compressed_vcf.groupTuple(by: 0)
+            merge_accessioned_files(all_compressed)
+            csi_vcfs = merge_accessioned_files.out.accessioned_merged_files
+            all_accession_complete = merge_accessioned_files.out.accessioned_merged_files.collect()
         }
         csi_index_vcf(csi_vcfs)
-        copy_to_ftp(csi_index_vcf.out.csi_indexed_vcf.toList(), accessioned_files_to_rm.toList())
+        copy_to_ftp(csi_index_vcf.out.csi_indexed_vcf.toList(), csi_vcfs.toList())
     }
     if ("variant_load" in params.ingestion_tasks) {
         normalised_vcfs_ch = Channel.fromPath(params.valid_vcfs)
@@ -220,11 +224,10 @@ process accession_vcf {
                     -e $params.logs_dir/${log_filename}.err"
 
     input:
-    tuple val(vcf_filename), val(vcf_file), val(assembly_accession), val(aggregation), val(fasta), val(report)
+    tuple val(vcf_filename), val(chunk_file), val(assembly_accession), val(aggregation), val(fasta), val(report)
 
     output:
-    val accessioned_filename, emit: accessioned_filenames
-    tuple val(vcf_filename), val(vcf_file), val(assembly_accession), val(aggregation), val(fasta), val(report), path("${log_filename}.log"), emit: accession_done
+    tuple val(vcf_filename), path(accessioned_filename), val(assembly_accession), val(aggregation), val(fasta), val(report), path("${log_filename}.log"), emit: accession_done
 
     script:
     def pipeline_parameters = ""
@@ -232,12 +235,13 @@ process accession_vcf {
     pipeline_parameters += " --parameters.vcfAggregation=" + aggregation.toString()
     pipeline_parameters += " --parameters.fasta=" + fasta.toString()
     pipeline_parameters += " --parameters.assemblyReportUrl=file:" + report.toString()
-    pipeline_parameters += " --parameters.vcf=" + vcf_file.toString()
+    pipeline_parameters += " --parameters.vcf=" + chunk_file.toString()
     // Check that the ssid does not exist before attempting to write it (much faster when the ssids already exist but slightly slower when they do not)
     pipeline_parameters += " --accession.save.mode=PREFILTER_EXISTING"
 
-    accessioned_filename = vcf_filename.take(vcf_filename.indexOf(".vcf")) + ".accessioned.vcf"
-    log_filename = "accessioning.${vcf_filename}"
+    chunk_basename = "${chunk_file.getName().replaceAll(/\.vcf(\.gz)?$/, '')}"
+    accessioned_filename = "${chunk_basename}.accessioned.vcf"
+    log_filename = "accessioning.${chunk_basename}"
 
     pipeline_parameters += " --parameters.outputVcf=" + "${params.public_dir}/${accessioned_filename}"
 
@@ -255,10 +259,10 @@ process qc_accession_vcf {
                     -e $params.logs_dir/${log_filename}.err"
 
     input:
-    tuple val(vcf_filename), val(vcf_file), val(assembly_accession), val(aggregation), val(fasta), val(report), path(accession_log_file)
+    tuple val(vcf_filename), path(accessioned_chunk_file), val(assembly_accession), val(aggregation), val(fasta), val(report), path(accession_log_file)
 
     output:
-    path "${accessioned_filename}.tmp", emit: qc_accession_done
+    tuple val(vcf_filename), path("${accessioned_filename}.tmp"), path(accessioned_chunk_file), emit: qc_accession_done
 
     script:
     def pipeline_parameters = ""
@@ -266,10 +270,10 @@ process qc_accession_vcf {
     pipeline_parameters += " --parameters.vcfAggregation=" + aggregation.toString()
     pipeline_parameters += " --parameters.fasta=" + fasta.toString()
     pipeline_parameters += " --parameters.assemblyReportUrl=file:" + report.toString()
-    pipeline_parameters += " --parameters.vcf=" + vcf_file.toString()
+    pipeline_parameters += " --parameters.vcf=" + accessioned_chunk_file.toString()
 
-    accessioned_filename = vcf_filename.take(vcf_filename.indexOf(".vcf")) + ".accessioned.vcf"
-    log_filename = "qc_accession.${vcf_filename}"
+    accessioned_filename = accessioned_chunk_file.toString()
+    log_filename = "qc_accession.${accessioned_filename}"
 
     pipeline_parameters += " --parameters.outputVcf=" + "${params.public_dir}/${accessioned_filename}"
 
@@ -306,19 +310,47 @@ process qc_accession_vcf {
 process sort_and_compress_vcf {
     label 'default_time', 'med_mem'
 
-    publishDir params.public_dir,
-	mode: 'copy'
-
     input:
-    path tmp_file
+    tuple val(vcf_filename), path(tmp_file), path(accessioned_chunk_vcf)
 
     output:
-    path "*.gz", emit: compressed_vcf
+    tuple val(vcf_filename), path("${accessioned_chunk_vcf}.gz"), emit: compressed_vcf
 
     """
-    filename=\$(basename $tmp_file)
-    filename=\${filename%.*}
-    $params.executable.bcftools sort -O z -o \${filename}.gz ${params.public_dir}/\${filename}
+    vcf_chunk_path=\$(readlink -f ${accessioned_chunk_vcf})
+    $params.executable.bcftools sort -O z -o ${accessioned_chunk_vcf}.gz \$vcf_chunk_path
+    """
+}
+
+
+/*
+ * Merge chunk accession outputs into a single VCF
+ */
+process merge_accessioned_files {
+    label 'default_time', 'med_mem'
+
+    publishDir params.public_dir,
+    mode: 'copy'
+
+    input:
+    tuple val(vcf_filename), path(compressed_chunk_list)
+
+    output:
+    path(accessioned_merged_filename), emit: accessioned_merged_files
+
+    script:
+    def vcf_file_basename = "${vcf_filename.replaceAll(/\.vcf(\.gz)?$/, '')}"
+    accessioned_merged_filename = "${vcf_file_basename}.accessioned.vcf.gz"
+
+    """
+    set -euo pipefail
+
+    CHUNKS=(\$(for f in ${compressed_chunk_list.join(' ')}; do
+        readlink -f "\$f"
+    done | sort -t '.' -k2,2V))
+
+    # Merge VCFs
+    $params.executable.bcftools concat -O z -o ${accessioned_merged_filename} "\${CHUNKS[@]}"
     """
 }
 
