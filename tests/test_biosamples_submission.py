@@ -410,8 +410,8 @@ class TestSampleJSONSubmitter(BSDTestCase):
             expected_bsd_json['characteristics']['geographic location (country and/or sea)'] = [{'text': 'not provided'}]
             expected_bsd_json['characteristics']['collection date'] = [{'text': 'not provided'}]
 
-        self.submitter = SampleJSONSubmitter(json_data)
-        gen = self.submitter._convert_metadata()
+        submitter = SampleJSONSubmitter(json_data)
+        gen = submitter._convert_metadata()
         sample_json, sample_name, sample_accession = next(gen)
         assert sample_json is None
         assert sample_name == 'S1'
@@ -472,3 +472,14 @@ class TestSampleJSONSubmitter(BSDTestCase):
         }
 
         self.assert_convertion_json_to_bsd_json(bio_sample_object, with_default=True)
+
+    def test_submit_to_bioSamples_already_submitted(self):
+
+        submitter = SampleJSONSubmitter(metadata_json={})
+        returned_tuples = [
+            (None, 'sample1', 'SAME000001'),  # Sample already submitted
+        ]
+        with patch.object(SampleJSONSubmitter, '_convert_metadata', return_value=returned_tuples):
+            sample_2_accession = submitter.submit_to_bioSamples()
+            assert sample_2_accession == {'sample1': 'SAME000001'}
+

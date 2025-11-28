@@ -365,8 +365,8 @@ class SampleSubmitter(AppLogger):
                 else:
                     self.error(f'Sample {sample_name} is not a unique name. Sample {sample_accession} will not be stored')
                 nb_sample_uploaded += 1
-            elif sample_accession:
-                sample_name_to_accession[sample_name] = sample_accession
+            elif sample_accession and sample_name_from_metadata:
+                sample_name_to_accession[sample_name_from_metadata] = sample_accession
         self.info(f'Uploaded {nb_sample_uploaded} sample(s)')
         return sample_name_to_accession
 
