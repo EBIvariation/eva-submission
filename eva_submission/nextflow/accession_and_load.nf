@@ -25,6 +25,7 @@ def helpMessage() {
             --public_dir                directory for files to be made public
             --logs_dir                  logs directory
             --taxonomy                  taxonomy id
+            --num_chunks                Number of chunks
     """
 }
 
@@ -39,6 +40,7 @@ params.taxonomy = null
 params.load_job_props = null
 params.acc_import_job_props = null
 params.annotation_only = null
+params.num_chunks = 10
 
 // java jars
 params.jar = ["accession_pipeline": "accession_pipeline", "eva_pipeline": "eva_pipeline"]
@@ -124,7 +126,7 @@ workflow {
                 .splitCsv(header:true)
                 .map{row -> tuple(file(row.vcf_file).name, file(row.vcf_file), row.assembly_accession, row.aggregation, file(row.fasta), file(row.report))}
                 .combine(normalise_vcf.out.vcf_tuples, by:0)     // Join based on the vcf_filename
-                .map {tuple(it[0], it[6], it[2], it[3], it[4], it[5])}   // vcf_filename, normalised vcf, assembly_accession, aggregation, fasta, report
+                .map {tuple(it[0], it[6], it[2], it[3], it[4], it[5], params.num_chunks)}   // vcf_filename, normalised vcf, assembly_accession, aggregation, fasta, report
             chunk_vcf(normalised_vcfs_ch)
             accession_vcf(chunk_vcf.out.chunked_vcfs.transpose())
             qc_accession_vcf(accession_vcf.out.accession_done)
