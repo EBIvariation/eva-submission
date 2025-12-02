@@ -217,7 +217,6 @@ class EnaJsonConverter(AppLogger):
             "alias": analysis['analysisAlias'],
             "title": analysis['analysisTitle'],
             "description": analysis['description'],
-            "centreName": get_centre(analysis, project),
             "study": get_study_attr(project),
             "samples": get_samples(samples),
             "runs": get_runs(analysis),
@@ -228,6 +227,8 @@ class EnaJsonConverter(AppLogger):
             "files": get_file_objs(files),
             "links": get_analysis_links(analysis),
         }
+        if get_centre(analysis, project):
+            analysis_json_obj["centreName"] = get_centre(analysis, project)
 
         attributes = get_attributes(analysis)
         if attributes:
@@ -249,8 +250,6 @@ class EnaJsonConverter(AppLogger):
         return files_per_analysis
 
     def _create_ena_submission_json_obj(self, project_data, submission_id):
-        centreName = project_data.get('centre')
-
         submission_alias = (
             f"{self.existing_project}_{submission_id}" if self.is_existing_project else submission_id
         )
@@ -263,12 +262,13 @@ class EnaJsonConverter(AppLogger):
 
         ena_submission_obj = {
             "alias": submission_alias,
-            "centerName": centreName,
             "actions": [
                 {"type": "ADD"},
                 {"type": "HOLD", "holdUntilDate": self.hold_date},
             ],
         }
+        if project_data.get('centre'):
+            ena_submission_obj['centreName'] = project_data.get('centre')
 
         return ena_submission_obj
 
