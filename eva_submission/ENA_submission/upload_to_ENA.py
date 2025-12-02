@@ -175,7 +175,8 @@ class ENAUploaderAsync(ENAUploader):
         while response.status_code == 202:
             self.debug(f'{poll_link} -> {response.status_code} : {response.text}')
             if time_lapsed > timeout:
-                raise TimeoutError(f'Waiting for ENA receipt for more than {timeout} seconds')
+                self.error(f'Timed out waiting for {poll_link}')
+                raise TimeoutError(f'Waiting for ENA receipt from {poll_link} for more than {timeout} seconds')
             self.info(f'Waiting {wait_time} for submission to ENA to be processed')
             time.sleep(wait_time)
             time_lapsed += wait_time
