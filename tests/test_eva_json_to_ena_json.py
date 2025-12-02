@@ -142,7 +142,6 @@ class TestEVAJsonToENAJsonConverter(TestCase):
     def test_create_submission_json_obj(self):
         expected_submission_json_obj = {
             "alias": 'Submission-12345',
-            'centerName': 'University of Example',
             "actions": [
                 {
                     "type": "ADD"
@@ -164,7 +163,6 @@ class TestEVAJsonToENAJsonConverter(TestCase):
         self.project['holdDate'] = "2023-06-25"
         expected_submission_json_obj = {
             "alias": 'Submission-12345',
-            'centerName': 'University of Example',
             "actions": [
                 {
                     "type": "ADD"
