@@ -130,7 +130,6 @@ class TestEVAJsonToENAJsonConverter(TestCase):
         }
 
         ena_analysis_json_obj = self.converter._add_analysis(self.analysis, self.samples, self.files, self.project)
-        print(ena_analysis_json_obj)
         self.assert_json_equal(expected_analysis_json_obj, ena_analysis_json_obj)
 
     def test_add_analysis_to_existing_project(self):
@@ -142,6 +141,7 @@ class TestEVAJsonToENAJsonConverter(TestCase):
     def test_create_submission_json_obj(self):
         expected_submission_json_obj = {
             "alias": 'Submission-12345',
+            'centreName': 'University of Example',
             "actions": [
                 {
                     "type": "ADD"
@@ -163,6 +163,7 @@ class TestEVAJsonToENAJsonConverter(TestCase):
         self.project['holdDate'] = "2023-06-25"
         expected_submission_json_obj = {
             "alias": 'Submission-12345',
+            'centreName': 'University of Example',
             "actions": [
                 {
                     "type": "ADD"

@@ -72,6 +72,24 @@ class EnaJsonConverter(AppLogger):
     def _project_alias(self):
         return f"{self.existing_project}_{self.submission_id}" if self.is_existing_project else self.submission_id
 
+    def _get_file_obs(self, file):
+        def _file_type(fn):
+            if is_vcf_file(fn):
+                return {'fileType': 'vcf'}
+            elif fn.endswith('tbi'):
+                return {'fileType': 'tabix'}
+            elif fn.endswith('csi'):
+                return {'fileType': 'csi'}
+            return {}
+
+        return {
+            'fileName': file['fileName'],
+            **(_file_type(file.get('fileName'))),
+            **({"checksumMethod": 'MD5'} if 'md5' in file else {}),
+            **({"checksum": file.get('md5')} if 'md5' in file else {}),
+        }
+
+
     def _create_ena_project_json_obj(self, project_data):
         project_title = project_data.get("title", "Unknown Title")
         project_description = project_data.get("description", "No description provided")
@@ -148,7 +166,7 @@ class EnaJsonConverter(AppLogger):
             } for sample in samples]
 
         def get_runs(analysis):
-            return analysis.get('runAccessions', [])
+            return [{'accession': run} for run in analysis.get('runAccessions', [])]
 
         def get_assemblies(analysis):
             reference_genome = analysis.get('referenceGenome', '').strip()
@@ -186,24 +204,7 @@ class EnaJsonConverter(AppLogger):
             return analysis_attributes
 
         def get_file_objs(files):
-            def _file_type(fn):
-                if is_vcf_file(fn):
-                    return {'fileType': 'vcf'}
-                elif fn.endswith('tbi'):
-                    return {'fileType': 'tabix'}
-                elif fn.endswith('csi'):
-                    return {'fileType': 'csi'}
-                return {}
-
-            return [
-                {
-                    'fileName': file['fileName'],
-                    **(_file_type(file.get('fileName'))),
-                    **({"checksumMethod": 'MD5'} if 'md5' in file else {}),
-                    **({"checksum": file.get('md5')} if 'md5' in file else {}),
-                }
-                for file in files
-            ]
+            return [self._get_file_obs(file) for file in files]
 
         def get_analysis_links(analysis):
             return [self.get_link(link) for link in analysis.get('links', [])]
