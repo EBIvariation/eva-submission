@@ -46,6 +46,8 @@ def main():
                           help='Change the mode of upload to ENA to use the async queue.')
     argparse.add_argument('--dry_ena_upload', action='store_true', default=False,
                           help='Prevent the upload of files to ENA FTP and XML files to submission.')
+    argparse.add_argument('--output_format', choices=['xml', 'json'], default='json',
+                          help='Format of the files that will be sent to ENA for the brokering.')
     argparse.add_argument('--force', required=False, type=str, nargs='+', default=[],
                           choices=EloadBrokering.all_brokering_tasks,
                           help='When not set, the script only performs the tasks that were not successful. Can be '
@@ -68,7 +70,7 @@ def main():
         brokering.upgrade_to_new_version_if_needed()
         if not args.report:
             brokering.broker(brokering_tasks_to_force=args.force, existing_project=args.project_accession,
-                             async_upload=args.use_async_upload, dry_ena_upload=args.dry_ena_upload)
+                             async_upload=args.use_async_upload, dry_ena_upload=args.dry_ena_upload, output_format=args.output_format)
         brokering.report()
 
 

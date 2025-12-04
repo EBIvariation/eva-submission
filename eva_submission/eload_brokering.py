@@ -28,13 +28,14 @@ class EloadBrokering(Eload):
         if 'validation' not in self.eload_cfg:
             self.eload_cfg['validation'] = {}
 
-    def broker(self, brokering_tasks_to_force=None, existing_project=None, async_upload=False, dry_ena_upload=False):
+    def broker(self, brokering_tasks_to_force=None, existing_project=None, async_upload=False, dry_ena_upload=False,
+               output_format='json'):
         """Run the brokering process"""
         self.eload_cfg.set('brokering', 'brokering_date', value=self.now)
         self.prepare_brokering(force=('preparation' in brokering_tasks_to_force))
         self.upload_to_bioSamples(force=('biosamples' in brokering_tasks_to_force))
         self.broker_to_ena(force=('ena' in brokering_tasks_to_force), existing_project=existing_project,
-                           async_upload=async_upload, dry_ena_upload=dry_ena_upload)
+                           async_upload=async_upload, dry_ena_upload=dry_ena_upload, output_format=output_format)
         self.update_biosamples_with_study(force=('update_biosamples' in brokering_tasks_to_force))
 
     def prepare_brokering(self, force=False):
@@ -49,7 +50,7 @@ class EloadBrokering(Eload):
         else:
             self.info('Preparation has already been run, Skip!')
 
-    def broker_to_ena(self, force=False, existing_project=None, async_upload=False, dry_ena_upload=False):
+    def broker_to_ena(self, force=False, existing_project=None, async_upload=False, dry_ena_upload=False, output_format='json'):
         if not self.eload_cfg.query('brokering', 'ena', 'pass') or force:
             ena_spreadsheet = os.path.join(self._get_dir('ena'), 'metadata_spreadsheet.xlsx')
             brokering_json = os.path.join(self._get_dir('ena'), 'metadata_json.json')
@@ -62,9 +63,9 @@ class EloadBrokering(Eload):
                                                  ena_spreadsheet, existing_project)
                 metadata_for_ena = ena_spreadsheet
             if async_upload:
-                ena_uploader = ENAUploaderAsync(self.eload, metadata_for_ena, self._get_dir('ena'))
+                ena_uploader = ENAUploaderAsync(self.eload, metadata_for_ena, self._get_dir('ena'), output_format)
             else:
-                ena_uploader = ENAUploader(self.eload, metadata_for_ena, self._get_dir('ena'))
+                ena_uploader = ENAUploader(self.eload, metadata_for_ena, self._get_dir('ena'), output_format)
 
             if ena_uploader.converter.is_existing_project:
                 # Set the project in the config, based on the spreadsheet

@@ -89,6 +89,23 @@ class EnaJsonConverter(AppLogger):
             **({"checksum": file.get('md5')} if 'md5' in file else {}),
         }
 
+    def _get_file_obs(self, file):
+        def _file_type(fn):
+            if is_vcf_file(fn):
+                return {'fileType': 'vcf'}
+            elif fn.endswith('tbi'):
+                return {'fileType': 'tabix'}
+            elif fn.endswith('csi'):
+                return {'fileType': 'csi'}
+            return {}
+
+        return {
+            'fileName': file['fileName'],
+            **(_file_type(file.get('fileName'))),
+            **({"checksumMethod": 'MD5'} if 'md5' in file else {}),
+            **({"checksum": file.get('md5')} if 'md5' in file else {}),
+        }
+
 
     def _create_ena_project_json_obj(self, project_data):
         project_title = project_data.get("title", "Unknown Title")
