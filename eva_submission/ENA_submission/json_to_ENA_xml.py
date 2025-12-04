@@ -43,7 +43,7 @@ class EnaJson2XmlConverter(EnaJsonConverter):
 
     def _create_project_xml(self):
         """
-        This function read the project row from the XLS parser then create and populate an XML element following ENA
+        This function reads the project object from the JSON then create and populate an XML element following ENA
         data model.
         :return: The top XML element
         """
@@ -112,7 +112,7 @@ class EnaJson2XmlConverter(EnaJsonConverter):
 
     def _create_analysis_xml(self):
         """
-        This function reads the analysis rows from the XLS parser then create and populate an XML element following ENA data
+        This function reads the analysis objects from the JSON then create and populate an XML element following ENA data
         model.
         :return: The top XML element
         """
