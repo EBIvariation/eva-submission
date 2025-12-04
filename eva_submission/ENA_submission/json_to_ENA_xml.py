@@ -52,11 +52,6 @@ class EnaJson2XmlConverter(EnaJsonConverter):
         project_description = project_data.get("description", "No description provided")
         project_centre_name = project_data.get("centre", "Unknown Centre")
 
-        publication_links = [
-            {"xrefLink": {"db": pub.split(":")[0], "id": pub.split(":")[1]}}
-            for pub in project_data.get("publications", [])
-            if ":" in pub
-        ]
         root = Element('PROJECT_SET')
 
         project_elemt = add_element(root, 'PROJECT',
@@ -93,7 +88,7 @@ class EnaJson2XmlConverter(EnaJsonConverter):
         related_projects = []
         for key, field_name in [
             ("parentProject", "PARENT_PROJECT"),
-            ("childProjects", "PEER_PROJECT"),
+            ("childProjects", "CHILD_PROJECT"),
             ("peerProjects", "PEER_PROJECT"),
         ]:
             values = project_data.get(key, [])
@@ -189,8 +184,7 @@ class EnaJson2XmlConverter(EnaJsonConverter):
         if 'platform' in analysis_data and analysis_data.get('platform'):
             platforms = analysis_data.get('platform').strip()
             add_element(seq_var_elemt, 'PLATFORM', element_text=platforms)
-        if 'imputation' in analysis_data and analysis_data.get('imputation') \
-                and str(analysis_data.get('imputation')).strip() == '1':
+        if 'imputation' in analysis_data and analysis_data.get('imputation'):
             add_element(seq_var_elemt, 'IMPUTATION', element_text='1')
         # JSON keys to XML attributes
         file_mapping = {

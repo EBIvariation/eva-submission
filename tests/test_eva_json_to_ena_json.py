@@ -37,7 +37,7 @@ class TestEVAJsonToENAJsonConverter(TestCase):
             'referenceGenome': 'http://abc.com',
             'software': ['software package GCTA', 'Burrows-Wheeler Alignment tool (BWA)', 'HTSeq-python package'],
             'platform': "BGISEQ-500",
-            'imputation': "1",
+            'imputation': True,
             "links": ["http://www.abc.com|abc", "http://xyz.com", "PubMed:123456", "PubMed:789012:abcxyz"],
 
         }
@@ -195,5 +195,5 @@ class TestEVAJsonToENAJsonConverter(TestCase):
             assert ena_json_data['submission']['alias'] == 'PRJEB00001_Submission-12345'
 
     def assert_json_equal(self, json1, json2):
-        if json.dumps(json1, sort_keys=True) != json.dumps(json2, sort_keys=True):
-            raise AssertionError(f"JSON objects are not equal.\nExpected: {json1}\nGot: {json2}")
+        assert json.dumps(json1, sort_keys=True) == json.dumps(json2, sort_keys=True), \
+            f"JSON objects are not equal.\nExpected: {json.dumps(json1, sort_keys=True)}\nGot:      {json.dumps(json2, sort_keys=True)}"

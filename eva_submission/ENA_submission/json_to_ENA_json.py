@@ -211,7 +211,7 @@ class EnaJsonConverter(AppLogger):
                 ])
             if analysis.get('platform'):
                 analysis_attributes.append({"tag": "PLATFORM", "value": analysis['platform'].strip()})
-            if str(analysis.get('imputation', '')).strip() == '1':
+            if analysis.get('imputation'):
                 analysis_attributes.append({"tag": "IMPUTATION", "value": "1"})
             if analysis.get('experimentType', ''):
                 analysis_attributes.extend([

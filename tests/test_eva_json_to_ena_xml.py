@@ -41,7 +41,7 @@ class TestEVAJsonToENAXmlConverter(TestCase):
             'referenceGenome': 'http://abc.com',
             'software': ['software package GCTA', 'Burrows-Wheeler Alignment tool (BWA)', 'HTSeq-python package'],
             'platform': "BGISEQ-500",
-            'imputation': "1",
+            'imputation': True,
             "links": ["http://www.abc.com|abc", "http://xyz.com", "PubMed:123456", "PubMed:789012:abcxyz"],
 
         }
@@ -56,9 +56,9 @@ class TestEVAJsonToENAXmlConverter(TestCase):
 
         self.files = [
             {'analysisAlias': 'GRM', 'fileName': 'Vibrio.chrom.fix2.final.debug.gwassnps.vcf.gz',
-             'fileType': 'vcf', 'md5': 'c263a486e9b273d6e1e4c5f46ca5ccb8'},
+             'md5': 'c263a486e9b273d6e1e4c5f46ca5ccb8'},
             {'analysisAlias': 'GRM', 'fileName': 'Vibrio.chrom.fix2.final.debug.gwassnps.vcf.gz.tbi',
-             'fileType': 'tabix', 'md5': '4b61e00524cc1f4c98e932b0ee27d94e'},
+             'md5': '4b61e00524cc1f4c98e932b0ee27d94e'},
         ]
 
     @staticmethod
