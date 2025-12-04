@@ -156,7 +156,6 @@ class TestEVAJsonToENAXmlConverter(TestCase):
             self.converter.eva_json_data['project'] = self.project
             root = self.converter._create_project_xml()
             expected_root = ET.fromstring(expected_project)
-            ET.indent(root, space="\t", level=0)
             assert elements_equal(root, expected_root)
 
     def test_add_analysis(self):
@@ -224,7 +223,6 @@ class TestEVAJsonToENAXmlConverter(TestCase):
 </ANALYSIS_SET>"""
         root = ET.Element('ANALYSIS_SET')
         self.converter._add_analysis(root, self.analysis, self.samples, self.files, self.project)
-        # self._print_xml(root)
         assert elements_equal(root, ET.fromstring(expected_analysis))
 
     def test_add_analysis_to_existing_project(self):
