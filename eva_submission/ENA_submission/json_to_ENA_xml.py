@@ -184,7 +184,8 @@ class EnaJson2XmlConverter(EnaJsonConverter):
         experiments = analysis_data.get('experimentType').strip().split(':')
         for experiment in experiments:
             add_element(seq_var_elemt, 'EXPERIMENT_TYPE', element_text=experiment.lower().capitalize())
-        add_element(seq_var_elemt, 'PROGRAM', element_text=analysis_data.get('software'), content_required=True)
+        for piece_of_software in analysis_data.get('software'):
+            add_element(seq_var_elemt, 'PROGRAM', element_text=piece_of_software, content_required=True)
         if 'platform' in analysis_data and analysis_data.get('platform'):
             platforms = analysis_data.get('platform').strip()
             add_element(seq_var_elemt, 'PLATFORM', element_text=platforms)
@@ -217,31 +218,31 @@ class EnaJson2XmlConverter(EnaJsonConverter):
             add_element(analysis_attrib_elemt, 'TAG', element_text='Pipeline_Description')
             add_element(analysis_attrib_elemt, 'VALUE', element_text=analysis_data.get('pipelineDescriptions').strip())
 
-    def _create_submission_xml(self, files_to_submit, action, project_data):
-        root = Element('SUBMISSION_SET')
-        if self.is_existing_project:
-            submission_alias = self.existing_project + '_' + self.submission_id
-        else:
-            submission_alias = self.submission_id
-        submission_elemt = add_element(root, 'SUBMISSION',
-                                       alias=submission_alias,
-                                       center_name=project_data.get('centre'))
-        actions_elemt = add_element(submission_elemt, 'ACTIONS')
-        for file_dict in files_to_submit:
-            action_elemt = add_element(actions_elemt, 'ACTION')
-            add_element(action_elemt, action.upper(),  # action should be ADD or MODIFY
-                        source=os.path.basename(file_dict['file_name']),
-                        schema=file_dict['schema'])
-        if 'holdDate' in project_data and project_data.get('holdDate'):
-            hold_date = project_data.get('holdDate')
-        else:
-            hold_date = today() + timedelta(days=3)
-
-        self.hold_date = hold_date
-
-        action_elemt = add_element(actions_elemt, 'ACTION')
-        add_element(action_elemt, 'HOLD', HoldUntilDate=hold_date.strftime('%Y-%m-%d'))
-        return root
+    # def _create_submission_xml(self, files_to_submit, action, project_data):
+    #     root = Element('SUBMISSION_SET')
+    #     if self.is_existing_project:
+    #         submission_alias = self.existing_project + '_' + self.submission_id
+    #     else:
+    #         submission_alias = self.submission_id
+    #     submission_elemt = add_element(root, 'SUBMISSION',
+    #                                    alias=submission_alias,
+    #                                    center_name=project_data.get('centre'))
+    #     actions_elemt = add_element(submission_elemt, 'ACTIONS')
+    #     for file_dict in files_to_submit:
+    #         action_elemt = add_element(actions_elemt, 'ACTION')
+    #         add_element(action_elemt, action.upper(),  # action should be ADD or MODIFY
+    #                     source=os.path.basename(file_dict['file_name']),
+    #                     schema=file_dict['schema'])
+    #     if 'holdDate' in project_data and project_data.get('holdDate'):
+    #         hold_date = project_data.get('holdDate')
+    #     else:
+    #         hold_date = today() + timedelta(days=3)
+    #
+    #     self.hold_date = hold_date
+    #
+    #     action_elemt = add_element(actions_elemt, 'ACTION')
+    #     add_element(action_elemt, 'HOLD', HoldUntilDate=hold_date.strftime('%Y-%m-%d'))
+    #     return root
 
     def _create_submission_single_xml(self,  action, project_data):
         root = Element('SUBMISSION_SET')

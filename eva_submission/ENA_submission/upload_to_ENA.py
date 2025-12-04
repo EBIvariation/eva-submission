@@ -11,6 +11,7 @@ from requests.auth import HTTPBasicAuth
 from retry import retry
 
 from eva_submission.ENA_submission.json_to_ENA_json import EnaJsonConverter
+from eva_submission.ENA_submission.json_to_ENA_xml import EnaJson2XmlConverter
 from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsxConverter
 from eva_submission.eload_utils import get_file_content
 
@@ -31,13 +32,16 @@ class HackFTP_TLS(ftplib.FTP_TLS):
 
 
 class ENAUploader(AppLogger):
-    def __init__(self, submission_id, metadata_file, output_dir):
+    def __init__(self, submission_id, metadata_file, output_dir, output_format='json'):
         self.submission_id = submission_id
         self.results = {}
         if metadata_file.endswith('.xlsx'):
             self.converter = EnaXlsxConverter(self.submission_id, metadata_file, output_dir, self.submission_id)
         elif metadata_file.endswith('.json'):
-            self.converter = EnaJsonConverter(submission_id, metadata_file, output_dir, 'ENA_submission')
+            if output_format == 'json':
+                self.converter = EnaJsonConverter(submission_id, metadata_file, output_dir, 'ENA_submission')
+            else:
+                self.converter = EnaJson2XmlConverter(submission_id, metadata_file, output_dir, 'ENA_submission')
         self.ena_auth = HTTPBasicAuth(cfg.query('ena', 'username'), cfg.query('ena', 'password'))
 
     @retry(exceptions=ftplib.all_errors, tries=3, delay=2, backoff=1.2, jitter=(1, 3))
