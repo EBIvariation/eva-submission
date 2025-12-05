@@ -302,13 +302,13 @@ class TestEVAJsonToENAXmlConverter(TestCase):
 				<ADD />
 			</ACTION>
 			<ACTION>
-				<HOLD HoldUntilDate="2025-12-07" />
+				<HOLD HoldUntilDate="2025-01-04" />
 			</ACTION>
 		</ACTIONS>
 	</SUBMISSION>
 </SUBMISSION_SET>"""
 
-        with patch('eva_submission.ENA_submission.json_to_ENA_json.today',
+        with patch('eva_submission.ENA_submission.json_to_ENA_xml.today',
                    return_value=datetime(year=2025, month=1, day=1)):
             root = self.converter._create_submission_single_xml('ADD', self.project)
             assert elements_equal(root, ET.fromstring(expected_submission))
