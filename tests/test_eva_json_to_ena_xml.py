@@ -109,10 +109,10 @@ class TestEVAJsonToENAXmlConverter(TestCase):
 				<PARENT_PROJECT accession="PRJEB00001" />
 			</RELATED_PROJECT>
 			<RELATED_PROJECT>
-				<PEER_PROJECT accession="PRJEB00002" />
+				<CHILD_PROJECT accession="PRJEB00002" />
 			</RELATED_PROJECT>
 			<RELATED_PROJECT>
-				<PEER_PROJECT accession="PRJEB00003" />
+				<CHILD_PROJECT accession="PRJEB00003" />
 			</RELATED_PROJECT>
 			<RELATED_PROJECT>
 				<PEER_PROJECT accession="PRJEB00004" />
