@@ -179,7 +179,7 @@ class EnaJson2XmlConverter(EnaJsonConverter):
         experiments = analysis_data.get('experimentType').strip().split(':')
         for experiment in experiments:
             add_element(seq_var_elemt, 'EXPERIMENT_TYPE', element_text=experiment.lower().capitalize())
-        for piece_of_software in analysis_data.get('software'):
+        for piece_of_software in analysis_data.get('software', []):
             add_element(seq_var_elemt, 'PROGRAM', element_text=piece_of_software, content_required=True)
         if 'platform' in analysis_data and analysis_data.get('platform'):
             platforms = analysis_data.get('platform').strip()
