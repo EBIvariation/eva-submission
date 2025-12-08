@@ -1,10 +1,15 @@
 Changelog for eva-submission
 ============================
 
-## 1.19.7 (unreleased)
+## 1.19.7 (2025-12-08)
 ----------------------
 
-- Nothing changed yet.
+### Validation
+- Print validation reports after completion
+
+### Brokering 
+- Option to use the ENA XML format instead of the JSON format
+- Fix sample name retrieval when they already exist in BioSamples
 
 
 ## 1.19.6 (2025-11-13)
