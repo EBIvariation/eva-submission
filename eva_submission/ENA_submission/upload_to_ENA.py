@@ -160,7 +160,7 @@ class ENAUploaderAsync(ENAUploader):
             for key, (file_path, _, _) in file_dict.items():
                 self.info(f'{key}: {file_path}')
             return
-        response = self._post_metadata_file_to_ena(cfg.query('ena', 'submit_async'), file_dict, mime_type)
+        response = self._post_metadata_file_to_ena(cfg.query('ena', 'submit_async'), file_dict)
         if response.status_code == 200:
             json_data = response.json()
             self.results['submissionId'] = json_data.get('submissionId')
@@ -170,22 +170,23 @@ class ENAUploaderAsync(ENAUploader):
             else:
                 self.results['errors'] = [f'No links present in json document: {json_data}']
         else:
+            self.results['receipt'] = response.text
             self.results['errors'] = [f'{response.status_code}']
 
     def monitor_results(self, timeout=3600, wait_time=30):
         poll_link = self.results['poll-links']
         response = requests.get(poll_link, auth=self.ena_auth, headers={"Accept": "application/json"})
+        self.debug(f'{poll_link} -> {response.status_code} : {response.text}')
         time_lapsed = 0
         while response.status_code == 202:
-            self.debug(f'{poll_link} -> {response.status_code} : {response.text}')
             if time_lapsed > timeout:
                 self.error(f'Timed out waiting for {poll_link}')
                 raise TimeoutError(f'Waiting for ENA receipt from {poll_link} for more than {timeout} seconds')
             self.info(f'Waiting {wait_time} for submission to ENA to be processed')
             time.sleep(wait_time)
             time_lapsed += wait_time
-
             response = requests.get(poll_link, auth=self.ena_auth, headers={"Accept": "application/json"})
+            self.debug(f'{poll_link} -> {response.status_code} : {response.text}')
         self.results.update(self.parse_ena_json_receipt(response.text))
         if self.results['errors']:
             self.error('\n'.join(self.results['errors']))
