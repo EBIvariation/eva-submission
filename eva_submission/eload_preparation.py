@@ -3,14 +3,10 @@ import json
 import os
 import shutil
 
-import eva_sub_cli
 import requests
 from ebi_eva_common_pyutils.config import cfg
-from ebi_eva_common_pyutils.spreadsheet.metadata_xlsx_utils import metadata_xlsx_version
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 from ebi_eva_internal_pyutils.config_utils import get_contig_alias_db_creds_for_profile
-from eva_sub_cli.executables.xlsx2json import XlsxParser
-from packaging.version import Version
 from retry import retry
 
 from eva_submission.eload_submission import Eload, directory_structure
