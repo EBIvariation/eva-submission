@@ -321,13 +321,12 @@ class EloadPreparation(Eload):
 
     def convert_new_spreadsheet_to_json(self):
         metadata_xlsx = self.eload_cfg.query('submission', 'metadata_spreadsheet')
-        if metadata_xlsx:
-            metadata_xlsx_name = os.path.basename(metadata_xlsx)
-            metadata_json_file_path = os.path.join(self._get_dir('metadata'), 'eva_sub_cli_metadata.json')
-            # Create a subdirectory and move the submitted file there to avoid confusion
-            metadata_cli_dir = os.path.join(self._get_dir('metadata'), 'eva_sub_cli')
-            os.makedirs(metadata_cli_dir, exist_ok=True)
-            os.rename(metadata_xlsx, os.path.join(metadata_cli_dir, metadata_xlsx_name))
-            metadata_xlsx = os.path.join(metadata_cli_dir, metadata_xlsx_name)
-            convert_spreadsheet_to_json(metadata_xlsx, metadata_json_file_path)
-            self.eload_cfg.set('submission', 'metadata_json', value=metadata_json_file_path)
+        metadata_xlsx_name = os.path.basename(metadata_xlsx)
+        metadata_json_file_path = os.path.join(self._get_dir('metadata'), 'eva_sub_cli_metadata.json')
+        # Create a subdirectory and move the submitted file there to avoid confusion
+        metadata_cli_dir = os.path.join(self._get_dir('metadata'), 'eva_sub_cli')
+        os.makedirs(metadata_cli_dir, exist_ok=True)
+        os.rename(metadata_xlsx, os.path.join(metadata_cli_dir, metadata_xlsx_name))
+        metadata_xlsx = os.path.join(metadata_cli_dir, metadata_xlsx_name)
+        convert_spreadsheet_to_json(metadata_xlsx, metadata_json_file_path)
+        self.eload_cfg.set('submission', 'metadata_json', value=metadata_json_file_path)
