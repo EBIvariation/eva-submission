@@ -15,7 +15,7 @@ from retry import retry
 
 from eva_submission.eload_submission import Eload, directory_structure
 from eva_submission.eload_utils import resolve_accession_from_text, get_reference_fasta_and_report, NCBIAssembly, \
-    create_assembly_report_from_fasta, is_vcf_file
+    create_assembly_report_from_fasta, is_vcf_file, convert_spreadsheet_to_json
 from eva_submission.submission_in_ftp import FtpDepositBox
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
@@ -327,26 +327,11 @@ class EloadPreparation(Eload):
         metadata_xlsx = self.eload_cfg.query('submission', 'metadata_spreadsheet')
         if metadata_xlsx:
             metadata_xlsx_name = os.path.basename(metadata_xlsx)
-        version = metadata_xlsx_version(metadata_xlsx)
-        if Version(version) >= Version("1.1.6"):
-            self.info(f'Convert spreadsheet version {version} to eva-sub-cli JSON')
+            metadata_json_file_path = os.path.join(self._get_dir('metadata'), 'eva_sub_cli_metadata.json')
             # Create a subdirectory and move the submitted file there to avoid confusion
             metadata_cli_dir = os.path.join(self._get_dir('metadata'), 'eva_sub_cli')
             os.makedirs(metadata_cli_dir, exist_ok=True)
             os.rename(metadata_xlsx, os.path.join(metadata_cli_dir, metadata_xlsx_name))
             metadata_xlsx = os.path.join(metadata_cli_dir, metadata_xlsx_name)
-
-            # Convert to json format
-            if Version(version) < Version('3.0.0'):
-                conf_filename = os.path.join(eva_sub_cli.ETC_DIR, 'spreadsheet2json_conf_V2.yaml')
-            else:
-                conf_filename = os.path.join(eva_sub_cli.ETC_DIR, 'spreadsheet2json_conf.yaml')
-
-            parser = XlsxParser(metadata_xlsx, conf_filename)
-            metadata_json_file_path = os.path.join(self._get_dir('metadata'), 'eva_sub_cli_metadata.json')
-            try:
-                parser.json(metadata_json_file_path)
-                self.eload_cfg.set('submission', 'metadata_json', value=metadata_json_file_path)
-            except IndexError as e:
-                self.error(f'Could not convert metadata version {version} to JSON file: {metadata_xlsx}')
-                raise e
+            convert_spreadsheet_to_json(metadata_xlsx, metadata_json_file_path)
+            self.eload_cfg.set('submission', 'metadata_json', value=metadata_json_file_path)
