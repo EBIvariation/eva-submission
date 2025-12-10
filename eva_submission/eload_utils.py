@@ -365,8 +365,8 @@ def get_nextflow_config_flag(nextflow_config=None):
     return ''
 
 def convert_spreadsheet_to_json(metadata_xlsx, metadata_json_file_path):
-    if metadata_xlsx:
-        metadata_xlsx_name = os.path.basename(metadata_xlsx)
+    if not metadata_xlsx:
+        raise FileNotFoundError('Could not locate the metadata xls file')
     version = metadata_xlsx_version(metadata_xlsx)
     if Version(version) >= Version("1.1.6"):
         logger.info(f'Convert spreadsheet version {version} to eva-sub-cli JSON')
