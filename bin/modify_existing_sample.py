@@ -16,10 +16,12 @@
 
 import argparse
 import logging
+import os
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
 from eva_submission.biosample_submission.biosamples_submitters import SampleJSONSubmitter
+from eva_submission.eload_utils import convert_spreadsheet_to_json
 from eva_submission.submission_config import load_config
 
 
@@ -47,7 +49,12 @@ def main():
 
     # Load the config_file from default location
     load_config()
-    sample_submitter = SampleJSONSubmitter(args.metadata_file, submit_type=(args.action,))
+    if args.metadata_file.endswith('.xlsx'):
+        metadata_json_file_path = os.path.basename(args.metadata_file).replace('.xlsx', '.json')
+        convert_spreadsheet_to_json(args.metadata_file, metadata_json_file_path)
+    else:
+        metadata_json_file_path = args.metadata_file
+    sample_submitter = SampleJSONSubmitter(metadata_json_file_path, submit_type=(args.action,))
     sample_name_to_accession = sample_submitter.submit_to_bioSamples()
     for sample_name, accession in sample_name_to_accession.items():
         print(f'{sample_name}: {accession}')

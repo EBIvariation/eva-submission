@@ -6,6 +6,7 @@ import urllib
 from datetime import datetime
 from xml.etree import ElementTree as ET
 
+import eva_sub_cli
 import pysam
 import requests
 from ebi_eva_common_pyutils.assembly_utils import retrieve_genbank_assembly_accessions_from_ncbi
@@ -13,9 +14,12 @@ from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.ena_utils import download_xml_from_ena
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from ebi_eva_common_pyutils.reference import NCBIAssembly, NCBISequence
+from ebi_eva_common_pyutils.spreadsheet.metadata_xlsx_utils import metadata_xlsx_version
 from ebi_eva_internal_pyutils.metadata_utils import get_metadata_connection_handle
 from ebi_eva_internal_pyutils.mongodb import MongoDatabase
 from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query
+from eva_sub_cli.executables.xlsx2json import XlsxParser
+from packaging.version import Version
 from requests.auth import HTTPBasicAuth
 from retry import retry
 
@@ -359,3 +363,22 @@ def get_nextflow_config_flag(nextflow_config=None):
     if env_val:
         return f'-c {env_val}'
     return ''
+
+def convert_spreadsheet_to_json(metadata_xlsx, metadata_json_file_path):
+    if metadata_xlsx:
+        metadata_xlsx_name = os.path.basename(metadata_xlsx)
+    version = metadata_xlsx_version(metadata_xlsx)
+    if Version(version) >= Version("1.1.6"):
+        logger.info(f'Convert spreadsheet version {version} to eva-sub-cli JSON')
+        # Convert to json format
+        if Version(version) < Version('3.0.0'):
+            conf_filename = os.path.join(eva_sub_cli.ETC_DIR, 'spreadsheet2json_conf_V2.yaml')
+        else:
+            conf_filename = os.path.join(eva_sub_cli.ETC_DIR, 'spreadsheet2json_conf.yaml')
+
+        parser = XlsxParser(metadata_xlsx, conf_filename)
+        try:
+            parser.json(metadata_json_file_path)
+        except IndexError as e:
+            logger.error(f'Could not convert metadata version {version} to JSON file: {metadata_xlsx}')
+            raise e
