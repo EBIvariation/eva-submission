@@ -142,7 +142,7 @@ class TestENAUploader(TestCase):
                     'ELOAD_1.SingleSubmission.xml',
                     get_file_content(self.uploader_async_xls.converter.single_submission_file),
                     'application/xml'
-                )}, 'application/xml'
+                )}
             )
             mock_get.assert_called_once_with('https://example.com/link', auth=self.uploader_async_xls.ena_auth, headers={'Accept': 'application/json'})
             self.assertEqual({
@@ -154,7 +154,7 @@ class TestENAUploader(TestCase):
         self.assertFalse(os.path.isfile(self.uploader_async_xls.converter.single_submission_file))
         self.uploader_async_xls.upload_metadata_file_to_ena()
         self.assertTrue(os.path.isfile(self.uploader_async_xls.converter.single_submission_file))
-        self.assertEqual(self.uploader_async_xls.results, {'errors': ['403']})
+        self.assertEqual(self.uploader_async_xls.results, {'errors': ['403'], 'receipt': ''})
 
     def test_single_dry_upload_xml_files_to_ena(self):
         with patch.object(ENAUploader, '_post_metadata_file_to_ena') as mock_post,\

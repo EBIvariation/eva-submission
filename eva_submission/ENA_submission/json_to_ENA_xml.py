@@ -258,7 +258,11 @@ class EnaJson2XmlConverter(EnaJsonConverter):
 
         self.hold_date = hold_date
         action_elemt = add_element(actions_elemt, 'ACTION')
-        add_element(action_elemt, 'HOLD', HoldUntilDate=hold_date.strftime('%Y-%m-%d'))
+        if isinstance(hold_date, datetime):
+            hold_date_str = hold_date.strftime('%Y-%m-%d')
+        else:
+            hold_date_str = str(hold_date)
+        add_element(action_elemt, 'HOLD', HoldUntilDate=hold_date_str)
         return root
 
     @staticmethod
