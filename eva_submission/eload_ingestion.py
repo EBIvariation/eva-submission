@@ -56,7 +56,7 @@ class EloadIngestion(Eload):
         self.maven_profile = cfg['maven']['environment']
         self.mongo_uri = get_mongo_uri_for_eva_profile(self.maven_profile, self.private_settings_file)
         self.properties_generator = SpringPropertiesGenerator(self.maven_profile, self.private_settings_file)
-        self.loader = EvaProjectLoader()
+        self.loader = EvaProjectLoader(self.eload_num)
         self.nextflow_config = nextflow_config
 
     def ingest(
