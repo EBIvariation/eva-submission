@@ -46,7 +46,7 @@ def main():
                           help='Change the mode of upload to ENA to use the async queue.')
     argparse.add_argument('--dry_ena_upload', action='store_true', default=False,
                           help='Prevent the upload of files to ENA FTP and XML files to submission.')
-    argparse.add_argument('--output_format', choices=['xml', 'json'], default='json',
+    argparse.add_argument('--output_format', choices=['xml', 'json'], default='xml',
                           help='Format of the files that will be sent to ENA for the brokering.')
     argparse.add_argument('--force', required=False, type=str, nargs='+', default=[],
                           choices=EloadBrokering.all_brokering_tasks,

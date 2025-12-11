@@ -16,6 +16,7 @@ from sqlalchemy.engine import URL
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import text
 
+from eva_submission.evapro.eload_metadata_loader import EloadMetadataJsonLoader
 from eva_submission.evapro.find_from_ena import OracleEnaProjectFinder
 from eva_submission.evapro.table import Project, Taxonomy, LinkedProject, Submission, ProjectEnaSubmission, \
     EvaSubmission, ProjectEvaSubmission, Analysis, AssemblySet, AccessionedAssembly, File, BrowsableFile, \
@@ -42,8 +43,9 @@ class EvaProjectLoader(AppLogger):
     The last 2 methods assume the project/analysis and file have been loaded already
     """
 
-    def __init__(self):
+    def __init__(self, eload):
         self.ena_project_finder = OracleEnaProjectFinder()
+        self.eload_metadata_json_loader = EloadMetadataJsonLoader(eload)
 
     def load_project_from_ena(self, project_accession, eload, analysis_accession_to_load=None,
                               taxonomy_id_for_project=None, load_browsable_files=True):
@@ -151,6 +153,9 @@ class EvaProjectLoader(AppLogger):
             ###
             # LOAD EXPERIMENT TYPE
             ###
+            if not experiment_types:
+                # Find the experiment types in local metadata
+                experiment_types = self.eload_metadata_json_loader.get_experiment_types(analysis_accession=analysis_accession)
             experiment_type_objs = [self.insert_experiment_type(experiment_type) for experiment_type in
                                     experiment_types]
             analysis_obj.experiment_types = experiment_type_objs
