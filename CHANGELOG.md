@@ -1,10 +1,11 @@
 Changelog for eva-submission
 ============================
 
-## 1.19.8 (unreleased)
+## 1.19.8 (2025-12-12)
 ----------------------
 
-- Nothing changed yet.
+- Brokering fixes
+- Change modify_existing_sample to accept a spreadsheet or a json file
 
 
 ## 1.19.7 (2025-12-08)
