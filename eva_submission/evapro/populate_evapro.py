@@ -89,6 +89,8 @@ class EvaProjectLoader(AppLogger):
         ###
         # LOAD SUBMISSIONS
         ###
+        self.insert_project_eva_submission(project_obj, eload)
+
         for submission_info in self.ena_project_finder.find_ena_submission_for_project(
                 project_accession=project_accession):
             submission_id, alias, last_updated, hold_date, action = submission_info
@@ -99,7 +101,7 @@ class EvaProjectLoader(AppLogger):
                                                         brokered=1,
                                                         submission_type=action.get('schema').upper() if action.get(
                                                             'schema') else 'PROJECT')
-            self.insert_project_ena_submission(project_obj, submission_obj, eload)
+            self.insert_project_ena_submission(project_obj, submission_obj)
             # TODO: Link analysis with submission
         ###
         # LOAD ANALYSIS
@@ -529,10 +531,9 @@ class EvaProjectLoader(AppLogger):
             self.info(f'Add Submission {ena_submission_accession} {action} to EVAPRO')
         return submission_obj
 
-    def insert_project_ena_submission(self, project_obj, submission_obj, eload):
+    def insert_project_ena_submission(self, project_obj, submission_obj):
         """
-        This function links project and ENA submission and project and ELOAD in EVAPRO.
-        TODO: This is project specific where it should be analysis specific.
+        This function links project and ENA submission in EVAPRO.
         """
         query = select(ProjectEnaSubmission).where(
             ProjectEnaSubmission.project_accession == project_obj.project_accession,
@@ -546,6 +547,12 @@ class EvaProjectLoader(AppLogger):
             project_ena_submission_obj = ProjectEnaSubmission(project_accession=project_obj.project_accession,
                                                               submission_id=submission_obj.submission_id)
             self.eva_session.add(project_ena_submission_obj)
+
+    def insert_project_eva_submission(self, project_obj, eload):
+        """
+        This function links project and ELOAD in EVAPRO.
+        TODO: This is project specific where it should be analysis specific.
+        """
         query = select(EvaSubmission).where(EvaSubmission.eva_submission_id == eload)
         result = self.eva_session.execute(query).fetchone()
         if result:
@@ -564,6 +571,7 @@ class EvaProjectLoader(AppLogger):
             project_eva_submission_obj = ProjectEvaSubmission(project_accession=project_obj.project_accession,
                                                               old_ticket_id=eload, eload_id=eload)
             self.eva_session.add(project_eva_submission_obj)
+
 
     def insert_analysis(self, analysis_accession, title, alias, description, center_name, date, assembly_set_id,
                         vcf_reference_accession=None):
