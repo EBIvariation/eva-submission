@@ -15,15 +15,65 @@
 # limitations under the License.
 
 import argparse
+import json
 import logging
 import os
 
+import eva_sub_cli
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
+from ebi_eva_common_pyutils.spreadsheet.metadata_xlsx_utils import metadata_xlsx_version
+from eva_sub_cli.executables.xlsx2json import XlsxParser, WORKSHEETS_KEY_NAME, SAMPLE, OPTIONAL_HEADERS_KEY_NAME, \
+    SAMPLE_ACCESSION_KEY, REQUIRED_HEADERS_KEY_NAME, ANALYSIS_ALIAS_KEY, SAMPLE_NAME_IN_VCF_KEY
+from packaging.version import Version
 
 from eva_submission.biosample_submission.biosamples_submitters import SampleJSONSubmitter
-from eva_submission.eload_utils import convert_spreadsheet_to_json
 from eva_submission.submission_config import load_config
 
+logger = log_cfg.get_logger(__name__)
+
+class XlsxExistingSampleParser(XlsxParser):
+    # This function will create a biosample json that contains both the biosample accession and the biosample object
+    def get_sample_json_data(self):
+        json_key = self.xlsx_conf[WORKSHEETS_KEY_NAME][SAMPLE]
+        sample_json = {json_key: []}
+        for row in self.get_rows():
+
+            row_num = row.pop('row_num')
+            json_value = {self.translate_header(SAMPLE, k): v for k, v in row.items() if v is not None}
+            bio_sample_acc = self.xlsx_conf[SAMPLE][OPTIONAL_HEADERS_KEY_NAME][SAMPLE_ACCESSION_KEY]
+
+            analysis_alias = self.xlsx_conf[SAMPLE][REQUIRED_HEADERS_KEY_NAME][ANALYSIS_ALIAS_KEY]
+            sample_name_in_vcf = self.xlsx_conf[SAMPLE][REQUIRED_HEADERS_KEY_NAME][SAMPLE_NAME_IN_VCF_KEY]
+            sample_data = self.get_sample_data_with_split_analysis_alias(json_value, analysis_alias, sample_name_in_vcf)
+
+            if bio_sample_acc in json_value and json_value[bio_sample_acc]:
+                sample_data.update(bioSampleAccession=json_value[bio_sample_acc])
+            json_value.pop(analysis_alias)
+            json_value.pop(sample_name_in_vcf)
+            biosample_obj = self.get_biosample_object(json_value)
+            sample_data.update(bioSampleObject=biosample_obj)
+            sample_json[json_key].append(sample_data)
+
+        return sample_json
+
+def convert_spreadsheet_to_json(metadata_xlsx, metadata_json_file_path):
+    if not metadata_xlsx:
+        raise FileNotFoundError('Could not locate the metadata xls file')
+    version = metadata_xlsx_version(metadata_xlsx)
+    if Version(version) >= Version("1.1.6"):
+        logger.info(f'Convert spreadsheet version {version} to eva-sub-cli JSON')
+        # Convert to json format
+        if Version(version) < Version('3.0.0'):
+            conf_filename = os.path.join(eva_sub_cli.ETC_DIR, 'spreadsheet2json_conf_V2.yaml')
+        else:
+            conf_filename = os.path.join(eva_sub_cli.ETC_DIR, 'spreadsheet2json_conf.yaml')
+
+        parser = XlsxExistingSampleParser(metadata_xlsx, conf_filename)
+        try:
+            parser.json(metadata_json_file_path)
+        except IndexError as e:
+            logger.error(f'Could not convert metadata version {version} to JSON file: {metadata_xlsx}')
+            raise e
 
 def main():
     arg_parser = argparse.ArgumentParser(
@@ -52,12 +102,15 @@ def main():
     if args.metadata_file.endswith('.xlsx'):
         metadata_json_file_path = os.path.basename(args.metadata_file).replace('.xlsx', '.json')
         convert_spreadsheet_to_json(args.metadata_file, metadata_json_file_path)
+
     else:
         metadata_json_file_path = args.metadata_file
-    sample_submitter = SampleJSONSubmitter(metadata_json_file_path, submit_type=(args.action,))
-    sample_name_to_accession = sample_submitter.submit_to_bioSamples()
-    for sample_name, accession in sample_name_to_accession.items():
-        print(f'{sample_name}: {accession}')
+    with open(metadata_json_file_path, 'r') as f:
+        metadata_json = json.load(f)
+        sample_submitter = SampleJSONSubmitter(metadata_json, submit_type=(args.action,))
+        sample_name_to_accession = sample_submitter.submit_to_bioSamples()
+        for sample_name, accession in sample_name_to_accession.items():
+            print(f'{sample_name}: {accession}')
 
 
 if __name__ == "__main__":
