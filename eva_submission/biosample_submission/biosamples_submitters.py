@@ -466,8 +466,6 @@ class SampleJSONSubmitter(SampleSubmitter):
             bsd_sample_entry[RELEASE_PROP] = _now
             # Custom attributes added to all the BioSample we create/modify
             bsd_sample_entry[CHARACTERISTICS_PROP][LAST_UPDATED_BY_PROP] = [{'text': 'EVA'}]
-
-
             yield bsd_sample_entry, sample.get(SAMPLE_IN_VCF_PROP), sample.get(ACCESSION_PROP)
 
     def check_submit_done(self):
