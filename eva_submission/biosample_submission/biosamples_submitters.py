@@ -21,7 +21,7 @@ from ebi_eva_common_pyutils.biosamples_communicators import WebinHALCommunicator
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 
-from eva_submission.biosample_submission.biosample_converter_utils import convert_sample
+from eva_submission.biosample_submission.biosample_converter_utils import update_sample_to_post_4_13
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 _now = datetime.now().isoformat()
@@ -353,6 +353,7 @@ class SampleSubmitter(AppLogger):
             if source_sample_json:
                 self.submitter.validate_in_bsd(source_sample_json)
                 sample_json, action_taken = self.submitter.submit_biosample_to_bsd(source_sample_json)
+                print(action_taken)
                 # When a name is provided in the metadata, we use it to keep track of which samples have been accessioned.
                 # When not provided, use the BioSample name
                 if sample_name_from_metadata:
@@ -400,7 +401,8 @@ class SampleJSONSubmitter(SampleSubmitter):
 
     def _convert_metadata(self):
         for sample in self.metadata_json.get('sample'):
-            # Currently no ability to overwrite or curate existing samples via JSON, so we skip any existing samples
+            # if Biosample object is present  then were creating or updating a sample.
+            # If not then just return the name and accession.
             if BIOSAMPLE_OBJECT_PROP not in sample:
                 yield None, sample.get(SAMPLE_IN_VCF_PROP), sample.get(BIOSAMPLE_ACCESSION_PROP)
                 continue
@@ -412,8 +414,7 @@ class SampleJSONSubmitter(SampleSubmitter):
                         ('geographicLocationCountrySea', 'geographic location (country and/or sea)'),
                         ('scientificName', 'scientific name'), ('collectionDate', 'collection date')
                 ]):
-                sample = convert_sample(sample)
-
+                sample = update_sample_to_post_4_13(sample)
             bsd_sample_entry = {CHARACTERISTICS_PROP: {}}
             # TODO: Name should be set correctly by eva-sub-cli post v0.4.14. Remove this Hack when we don't want to support earlier version
             if 'name' not in sample[BIOSAMPLE_OBJECT_PROP]:
@@ -426,6 +427,10 @@ class SampleJSONSubmitter(SampleSubmitter):
                     del sample[BIOSAMPLE_OBJECT_PROP][CHARACTERISTICS_PROP]['bioSampleName']
                 if sample_name:
                     sample[BIOSAMPLE_OBJECT_PROP]['name'] = sample_name
+            # We are editing, curating, or deriving from a sample if the accession is present in the
+            if BIOSAMPLE_ACCESSION_PROP in sample[BIOSAMPLE_OBJECT_PROP][CHARACTERISTICS_PROP]:
+                bsd_sample_entry[ACCESSION_PROP] = sample[BIOSAMPLE_OBJECT_PROP][CHARACTERISTICS_PROP][BIOSAMPLE_ACCESSION_PROP][0]['text']
+                del sample[BIOSAMPLE_OBJECT_PROP][CHARACTERISTICS_PROP][BIOSAMPLE_ACCESSION_PROP]
             bsd_sample_entry.update(sample[BIOSAMPLE_OBJECT_PROP])
             # Taxonomy ID should be present at top level as well
             if TAX_ID_PROP in sample[BIOSAMPLE_OBJECT_PROP][CHARACTERISTICS_PROP]:
@@ -458,6 +463,8 @@ class SampleJSONSubmitter(SampleSubmitter):
             bsd_sample_entry[RELEASE_PROP] = _now
             # Custom attributes added to all the BioSample we create/modify
             bsd_sample_entry[CHARACTERISTICS_PROP][LAST_UPDATED_BY_PROP] = [{'text': 'EVA'}]
+
+
             yield bsd_sample_entry, sample.get(SAMPLE_IN_VCF_PROP), sample.get(ACCESSION_PROP)
 
     def check_submit_done(self):

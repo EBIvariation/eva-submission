@@ -27,7 +27,7 @@ sample_mapping = {
     "cellLine": "cell_line"
 }
 
-def convert_sample(biosample_data):
+def update_sample_to_post_4_13(biosample_data):
     '''
     This function will go over several biosample characteristics that have been encoded in camel case by eva-sub-cli prior to
     https://github.com/EBIvariation/eva-sub-cli/releases/tag/v0.4.13 and turn them back to what ERC00011 expects or what was used before in EVA
