@@ -25,5 +25,6 @@ class EloadMetadataJsonLoader(Eload):
                                for analysis_json in self.metadata_json.get('analysis')
                                if analysis_json.get('analysisAlias') == analysis_alias]
         if analysis_json_dicts:
-            return analysis_json_dicts[0].get('experimentType', '').split(':')
+            # There can be only one experiment type
+            return [analysis_json_dicts[0].get('experimentType',  '')]
         return []
