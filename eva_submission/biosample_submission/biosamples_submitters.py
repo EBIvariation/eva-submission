@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime, date
 from functools import lru_cache
@@ -348,12 +348,12 @@ class SampleSubmitter(AppLogger):
 
     def submit_to_bioSamples(self):
         sample_name_to_accession = {}
+        action_to_sample_name = defaultdict(list)
         nb_sample_uploaded = 0
         for source_sample_json, sample_name_from_metadata, sample_accession in self._convert_metadata():
             if source_sample_json:
                 self.submitter.validate_in_bsd(source_sample_json)
                 sample_json, action_taken = self.submitter.submit_biosample_to_bsd(source_sample_json)
-                print(action_taken)
                 # When a name is provided in the metadata, we use it to keep track of which samples have been accessioned.
                 # When not provided, use the BioSample name
                 if sample_name_from_metadata:
@@ -363,12 +363,15 @@ class SampleSubmitter(AppLogger):
                     sample_name = sample_json.get('name')
                 if sample_name not in sample_name_to_accession:
                     sample_name_to_accession[sample_name] = sample_json.get(ACCESSION_PROP)
+                    action_to_sample_name[action_taken].append(sample_name)
                 else:
                     self.error(f'Sample {sample_name} is not a unique name. Sample {sample_accession} will not be stored')
                 nb_sample_uploaded += 1
             elif sample_accession and sample_name_from_metadata:
                 sample_name_to_accession[sample_name_from_metadata] = sample_accession
-        self.info(f'Uploaded {nb_sample_uploaded} sample(s)')
+                action_to_sample_name['None'].append(sample_name_from_metadata)
+        for action in action_to_sample_name:
+            self.info(f'Action: {action} -> {len(action_to_sample_name[action])} sample(s)')
         return sample_name_to_accession
 
 
