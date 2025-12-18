@@ -404,7 +404,7 @@ class SampleJSONSubmitter(SampleSubmitter):
 
     def _convert_metadata(self):
         for sample in self.metadata_json.get('sample'):
-            # if Biosample object is present  then were creating or updating a sample.
+            # If Biosample object is present then we are creating or updating a sample.
             # If not then just return the name and accession.
             if BIOSAMPLE_OBJECT_PROP not in sample:
                 yield None, sample.get(SAMPLE_IN_VCF_PROP), sample.get(BIOSAMPLE_ACCESSION_PROP)
