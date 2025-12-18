@@ -27,6 +27,7 @@ from eva_sub_cli.executables.xlsx2json import XlsxParser, WORKSHEETS_KEY_NAME, S
 from packaging.version import Version
 
 from eva_submission.biosample_submission.biosamples_submitters import SampleJSONSubmitter
+from eva_submission.eload_utils import convert_spreadsheet_to_json
 from eva_submission.submission_config import load_config
 
 logger = log_cfg.get_logger(__name__)
@@ -56,24 +57,6 @@ class XlsxExistingSampleParser(XlsxParser):
 
         return sample_json
 
-def convert_spreadsheet_to_json(metadata_xlsx, metadata_json_file_path):
-    if not metadata_xlsx:
-        raise FileNotFoundError('Could not locate the metadata xls file')
-    version = metadata_xlsx_version(metadata_xlsx)
-    if Version(version) >= Version("1.1.6"):
-        logger.info(f'Convert spreadsheet version {version} to eva-sub-cli JSON')
-        # Convert to json format
-        if Version(version) < Version('3.0.0'):
-            conf_filename = os.path.join(eva_sub_cli.ETC_DIR, 'spreadsheet2json_conf_V2.yaml')
-        else:
-            conf_filename = os.path.join(eva_sub_cli.ETC_DIR, 'spreadsheet2json_conf.yaml')
-
-        parser = XlsxExistingSampleParser(metadata_xlsx, conf_filename)
-        try:
-            parser.json(metadata_json_file_path)
-        except IndexError as e:
-            logger.error(f'Could not convert metadata version {version} to JSON file: {metadata_xlsx}')
-            raise e
 
 def main():
     arg_parser = argparse.ArgumentParser(
@@ -101,7 +84,7 @@ def main():
     load_config()
     if args.metadata_file.endswith('.xlsx'):
         metadata_json_file_path = os.path.basename(args.metadata_file).replace('.xlsx', '.json')
-        convert_spreadsheet_to_json(args.metadata_file, metadata_json_file_path)
+        convert_spreadsheet_to_json(args.metadata_file, metadata_json_file_path, xls_parser=XlsxExistingSampleParser)
 
     else:
         metadata_json_file_path = args.metadata_file

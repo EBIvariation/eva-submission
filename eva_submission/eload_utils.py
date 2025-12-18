@@ -364,7 +364,7 @@ def get_nextflow_config_flag(nextflow_config=None):
         return f'-c {env_val}'
     return ''
 
-def convert_spreadsheet_to_json(metadata_xlsx, metadata_json_file_path):
+def convert_spreadsheet_to_json(metadata_xlsx, metadata_json_file_path, xls_parser=XlsxParser):
     if not metadata_xlsx:
         raise FileNotFoundError('Could not locate the metadata xls file')
     version = metadata_xlsx_version(metadata_xlsx)
@@ -376,7 +376,7 @@ def convert_spreadsheet_to_json(metadata_xlsx, metadata_json_file_path):
         else:
             conf_filename = os.path.join(eva_sub_cli.ETC_DIR, 'spreadsheet2json_conf.yaml')
 
-        parser = XlsxParser(metadata_xlsx, conf_filename)
+        parser = xls_parser(metadata_xlsx, conf_filename)
         try:
             parser.json(metadata_json_file_path)
         except IndexError as e:
