@@ -1,11 +1,18 @@
 Changelog for eva-submission
 ============================
 
-## 1.19.9 (unreleased)
+## 1.19.9 (2025-12-18)
 ----------------------
 
-- Nothing changed yet.
+## Brokering
+- Use XML to broker to ENA
 
+## Ingestion
+- Retrieve experiment type from the ELOAD when not available from ENA.
+- Add EVA submission even if no ENA submission exists
+
+## Other
+- Fix sample modification/curation script 
 
 ## 1.19.8 (2025-12-12)
 ----------------------
