@@ -1,12 +1,10 @@
 import json
 import os
-from copy import deepcopy
 from unittest import TestCase
 
-from ebi_eva_common_pyutils.config import cfg
-
-from bin.modify_existing_sample import convert_spreadsheet_to_json
+from bin.modify_existing_sample import XlsxExistingSampleParser
 from eva_submission.biosample_submission.biosamples_submitters import SampleJSONSubmitter
+from eva_submission.eload_utils import convert_spreadsheet_to_json
 
 
 class TestModifyExistingSample(TestCase):
@@ -22,7 +20,7 @@ class TestModifyExistingSample(TestCase):
             os.remove(self.metadata_json_file_path)
 
     def test_convert_all_fields_in_bioSamples(self):
-        convert_spreadsheet_to_json(self.metadata_xlsx, self.metadata_json_file_path)
+        convert_spreadsheet_to_json(self.metadata_xlsx, self.metadata_json_file_path, xls_parser=XlsxExistingSampleParser)
         with open(self.metadata_json_file_path) as open_file:
             metadata_json = json.load(open_file)
             assert metadata_json['sample'][0] == {
@@ -51,7 +49,7 @@ class TestModifyExistingSample(TestCase):
             }
 
     def test_convert_to_biosamples_for_derive(self):
-        convert_spreadsheet_to_json(self.metadata_xlsx, self.metadata_json_file_path)
+        convert_spreadsheet_to_json(self.metadata_xlsx, self.metadata_json_file_path, xls_parser=XlsxExistingSampleParser)
         with open(self.metadata_json_file_path) as open_file:
             metadata_json = json.load(open_file)
             sample_submitter = SampleJSONSubmitter(metadata_json, submit_type=('derive',))
