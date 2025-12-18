@@ -18,7 +18,6 @@ class TestModifyExistingSample(TestCase):
         self.metadata_json_file_path = os.path.join( self.resources_folder, 'brokering', 'EVA_Submission_metadata.json')
 
     def tearDown(self):
-        pass
         if os.path.exists(self.metadata_json_file_path):
             os.remove(self.metadata_json_file_path)
 
