@@ -430,7 +430,7 @@ class SampleJSONSubmitter(SampleSubmitter):
                     del sample[BIOSAMPLE_OBJECT_PROP][CHARACTERISTICS_PROP]['bioSampleName']
                 if sample_name:
                     sample[BIOSAMPLE_OBJECT_PROP]['name'] = sample_name
-            # We are editing, curating, or deriving from a sample if the accession is present in the
+            # We are editing, curating, or deriving from a sample if the accession is present in the BioSample object
             if BIOSAMPLE_ACCESSION_PROP in sample[BIOSAMPLE_OBJECT_PROP][CHARACTERISTICS_PROP]:
                 bsd_sample_entry[ACCESSION_PROP] = sample[BIOSAMPLE_OBJECT_PROP][CHARACTERISTICS_PROP][BIOSAMPLE_ACCESSION_PROP][0]['text']
                 del sample[BIOSAMPLE_OBJECT_PROP][CHARACTERISTICS_PROP][BIOSAMPLE_ACCESSION_PROP]
