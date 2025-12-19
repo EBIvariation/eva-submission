@@ -19,6 +19,7 @@ from ebi_eva_internal_pyutils.metadata_utils import resolve_variant_warehouse_db
     get_assembly_set_from_metadata, add_to_supported_assemblies
 from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query, execute_query
 from ebi_eva_internal_pyutils.spring_properties import SpringPropertiesGenerator
+from requests import HTTPError
 
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
@@ -488,9 +489,12 @@ class EloadIngestion(Eload):
     def _get_alt_tax_id(self):
         self.warning(f"Could not find remapping target assembly from EVAPRO or Ensembl for the submitted taxonomy: "
                      f"{self.taxonomy}... Attempting to find assemblies in an alternate taxonomy...")
-        alt_tax_ids = {tax_id for tax_id in
-                       [get_assembly_name_and_taxonomy_id(asm)[1] for asm in self.assembly_accessions]
-                       if tax_id != self.taxonomy}
+        try:
+            alt_tax_ids = {tax_id for tax_id in
+                           [get_assembly_name_and_taxonomy_id(asm)[1] for asm in self.assembly_accessions]
+                           if tax_id != self.taxonomy}
+        except HTTPError as ex:
+            alt_tax_ids = []
         if len(alt_tax_ids) != 1:
             self.warning("Could not find a unique alternate taxonomy for the submitted assemblies!")
             return None
