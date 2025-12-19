@@ -180,9 +180,7 @@ class TestEVAJsonToENAXmlConverter(TestCase):
 					</CUSTOM>
 				</ASSEMBLY>
 				<EXPERIMENT_TYPE>Genotyping by array</EXPERIMENT_TYPE>
-				<PROGRAM>software package GCTA</PROGRAM>
-				<PROGRAM>Burrows-Wheeler Alignment tool (BWA)</PROGRAM>
-				<PROGRAM>HTSeq-python package</PROGRAM>
+				<PROGRAM>software package GCTA,Burrows-Wheeler Alignment tool (BWA),HTSeq-python package</PROGRAM>
 				<PLATFORM>BGISEQ-500</PLATFORM>
 				<IMPUTATION>1</IMPUTATION>
 			</SEQUENCE_VARIATION>
@@ -218,7 +216,20 @@ class TestEVAJsonToENAXmlConverter(TestCase):
 				</XREF_LINK>
 			</ANALYSIS_LINK>
 		</ANALYSIS_LINKS>
-		<ANALYSIS_ATTRIBUTES />
+		<ANALYSIS_ATTRIBUTES>
+		    <ANALYSIS_ATTRIBUTE>
+		        <TAG>PROGRAM</TAG>
+		        <VALUE>software package GCTA</VALUE>
+		    </ANALYSIS_ATTRIBUTE>
+		    <ANALYSIS_ATTRIBUTE>
+    		    <TAG>PROGRAM</TAG>
+		        <VALUE>Burrows-Wheeler Alignment tool (BWA)</VALUE>
+		    </ANALYSIS_ATTRIBUTE>
+		    <ANALYSIS_ATTRIBUTE>
+		        <TAG>PROGRAM</TAG>
+		        <VALUE>HTSeq-python package</VALUE>
+		    </ANALYSIS_ATTRIBUTE>
+		</ANALYSIS_ATTRIBUTES>
 	</ANALYSIS>
 </ANALYSIS_SET>"""
         root = ET.Element('ANALYSIS_SET')
@@ -249,9 +260,7 @@ class TestEVAJsonToENAXmlConverter(TestCase):
 					</CUSTOM>
 				</ASSEMBLY>
 				<EXPERIMENT_TYPE>Genotyping by array</EXPERIMENT_TYPE>
-				<PROGRAM>software package GCTA</PROGRAM>
-				<PROGRAM>Burrows-Wheeler Alignment tool (BWA)</PROGRAM>
-				<PROGRAM>HTSeq-python package</PROGRAM>
+				<PROGRAM>software package GCTA,Burrows-Wheeler Alignment tool (BWA),HTSeq-python package</PROGRAM>
 				<PLATFORM>BGISEQ-500</PLATFORM>
 				<IMPUTATION>1</IMPUTATION>
 			</SEQUENCE_VARIATION>
@@ -287,7 +296,20 @@ class TestEVAJsonToENAXmlConverter(TestCase):
 				</XREF_LINK>
 			</ANALYSIS_LINK>
 		</ANALYSIS_LINKS>
-		<ANALYSIS_ATTRIBUTES />
+		<ANALYSIS_ATTRIBUTES>
+		    <ANALYSIS_ATTRIBUTE>
+		        <TAG>PROGRAM</TAG>
+		        <VALUE>software package GCTA</VALUE>
+		    </ANALYSIS_ATTRIBUTE>
+		    <ANALYSIS_ATTRIBUTE>
+    		    <TAG>PROGRAM</TAG>
+		        <VALUE>Burrows-Wheeler Alignment tool (BWA)</VALUE>
+		    </ANALYSIS_ATTRIBUTE>
+		    <ANALYSIS_ATTRIBUTE>
+		        <TAG>PROGRAM</TAG>
+		        <VALUE>HTSeq-python package</VALUE>
+		    </ANALYSIS_ATTRIBUTE>
+		</ANALYSIS_ATTRIBUTES>
 	</ANALYSIS>
 </ANALYSIS_SET>"""
         root = ET.Element('ANALYSIS_SET')
