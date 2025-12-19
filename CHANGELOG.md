@@ -1,10 +1,14 @@
 Changelog for eva-submission
 ============================
 
-## 1.19.10 (unreleased)
+## 1.19.10 (2025-12-19)
 -----------------------
 
-- Nothing changed yet.
+## Brokering
+- Use single value for PROGRAM when brokering to ENA, and add individual values as analysis attributes
+
+## Ingestion
+- Handle ENA errors when getting database name and target assembly
 
 
 ## 1.19.9 (2025-12-18)
