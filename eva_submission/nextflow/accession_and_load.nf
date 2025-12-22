@@ -241,7 +241,7 @@ process accession_vcf {
 
     """
     set -eo pipefail
-    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.accession_pipeline --spring.batch.job.name=SUBSNP_ACCESSION_JOB --spring.config.location=file:$params.accession_job_props $pipeline_parameters | tee ${log_filename}.log
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.accession_pipeline --spring.batch.job.names=SUBSNP_ACCESSION_JOB --spring.config.location=file:$params.accession_job_props $pipeline_parameters | tee ${log_filename}.log
     """
 }
 
@@ -272,7 +272,7 @@ process qc_accession_vcf {
     pipeline_parameters += " --parameters.outputVcf=" + "${params.public_dir}/${accessioned_filename}"
 
     """
-    (java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.accession_pipeline --spring.batch.job.name=QC_SUBSNP_ACCESSION_JOB --spring.config.location=file:$params.accession_job_props $pipeline_parameters) || java_exit_code=\$?
+    (java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.accession_pipeline --spring.batch.job.names=QC_SUBSNP_ACCESSION_JOB --spring.config.location=file:$params.accession_job_props $pipeline_parameters) || java_exit_code=\$?
     # need this line to ensure we do not get unbound variable when the java process is successful
     if [ \${java_exit_code:-"Not set"} == "Not set" ]; then java_exit_code=0; fi
     # If accessioning fails due to missing variants, but the only missing variants are structural variants,
