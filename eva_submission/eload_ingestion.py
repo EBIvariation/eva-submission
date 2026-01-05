@@ -252,7 +252,7 @@ class EloadIngestion(Eload):
         """
         Loads Project and Analysis metadata from ENA into EVAPRO to the project associated with this ELOAD.
         """
-        sample_name_2_accession = self.eload_cfg.query('brokering', 'Biosamples', 'Samples')
+        sample_name_2_accession = self.eload_cfg.query('brokering', 'Biosamples', 'Samples', ret_default={})
         try:
             # Load entire project, or only analyses associated with this submission
             if check_project_exists_in_evapro(self.project_accession):
