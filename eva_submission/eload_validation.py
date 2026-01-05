@@ -49,7 +49,7 @@ class EloadValidation(Eload):
 
     def set_validation_task_result_valid(self, validation_tasks):
         for validation_task in validation_tasks:
-            if validation_task not in self.eload_cfg.query('validation'):
+            if validation_task not in self.eload_cfg.query('validation', ret_default={}):
                 self.warning(f"Validation task {validation_task} has not been run yet.")
                 self.eload_cfg.set('validation', validation_task, 'forced', value=True)
             else:
