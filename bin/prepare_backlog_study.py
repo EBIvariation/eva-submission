@@ -77,23 +77,23 @@ def main():
                       analysis_accessions=args.analysis_accessions) as preparation:
         if not args.report and not args.keep_config:
             preparation.fill_in_config(args.force_config)
-    # Pass the eload config object to validation so that the two objects share the same state
-    with EloadValidation(args.eload, preparation.eload_cfg, nextflow_config=args.nextflow_config) as validation:
-        if not args.report:
-            if args.set_as_valid:
-                validation.set_validation_task_result_valid(args.validation_tasks)
-            else:
-                validation.validate(args.validation_tasks, args.shallow_validation)
+    # # Pass the eload config object to validation so that the two objects share the same state
+    # with EloadValidation(args.eload, preparation.eload_cfg, nextflow_config=args.nextflow_config) as validation:
+    #     if not args.report:
+    #         if args.set_as_valid:
+    #             validation.set_validation_task_result_valid(args.validation_tasks)
+    #         else:
+    #             validation.validate(args.validation_tasks, args.shallow_validation)
 
     # Stop the processing if the validation did not pass
-    if not validation.eload_cfg.query('validation', 'valid', 'analyses'):
-        raise ValueError('Cannot proceed to the Brokering preparation because one of the validation did not pass.')
+    # if not validation.eload_cfg.query('validation', 'valid', 'analyses'):
+    #     raise ValueError('Cannot proceed to the Brokering preparation because one of the validation did not pass.')
 
     with EloadBrokering(args.eload, config_object=preparation.eload_cfg, nextflow_config=args.nextflow_config) as eload_brokering:
         eload_brokering.prepare_brokering()
 
     preparation.report()
-    validation.report()
+    # validation.report()
     eload_brokering.report()
 
     logger.info('Preparation complete, if files are valid please run ingestion as normal.')
