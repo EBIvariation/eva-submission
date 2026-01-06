@@ -103,6 +103,8 @@ class OracleEnaProjectFinder:
             first_created, project_title, taxonomy_id, scientific_name, common_name,  study_xml, project_xml
         ) = results[0]
         study_description = self._parse_study_description_from_xml(str(study_xml))
+        if not study_description:
+            study_description = self._parse_project_description_from_xml(str(project_xml))
         # Project publication used to be parsed from the project XML. but there were none in the EVA Projects
         # project_publications ['PROJECT_XML/PUBLICATIONS/PUBLICATION/PUBLICATION_LINKS/PUBLICATION_LINK/[DB:ID]']
         return (
@@ -205,13 +207,23 @@ class OracleEnaProjectFinder:
 
     @staticmethod
     def _parse_study_description_from_xml(study_xml):
-        root = ET.fromstring(study_xml)
-        # Extract Study Description
-        doc = root.find("./STUDY/DESCRIPTOR/STUDY_DESCRIPTION")
-        if doc is not None:
-            return doc.text
-        else:
-            return ''
+        if study_xml and study_xml != 'None':
+            root = ET.fromstring(study_xml)
+            # Extract Study Description
+            doc = root.find("./STUDY/DESCRIPTOR/STUDY_DESCRIPTION")
+            if doc is not None:
+                return doc.text
+        return ''
+
+    @staticmethod
+    def _parse_project_description_from_xml(project_xml):
+        if project_xml and project_xml != 'None':
+            root = ET.fromstring(project_xml)
+            # Extract Study Description
+            doc = root.find("./PROJECT/DESCRIPTION")
+            if doc is not None:
+                return doc.text
+        return ''
 
     @staticmethod
     def _parse_actions_and_alias_from_submission_xml(submission_xml):
@@ -245,17 +257,6 @@ class OracleEnaProjectFinder:
         else:
             action = None
         return submission_alias, hold_date, action
-
-    @staticmethod
-    def _parse_submission_from_xml(submission_xml):
-        root = ET.fromstring(submission_xml)
-
-        # Extract Study Description
-        doc = root.find(".//STUDY_DESCRIPTION")
-        if doc:
-            return doc.text
-        else:
-            return ''
 
     def _parse_analysis_description_and_type_from_xml(self, analysis_xml):
         root = ET.fromstring(analysis_xml)

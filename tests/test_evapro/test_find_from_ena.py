@@ -34,6 +34,25 @@ class TestEnaProjectFinder(unittest.TestCase):
         project_title, taxonomy_id, scientific_name, common_name, study_description) = result
         assert result == expected_results
 
+    def test_find_ncbi_project_from_ena_database(self):
+        project = 'PRJNA1348893'
+        result = self.finder.find_project_from_ena_database(project)
+        expected_results = (
+            None, 'PRJNA1348893',  None, 'Misr University for Science and Technology (MUST)',
+            'PRJNA1348893', None, datetime.datetime(2025, 11, 6, 11, 53, 42),
+            'Genetic Analysis in Patients with Chronic Kidney Disease (CKD) and Healthy Controls',
+            '9606', 'Homo sapiens', None,
+            'This project involves Whole Exome Sequencing (WES) of human samples obtained from individuals diagnosed'
+            ' with Chronic Kidney Disease (CKD) and matched healthy control subjects. The goal of the study is to '
+            'identify potentially pathogenic genetic variants that may contribute to CKD susceptibility, disease '
+            'progression, and clinical phenotype variation. Comparative analysis between the CKD group and healthy '
+            'controls enables the detection of disease-associated variants, rare mutations, and disrupted gene pathways.'
+        )
+        (study_id, project_accession, submission_id, center_name, project_alias, study_type, first_created,
+        project_title, taxonomy_id, scientific_name, common_name, study_description) = result
+        assert result == expected_results
+
+
     def test_find_parent_project(self):
         project = 'PRJEB36082'
         expected_parent = 'PRJNA9558'
@@ -68,6 +87,31 @@ class TestEnaProjectFinder(unittest.TestCase):
              datetime.datetime(2018, 3, 26, 15, 33, 35),
              'GCF_000972845.1', None, None, {'Whole genome sequencing'}, {'Illumina HiSeq 2500'})
         ]
+        results = list(self.finder.find_analysis_in_ena(project))
+        assert results == expected_analysis
+
+    def test_find_analysis_in_ena_from_ncbi_project(self):
+        project = 'PRJNA1348893'
+        expected_analysis = [
+            ('ERZ28775366', 'Whole exome variant calling in CKD  sample', 'ELOAD_1529_CKD_WES_Analysis_01',
+             'Variant and CNV analysis of WES data from CKD sample (GRCh37 reference)',
+             'SEQUENCE_VARIATION', 'agiomix labs',
+             datetime.datetime(2025, 12, 19, 12, 18, 43),
+             'GCA_000001405.1', None, None, {'Exome sequencing'}, {'Illumina NovaSeq 6000'}),
+            ('ERZ28775367', 'Whole exome variant calling in CKD sample', 'ELOAD_1529_CKD_WES_Analysis_02',
+             'Variant and CNV analysis of WES data from CKD sample (GRCh37 reference)', 'SEQUENCE_VARIATION',
+             'agiomix labs', datetime.datetime(2025, 12, 19, 12, 18, 43),
+             'GCA_000001405.1', None, None, {'Exome sequencing'}, {'Illumina NovaSeq 6000'}),
+            ('ERZ28775368', 'Whole exome variant calling in  Control sample', 'ELOAD_1529_CKD_WES_Analysis_03',
+             'Variant and CNV analysis of WES data from control sample (GRCh37 reference)', 'SEQUENCE_VARIATION',
+             'agiomix labs', datetime.datetime(2025, 12, 19, 12, 18, 44),
+             'GCA_000001405.1', None, None, {'Exome sequencing'}, {'Illumina NovaSeq 6000'}),
+            ('ERZ28775369', 'Whole exome variant calling in  Control sample', 'ELOAD_1529_CKD_WES_Analysis_04',
+             'Variant and CNV analysis of WES data from control sample (GRCh37 reference)', 'SEQUENCE_VARIATION',
+             'agiomix labs', datetime.datetime(2025, 12, 19, 12, 18, 44),
+             'GCA_000001405.1', None, None, {'Exome sequencing'}, {'Illumina NovaSeq 6000'})
+        ]
+
         results = list(self.finder.find_analysis_in_ena(project))
         assert results == expected_analysis
 
