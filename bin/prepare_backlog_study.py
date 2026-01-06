@@ -79,7 +79,7 @@ def main():
             preparation.fill_in_config(args.force_config)
     # # Pass the eload config object to validation so that the two objects share the same state
     with EloadValidation(args.eload, preparation.eload_cfg, nextflow_config=args.nextflow_config) as validation:
-        validation.set_validation_task_result_valid(args.validation_tasks)
+        validation.set_validation_task_result_valid(EloadValidation.all_validation_tasks)
 
     # Stop the processing if the validation did not pass
     if not validation.eload_cfg.query('validation', 'valid', 'analyses'):
