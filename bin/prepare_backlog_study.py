@@ -19,7 +19,7 @@ from argparse import ArgumentParser
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.eload_backlog import EloadBacklog
+from eva_submission.eload_backlog import EloadBacklog, EloadMetadataForBacklog
 from eva_submission.eload_brokering import EloadBrokering
 from eva_submission.eload_validation import EloadValidation
 from eva_submission.submission_config import load_config
@@ -30,17 +30,14 @@ logger = log_cfg.get_logger(__name__)
 def main():
     possible_validation_tasks = ['aggregation_check', 'assembly_check', 'vcf_check']
     forced_validation_tasks = list(set(EloadValidation.all_validation_tasks) - set(possible_validation_tasks))
-
     argparse = ArgumentParser(description='Prepare to process backlog study and validate VCFs.')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
-    argparse.add_argument('--project_accession', required=False, type=str,
-                          help='Set this project instead of the one associated with this eload. '
-                               'Useful when the association is not set in the database. '
-                               'The project needs to exists in the DB.')
+    argparse.add_argument('--project_accession', required=True, type=str,
+                          help='Specify the project to be loaded from ENA into EVAPRO')
     argparse.add_argument('--analysis_accessions', required=False, type=str, nargs='+',
-                          help='Set these analysis instead of the ones associated with the project. '
-                               'Useful when wanting to use a subset of the analysis. '
-                               'The analyses need to exists in the DB.')
+                          help='Specify the project to be loaded from ENA into EVAPRO')
+    argparse.add_argument('--taxonomy', required=False, type=int,
+                          help='Specify the taxonomy for this project to be loaded from ENA into EVAPRO')
     argparse.add_argument('--force_config', action='store_true', default=False,
                           help='Overwrite the configuration file after backing it up.')
     argparse.add_argument('--keep_config', action='store_true', default=False,
@@ -71,6 +68,11 @@ def main():
 
     # Load the config_file from default location
     load_config()
+    if args.project_accession:
+        logger.info(f'Load Metadata using project accession: {args.project_accession} analysis accessions: {args.analysis_accessions} and taxonomy: {args.taxonomy}' )
+        # Ingest the metadata but do not create the config for it.
+        ingestion = EloadMetadataForBacklog(args.eload, args.project_accession, args.analysis_accessions, args.taxonomy)
+        ingestion.ingest(tasks='metadata_load')
 
     with EloadBacklog(args.eload,
                       project_accession=args.project_accession,
