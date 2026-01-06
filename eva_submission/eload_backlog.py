@@ -5,6 +5,7 @@ import requests
 from cached_property import cached_property
 from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query
 
+from eva_submission.eload_ingestion import EloadIngestion
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import get_reference_fasta_and_report, get_project_alias, download_file
 from eva_submission.submission_config import EloadConfig
@@ -109,10 +110,10 @@ class EloadBacklog(Eload):
         for analysis_accession, asm_accession in rows:
             if not asm_accession:
                 raise ValueError(f'No reference accession for {analysis_accession} found in metadata DB.')
-            self.eload_cfg.set('submission', 'analyses', analysis_accession, 'assembly_accession', value=asm_accession)
+            self.eload_cfg.set('submission', 'analyses', self._unique_alias(analysis_accession), 'assembly_accession', value=asm_accession)
             fasta_path, report_path = get_reference_fasta_and_report(sci_name, asm_accession)
-            self.eload_cfg.set('submission', 'analyses', analysis_accession, 'assembly_fasta', value=fasta_path)
-            self.eload_cfg.set('submission', 'analyses', analysis_accession, 'assembly_report', value=report_path)
+            self.eload_cfg.set('submission', 'analyses', self._unique_alias(analysis_accession), 'assembly_fasta', value=fasta_path)
+            self.eload_cfg.set('submission', 'analyses', self._unique_alias(analysis_accession), 'assembly_report', value=report_path)
 
     def find_local_file(self, fn):
         full_path = os.path.join(self._get_dir('vcf'), fn)
@@ -210,3 +211,31 @@ Analysis accession(s): {analyses}
 Analysis information: {analyses_report}
 """
         print(report.format(**report_data))
+
+
+class EloadMetadataForBacklog(EloadIngestion):
+
+    def __init__(self, eload_number, project_accession, analysis_accessions=None, taxonomy=None):
+        super().__init__(eload_number=eload_number)
+        self._project_accession = project_accession
+        if analysis_accessions:
+            self._analysis_accessions = analysis_accessions
+        else:
+            self._analysis_accessions = []
+        if taxonomy:
+            self._taxonomy = int(taxonomy)
+        else:
+            self._taxonomy = None
+
+    def ingest(self, tasks=None, vep_cache_assembly_name=None, resume=False):
+        if self._analysis_accessions:
+            for analysis_accession in self._analysis_accessions:
+                self.loader.load_project_from_ena(self._project_accession,
+                                                  self.eload_num, analysis_accession,
+                                                  taxonomy_id_for_project=self._taxonomy,
+                                                  load_browsable_files=True)
+        else:
+            self.loader.load_project_from_ena(self._project_accession,
+                                          self.eload_num,
+                                          taxonomy_id_for_project=self._taxonomy,
+                                          load_browsable_files=True)
