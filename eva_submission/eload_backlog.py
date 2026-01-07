@@ -170,7 +170,7 @@ class EloadBacklog(Eload):
 
         for analysis_accession, filenames in rows:
             # Uses the analysis accession as analysis alias
-            self.eload_cfg.set('brokering', 'ena', 'ANALYSIS', analysis_accession, value=analysis_accession)
+            self.eload_cfg.set('brokering', 'ena', 'ANALYSIS', self._unique_alias(analysis_accession), value=analysis_accession)
             vcf_file_list = []
             for fn in filenames:
                 if not fn.endswith('.vcf.gz'):
