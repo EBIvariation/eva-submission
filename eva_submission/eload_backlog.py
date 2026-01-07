@@ -189,7 +189,7 @@ class EloadBacklog(Eload):
     def populate_metadata_json(self):
         json_data = {
             'submitterDetails':[],
-            'project':[],
+            'project':{'title': 'Made up title'},
             'sample':[],
             'analysis':[],
             'files': []
