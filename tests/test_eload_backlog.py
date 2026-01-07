@@ -58,7 +58,7 @@ class TestEloadBacklog(TestCase):
             'brokering': {
                 'ena': {
                     'hold_date':  datetime(2021, 1, 1, 0, 0, tzinfo=timezone(timedelta(seconds=3600))),
-                    'ANALYSIS': {'ERZ999999': 'ERZ999999'},
+                    'ANALYSIS': {'ELOAD_44_ERZ999999': 'ERZ999999'},
                     'PROJECT': 'PRJEB12345',
                 }
             },
@@ -95,7 +95,7 @@ class TestEloadBacklog(TestCase):
         expected_config = {
             'brokering': {
                 'ena': {
-                    'ANALYSIS': {'ERZ999999': 'ERZ999999'},
+                    'ANALYSIS': {'ELOAD_44_ERZ999999': 'ERZ999999'},
                     'PROJECT': 'PRJEB12345',
                 }
             },
