@@ -182,7 +182,7 @@ class EloadBacklog(Eload):
 
             # Using analysis_accession instead of analysis alias. This should not have any detrimental effect on
             # ingestion
-            self.eload_cfg.set('submission', 'analyses', analysis_accession, 'vcf_files', value=vcf_file_list)
+            self.eload_cfg.set('submission', 'analyses', self._unique_alias(analysis_accession), 'vcf_files', value=vcf_file_list)
 
     def _analysis_report(self, all_analysis):
         reports = []
