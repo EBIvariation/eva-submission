@@ -42,8 +42,10 @@ class TestEloadBacklog(TestCase):
     def test_fill_in_config(self):
         expected_vcf = os.path.join(self.resources_folder, 'eloads/ELOAD_44/10_submitted/vcf_files/file.vcf.gz')
         expected_index = os.path.join(self.resources_folder, 'eloads/ELOAD_44/10_submitted/vcf_files/file.vcf.gz.tbi')
+        expected_metadata_json = os.path.join(self.resources_folder, 'eloads/ELOAD_44/10_submitted/metadata_file/backlog_metadata.json')
         expected_config = {
             'submission': {
+                'metadata_json': expected_metadata_json,
                 'analyses': {'ELOAD_44_ERZ999999': {
                     'vcf_files': [expected_vcf],
                     'assembly_fasta': 'assembly.fa',
