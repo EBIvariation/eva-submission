@@ -1,11 +1,13 @@
 Changelog for eva-submission
 ============================
 
-## 1.19.11 (unreleased)
+## 1.19.11 (2026-01-07)
 -----------------------
 
-- Nothing changed yet.
 
+## Ingestion 
+ - Support for NCBI project during metadata ingestion
+ - Use correct job name parameter in accessioning
 
 ## 1.19.10 (2025-12-19)
 -----------------------
