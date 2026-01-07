@@ -1,3 +1,4 @@
+import json
 import os
 import urllib
 
@@ -37,6 +38,7 @@ class EloadBacklog(Eload):
         self.eload_cfg.set('brokering', 'ena', 'PROJECT', value=self.project_accession)
         self.get_analysis_info()
         self.get_species_info()
+        self.populate_metadata_json()
         self.update_config_with_hold_date(self.project_accession, self.project_alias)
         self.eload_cfg.write()
 
@@ -183,6 +185,30 @@ class EloadBacklog(Eload):
             # Using analysis_accession instead of analysis alias. This should not have any detrimental effect on
             # ingestion
             self.eload_cfg.set('submission', 'analyses', self._unique_alias(analysis_accession), 'vcf_files', value=vcf_file_list)
+
+    def populate_metadata_json(self):
+        json_data = {
+            'submitterDetails':[],
+            'project':[],
+            'sample':[],
+            'analysis':[],
+            'files': []
+
+        }
+        for analysis_accession in self.analysis_accessions:
+            analysis_info = self.eload_cfg.query('submission', 'analyses', self._unique_alias(analysis_accession))
+            json_data['analysis'].append({
+                'analysisAlias': self._unique_alias(analysis_accession),
+                'referenceGenome': analysis_info.get('assembly_accession'),
+                'referenceFasta': analysis_info.get('assembly_fasta'),
+                'assemblyReport': analysis_info.get('assembly_report')
+            })
+            for vcf_file in analysis_info.get('vcf_files'):
+                json_data['files'].append({'analysisAlias': self._unique_alias(analysis_accession), 'fileName': vcf_file})
+        backlog_metadata_json = os.path.join(self._get_dir('metadata'), 'backlog_metadata.json')
+        with open(backlog_metadata_json, 'w') as open_file:
+            json.dump(json_data, open_file)
+        self.eload_cfg.set('submission', 'metadata_json', backlog_metadata_json)
 
     def _analysis_report(self, all_analysis):
         reports = []
