@@ -48,7 +48,7 @@ class EloadBacklog(Eload):
                         f"where project_accession='{self._preset_project_accession}';"
                 rows = get_all_results_for_query(conn, query)
             if len(rows) != 1:
-                self.warning(f'No project found for {self._preset_project_accession} in metadata DB.')
+                raise ValueError(f'No project found for {self._preset_project_accession} in metadata DB.')
             return self._preset_project_accession
         else:
             with self.metadata_connection_handle as conn:
@@ -67,7 +67,7 @@ class EloadBacklog(Eload):
                          f" and hidden_in_eva=0;")
                 rows = get_all_results_for_query(conn, query)
                 if len(rows) != len(self._preset_analysis_accessions):
-                    self.warning(f"Some analysis accession could not be found for analyses "
+                    raise ValueError(f"Some analysis accession could not be found for analyses "
                                      f"{', '.join(self._preset_analysis_accessions)} in metadata DB.")
             return self._preset_analysis_accessions
         else:
