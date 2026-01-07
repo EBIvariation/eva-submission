@@ -208,7 +208,7 @@ class EloadBacklog(Eload):
         backlog_metadata_json = os.path.join(self._get_dir('metadata'), 'backlog_metadata.json')
         with open(backlog_metadata_json, 'w') as open_file:
             json.dump(json_data, open_file)
-        self.eload_cfg.set('submission', 'metadata_json', backlog_metadata_json)
+        self.eload_cfg.set('submission', 'metadata_json', value=backlog_metadata_json)
 
     def _analysis_report(self, all_analysis):
         reports = []
