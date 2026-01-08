@@ -42,9 +42,11 @@ class TestEloadBacklog(TestCase):
     def test_fill_in_config(self):
         expected_vcf = os.path.join(self.resources_folder, 'eloads/ELOAD_44/10_submitted/vcf_files/file.vcf.gz')
         expected_index = os.path.join(self.resources_folder, 'eloads/ELOAD_44/10_submitted/vcf_files/file.vcf.gz.tbi')
+        expected_metadata_json = os.path.join(self.resources_folder, 'eloads/ELOAD_44/10_submitted/metadata_file/backlog_metadata.json')
         expected_config = {
             'submission': {
-                'analyses': {'ERZ999999': {
+                'metadata_json': expected_metadata_json,
+                'analyses': {'ELOAD_44_ERZ999999': {
                     'vcf_files': [expected_vcf],
                     'assembly_fasta': 'assembly.fa',
                     'assembly_report': 'assembly.txt',
@@ -56,7 +58,7 @@ class TestEloadBacklog(TestCase):
             'brokering': {
                 'ena': {
                     'hold_date':  datetime(2021, 1, 1, 0, 0, tzinfo=timezone(timedelta(seconds=3600))),
-                    'ANALYSIS': {'ERZ999999': 'ERZ999999'},
+                    'ANALYSIS': {'ELOAD_44_ERZ999999': 'ERZ999999'},
                     'PROJECT': 'PRJEB12345',
                 }
             },
@@ -93,7 +95,7 @@ class TestEloadBacklog(TestCase):
         expected_config = {
             'brokering': {
                 'ena': {
-                    'ANALYSIS': {'ERZ999999': 'ERZ999999'},
+                    'ANALYSIS': {'ELOAD_44_ERZ999999': 'ERZ999999'},
                     'PROJECT': 'PRJEB12345',
                 }
             },

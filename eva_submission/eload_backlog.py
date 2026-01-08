@@ -1,3 +1,4 @@
+import json
 import os
 import urllib
 
@@ -5,6 +6,7 @@ import requests
 from cached_property import cached_property
 from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query
 
+from eva_submission.eload_ingestion import EloadIngestion
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import get_reference_fasta_and_report, get_project_alias, download_file
 from eva_submission.submission_config import EloadConfig
@@ -36,6 +38,7 @@ class EloadBacklog(Eload):
         self.eload_cfg.set('brokering', 'ena', 'PROJECT', value=self.project_accession)
         self.get_analysis_info()
         self.get_species_info()
+        self.populate_metadata_json()
         self.update_config_with_hold_date(self.project_accession, self.project_alias)
         self.eload_cfg.write()
 
@@ -48,6 +51,7 @@ class EloadBacklog(Eload):
                 rows = get_all_results_for_query(conn, query)
             if len(rows) != 1:
                 raise ValueError(f'No project found for {self._preset_project_accession} in metadata DB.')
+            return self._preset_project_accession
         else:
             with self.metadata_connection_handle as conn:
                 query = f"select project_accession from evapro.project_eva_submission where eload_id={self.eload_num};"
@@ -67,6 +71,7 @@ class EloadBacklog(Eload):
                 if len(rows) != len(self._preset_analysis_accessions):
                     raise ValueError(f"Some analysis accession could not be found for analyses "
                                      f"{', '.join(self._preset_analysis_accessions)} in metadata DB.")
+            return self._preset_analysis_accessions
         else:
             with self.metadata_connection_handle as conn:
                 query = (f"select distinct b.analysis_accession from project_analysis a "
@@ -107,10 +112,10 @@ class EloadBacklog(Eload):
         for analysis_accession, asm_accession in rows:
             if not asm_accession:
                 raise ValueError(f'No reference accession for {analysis_accession} found in metadata DB.')
-            self.eload_cfg.set('submission', 'analyses', analysis_accession, 'assembly_accession', value=asm_accession)
+            self.eload_cfg.set('submission', 'analyses', self._unique_alias(analysis_accession), 'assembly_accession', value=asm_accession)
             fasta_path, report_path = get_reference_fasta_and_report(sci_name, asm_accession)
-            self.eload_cfg.set('submission', 'analyses', analysis_accession, 'assembly_fasta', value=fasta_path)
-            self.eload_cfg.set('submission', 'analyses', analysis_accession, 'assembly_report', value=report_path)
+            self.eload_cfg.set('submission', 'analyses', self._unique_alias(analysis_accession), 'assembly_fasta', value=fasta_path)
+            self.eload_cfg.set('submission', 'analyses', self._unique_alias(analysis_accession), 'assembly_report', value=report_path)
 
     def find_local_file(self, fn):
         full_path = os.path.join(self._get_dir('vcf'), fn)
@@ -165,7 +170,7 @@ class EloadBacklog(Eload):
 
         for analysis_accession, filenames in rows:
             # Uses the analysis accession as analysis alias
-            self.eload_cfg.set('brokering', 'ena', 'ANALYSIS', analysis_accession, value=analysis_accession)
+            self.eload_cfg.set('brokering', 'ena', 'ANALYSIS', self._unique_alias(analysis_accession), value=analysis_accession)
             vcf_file_list = []
             for fn in filenames:
                 if not fn.endswith('.vcf.gz'):
@@ -179,7 +184,31 @@ class EloadBacklog(Eload):
 
             # Using analysis_accession instead of analysis alias. This should not have any detrimental effect on
             # ingestion
-            self.eload_cfg.set('submission', 'analyses', analysis_accession, 'vcf_files', value=vcf_file_list)
+            self.eload_cfg.set('submission', 'analyses', self._unique_alias(analysis_accession), 'vcf_files', value=vcf_file_list)
+
+    def populate_metadata_json(self):
+        json_data = {
+            'submitterDetails':[],
+            'project':{'title': 'Made up title'},
+            'sample':[],
+            'analysis':[],
+            'files': []
+
+        }
+        for analysis_accession in self.analysis_accessions:
+            analysis_info = self.eload_cfg.query('submission', 'analyses', self._unique_alias(analysis_accession))
+            json_data['analysis'].append({
+                'analysisAlias': self._unique_alias(analysis_accession),
+                'referenceGenome': analysis_info.get('assembly_accession'),
+                'referenceFasta': analysis_info.get('assembly_fasta'),
+                'assemblyReport': analysis_info.get('assembly_report')
+            })
+            for vcf_file in analysis_info.get('vcf_files'):
+                json_data['files'].append({'analysisAlias': self._unique_alias(analysis_accession), 'fileName': vcf_file})
+        backlog_metadata_json = os.path.join(self._get_dir('metadata'), 'backlog_metadata.json')
+        with open(backlog_metadata_json, 'w') as open_file:
+            json.dump(json_data, open_file)
+        self.eload_cfg.set('submission', 'metadata_json', value=backlog_metadata_json)
 
     def _analysis_report(self, all_analysis):
         reports = []
@@ -208,3 +237,31 @@ Analysis accession(s): {analyses}
 Analysis information: {analyses_report}
 """
         print(report.format(**report_data))
+
+
+class EloadMetadataForBacklog(EloadIngestion):
+
+    def __init__(self, eload_number, project_accession, analysis_accessions=None, taxonomy=None):
+        super().__init__(eload_number=eload_number)
+        self._project_accession = project_accession
+        if analysis_accessions:
+            self._analysis_accessions = analysis_accessions
+        else:
+            self._analysis_accessions = []
+        if taxonomy:
+            self._taxonomy = int(taxonomy)
+        else:
+            self._taxonomy = None
+
+    def ingest(self, tasks=None, vep_cache_assembly_name=None, resume=False):
+        if self._analysis_accessions:
+            for analysis_accession in self._analysis_accessions:
+                self.loader.load_project_from_ena(self._project_accession,
+                                                  self.eload_num, analysis_accession,
+                                                  taxonomy_id_for_project=self._taxonomy,
+                                                  load_browsable_files=True)
+        else:
+            self.loader.load_project_from_ena(self._project_accession,
+                                          self.eload_num,
+                                          taxonomy_id_for_project=self._taxonomy,
+                                          load_browsable_files=True)
