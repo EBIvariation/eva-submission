@@ -160,9 +160,8 @@ class OracleEnaProjectFinder:
             f"and (study_id in (select study_id from era.study where project_id='{project_accession}') "
             f"or study_id='{project_accession}' or bioproject_id='{project_accession}')"
         )
-        with (self.era_cursor() as cursor):
+        with self.era_cursor() as cursor:
             for results in cursor.execute(era_analysis_query):
-                print(results)
                 (
                     analysis_id, analysis_title, analysis_alias, analysis_type, center_name, first_created,
                     analysis_xml,  assembly, refname, custom
@@ -262,7 +261,6 @@ class OracleEnaProjectFinder:
 
     def _parse_analysis_description_sequences_and_type_from_xml(self, analysis_xml):
         root = ET.fromstring(analysis_xml)
-        print(analysis_xml)
         description = root.find(".//DESCRIPTION").text if root.find(".//DESCRIPTION") is not None else None
 
         # Extract Analysis Type and associated elements
