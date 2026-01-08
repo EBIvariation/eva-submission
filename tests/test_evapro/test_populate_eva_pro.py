@@ -134,7 +134,7 @@ class TestEvaProjectLoader(TestCase):
              'The large yellow croaker, Larimichthys crocea is a commercially important drum fish (Family: Sciaenidae) native to the East and South China Sea. Habitat deterioration and overfishing have led to significant population decline and the collapse of its fishery over the past decades. In this study, we employed SLAF-seq (specific-locus amplified fragment sequencing) technology to identify single nucleotide polymorphism (SNP) loci across the genome of L. crocea. Sixty samples were selected for SLAF analysis out of 1,000 progeny in the same cohort of a cultured stock. Our analysis obtained a total of 151,253 SLAFs, of which 65.88% (99,652) were identified to be polymorphic, scoring a total of 710,567 SNPs. Further filtration resulted in a final panel of 1,782 SNP loci. The data derived from this work could be beneficial for understanding the genetics of complex phenotypic traits, as well as for developing marker selection-assisted breeding programs in the L. crocea aquaculture.',
              'SEQUENCE_VARIATION', 'Zhejiang Ocean University',
              datetime.datetime(2018, 3, 26, 15, 33, 35),
-             'GCA_000972845.1', None, None, {'Whole genome sequencing'}, {'Illumina HiSeq 2500'})
+             'GCA_000972845.1', None, None, {'GS00000.1'}, {'Whole genome sequencing'}, {'Illumina HiSeq 2500'})
         ]
         samples_info = [
             ('ERS18360856', 'SAMEA115348712'), ('ERS18360857', 'SAMEA115348713'), ('ERS18360858', 'SAMEA115348714')
@@ -213,6 +213,7 @@ class TestEvaProjectLoader(TestCase):
                        analysis.assembly_set.taxonomy_id, analysis.assembly_set.assembly_name,
                        analysis.assembly_set.assembly_code
                    ) == (9606, 'L_crocea_1.0', 'lcrocea10')
+            assert analysis.sequences[0].sequence_accession == 'GS00000.1'
 
     def test_load_samples_from_vcf_file(self):
         sample_name_2_sample_accession = {'NA00001': 'SAME000001', 'NA00002': 'SAME000002', 'NA00003': 'SAME000003'}

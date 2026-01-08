@@ -20,7 +20,7 @@ from eva_submission.evapro.eload_metadata_loader import EloadMetadataJsonLoader
 from eva_submission.evapro.find_from_ena import OracleEnaProjectFinder
 from eva_submission.evapro.table import Project, Taxonomy, LinkedProject, Submission, ProjectEnaSubmission, \
     EvaSubmission, ProjectEvaSubmission, Analysis, AssemblySet, AccessionedAssembly, File, BrowsableFile, \
-    Platform, ExperimentType, Sample, SampleInFile, ProjectSampleTemp1, ClusteredVariantUpdate
+    Platform, ExperimentType, Sample, SampleInFile, ProjectSampleTemp1, ClusteredVariantUpdate, EvaReferencedSequence
 from eva_submission.sample_utils import get_samples_from_vcf
 
 ena_ftp_file_prefix_path = "/ftp.sra.ebi.ac.uk/vol1"
@@ -114,17 +114,21 @@ class EvaProjectLoader(AppLogger):
         for analysis_info in self.ena_project_finder.find_analysis_in_ena(project_accession=project_accession):
             (
                 analysis_accession, analysis_title, analysis_alias, analysis_description, analysis_type, center_name,
-                first_created, assembly, refname, custom, experiment_types, platforms
+                first_created, assembly, refname, custom, sequences, experiment_types, platforms
             ) = analysis_info
             if analysis_accession_to_load and analysis_accession != analysis_accession_to_load:
                 continue
             assembly_set_obj = self.insert_assembly_set(taxonomy_obj=taxonomy_obj, assembly_accession=assembly)
+            sequence_objs = self.insert_referenced_sequences(sequences)
+
             analysis_obj = self.insert_analysis(
                 analysis_accession=analysis_accession, title=analysis_title, alias=analysis_alias,
                 description=analysis_description, center_name=center_name, date=first_created,
                 assembly_set_id=assembly_set_obj.assembly_set_id, vcf_reference_accession=assembly)
             if analysis_obj not in project_obj.analyses:
                 project_obj.analyses.append(analysis_obj)
+            if analysis_obj and sequence_objs:
+                analysis_obj.sequences = sequence_objs
 
             ###
             # LOAD SUBMISSIONS FOR ANALYSIS
@@ -714,3 +718,17 @@ class EvaProjectLoader(AppLogger):
             self.eva_session.add(sample_in_file_obj)
             self.info(f'Add SampleInFile {file_id} and {sample_id} to EVAPRO')
         return sample_in_file_obj
+
+    def insert_referenced_sequences(self, sequences):
+        sequence_objs = []
+        for sequence in sequences:
+            query = select(EvaReferencedSequence).where(EvaReferencedSequence.sequence_accession == sequence)
+            result = self.eva_session.execute(query).fetchone()
+            if result:
+                sequence_obj = result.EvaReferencedSequence
+            else:
+                sequence_obj = EvaReferencedSequence(sequence_accession=sequence)
+                self.eva_session.add(sequence_obj)
+                self.info(f'Add EvaReferencedSequence {sequence} to EVAPRO')
+            sequence_objs.append(sequence_obj)
+        return sequence_objs
