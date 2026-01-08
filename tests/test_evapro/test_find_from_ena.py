@@ -85,7 +85,7 @@ class TestEnaProjectFinder(unittest.TestCase):
              'The large yellow croaker, Larimichthys crocea is a commercially important drum fish (Family: Sciaenidae) native to the East and South China Sea. Habitat deterioration and overfishing have led to significant population decline and the collapse of its fishery over the past decades. In this study, we employed SLAF-seq (specific-locus amplified fragment sequencing) technology to identify single nucleotide polymorphism (SNP) loci across the genome of L. crocea. Sixty samples were selected for SLAF analysis out of 1,000 progeny in the same cohort of a cultured stock. Our analysis obtained a total of 151,253 SLAFs, of which 65.88% (99,652) were identified to be polymorphic, scoring a total of 710,567 SNPs. Further filtration resulted in a final panel of 1,782 SNP loci. The data derived from this work could be beneficial for understanding the genetics of complex phenotypic traits, as well as for developing marker selection-assisted breeding programs in the L. crocea aquaculture.',
              'SEQUENCE_VARIATION', 'Zhejiang Ocean University',
              datetime.datetime(2018, 3, 26, 15, 33, 35),
-             'GCF_000972845.1', None, None, {'Whole genome sequencing'}, {'Illumina HiSeq 2500'})
+             'GCF_000972845.1', None, None, set(), {'Whole genome sequencing'}, {'Illumina HiSeq 2500'})
         ]
         results = list(self.finder.find_analysis_in_ena(project))
         assert results == expected_analysis
@@ -97,21 +97,35 @@ class TestEnaProjectFinder(unittest.TestCase):
              'Variant and CNV analysis of WES data from CKD sample (GRCh37 reference)',
              'SEQUENCE_VARIATION', 'agiomix labs',
              datetime.datetime(2025, 12, 19, 12, 18, 43),
-             'GCA_000001405.1', None, None, {'Exome sequencing'}, {'Illumina NovaSeq 6000'}),
+             'GCA_000001405.1', None, None, set(), {'Exome sequencing'}, {'Illumina NovaSeq 6000'}),
             ('ERZ28775367', 'Whole exome variant calling in CKD sample', 'ELOAD_1529_CKD_WES_Analysis_02',
              'Variant and CNV analysis of WES data from CKD sample (GRCh37 reference)', 'SEQUENCE_VARIATION',
              'agiomix labs', datetime.datetime(2025, 12, 19, 12, 18, 43),
-             'GCA_000001405.1', None, None, {'Exome sequencing'}, {'Illumina NovaSeq 6000'}),
+             'GCA_000001405.1', None, None, set(), {'Exome sequencing'}, {'Illumina NovaSeq 6000'}),
             ('ERZ28775368', 'Whole exome variant calling in  Control sample', 'ELOAD_1529_CKD_WES_Analysis_03',
              'Variant and CNV analysis of WES data from control sample (GRCh37 reference)', 'SEQUENCE_VARIATION',
              'agiomix labs', datetime.datetime(2025, 12, 19, 12, 18, 44),
-             'GCA_000001405.1', None, None, {'Exome sequencing'}, {'Illumina NovaSeq 6000'}),
+             'GCA_000001405.1', None, None, set(), {'Exome sequencing'}, {'Illumina NovaSeq 6000'}),
             ('ERZ28775369', 'Whole exome variant calling in  Control sample', 'ELOAD_1529_CKD_WES_Analysis_04',
              'Variant and CNV analysis of WES data from control sample (GRCh37 reference)', 'SEQUENCE_VARIATION',
              'agiomix labs', datetime.datetime(2025, 12, 19, 12, 18, 44),
-             'GCA_000001405.1', None, None, {'Exome sequencing'}, {'Illumina NovaSeq 6000'})
+             'GCA_000001405.1', None, None, set(), {'Exome sequencing'}, {'Illumina NovaSeq 6000'})
         ]
 
+        results = list(self.finder.find_analysis_in_ena(project))
+        assert results == expected_analysis
+
+    def test_find_analysis_with_single_ref_in_ena(self):
+        project = 'PRJEB87743'
+        expected_analysis = [(
+            'ERZ25084096', 'De novo transcriptomes of floral bracts for 22 Bougainvillea accessions',
+            'ELOAD_1414_Bougainvillea glabra', 'SNP data of 22 Bougainvillea accessions based on transcriptomes',
+            'SEQUENCE_VARIATION',
+            'Center for Genomics and Biotechnology, Fujian Provincial Key Laboratory of Haixia '
+            'Applied Plant Systems Biology, Haixia Institute of Science and Technology, Fujian Agriculture and '
+            'Forestry University', datetime.datetime(2025, 3, 27, 22, 15, 19),
+            None, None, None, {'GLCL00000000.1'}, {'Whole transcriptome sequencing'}, {'Illumina NovaSeq 6000'}
+        )]
         results = list(self.finder.find_analysis_in_ena(project))
         assert results == expected_analysis
 

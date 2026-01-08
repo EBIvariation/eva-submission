@@ -160,18 +160,20 @@ class OracleEnaProjectFinder:
             f"and (study_id in (select study_id from era.study where project_id='{project_accession}') "
             f"or study_id='{project_accession}' or bioproject_id='{project_accession}')"
         )
-        with self.era_cursor() as cursor:
+        with (self.era_cursor() as cursor):
             for results in cursor.execute(era_analysis_query):
+                print(results)
                 (
                     analysis_id, analysis_title, analysis_alias, analysis_type, center_name, first_created,
                     analysis_xml,  assembly, refname, custom
                 ) = results
-                analysis_description, experiment_types, platforms = self._parse_analysis_description_and_type_from_xml(str(analysis_xml))
+                (analysis_description, sequences,
+                 experiment_types, platforms) = self._parse_analysis_description_sequences_and_type_from_xml(str(analysis_xml))
                 if analysis_type != 'SEQUENCE_VARIATION':
                     continue
                 yield (
                     analysis_id, analysis_title, analysis_alias, analysis_description, analysis_type, center_name,
-                    first_created, assembly, refname, custom, experiment_types, platforms
+                    first_created, assembly, refname, custom, sequences, experiment_types, platforms
                 )
 
     def find_samples_in_ena(self, analysis_accession):
@@ -258,23 +260,26 @@ class OracleEnaProjectFinder:
             action = None
         return submission_alias, hold_date, action
 
-    def _parse_analysis_description_and_type_from_xml(self, analysis_xml):
+    def _parse_analysis_description_sequences_and_type_from_xml(self, analysis_xml):
         root = ET.fromstring(analysis_xml)
+        print(analysis_xml)
         description = root.find(".//DESCRIPTION").text if root.find(".//DESCRIPTION") is not None else None
 
         # Extract Analysis Type and associated elements
         analysis_type_element = root.find(".//ANALYSIS_TYPE")
         platforms = set()
         experiment_types = set()
-
+        sequences = set()
         if analysis_type_element is not None:
             # Get the first child of ANALYSIS_TYPE (e.g., SEQUENCE_VARIATION)
             for child in analysis_type_element:
                 # Extract associated elements
                 for sub_element in child:
+                    if sub_element.tag == 'SEQUENCE':
+                        sequences.add(sub_element.get('accession'))
                     if sub_element.tag == 'EXPERIMENT_TYPE':
                         experiment_types.add(sub_element.text)
                     if sub_element.tag == 'PLATFORM':
                         platforms.add(sub_element.text)
-        return description, experiment_types, platforms
+        return description, sequences, experiment_types, platforms
 
