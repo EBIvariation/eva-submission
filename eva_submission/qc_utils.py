@@ -7,8 +7,10 @@ logger = logging_config.get_logger(__name__)
 
 job_launched_and_completed_text_map = {
     'accession': (
-        {'Job: [SimpleJob: [name=CREATE_SUBSNP_ACCESSION_JOB]] launched'},
-        {'Job: [SimpleJob: [name=CREATE_SUBSNP_ACCESSION_JOB]] completed'}
+        {'Job: [SimpleJob: [name=CREATE_SUBSNP_ACCESSION_JOB]] launched',
+         'Job: [SimpleJob: [name=SUBSNP_ACCESSION_JOB]] launched'},
+        {'Job: [SimpleJob: [name=CREATE_SUBSNP_ACCESSION_JOB]] completed',
+         'Job: [SimpleJob: [name=SUBSNP_ACCESSION_JOB]] completed'}
     ),
     'variant_load': (
         {'Job: [FlowJob: [name=genotyped-vcf-job]] launched',
