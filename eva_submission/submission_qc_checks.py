@@ -10,7 +10,8 @@ from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_internal_pyutils.metadata_utils import get_metadata_connection_handle
 from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query
 
-from eva_submission.qc_utils import did_job_complete_successfully_from_log, get_failed_job_or_step_name
+from eva_submission.qc_utils import did_job_complete_successfully_from_log, get_failed_job_or_step_name, \
+    job_launched_and_completed_text_map
 from requests import HTTPError
 from retry import retry
 
@@ -118,8 +119,9 @@ class EloadQC(Eload):
     def _check_if_variants_were_skipped_in_log(self, file_path):
         with open(file_path, 'r') as f:
             variants_skipped = -1
+            job_launched_str, _ = job_launched_and_completed_text_map['accession']
             for line in f:
-                if "Job: [SimpleJob: [name=CREATE_SUBSNP_ACCESSION_JOB]] launched" in line:
+                if any(text in line for text in job_launched_str):
                     variants_skipped = None
                 if 'lines in the original VCF were skipped' in line:
                     variants_skipped = line.strip().split(":")[-1].strip().split(" ")[0].strip()
