@@ -233,6 +233,8 @@ process accession_vcf {
     pipeline_parameters += " --parameters.fasta=" + fasta.toString()
     pipeline_parameters += " --parameters.assemblyReportUrl=file:" + report.toString()
     pipeline_parameters += " --parameters.vcf=" + vcf_file.toString()
+    // Check that the ssid does not exist before attempting to write it (much faster when the ssids already exist but slightly slower when they do not)
+    pipeline_parameters += " --accession.save.mode=PREFILTER_EXISTING"
 
     accessioned_filename = vcf_filename.take(vcf_filename.indexOf(".vcf")) + ".accessioned.vcf"
     log_filename = "accessioning.${vcf_filename}"
