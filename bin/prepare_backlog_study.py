@@ -35,7 +35,7 @@ def main():
     argparse.add_argument('--project_accession', required=True, type=str,
                           help='Specify the project to be loaded from ENA into EVAPRO')
     argparse.add_argument('--analysis_accessions', required=False, type=str, nargs='+',
-                          help='Specify the project to be loaded from ENA into EVAPRO')
+                          help='Specify the analyses to be loaded from ENA into EVAPRO')
     argparse.add_argument('--taxonomy', required=False, type=int,
                           help='Specify the taxonomy for this project to be loaded from ENA into EVAPRO')
     argparse.add_argument('--force_config', action='store_true', default=False,
@@ -76,8 +76,7 @@ def main():
         if not args.report and not args.keep_config:
             preparation.fill_in_config(args.force_config)
 
-
-    # # Pass the eload config object to validation so that the two objects share the same state
+    # Pass the eload config object to validation so that the two objects share the same state
     with EloadValidation(args.eload, preparation.eload_cfg, nextflow_config=args.nextflow_config) as validation:
         validation.set_validation_task_result_valid(forced_validation_tasks)
         validation.validate(validation_tasks=args.validation_tasks)
