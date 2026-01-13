@@ -51,7 +51,6 @@ class EloadBacklog(Eload):
                 rows = get_all_results_for_query(conn, query)
             if len(rows) != 1:
                 raise ValueError(f'No project found for {self._preset_project_accession} in metadata DB.')
-            return self._preset_project_accession
         else:
             with self.metadata_connection_handle as conn:
                 query = f"select project_accession from evapro.project_eva_submission where eload_id={self.eload_num};"
@@ -71,7 +70,6 @@ class EloadBacklog(Eload):
                 if len(rows) != len(self._preset_analysis_accessions):
                     raise ValueError(f"Some analysis accession could not be found for analyses "
                                      f"{', '.join(self._preset_analysis_accessions)} in metadata DB.")
-            return self._preset_analysis_accessions
         else:
             with self.metadata_connection_handle as conn:
                 query = (f"select distinct b.analysis_accession from project_analysis a "
@@ -187,6 +185,9 @@ class EloadBacklog(Eload):
             self.eload_cfg.set('submission', 'analyses', self._unique_alias(analysis_accession), 'vcf_files', value=vcf_file_list)
 
     def populate_metadata_json(self):
+        """
+        Generate an incomplete metadata json for the sole purpose of running validation since it is required by eva-sub-cli
+        """
         json_data = {
             'submitterDetails':[],
             'project':{'title': 'Made up title'},

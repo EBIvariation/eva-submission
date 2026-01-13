@@ -28,7 +28,7 @@ logger = log_cfg.get_logger(__name__)
 
 
 def main():
-    possible_validation_tasks = ['vcf_check']
+    possible_validation_tasks = ['vcf_check', 'assembly_check']
     forced_validation_tasks = list(set(EloadValidation.all_validation_tasks) - set(possible_validation_tasks))
     argparse = ArgumentParser(description='Prepare to process backlog study and validate VCFs.')
     argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
@@ -48,6 +48,8 @@ def main():
     argparse.add_argument('--shallow_validation', action='store_true', default=False,
                           help='Set the validation to be performed on the first 10000 records of the VCF. '
                                'Only applied if the number of records exceed 10000')
+    argparse.add_argument('--skip_validation', action='store_true', default=False,
+                          help='Prevent the validation from being run.')
     argparse.add_argument('--report', action='store_true', default=False,
                           help='Set the script to only report the results based on previously run preparation.')
     argparse.add_argument('--nextflow_config', type=str, required=False,
@@ -76,10 +78,11 @@ def main():
         if not args.report and not args.keep_config:
             preparation.fill_in_config(args.force_config)
 
-    # Pass the eload config object to validation so that the two objects share the same state
-    with EloadValidation(args.eload, preparation.eload_cfg, nextflow_config=args.nextflow_config) as validation:
-        validation.set_validation_task_result_valid(forced_validation_tasks)
-        validation.validate(validation_tasks=args.validation_tasks)
+    if not args.skip_validation:
+        # Pass the eload config object to validation so that the two objects share the same state
+        with EloadValidation(args.eload, preparation.eload_cfg, nextflow_config=args.nextflow_config) as validation:
+            validation.set_validation_task_result_valid(forced_validation_tasks)
+            validation.validate(validation_tasks=args.validation_tasks)
 
     # Stop the processing if the validation did not pass
     if not validation.eload_cfg.query('validation', 'valid', 'analyses'):
