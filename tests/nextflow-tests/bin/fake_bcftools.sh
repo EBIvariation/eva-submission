@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "bcftools $*"
+>&2 echo "bcftools $*"
 command=$1
 shift
 
@@ -20,7 +20,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-echo "${OTHER_ARGS[*]}"
+>&2 echo "${OTHER_ARGS[*]}"
 
 if [[ $command == "merge" ]]; then
     if [ -z $filename ]; then
@@ -33,10 +33,9 @@ elif [[ $command == "sort" ]]; then
       touch $filename
     fi
 elif [[ $command == "norm" ]]; then
-    if [ -z $filename ]; then
-      filename=${OTHER_ARGS: -2}
+    if [ ! -z $filename ]; then
+      touch $filename
     fi
-    touch $filename
 else
     if [ -z $filename ]; then
       filename=${OTHER_ARGS[1]}
