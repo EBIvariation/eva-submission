@@ -1,10 +1,13 @@
 Changelog for eva-submission
 ============================
 
-## 1.19.12 (unreleased)
+## 1.19.12 (2026-01-15)
 -----------------------
 
-- Nothing changed yet.
+## Ingestion 
+ - Load single sequence accession in EVAPRO to support single sequence with archive only
+ - Force accessioning to use PREFILTER_EXISTING to speed up accession of variant already existing
+ - Update prepare_backlog to support cases when no metadata has been ingested
 
 
 ## 1.19.11 (2026-01-07)
