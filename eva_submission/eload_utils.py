@@ -26,14 +26,14 @@ from retry import retry
 logger = log_cfg.get_logger(__name__)
 
 
-def get_reference_fasta_and_report(species_name, reference_accession, output_directory=None, overwrite=False):
+def get_reference_fasta_and_report(species_name, reference_accession, output_directory=None, overwrite=False, update=False):
     output_directory = output_directory or cfg.query('genome_downloader', 'output_directory')
     if NCBIAssembly.is_assembly_accession_format(reference_accession):
         assembly = NCBIAssembly(
             reference_accession, species_name, output_directory,
             eutils_api_key=cfg.get('eutils_api_key')
         )
-        if not os.path.isfile(assembly.assembly_fasta_path) or not os.path.isfile(assembly.assembly_report_path) or overwrite:
+        if not os.path.isfile(assembly.assembly_fasta_path) or not os.path.isfile(assembly.assembly_report_path) or overwrite or update:
             assembly.download_or_construct(overwrite=overwrite)
         return assembly.assembly_fasta_path, assembly.assembly_report_path
     elif NCBISequence.is_genbank_accession_format(reference_accession):
