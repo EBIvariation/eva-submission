@@ -46,7 +46,6 @@ def main():
     parser.add_argument("--assembly_accession", help="Assembly within which the ssids should be deprecated")
     parser.add_argument("--deprecation_suffix", help="Text used for to annotate operation Id after the keyword SS_DEPRECATED_ and before the actual ID")
     parser.add_argument("--deprecation_reason", help="Text used to provide the reason of the deprecation.")
-    parser.add_argument("--ssid_variant_file", help="File containing the ")
     args = parser.parse_args()
 
     # Load the config_file from default location
