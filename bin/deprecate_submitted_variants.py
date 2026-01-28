@@ -68,3 +68,5 @@ def main():
     command = f'java -Xmx4G -jar {cfg["jar"]["accession_pipeline"]} --spring.config.location=file:{properties_file} > {deprecation_log} 2>&1'
     run_command_with_output(f"Run the deprecated on {args.variant_id_file}", command)
 
+if __name__ == '__main__':
+    main()
