@@ -65,6 +65,6 @@ def main():
     with open(properties_file, 'w') as open_file:
         open_file.write(property_text)
 
-    command = f'java -jar {cfg["jar"]["accession_pipeline"]} --spring.config.location=file:{properties_file} > {deprecation_log} 2>&1'
+    command = f'java -Xmx4G -jar {cfg["jar"]["accession_pipeline"]} --spring.config.location=file:{properties_file} > {deprecation_log} 2>&1'
     run_command_with_output(f"Run the deprecated on {args.variant_id_file}", command)
 
