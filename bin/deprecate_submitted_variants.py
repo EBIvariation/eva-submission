@@ -36,7 +36,8 @@ def create_properties(maven_profile, private_settings_file, assembly_accession=N
             'spring.batch.job.names': 'DEPRECATE_SUBMITTED_VARIANTS_FROM_FILE_JOB',
             'parameters.deprecationIdSuffix': deprecation_suffix,
             'parameters.deprecationReason': deprecation_reason,
-            'parameters.variantIdFile': ssid_variant_file
+            'parameters.variantIdFile': ssid_variant_file,
+            'parameters.assemblyReportUrl' : ''
         }
     )
 
