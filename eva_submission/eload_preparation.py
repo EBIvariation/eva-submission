@@ -5,6 +5,7 @@ import shutil
 
 import requests
 from ebi_eva_common_pyutils.config import cfg
+from ebi_eva_common_pyutils.ena_utils import download_xml_from_ena
 from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ensembl
 from ebi_eva_internal_pyutils.config_utils import get_contig_alias_db_creds_for_profile
 from retry import retry
@@ -237,16 +238,40 @@ class EloadPreparation(Eload):
 
         self.eload_cfg.set('submission', 'project_title', value=json_data.get('project').get('title'))
 
-        taxonomy_id = json_data.get('project').get('taxId')
+        taxonomy_id = self.find_taxonomy(json_data)
         if taxonomy_id and (isinstance(taxonomy_id, int) or taxonomy_id.isdigit()):
             self.eload_cfg.set('submission', 'taxonomy_id', value=int(taxonomy_id))
             scientific_name = get_scientific_name_from_ensembl(taxonomy_id)
             self.eload_cfg.set('submission', 'scientific_name', value=scientific_name)
         else:
-            if taxonomy_id:
-                self.error('Taxonomy id %s is invalid:', taxonomy_id)
-            else:
-                self.error('Taxonomy id is missing for the submission')
+            raise ValueError(f'Taxonomy id {taxonomy_id} is missing from the submission/preexisting project or is invalid')
+
+    def find_taxonomy(self, json_data):
+        taxonomy_id = json_data.get('project', {}).get('taxId')
+        if not taxonomy_id:
+            preexisting_project = json_data.get('project').get('projectAccession')
+            if preexisting_project:
+                try:
+                    xml_root = download_xml_from_ena(f'https://www.ebi.ac.uk/ena/browser/api/xml/{preexisting_project}')
+                    xml_taxon = xml_root.xpath('/PROJECT_SET/PROJECT/SUBMISSION_PROJECT/ORGANISM/TAXON_ID')
+                    if len(xml_taxon) > 0:
+                        taxonomy_id = xml_taxon[0].text
+                except:
+                    self.error(f'Cannot find taxonomy ID for project {preexisting_project}')
+        if not taxonomy_id:
+            # Search through the samples
+            # Currently only support novel samples if they all share the same taxonomy.
+            samples = json_data.get('sample')
+            if samples:
+                taxonomy_ids = []
+                taxonomy_ids_txt = [s.get('bioSampleObject', {}).get('taxId') for s in samples if s.get('bioSampleObject', {}).get('taxId')]
+                if taxonomy_ids_txt:
+                    taxonomy_ids = [t[0].get('text') for t in taxonomy_ids_txt]
+                if len(taxonomy_ids) == len(samples) and len(set(taxonomy_ids)) == 1:
+                    taxonomy_id = taxonomy_ids[0]
+                else:
+                    self.error(f'Cannot determine Taxonomy ID from samples defined in metadata')
+        return taxonomy_id
 
     def find_genome(self):
         scientific_name = self.eload_cfg.query('submission', 'scientific_name')
