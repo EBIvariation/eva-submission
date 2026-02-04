@@ -241,3 +241,21 @@ class TestEloadPreparation(TestCase):
         assert updated_metadata['analysis'][2]['referenceFasta'] == 'GCA_000001405.27_fasta.fa'
         assert 'assemblyReport' not in updated_metadata['analysis'][2]
         assert 'ELOAD_1/10_submitted/vcf_files' in updated_metadata['files'][0]['fileName']
+
+    def test_find_taxonomy(self):
+        json_example = {"project": { "taxId": "9606"}}
+        assert self.eload.find_taxonomy(json_example) == "9606"
+
+        json_example = {"project": {"projectAccession": "PRJEB105613"}}
+        assert self.eload.find_taxonomy(json_example) == "9913"
+
+        json_example = {"project": {"projectAccession": "PRJEB102261"}, 'sample': [
+            {'analysisAlias': 'analysis1', 'sampleInVCF': '1', 'bioSampleObject': {'taxId': [{'text': '8128'}]}},
+        ]}
+        assert self.eload.find_taxonomy(json_example) == "8128"
+
+        json_example = {"project": {"projectAccession": "PRJEB102261"}, 'sample': [
+            {'analysisAlias': 'analysis1', 'sampleInVCF': '1', 'bioSampleObject': {'taxId': [{'text': '8128'}]}},
+            {'analysisAlias': 'analysis1', 'sampleInVCF': '2', 'bioSampleAccession':'SAME0000001'}
+        ]}
+        assert self.eload.find_taxonomy(json_example) is None
