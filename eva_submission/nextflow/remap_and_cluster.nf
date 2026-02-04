@@ -275,7 +275,14 @@ process qc_clustering_duplicate_rs_acc {
     java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.clustering \
          --spring.config.location=file:${params.clustering_properties} \
          --spring.batch.job.names=DUPLICATE_RS_ACC_QC_JOB \
+         --parameters.duplicateRSAccFile=${params.target_assembly_accession}_duplicate_rs_accessions.txt \
          > ${params.target_assembly_accession}_clustering_qc_duplicate_rs_acc.log
+
+    # Fail if the file is not empty
+    if [ -s ${params.target_assembly_accession}_duplicate_rs_accessions.txt ]; then
+        echo "Duplicate RS accessions detected! Failing the process."
+        exit 1
+    fi
     """
 }
 

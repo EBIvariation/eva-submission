@@ -526,8 +526,7 @@ class EloadIngestion(Eload):
             target_assembly=target_assembly,
             projects=self.project_accession,
             rs_report_path=f'{target_assembly}_rs_report.txt',
-            rs_acc_file=f'{target_assembly}_rs_report.txt',
-            duplicate_rs_acc_file=f'{target_assembly}_duplicate_rs_accessions.txt',
+            rs_acc_file=f'{target_assembly}_rs_report.txt'
         )
         with open(output_file_path, 'w') as open_file:
             open_file.write(properties)

@@ -125,7 +125,9 @@ workflow {
                 .map {tuple(it[0], it[6], it[2], it[3], it[4], it[5])}   // vcf_filename, normalised vcf, assembly_accession, aggregation, fasta, report
             accession_vcf(normalised_vcfs_ch)
             qc_accession_vcf(accession_vcf.out.accession_done)
-            sort_and_compress_vcf(qc_accession_vcf.out.qc_accession_done)
+            qc_duplicate_ss_acc(accession_vcf.out.accession_done.map { it[7] })
+            both_qc_complete = qc_accession_vcf.out.qc_accession_done.combine(qc_duplicate_ss_acc.out.dup_ss_qc_done.collect()).map { it[0] }
+            sort_and_compress_vcf(both_qc_complete)
             csi_vcfs = sort_and_compress_vcf.out.compressed_vcf
             accessioned_files_to_rm = accession_vcf.out.accessioned_filenames
             all_accession_complete = sort_and_compress_vcf.out.compressed_vcf.collect()
@@ -224,7 +226,7 @@ process accession_vcf {
 
     output:
     val accessioned_filename, emit: accessioned_filenames
-    tuple val(vcf_filename), val(vcf_file), val(assembly_accession), val(aggregation), val(fasta), val(report), path("${log_filename}.log"), emit: accession_done
+    tuple val(vcf_filename), val(vcf_file), val(assembly_accession), val(aggregation), val(fasta), val(report), path("${log_filename}.log"), val("${params.public_dir}/${accessioned_filename}"), emit: accession_done
 
     script:
     def pipeline_parameters = ""
@@ -255,7 +257,7 @@ process qc_accession_vcf {
                     -e $params.logs_dir/${log_filename}.err"
 
     input:
-    tuple val(vcf_filename), val(vcf_file), val(assembly_accession), val(aggregation), val(fasta), val(report), path(accession_log_file)
+    tuple val(vcf_filename), val(vcf_file), val(assembly_accession), val(aggregation), val(fasta), val(report), path(accession_log_file), val(accessioned_vcf_path)
 
     output:
     path "${accessioned_filename}.tmp", emit: qc_accession_done
@@ -299,6 +301,44 @@ process qc_accession_vcf {
     """
 }
 
+/*
+ * Run duplicate SS accession QC job for detecting duplicate SS accessions
+ */
+process qc_duplicate_ss_acc {
+    label 'long_time', 'med_mem'
+
+    clusterOptions "-o $params.logs_dir/${log_filename}.log \
+                    -e $params.logs_dir/${log_filename}.err"
+
+    input:
+    path(accessioned_vcf)
+
+    output:
+    path "${accessioned_vcf.getName()}.dup_ss_qc.ok", emit: dup_ss_qc_done
+
+    script:
+    log_filename = "duplicate_ss_qc.${accessioned_vcf.getName()}"
+    dup_file = "${accessioned_vcf.getName()}_duplicate_ss_accessions.txt"
+
+    """
+    set -eo pipefail
+
+    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.accession_pipeline \
+         --spring.batch.job.names=DUPLICATE_SS_ACC_QC_JOB \
+         --spring.config.location=file:$params.accession_job_props \
+         --parameters.outputVcf=${accessioned_vcf} \
+         --parameters.duplicateSSAccFile=${dup_file} \
+         | tee ${log_filename}.log
+
+     # Fail if the file is not empty
+    if [ -s ${dup_file} ]; then
+        echo "Duplicate SS accessions detected! Failing the process."
+        exit 1
+    fi
+
+    echo "OK" > ${accessioned_vcf.getName()}.dup_ss_qc.ok
+    """
+}
 
 /*
  * Sort and compress accessioned VCFs
