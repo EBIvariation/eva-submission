@@ -10,6 +10,7 @@ from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_en
 from ebi_eva_internal_pyutils.config_utils import get_contig_alias_db_creds_for_profile
 from retry import retry
 
+from eva_submission.biosample_submission.biosamples_submitters import get_biosample_characteristics
 from eva_submission.eload_submission import Eload, directory_structure
 from eva_submission.eload_utils import resolve_accession_from_text, get_reference_fasta_and_report, NCBIAssembly, \
     create_assembly_report_from_fasta, is_vcf_file, convert_spreadsheet_to_json
@@ -263,10 +264,7 @@ class EloadPreparation(Eload):
             # Currently only support novel samples if they all share the same taxonomy.
             samples = json_data.get('sample')
             if samples:
-                taxonomy_ids = []
-                taxonomy_ids_txt = [s.get('bioSampleObject', {}).get('taxId') for s in samples if s.get('bioSampleObject', {}).get('taxId')]
-                if taxonomy_ids_txt:
-                    taxonomy_ids = [t[0].get('text') for t in taxonomy_ids_txt]
+                taxonomy_ids = [get_biosample_characteristics(s, 'taxId') for s in samples if get_biosample_characteristics(s, 'taxId')]
                 if len(taxonomy_ids) == len(samples) and len(set(taxonomy_ids)) == 1:
                     taxonomy_id = taxonomy_ids[0]
                 else:

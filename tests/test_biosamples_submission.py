@@ -12,7 +12,7 @@ from ebi_eva_common_pyutils.biosamples_communicators import HALCommunicator, Web
 from eva_submission import ROOT_DIR
 from eva_submission.biosample_submission import biosamples_submitters
 from eva_submission.biosample_submission.biosamples_submitters import BioSamplesSubmitter, SampleMetadataSubmitter, \
-    SampleReferenceSubmitter, SampleJSONSubmitter
+    SampleReferenceSubmitter, SampleJSONSubmitter, get_biosample_characteristics
 
 
 class BSDTestCase(TestCase):
@@ -482,4 +482,11 @@ class TestSampleJSONSubmitter(BSDTestCase):
         with patch.object(SampleJSONSubmitter, '_convert_metadata', return_value=returned_tuples):
             sample_2_accession = submitter.submit_to_bioSamples()
             assert sample_2_accession == {'sample1': 'SAME000001'}
+
+
+    def test_get_biosample_characteristics(self):
+        bio_sample_object = {'bioSampleObject': { "characteristics": { 'taxId': [{'text': '334908'}] } } }
+        assert get_biosample_characteristics(bio_sample_object, 'taxId') == '334908'
+        bio_sample_object = {'bioSampleObject': { "characteristics": { 'taxId':  [{'text': '1'}, {'text': '2'}, {'text': '3'}] } } }
+        assert get_biosample_characteristics(bio_sample_object, 'taxId') == ['1', '2', '3']
 

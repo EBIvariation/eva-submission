@@ -38,6 +38,16 @@ TAX_ID_PROP = 'taxId'
 LAST_UPDATED_BY_PROP = 'last_updated_by'
 
 
+def get_biosample_characteristics(sample, property_name, data_type='text'):
+    prop = sample.get(BIOSAMPLE_OBJECT_PROP, {}).get(CHARACTERISTICS_PROP,{}).get(property_name)
+    if prop:
+        if len(prop) == 1:
+            return prop[0].get(data_type)
+        else:
+            return [p.get(data_type) for p in prop]
+    return None
+
+
 class BioSamplesSubmitter(AppLogger):
 
     valid_actions = ('create', 'overwrite', 'override', 'curate', 'derive')
