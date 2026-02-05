@@ -269,6 +269,9 @@ process qc_clustering_duplicate_rs_acc {
     input:
     path rs_report
 
+    output:
+    path "${params.target_assembly_accession}_clustering_qc_duplicate_rs_acc.log", emit: clustering_qc_log_filename
+
     publishDir "$params.logs_dir", overwrite: true, mode: "copy", pattern: "*.log*"
 
     """
