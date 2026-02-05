@@ -250,12 +250,12 @@ class TestEloadPreparation(TestCase):
         assert self.eload.find_taxonomy(json_example) == "9913"
 
         json_example = {"project": {"projectAccession": "PRJEB102261"}, 'sample': [
-            {'analysisAlias': 'analysis1', 'sampleInVCF': '1', 'bioSampleObject': {'taxId': [{'text': '8128'}]}},
+            {'analysisAlias': 'analysis1', 'sampleInVCF': '1', 'bioSampleObject': {'characteristics':{'taxId': [{'text': '8128'}]}}},
         ]}
         assert self.eload.find_taxonomy(json_example) == "8128"
 
         json_example = {"project": {"projectAccession": "PRJEB102261"}, 'sample': [
-            {'analysisAlias': 'analysis1', 'sampleInVCF': '1', 'bioSampleObject': {'taxId': [{'text': '8128'}]}},
+            {'analysisAlias': 'analysis1', 'sampleInVCF': '1', 'bioSampleObject': {'characteristics':{'taxId': [{'text': '8128'}]}}},
             {'analysisAlias': 'analysis1', 'sampleInVCF': '2', 'bioSampleAccession':'SAME0000001'}
         ]}
         assert self.eload.find_taxonomy(json_example) is None
