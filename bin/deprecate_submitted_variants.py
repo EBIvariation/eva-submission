@@ -36,8 +36,7 @@ def create_properties(maven_profile, private_settings_file, assembly_accession=N
             'spring.batch.job.names': 'DEPRECATE_SUBMITTED_VARIANTS_FROM_FILE_JOB',
             'parameters.deprecationIdSuffix': deprecation_suffix,
             'parameters.deprecationReason': deprecation_reason,
-            'parameters.variantIdFile': ssid_variant_file,
-            'parameters.assemblyReportUrl' : ''
+            'parameters.variantIdFile': ssid_variant_file
         }
     )
 
@@ -66,7 +65,7 @@ def main():
     with open(properties_file, 'w') as open_file:
         open_file.write(property_text)
 
-    command = f'java -Xmx4G -jar {cfg["jar"]["accession_pipeline"]} --spring.config.location=file:{properties_file} > {deprecation_log} 2>&1'
+    command = f'java -Xmx4G -jar {cfg["jar"]["deprecate"]} --spring.config.location=file:{properties_file} > {deprecation_log} 2>&1'
     run_command_with_output(f"Run the deprecated on {args.variant_id_file}", command)
 
 if __name__ == '__main__':
