@@ -314,7 +314,7 @@ process qc_duplicate_ss_acc {
     tuple val(vcf_filename), val(vcf_file), val(assembly_accession), val(aggregation), val(fasta), val(report), path(accession_log_file), val(accessioned_vcf_path)
 
     output:
-    path "${accessioned_vcf.getName()}.dup_ss_qc.ok", emit: dup_ss_qc_done
+    path "${accessioned_base}.dup_ss_qc.ok", emit: dup_ss_qc_done
 
     script:
     def pipeline_parameters = ""
