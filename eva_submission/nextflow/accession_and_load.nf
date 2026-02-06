@@ -324,7 +324,6 @@ process qc_duplicate_ss_acc {
     pipeline_parameters += " --parameters.assemblyReportUrl=file:" + report.toString()
     pipeline_parameters += " --parameters.vcf=" + vcf_file.toString()
 
-    accessioned_vcf = vcf_filename.take(vcf_filename.indexOf(".vcf")) + ".accessioned.vcf"
     accessioned_base = vcf_filename.take(vcf_filename.indexOf(".vcf")) + ".accessioned"
     accessioned_vcf = accessioned_base + ".vcf"
 
