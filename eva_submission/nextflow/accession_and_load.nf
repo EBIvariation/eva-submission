@@ -348,7 +348,7 @@ process qc_duplicate_ss_acc {
         exit 1
     fi
 
-    echo "OK" > ${accessioned_vcf.getName()}.dup_ss_qc.ok
+    echo "OK" > ${accessioned_base}.dup_ss_qc.ok
     """
 }
 
