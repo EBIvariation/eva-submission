@@ -325,7 +325,7 @@ process qc_duplicate_ss_acc {
     pipeline_parameters += " --parameters.vcf=" + vcf_file.toString()
 
     accessioned_vcf = vcf_filename.take(vcf_filename.indexOf(".vcf")) + ".accessioned.vcf"
-    pipeline_parameters += " --parameters.outputVcf=" + "${params.public_dir}/${accessioned_filename}"
+    pipeline_parameters += " --parameters.outputVcf=" + "${params.public_dir}/${accessioned_vcf}"
 
     log_filename = "duplicate_ss_qc.${accessioned_vcf.getName()}"
     dup_file = "${accessioned_vcf.getName()}_duplicate_ss_accessions.txt"
