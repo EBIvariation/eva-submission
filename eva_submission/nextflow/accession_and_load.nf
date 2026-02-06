@@ -125,7 +125,7 @@ workflow {
                 .map {tuple(it[0], it[6], it[2], it[3], it[4], it[5])}   // vcf_filename, normalised vcf, assembly_accession, aggregation, fasta, report
             accession_vcf(normalised_vcfs_ch)
             qc_accession_vcf(accession_vcf.out.accession_done)
-            qc_duplicate_ss_acc(accession_vcf.out.accession_done.map { it[7] })
+            qc_duplicate_ss_acc(accession_vcf.out.accession_done)
             both_qc_complete = qc_accession_vcf.out.qc_accession_done.combine(qc_duplicate_ss_acc.out.dup_ss_qc_done.collect()).map { it[0] }
             sort_and_compress_vcf(both_qc_complete)
             csi_vcfs = sort_and_compress_vcf.out.compressed_vcf
@@ -311,23 +311,32 @@ process qc_duplicate_ss_acc {
                     -e $params.logs_dir/${log_filename}.err"
 
     input:
-    path(accessioned_vcf)
+    tuple val(vcf_filename), val(vcf_file), val(assembly_accession), val(aggregation), val(fasta), val(report), path(accession_log_file), val(accessioned_vcf_path)
 
     output:
     path "${accessioned_vcf.getName()}.dup_ss_qc.ok", emit: dup_ss_qc_done
 
     script:
+    def pipeline_parameters = ""
+    pipeline_parameters += " --parameters.assemblyAccession=" + assembly_accession.toString()
+    pipeline_parameters += " --parameters.vcfAggregation=" + aggregation.toString()
+    pipeline_parameters += " --parameters.fasta=" + fasta.toString()
+    pipeline_parameters += " --parameters.assemblyReportUrl=file:" + report.toString()
+    pipeline_parameters += " --parameters.vcf=" + vcf_file.toString()
+
+    accessioned_vcf = vcf_filename.take(vcf_filename.indexOf(".vcf")) + ".accessioned.vcf"
+    pipeline_parameters += " --parameters.outputVcf=" + "${params.public_dir}/${accessioned_filename}"
+
     log_filename = "duplicate_ss_qc.${accessioned_vcf.getName()}"
     dup_file = "${accessioned_vcf.getName()}_duplicate_ss_accessions.txt"
+    pipeline_parameters += " --parameters.duplicateSSAccFile=" + "${dup_file}"
 
     """
     set -eo pipefail
 
     java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.accession_pipeline \
          --spring.batch.job.names=DUPLICATE_SS_ACC_QC_JOB \
-         --spring.config.location=file:$params.accession_job_props \
-         --parameters.outputVcf=${accessioned_vcf} \
-         --parameters.duplicateSSAccFile=${dup_file} \
+         --spring.config.location=file:$params.accession_job_props  $pipeline_parameters \
          | tee ${log_filename}.log
 
      # Fail if the file is not empty
