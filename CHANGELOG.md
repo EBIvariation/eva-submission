@@ -1,10 +1,14 @@
 Changelog for eva-submission
 ============================
 
-## 1.19.13 (unreleased)
+## 1.19.13 (2026-02-06)
 -----------------------
 
-- Nothing changed yet.
+- Add script to support deprecation of submitted variants
+- Search/Infer for project level taxonomy if not provided in the metadata
+- Add QC process to detect duplicate SS
+- Publish the clustering duplicate detection log
+- Bump pyutils version (updates to Spring properties)
 
 
 ## 1.19.12 (2026-01-15)
