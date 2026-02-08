@@ -107,7 +107,6 @@ class EvaProjectLoader(AppLogger):
                                                         submission_type=action.get('schema').upper() if action.get(
                                                             'schema') else 'PROJECT')
             self.insert_project_ena_submission(project_obj, submission_obj)
-            # TODO: Link analysis with submission
         ###
         # LOAD ANALYSIS
         ###
