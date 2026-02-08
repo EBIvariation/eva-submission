@@ -246,7 +246,7 @@ class TestUpdateFileSizes(TestCase):
             assert submission_skipped == 0
 
 
-# @pytest.mark.skip(reason='Needs access to ERA database')
+@pytest.mark.skip(reason='Needs access to ERA database')
 class TestUpdateFileSizesFromENA(TestCase):
     """
     Uses project PRJEB25731 / analysis ERZ498176 with known file data.
