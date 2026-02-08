@@ -221,6 +221,7 @@ CREATE TABLE evapro.file (
 	file_md5 varchar(250) NOT NULL,
 	file_location varchar(250) NULL DEFAULT NULL::character varying,
 	file_type varchar(250) NOT NULL,
+	file_size int4 NULL,
 	file_class varchar(250) NOT NULL,
 	file_version int4 NOT NULL,
 	is_current int2 NOT NULL,

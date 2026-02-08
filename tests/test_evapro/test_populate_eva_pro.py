@@ -225,7 +225,7 @@ class TestEvaProjectLoader(TestCase):
             metadata.create_all(engine)
             self.loader.begin_or_continue_transaction()
             self.loader.insert_file('prj000001', 1, 1, vcf_file_name,
-                                    vcf_file_md5, 'vcf', 'path/to/ftp')
+                                    vcf_file_md5, 'vcf', 10, 'path/to/ftp')
             for sample_name, biosample_accession in sample_name_2_sample_accession.items():
                 self.loader.insert_sample(biosample_accession, biosample_accession)
             self.loader.eva_session.commit()
@@ -256,7 +256,7 @@ class TestEvaProjectLoader(TestCase):
             analysis_obj = self.loader.insert_analysis('ERZ000001', 'title', 'alias', 'description', 'center_name',
                                         datetime.datetime(2018, 3, 26, 15, 33, 35), 1)
             file_obj = self.loader.insert_file('prj000001', 1, 1, vcf_file_name,
-                                    'md5sum', 'vcf', 'path/to/ftp')
+                                    'md5sum', 'vcf', 10, 'path/to/ftp')
             analysis_obj.files.append(file_obj)
             self.loader.insert_sample('SAME000001', 'SAME000001')
             self.loader.eva_session.commit()
@@ -301,8 +301,7 @@ class TestEvaProjectLoader(TestCase):
             if add_browsable:
                 file_obj = self.loader.insert_file(
                     project_accession=project_accession, assembly_set_id=1, ena_submission_file_id=1,
-                    filename=vcf_file,
-                    file_md5=vcf_file_md5, file_type='vcf', ftp_file='path/to/ftp'
+                    filename=vcf_file,file_md5=vcf_file_md5, file_type='vcf', file_size=10,  ftp_file='path/to/ftp'
                 )
             else:
                 # Only create the file object

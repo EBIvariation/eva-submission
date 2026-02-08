@@ -209,6 +209,7 @@ class File(Base):
     file_md5 = Column(String(250), nullable=False)
     file_location = Column(String(250), server_default=text("NULL"))
     file_type = Column(String(250), nullable=False)
+    file_size = Column(Integer, nullable=True)
     file_class = Column(ForeignKey('file_class_cv.file_class', match='FULL'), nullable=False)
     file_version = Column(Integer, nullable=False)
     is_current = Column(SmallInteger, nullable=False)
