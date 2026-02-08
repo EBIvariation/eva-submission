@@ -171,7 +171,7 @@ class EvaProjectLoader(AppLogger):
             # LOAD FILE
             ###
             for file_info in self.ena_project_finder.find_files_in_ena(analysis_accession=analysis_accession):
-                analysis_accession, submission_file_id, filename, file_md5, file_type, status_id = file_info
+                analysis_accession, submission_file_id, filename, file_md5, file_type, file_size, status_id = file_info
                 ftp_file = get_ftp_path(filename=filename, analysis_accession_id=analysis_accession)
                 file_obj = self.insert_file(
                     project_accession=project_accession,
@@ -180,6 +180,7 @@ class EvaProjectLoader(AppLogger):
                     filename=filename,
                     file_md5=file_md5,
                     file_type=file_type,
+                    file_size=file_size,
                     ftp_file=ftp_file,
                     add_to_browsable=load_browsable_files
                 )
@@ -278,6 +279,7 @@ class EvaProjectLoader(AppLogger):
         self.begin_or_continue_transaction()
         for vcf_file in vcf_file_dict:
             vcf_file_md5 = vcf_file_dict[vcf_file]['md5']
+            file_size = os.path.getsize(vcf_file)
             filename = os.path.basename(vcf_file)
 
             ftp_file = get_ftp_path(filename=filename, analysis_accession_id=analysis_accession)
@@ -288,6 +290,7 @@ class EvaProjectLoader(AppLogger):
                 filename=filename,
                 file_md5=vcf_file_md5,
                 file_type='VCF',
+                file_size=file_size,
                 ftp_file=ftp_file
             )
             if file_obj not in analysis_obj.files:
@@ -652,12 +655,12 @@ class EvaProjectLoader(AppLogger):
 
 
     def insert_file(self, project_accession, assembly_set_id, ena_submission_file_id, filename, file_md5, file_type,
-                    ftp_file, file_location=None, file_class='submitted', file_version=1, is_current=1, add_to_browsable=True):
+                    file_size, ftp_file, file_location=None, file_class='submitted', file_version=1, is_current=1, add_to_browsable=True):
         file_obj = self.get_file_from_md5(file_md5)
         if not file_obj:
             file_obj = File(
                 ena_submission_file_id=ena_submission_file_id, filename=filename, file_md5=file_md5,
-                file_type=file_type,
+                file_type=file_type,file_size=file_size,
                 file_location=file_location, file_class=file_class, file_version=file_version, is_current=is_current,
                 ftp_file=ftp_file
             )

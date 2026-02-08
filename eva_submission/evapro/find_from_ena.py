@@ -186,15 +186,15 @@ class OracleEnaProjectFinder:
         query = (
             "select distinct asf.analysis_id as analysis_accession, wf.submission_file_id as submission_file_id, "
             "regexp_substr(wf.data_file_path, \'[^/]*$\') as filename,"
-            "wf.checksum as file_md5, wf.data_file_format as file_type, ana.status_id "
+            "wf.checksum as file_md5, wf.data_file_format as file_type, wf.bytes as file_size, ana.status_id "
             "from era.analysis_submission_file asf "
             "join era.webin_file wf on asf.analysis_id=wf.data_file_owner_id "
             f"join era.analysis ana on asf.analysis_id=ana.analysis_id where asf.analysis_id='{analysis_accession}'"
         )
 
         with self.era_cursor() as cursor:
-            for analysis_accession, submission_file_id, filename, file_md5, file_type, status_id in cursor.execute(query):
-                yield analysis_accession, submission_file_id, filename, file_md5, file_type, status_id
+            for analysis_accession, submission_file_id, filename, file_md5, file_type, file_size, status_id in cursor.execute(query):
+                yield analysis_accession, submission_file_id, filename, file_md5, file_type, file_size, status_id
 
     @cached_property
     def era_connection(self):
