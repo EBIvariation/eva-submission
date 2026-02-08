@@ -186,11 +186,8 @@ class TestUpdateFileSizes(TestCase):
 @pytest.mark.skip(reason='Needs access to ERA database')
 class TestUpdateFileSizesFromENA(TestCase):
     """
-    Live integration test that queries the real ENA database for file sizes.
     Uses project PRJEB25731 / analysis ERZ498176 with known file data.
-    Skipped by default; remove the skip marker to run with ERA access.
     """
-
     def setUp(self):
         config_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'erapro_config.yaml')
         if os.path.exists(config_file):
