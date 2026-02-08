@@ -149,10 +149,10 @@ class TestEnaProjectFinder(unittest.TestCase):
 
     def test_find_files_in_ena(self):
         analysis = 'ERZ293539'
-        results = list(self.finder.find_files_in_ena(analysis))
+        results = sorted(list(self.finder.find_files_in_ena(analysis)))
         expected_files = [
-            ('ERZ293539', 'ERF11112570', 'IRIS_313-12319.snp.vcf.gz.tbi', 'b98e6396a38b1658d9e0116692e1dae3', 'TABIX', 4),
-            ('ERZ293539', 'ERF11112569', 'IRIS_313-12319.snp.vcf.gz', '642b2e31ce4fc6b8c92eb2dc53630d47', 'VCF', 4)
+            ('ERZ293539', 'ERF11112569', 'IRIS_313-12319.snp.vcf.gz', '642b2e31ce4fc6b8c92eb2dc53630d47', 'VCF', 1813921392,  4),
+            ('ERZ293539', 'ERF11112570', 'IRIS_313-12319.snp.vcf.gz.tbi', 'b98e6396a38b1658d9e0116692e1dae3', 'TABIX', 342863, 4)
         ]
         assert results == expected_files
 
