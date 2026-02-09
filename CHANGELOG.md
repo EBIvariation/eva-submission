@@ -1,10 +1,10 @@
 Changelog for eva-submission
 ============================
 
-## 1.19.14 (unreleased)
+## 1.19.14 (2026-02-09)
 -----------------------
 
-- Nothing changed yet.
+- Fix QC duplicate command in accessioning 
 
 
 ## 1.19.13 (2026-02-06)
