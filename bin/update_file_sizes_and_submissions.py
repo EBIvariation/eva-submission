@@ -12,10 +12,11 @@ from eva_submission.evapro.table import Project
 logger = log_cfg.get_logger(__name__)
 
 
-def update_file_sizes_for_project(loader, project_accession):
+def update_file_sizes_and_add_missing_submissions_for_project(loader, project_accession):
     """
     Update file_size in EVAPRO for all files associated with a project,
     using values retrieved from ENA. Only updates when MD5 checksums match.
+    Also add missing submissions for analysis associated with this project in EVAPRO.
     Returns a tuple of (updated, skipped, not_found) counts.
     """
     finder = loader.ena_project_finder
@@ -96,7 +97,7 @@ def main():
     load_config()
 
     loader = EvaProjectLoader()
-    file_updated, file_skipped, file_not_found, file_mismatch, submission_linked, submission_skipped = update_file_sizes_for_project(loader, args.project_accession)
+    file_updated, file_skipped, file_not_found, file_mismatch, submission_linked, submission_skipped = update_file_sizes_and_add_missing_submissions_for_project(loader, args.project_accession)
     logger.info(f'Done. File Updated: {file_updated}, File Skipped (already correct): {file_skipped}, '
                 f'File Not found in EVAPRO: {file_not_found}, File Mismatching MD5 in EVAPRO: {file_mismatch}, '
                 f'Submission Linked: {submission_linked}, Submission Skipped: {submission_skipped}')
