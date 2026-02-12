@@ -127,7 +127,7 @@ class TestUpdateFileSizes(TestCase):
             submissions = {s.Submission.submission_accession: s.Submission for s in self.loader.eva_session.execute(select(Submission)).fetchall()}
             assert submissions['ERA00000001'].analyses[0].analysis_accession == 'ERZ000001'
 
-    def test_already_skip(self):
+    def test_size_already_correct(self):
         """
         File exists, MD5 matches, size already correct -> skipped.
         Submission exists and is already linked
