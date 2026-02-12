@@ -659,7 +659,7 @@ class EvaProjectLoader(AppLogger):
         if not file_obj:
             file_obj = File(
                 ena_submission_file_id=ena_submission_file_id, filename=filename, file_md5=file_md5,
-                file_type=file_type,file_size=file_size,
+                file_type=file_type, file_size=file_size,
                 file_location=file_location, file_class=file_class, file_version=file_version, is_current=is_current,
                 ftp_file=ftp_file
             )

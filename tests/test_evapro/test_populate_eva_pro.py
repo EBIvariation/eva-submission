@@ -140,9 +140,10 @@ class TestEvaProjectLoader(TestCase):
             ('ERS18360856', 'SAMEA115348712'), ('ERS18360857', 'SAMEA115348713'), ('ERS18360858', 'SAMEA115348714')
         ]
         files_info = [
-            ('ERZ293539', 'ERF11112570', 'IRIS_313-12319.snp.vcf.gz.tbi', 'b98e6396a38b1658d9e0116692e1dae3', 654781, 'TABIX',
-             4),
-            ('ERZ293539', 'ERF11112569', 'IRIS_313-12319.snp.vcf.gz', '642b2e31ce4fc6b8c92eb2dc53630d47', 320760281, 'VCF', 4)
+            ('ERZ293539', 'ERF11112570', 'IRIS_313-12319.snp.vcf.gz.tbi', 'b98e6396a38b1658d9e0116692e1dae3', 'TABIX',
+             654781, 4),
+            ('ERZ293539', 'ERF11112569', 'IRIS_313-12319.snp.vcf.gz', '642b2e31ce4fc6b8c92eb2dc53630d47', 'VCF',
+             68320760281, 4)
         ]
         with self.patch_evapro_engine(engine):
             metadata.create_all(engine)
@@ -214,6 +215,11 @@ class TestEvaProjectLoader(TestCase):
                        analysis.assembly_set.assembly_code
                    ) == (9606, 'L_crocea_1.0', 'lcrocea10')
             assert analysis.sequences[0].sequence_accession == 'GS00000.1'
+            file_names = [f.filename for f in analysis.files]
+            file_size = [f.file_size for f in analysis.files]
+            assert file_names == ['IRIS_313-12319.snp.vcf.gz.tbi', 'IRIS_313-12319.snp.vcf.gz']
+            assert file_size == [654781, 68320760281]
+
 
     def test_load_samples_from_vcf_file(self):
         sample_name_2_sample_accession = {'NA00001': 'SAME000001', 'NA00002': 'SAME000002', 'NA00003': 'SAME000003'}
