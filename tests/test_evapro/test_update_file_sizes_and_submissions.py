@@ -6,7 +6,7 @@ from unittest.mock import patch, PropertyMock, Mock
 import pytest
 from sqlalchemy import create_engine, select
 
-from bin.update_file_sizes_and_submissions import update_file_sizes_for_project
+from bin.update_file_sizes_and_submissions import update_file_sizes_and_add_missing_submissions_for_project
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
 from eva_submission.evapro.table import metadata, Project, Analysis, File, Submission
 from eva_submission.submission_config import load_config
@@ -110,7 +110,7 @@ class TestUpdateFileSizes(TestCase):
             (
                 file_updated, file_skipped, file_not_found,
                 file_mismatch, submission_linked, submission_skipped
-            ) = update_file_sizes_for_project(self.loader, 'PRJEB00001')
+            ) = update_file_sizes_and_add_missing_submissions_for_project(self.loader, 'PRJEB00001')
 
             assert file_updated == 2
             assert file_skipped == 0
@@ -156,7 +156,7 @@ class TestUpdateFileSizes(TestCase):
             (
                 file_updated, file_skipped, file_not_found,
                 file_mismatch, submission_linked, submission_skipped
-            ) = update_file_sizes_for_project(self.loader, 'PRJEB00001')
+            ) = update_file_sizes_and_add_missing_submissions_for_project(self.loader, 'PRJEB00001')
 
             assert file_updated == 0
             assert file_skipped == 1
@@ -186,7 +186,7 @@ class TestUpdateFileSizes(TestCase):
             (
                 file_updated, file_skipped, file_not_found,
                 file_mismatch, submission_linked, submission_skipped
-            ) = update_file_sizes_for_project(self.loader, 'PRJEB00001')
+            ) = update_file_sizes_and_add_missing_submissions_for_project(self.loader, 'PRJEB00001')
 
             assert file_updated == 0
             assert file_skipped == 0
@@ -220,7 +220,7 @@ class TestUpdateFileSizes(TestCase):
             (
                 file_updated, file_skipped, file_not_found,
                 file_mismatch, submission_linked, submission_skipped
-            ) = update_file_sizes_for_project(self.loader, 'PRJEB00001')
+            ) = update_file_sizes_and_add_missing_submissions_for_project(self.loader, 'PRJEB00001')
 
             assert file_updated == 1
             assert file_skipped == 0
@@ -236,7 +236,7 @@ class TestUpdateFileSizes(TestCase):
             (
                 file_updated, file_skipped, file_not_found,
                 file_mismatch, submission_linked, submission_skipped
-            ) = update_file_sizes_for_project(self.loader, 'NONEXISTENT')
+            ) = update_file_sizes_and_add_missing_submissions_for_project(self.loader, 'NONEXISTENT')
 
             assert file_updated == 0
             assert file_skipped == 0
@@ -313,7 +313,7 @@ class TestUpdateFileSizesFromENA(TestCase):
             (
                 file_updated, file_skipped, file_not_found,
                 file_mismatch, submission_linked, submission_skipped
-            ) = update_file_sizes_for_project(self.loader, project_accession)
+            ) = update_file_sizes_and_add_missing_submissions_for_project(self.loader, project_accession)
 
             assert file_updated == len(files_from_ena)
             assert file_skipped == 0
