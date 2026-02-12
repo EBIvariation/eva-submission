@@ -1,10 +1,11 @@
 Changelog for eva-submission
 ============================
 
-## 1.19.15 (unreleased)
+## 1.19.15 (2026-02-12)
 -----------------------
 
-- Nothing changed yet.
+- Introduce file size in EVAPRO file table.
+- Add script to backfill the files size for projects
 
 
 ## 1.19.14 (2026-02-09)
