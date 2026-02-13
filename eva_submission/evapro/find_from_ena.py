@@ -152,24 +152,20 @@ class OracleEnaProjectFinder:
     def find_analysis_in_ena(self, project_accession):
         era_analysis_query = (
             'select t.analysis_id, t.analysis_title, t.analysis_alias, t.analysis_type, t.center_name, t.first_created, '
-            ' xmltype.getclobval(t.ANALYSIS_XML) analysis_xml, x.assembly assembly, x.refname refname, y.custom '
+            ' xmltype.getclobval(t.ANALYSIS_XML) analysis_xml '
             'from era.analysis t '
-            "left outer join XMLTABLE('/ANALYSIS_SET//ANALYSIS_TYPE//SEQUENCE_VARIATION//ASSEMBLY//STANDARD' passing t.analysis_xml columns assembly varchar2(2000) path \'@accession\', refname varchar2(2000) path \'@refname\') x on (1=1) "
-            "left outer join XMLTABLE('/ANALYSIS_SET//ANALYSIS_TYPE//SEQUENCE_VARIATION//ASSEMBLY//CUSTOM//URL_LINK' passing t.analysis_xml columns custom varchar2(2000) path \'URL\') y on (1=1) "
             "where t.status_id <> 5 and lower(SUBMISSION_ACCOUNT_ID) in ('webin-1008') "
             f"and (study_id in (select study_id from era.study where project_id='{project_accession}') "
             f"or study_id='{project_accession}' or bioproject_id='{project_accession}')"
         )
         with self.era_cursor() as cursor:
             for results in cursor.execute(era_analysis_query):
-                (
-                    analysis_id, analysis_title, analysis_alias, analysis_type, center_name, first_created,
-                    analysis_xml,  assembly, refname, custom
-                ) = results
-                (analysis_description, sequences,
-                 experiment_types, platforms) = self._parse_analysis_description_sequences_and_type_from_xml(str(analysis_xml))
+                (analysis_id, analysis_title, analysis_alias, analysis_type, center_name, first_created,
+                 analysis_xml) = results
                 if analysis_type != 'SEQUENCE_VARIATION':
                     continue
+                (analysis_description, sequences, experiment_types, platforms, assembly, refname,
+                 custom) = self._parse_analysis_xml(str(analysis_xml))
                 yield (
                     analysis_id, analysis_title, analysis_alias, analysis_description, analysis_type, center_name,
                     first_created, assembly, refname, custom, sequences, experiment_types, platforms
@@ -259,15 +255,18 @@ class OracleEnaProjectFinder:
             action = None
         return submission_alias, hold_date, action
 
-    def _parse_analysis_description_sequences_and_type_from_xml(self, analysis_xml):
+    def _parse_analysis_xml(self, analysis_xml):
         root = ET.fromstring(analysis_xml)
         description = root.find(".//DESCRIPTION").text if root.find(".//DESCRIPTION") is not None else None
 
         # Extract Analysis Type and associated elements
-        analysis_type_element = root.find(".//ANALYSIS_TYPE")
         platforms = set()
         experiment_types = set()
         sequences = set()
+        assembly = None
+        refname = None
+        custom = None
+        analysis_type_element = root.find(".//ANALYSIS_TYPE")
         if analysis_type_element is not None:
             # Get the first child of ANALYSIS_TYPE (e.g., SEQUENCE_VARIATION)
             for child in analysis_type_element:
@@ -279,5 +278,12 @@ class OracleEnaProjectFinder:
                         experiment_types.add(sub_element.text)
                     if sub_element.tag == 'PLATFORM':
                         platforms.add(sub_element.text)
-        return description, sequences, experiment_types, platforms
-
+                    if sub_element.tag == 'ASSEMBLY':
+                        standard = sub_element.find('STANDARD')
+                        if standard is not None:
+                            assembly = standard.get('accession')
+                            refname = standard.get('refname')
+                        custom_url = sub_element.find('.//CUSTOM/URL_LINK/URL')
+                        if custom_url is not None and custom_url.text:
+                            custom = custom_url.text
+        return description, sequences, experiment_types, platforms, assembly, refname, custom
