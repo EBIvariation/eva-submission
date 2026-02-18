@@ -81,7 +81,7 @@ process run_eva_sub_cli {
 
     script:
     def nf_config_arg = params.nextflow_config ? "--nextflow_config ${params.nextflow_config}" : ""
-    def shallow_validation_arg = params.shallow_validation ? "--shallow ${params.shallow_validation}" : ""
+    def shallow_validation_arg = params.shallow_validation ? "--shallow" : ""
 
     """
     source $params.executable.sub_cli_env
