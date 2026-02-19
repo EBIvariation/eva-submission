@@ -288,7 +288,8 @@ class EloadPreparation(Eload):
                     contig_alias_payload.append(assembly_accession)
 
                 assembly_fasta_path, assembly_report_path = get_reference_fasta_and_report(scientific_name,
-                                                                                           assembly_accession)
+                                                                                           assembly_accession,
+                                                                                           genbank_only=True)
                 if not assembly_report_path:
                     assembly_report_path = create_assembly_report_from_fasta(assembly_fasta_path)
                 self.eload_cfg.set('submission', 'analyses', analysis_alias, 'assembly_report', value=assembly_report_path)
