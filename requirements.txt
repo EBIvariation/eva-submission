@@ -1,7 +1,6 @@
 cached-property
 cerberus
-#ebi-eva-common-pyutils[eva-internal]>=0.8.3, ==0.*
-ebi-eva-common-pyutils[eva-internal] @ git+https://github.com/tcezard/eva-common-pyutils@genbank-only
+ebi-eva-common-pyutils[eva-internal]>=0.8.3, ==0.*
 eva_sub_cli>=0.4.14
 humanize
 lxml
