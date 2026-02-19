@@ -39,7 +39,7 @@ def main():
                              "Will use the one defined in config file if omitted")
     parser.add_argument("-c", "--clear", help="Flag to clear existing data in FASTA file and starting from scratch",
                         action='store_true')
-    parser.add_argument("--allow_refseq", help="Flag to enable the retrieval of Refseq genomes and sequences",)
+    parser.add_argument("--allow_refseq", help="Flag to enable the retrieval of Refseq genomes and sequences", action='store_true', default=False)
     parser.add_argument('--debug', action='store_true', default=False,
                         help='Set the script to output logging information at debug level')
     args = parser.parse_args()
