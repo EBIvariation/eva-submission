@@ -111,7 +111,7 @@ class EloadBacklog(Eload):
             if not asm_accession:
                 raise ValueError(f'No reference accession for {analysis_accession} found in metadata DB.')
             self.eload_cfg.set('submission', 'analyses', self._unique_alias(analysis_accession), 'assembly_accession', value=asm_accession)
-            fasta_path, report_path = get_reference_fasta_and_report(sci_name, asm_accession)
+            fasta_path, report_path = get_reference_fasta_and_report(sci_name, asm_accession, genbank_only=True)
             self.eload_cfg.set('submission', 'analyses', self._unique_alias(analysis_accession), 'assembly_fasta', value=fasta_path)
             self.eload_cfg.set('submission', 'analyses', self._unique_alias(analysis_accession), 'assembly_report', value=report_path)
 
