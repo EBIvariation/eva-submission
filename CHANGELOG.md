@@ -1,11 +1,10 @@
 Changelog for eva-submission
 ============================
 
-## 1.19.16 (unreleased)
+## 1.19.16 (2026-02-20)
 -----------------------
 
-- Nothing changed yet.
-
+- Only allow download of INSDC accession in genome downloader unless otherwise specified
 
 ## 1.19.15 (2026-02-12)
 -----------------------
