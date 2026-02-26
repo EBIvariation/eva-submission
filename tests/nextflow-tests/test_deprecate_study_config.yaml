@@ -1,0 +1,8 @@
+project_accession: PRJEB12345
+valid_deprecations: valid_deprecations.csv
+drop_study_props: drop_study.properties
+logs_dir: logs
+
+jar:
+  deprecate: ../java/deprecate.jar
+  eva_pipeline: ../java/variant-load.jar

@@ -1,0 +1,3 @@
+line does not match
+line does match: /path/to/new/dir/important_report.txt
+line does match: /path/to/new/dir/important_report.txt

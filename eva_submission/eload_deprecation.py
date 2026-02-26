@@ -1,0 +1,283 @@
+# Copyright 2026 EMBL - European Bioinformatics Institute
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import csv
+import os
+import random
+import shutil
+import string
+import subprocess
+
+import yaml
+from ebi_eva_common_pyutils import command_utils
+from ebi_eva_common_pyutils.config import cfg
+from ebi_eva_common_pyutils.logger import AppLogger
+from ebi_eva_internal_pyutils.metadata_utils import get_metadata_connection_handle, resolve_variant_warehouse_db_name
+from ebi_eva_internal_pyutils.spring_properties import SpringPropertiesGenerator
+from sqlalchemy import select
+
+from eva_submission import NEXTFLOW_DIR
+from eva_submission.eload_utils import get_nextflow_config_flag
+from eva_submission.evapro.populate_evapro import EvaProjectLoader
+from eva_submission.evapro.table import Analysis, Project, Taxonomy
+
+all_tasks = ['deprecate_variants', 'drop_study', 'mark_inactive']
+
+
+class StudyDeprecation(AppLogger):
+    config_section = 'deprecation'
+    all_tasks = all_tasks
+    nextflow_complete_value = '<complete>'
+
+    def __init__(self, project_accession, output_dir, nextflow_config=None):
+        self.project_accession = project_accession
+        self.output_dir = output_dir
+        os.makedirs(output_dir, exist_ok=True)
+        self.nextflow_config = nextflow_config
+        self.private_settings_file = cfg['maven']['settings_file']
+        self.maven_profile = cfg['maven']['environment']
+        self.properties_generator = SpringPropertiesGenerator(self.maven_profile, self.private_settings_file)
+        self.loader = EvaProjectLoader()
+        self._config_file = os.path.join(output_dir, 'deprecate_study_config.yaml')
+        self._config = {}
+        if os.path.exists(self._config_file):
+            with open(self._config_file) as f:
+                self._config = yaml.safe_load(f) or {}
+
+    def _save_config(self):
+        with open(self._config_file, 'w') as f:
+            yaml.safe_dump(self._config, f)
+
+    def _get_cfg(self, *keys):
+        obj = self._config
+        for key in keys:
+            if not isinstance(obj, dict) or key not in obj:
+                return None
+            obj = obj[key]
+        return obj
+
+    def _set_cfg(self, *keys, value):
+        obj = self._config
+        for key in keys[:-1]:
+            obj = obj.setdefault(key, {})
+        obj[keys[-1]] = value
+        self._save_config()
+
+    def get_assemblies_and_db_names(self):
+        """
+        Query EVAPRO for all (assembly_accession, db_name) pairs associated with the project.
+        Returns a list of (assembly_accession, db_name) tuples.
+        """
+        query = (
+            select(Analysis.vcf_reference_accession).distinct()
+            .join(Analysis.projects)
+            .where(Project.project_accession == self.project_accession)
+        )
+        assembly_accessions = [
+            row[0] for row in self.loader.eva_session.execute(query).fetchall()
+            if row[0]
+        ]
+        # Get taxonomy for the project
+        taxonomy_query = (
+            select(Taxonomy.taxonomy_id)
+            .join(Taxonomy.projects)
+            .where(Project.project_accession == self.project_accession)
+        )
+        taxonomy_ids = [row[0] for row in self.loader.eva_session.execute(taxonomy_query).fetchall()]
+        if not taxonomy_ids:
+            raise ValueError(f'No taxonomy found for project {self.project_accession} in EVAPRO')
+        taxonomy_id = taxonomy_ids[0]
+
+        with get_metadata_connection_handle(self.maven_profile, self.private_settings_file) as conn:
+            results = []
+            for assembly_accession in assembly_accessions:
+                db_name = resolve_variant_warehouse_db_name(conn, assembly_accession, taxonomy_id,
+                                                            ncbi_api_key=cfg.get('eutils_api_key'))
+                if not db_name:
+                    raise ValueError(f'Could not resolve db_name for assembly {assembly_accession} '
+                                     f'and taxonomy {taxonomy_id}')
+                results.append((assembly_accession, db_name))
+        return results
+
+    def create_deprecation_properties_per_assembly(self, assembly_accession, variant_id_file,
+                                                    deprecation_suffix, deprecation_reason):
+        """
+        Generate a Spring properties file for the deprecation pipeline for a given assembly.
+        Mirrors deprecate_submitted_variants.py::create_properties().
+        Returns the path to the written properties file.
+        """
+        properties = self.properties_generator._format(
+            self.properties_generator._common_accessioning_clustering_properties(
+                assembly_accession=assembly_accession,
+                read_preference='secondaryPreferred',
+                chunk_size=100
+            ),
+            {
+                'spring.batch.job.names': 'DEPRECATE_SUBMITTED_VARIANTS_FROM_FILE_JOB',
+                'parameters.deprecationIdSuffix': deprecation_suffix,
+                'parameters.deprecationReason': deprecation_reason,
+                'parameters.variantIdFile': variant_id_file,
+            }
+        )
+        output_path = os.path.join(self.output_dir, f'{assembly_accession}_deprecation.properties')
+        with open(output_path, 'w') as f:
+            f.write(properties)
+        return output_path
+
+    def create_drop_study_properties(self):
+        """
+        Generate a Spring properties file for the drop-study-job.
+        The db_name and study id are supplied on the Nextflow command line.
+        Returns the path to the written properties file.
+        """
+        properties = self.properties_generator.get_accession_import_properties(
+            opencga_path=cfg['opencga_path']
+        )
+        output_path = os.path.join(self.output_dir, 'drop_study.properties')
+        with open(output_path, 'w') as f:
+            f.write(properties)
+        return output_path
+
+    def create_deprecation_csv(self, assembly_db_pairs, variant_id_files, deprecation_suffix, deprecation_reason):
+        """
+        Write the CSV file consumed by the Nextflow deprecate_study workflow.
+        Returns the path to the written CSV file.
+        """
+        csv_path = os.path.join(self.output_dir, 'valid_deprecations.csv')
+        with open(csv_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['assembly_accession', 'variant_id_file', 'db_name', 'deprecation_properties_file'])
+            for assembly_accession, db_name in assembly_db_pairs:
+                variant_id_file = variant_id_files.get(assembly_accession)
+                if not variant_id_file:
+                    raise ValueError(f'No variant_id_file provided for assembly {assembly_accession}')
+                properties_file = self.create_deprecation_properties_per_assembly(
+                    assembly_accession, variant_id_file, deprecation_suffix, deprecation_reason
+                )
+                writer.writerow([assembly_accession, variant_id_file, db_name, properties_file])
+        return csv_path
+
+    def run_deprecate_study_workflow(self, resume, tasks):
+        """Run the deprecate_study Nextflow workflow for the relevant tasks."""
+        nextflow_tasks = [t for t in tasks if t in ['deprecate_variants', 'drop_study']]
+        if not nextflow_tasks:
+            return
+
+        drop_study_props = self.create_drop_study_properties()
+
+        params = {
+            'valid_deprecations': os.path.join(self.output_dir, 'valid_deprecations.csv'),
+            'project_accession': self.project_accession,
+            'drop_study_props': drop_study_props,
+            'logs_dir': self.output_dir,
+            'jar': cfg['jar'],
+            'tasks': nextflow_tasks,
+        }
+        self.run_nextflow('deprecate_study', params, resume, nextflow_tasks)
+
+    def run_nextflow(self, workflow_name, params, resume, tasks):
+        """
+        Runs a Nextflow workflow using the provided parameters.
+        Creates a work directory and removes it on success; preserves it on failure for resume.
+        Task completion state is tracked in the local config file.
+        """
+        work_dir = None
+        if resume:
+            completed_tasks = [
+                task for task in tasks
+                if self._get_cfg(self.config_section, workflow_name, 'nextflow_dir', task) == self.nextflow_complete_value
+            ]
+            for task in completed_tasks:
+                self.info(f'Task {task} already completed, skipping.')
+            for task in completed_tasks:
+                tasks = [t for t in tasks if t != task]
+            if not tasks:
+                self.info('No more tasks to perform: skipping Nextflow run.')
+                return
+            work_dirs = [
+                self._get_cfg(self.config_section, workflow_name, 'nextflow_dir', task)
+                for task in tasks
+            ]
+            work_dirs = set(w for w in work_dirs if w and os.path.exists(w))
+            if len(work_dirs) == 1:
+                work_dir = work_dirs.pop()
+            else:
+                self.warning(f'Work directory for {workflow_name} not found, will start from scratch.')
+                work_dir = None
+
+        if not resume or not work_dir:
+            random_string = ''.join(random.choice(string.ascii_letters) for _ in range(6))
+            work_dir = os.path.join(self.output_dir, f'nextflow_output_{random_string}')
+            os.makedirs(work_dir)
+            for task in tasks:
+                self._set_cfg(self.config_section, workflow_name, 'nextflow_dir', task, value=work_dir)
+
+        params_file = os.path.join(self.output_dir, f'{workflow_name}_params.yaml')
+        with open(params_file, 'w') as f:
+            yaml.safe_dump(params, f)
+        nextflow_script = os.path.join(NEXTFLOW_DIR, f'{workflow_name}.nf')
+
+        try:
+            command_utils.run_command_with_output(
+                f'Nextflow {workflow_name} process',
+                ' '.join((
+                    'export NXF_OPTS="-Xms1g -Xmx8g"; ',
+                    cfg['executable']['nextflow'], nextflow_script,
+                    '-params-file', params_file,
+                    '-work-dir', work_dir,
+                    '-resume' if resume else '',
+                    get_nextflow_config_flag(self.nextflow_config)
+                ))
+            )
+            shutil.rmtree(work_dir)
+            for task in tasks:
+                self._set_cfg(self.config_section, workflow_name, 'nextflow_dir', task,
+                              value=self.nextflow_complete_value)
+            return tasks
+        except subprocess.CalledProcessError as e:
+            error_msg = (f'Nextflow {workflow_name} pipeline failed: results might not be complete. '
+                         f'See Nextflow logs in {self.output_dir}/.nextflow.log for more details.')
+            self.error(error_msg)
+            raise e
+
+    def mark_project_inactive_in_evapro(self):
+        """Update EVAPRO: set eva_status=0 on project and hidden_in_eva=1 on all linked analyses."""
+        self.loader.mark_project_inactive(self.project_accession)
+        self.loader.mark_analyses_hidden(self.project_accession)
+        self.loader.refresh_study_browser()
+
+    def deprecate(self, variant_id_files_mapping, deprecation_suffix, deprecation_reason,
+                  tasks=None, resume=False):
+        """
+        Main entry point for deprecating a study.
+
+        :param variant_id_files_mapping: dict mapping assembly_accession -> path to file containing SS IDs
+        :param deprecation_suffix: suffix appended to the deprecation operation ID
+        :param deprecation_reason: human-readable reason for the deprecation
+        :param tasks: list of tasks to perform; defaults to all_tasks
+        :param resume: whether to resume an existing Nextflow run
+        """
+        if tasks is None:
+            tasks = list(self.all_tasks)
+
+        nextflow_tasks = [t for t in tasks if t in ['deprecate_variants', 'drop_study']]
+
+        if nextflow_tasks:
+            assembly_db_pairs = self.get_assemblies_and_db_names()
+            self.create_deprecation_csv(assembly_db_pairs, variant_id_files_mapping,
+                                        deprecation_suffix, deprecation_reason)
+            self.run_deprecate_study_workflow(resume, tasks)
+
+        if 'mark_inactive' in tasks:
+            self.mark_project_inactive_in_evapro()

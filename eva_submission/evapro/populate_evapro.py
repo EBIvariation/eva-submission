@@ -383,6 +383,23 @@ class EvaProjectLoader(AppLogger):
                 self.eva_session.add(browsable_file_obj)
         self.eva_session.commit()
 
+    def mark_project_inactive(self, project_accession):
+        """Sets eva_status=0 on the project."""
+        self.begin_or_continue_transaction()
+        self.eva_session.execute(
+            update(Project).where(Project.project_accession == project_accession).values(eva_status=0)
+        )
+        self.eva_session.commit()
+
+    def mark_analyses_hidden(self, project_accession):
+        """Sets hidden_in_eva=1 on all analyses linked to the project."""
+        self.begin_or_continue_transaction()
+        project_obj = self.eva_session.get(Project, project_accession)
+        for analysis in project_obj.analyses:
+            analysis.hidden_in_eva = 1
+            self.eva_session.add(analysis)
+        self.eva_session.commit()
+
     def refresh_study_browser(self):
         self.begin_or_continue_transaction()
         self.eva_session.execute(text('REFRESH MATERIALIZED VIEW study_browser'))
