@@ -1,13 +1,16 @@
 import glob
+import json
 import operator
 import os
 import traceback
 from datetime import datetime
+from os.path import splitext
 
 import humanize
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg, AppLogger
 
+from eva_submission.eload_utils import convert_spreadsheet_to_json
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 logger = log_cfg.get_logger(__name__)
@@ -113,14 +116,20 @@ class FtpDepositBox(AppLogger):
             ]) or 'NA'
         }
         try:
-            reader = EvaXlsxReader(metadata_file)
-            report_params['project_title'] = reader.project_title
-            report_params['number_analysis'] = len(reader.analysis)
-            if reader.references:
-                report_params['reference genome'] = ', '.join(reader.references)
+            name, ext =  os.path.splitext(os.path.basename(metadata_file))
+            if ext == '.xlsx':
+                json_file = os.path.join(os.path.dirname(metadata_file), f'.{name}.json')
+                convert_spreadsheet_to_json(metadata_file, json_file)
             else:
-                report_params['reference genome'] = 'None'
-            report_params['number_samples'] = len(reader.samples)
+                json_file = metadata_file
+            with open(json_file) as f:
+                json_data = json.load(f)
+                report_params['project_title'] = str(json_data.get('project').get('title'))
+                report_params['number_analysis'] = str(len(json_data.get('analysis')))
+                report_params['reference genome'] = ', '.join(set([str(a.get('referenceGenome')) for a in json_data.get('analysis')]))
+                report_params['number_samples'] = str(len(json_data.get('sample')))
+            if os.path.exists(json_file):
+                os.remove(json_file)
         except Exception:
             self.error(traceback.format_exc())
             report_params['project_title'] = 'NA'
