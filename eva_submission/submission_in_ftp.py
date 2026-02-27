@@ -116,10 +116,12 @@ class FtpDepositBox(AppLogger):
             ]) or 'NA'
         }
         try:
+            file_to_delete = None
             name, ext =  os.path.splitext(os.path.basename(metadata_file))
             if ext == '.xlsx':
                 json_file = os.path.join(os.path.dirname(metadata_file), f'.{name}.json')
                 convert_spreadsheet_to_json(metadata_file, json_file)
+                file_to_delete = json_file
             else:
                 json_file = metadata_file
             with open(json_file) as f:
@@ -128,8 +130,8 @@ class FtpDepositBox(AppLogger):
                 report_params['number_analysis'] = str(len(json_data.get('analysis')))
                 report_params['reference genome'] = ', '.join(set([str(a.get('referenceGenome')) for a in json_data.get('analysis')]))
                 report_params['number_samples'] = str(len(json_data.get('sample')))
-            if os.path.exists(json_file):
-                os.remove(json_file)
+            if file_to_delete and os.path.exists(file_to_delete):
+                os.remove(file_to_delete)
         except Exception:
             self.error(traceback.format_exc())
             report_params['project_title'] = 'NA'
