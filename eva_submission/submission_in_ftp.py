@@ -4,14 +4,13 @@ import operator
 import os
 import traceback
 from datetime import datetime
-from os.path import splitext
+from os import stat
 
 import humanize
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg, AppLogger
 
 from eva_submission.eload_utils import convert_spreadsheet_to_json
-from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 logger = log_cfg.get_logger(__name__)
 
@@ -47,7 +46,7 @@ class FtpDepositBox(AppLogger):
         for root, dirs, files in os.walk(self.deposit_box):
             for name in files:
                 file_path = os.path.join(root, name)
-                st = os.stat(file_path)
+                st = stat(file_path)
                 if file_path.endswith('.vcf.gz') or file_path.endswith('.vcf'):
                     self._vcf_files.append((file_path, st.st_size, datetime.fromtimestamp(st.st_mtime)))
                 elif file_path.endswith('.xlsx'):
@@ -133,6 +132,7 @@ class FtpDepositBox(AppLogger):
             if file_to_delete and os.path.exists(file_to_delete):
                 os.remove(file_to_delete)
         except Exception:
+            print(traceback.format_exc())
             self.error(traceback.format_exc())
             report_params['project_title'] = 'NA'
             report_params['number_analysis'] = 0

@@ -19,7 +19,7 @@ class TestFtpDepositBox(TestCase):
 
     def test_report(self):
         # Mock the stat function so that it returns a consistent values
-        with patch('os.stat') as m_stat, patch('builtins.print') as mprint:
+        with patch('eva_submission.submission_in_ftp.stat') as m_stat, patch('builtins.print') as mprint:
             m_stat.return_value.st_size = 100
             m_stat.return_value.st_mtime = 1604000000
 
