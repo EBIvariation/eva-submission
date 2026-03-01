@@ -29,9 +29,10 @@ def main():
     argparse = ArgumentParser(description='Deprecate a study from EVA (variants, MongoDB, EVAPRO)')
     argparse.add_argument('--project_accession', required=True,
                           help='Project accession to deprecate (e.g. PRJEB12345)')
-    argparse.add_argument('--assemblies_variant_id_files', required=True, nargs='+',
-                          help='Mapping of assembly_accession=variant_id_file, '
-                               'e.g. GCA_000001405.2=/path/to/ssids.txt')
+    argparse.add_argument('--assemblies_accession_reports', required=False, nargs='+',
+                          help='Mapping of assembly_accession=accession_report.vcf.gz. '
+                               'If omitted, derived automatically from EVAPRO. '
+                               'e.g. GCA_000001405.2=/path/to/file.accessioned.vcf.gz')
     argparse.add_argument('--deprecation_suffix', required=True,
                           help='Suffix used to build the deprecation operation ID')
     argparse.add_argument('--deprecation_reason', required=True,
@@ -58,23 +59,26 @@ def main():
     # Load the config from the default location
     load_config()
 
-    # Parse assembly=file mappings
-    variant_id_files_mapping = {}
-    for item in args.assemblies_variant_id_files:
-        if '=' not in item:
-            raise ValueError(
-                f'Expected format assembly_accession=variant_id_file, got: {item!r}'
-            )
-        assembly, variant_file = item.split('=', 1)
-        variant_id_files_mapping[assembly] = variant_file
-
     deprecation = StudyDeprecation(
         project_accession=args.project_accession,
         output_dir=args.output_dir,
         nextflow_config=args.nextflow_config,
     )
+
+    if args.assemblies_accession_reports:
+        assembly_accession_reports = {}
+        for item in args.assemblies_accession_reports:
+            if '=' not in item:
+                raise ValueError(
+                    f'Expected format assembly_accession=report_file, got: {item!r}'
+                )
+            assembly, report_file = item.split('=', 1)
+            assembly_accession_reports[assembly] = [report_file]
+    else:
+        assembly_accession_reports = deprecation.get_accession_reports_for_project()
+
     deprecation.deprecate(
-        variant_id_files_mapping=variant_id_files_mapping,
+        assembly_accession_reports=assembly_accession_reports,
         deprecation_suffix=args.deprecation_suffix,
         deprecation_reason=args.deprecation_reason,
         tasks=args.tasks,

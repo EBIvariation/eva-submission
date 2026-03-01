@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import csv
+import glob
+import gzip
 import os
 import random
 import shutil
@@ -30,9 +32,12 @@ from sqlalchemy import select
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_utils import get_nextflow_config_flag
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
-from eva_submission.evapro.table import Analysis, Project, Taxonomy
+from eva_submission.evapro.table import Analysis, File, Project, ProjectEvaSubmission, Taxonomy
 
-all_tasks = ['deprecate_variants', 'drop_study', 'mark_inactive']
+DEPRECATE_ACCESSION = 'deprecate_variants'
+DROP_STUDY = 'drop_study'
+MARK_STUDY_INACTIVE = 'mark_inactive'
+all_tasks = [DEPRECATE_ACCESSION, DROP_STUDY, MARK_STUDY_INACTIVE]
 
 
 class StudyDeprecation(AppLogger):
@@ -110,6 +115,86 @@ class StudyDeprecation(AppLogger):
                 results.append((assembly_accession, db_name))
         return results
 
+    def get_accession_reports_for_project(self):
+        """
+        Resolve accession report files (*.accessioned.vcf.gz) for the project.
+
+        1. Query project_eva_submission for eload_id(s) linked to this project.
+        2. Query EVAPRO for (filename, assembly) pairs via Project → Analysis → File.
+        3. For each eload, glob 60_eva_public/*accessioned.vcf.gz and match to assembly
+           using the convention: {base}.vcf.gz → {base}.accessioned.vcf.gz
+
+        Returns dict: assembly_accession -> list of accession report file paths.
+        Raises ValueError if no eload is found for the project.
+        """
+        # Step 1: Get eload_id(s)
+        eload_query = (
+            select(ProjectEvaSubmission.eload_id).distinct()
+            .where(ProjectEvaSubmission.project_accession == self.project_accession)
+            .where(ProjectEvaSubmission.eload_id.isnot(None))
+        )
+        eload_ids = [row[0] for row in self.loader.eva_session.execute(eload_query).fetchall()]
+        if not eload_ids:
+            raise ValueError(f'No eload ID found for project {self.project_accession} in EVAPRO')
+
+        # Step 2: Build {original_base: assembly} from EVAPRO (Project → Analysis → File)
+        files_query = (
+            select(File.filename, Analysis.vcf_reference_accession).distinct()
+            .join(File.analyses)
+            .join(Analysis.projects)
+            .where(Project.project_accession == self.project_accession)
+        )
+        base_to_assembly = {}
+        for filename, assembly in self.loader.eva_session.execute(files_query).fetchall():
+            if filename.endswith('.vcf.gz'):
+                base = filename[:-len('.vcf.gz')]
+            elif filename.endswith('.vcf'):
+                base = filename[:-len('.vcf')]
+            else:
+                continue
+            base_to_assembly[base] = assembly
+
+        # Step 3: Glob 60_eva_public in each eload, match report to assembly
+        assembly_to_reports = {}
+        suffix = '.accessioned.vcf.gz'
+        for eload_id in eload_ids:
+            eload_dir = os.path.join(cfg['eloads_dir'], f'ELOAD_{eload_id}')
+            for report_path in glob.glob(os.path.join(eload_dir, '60_eva_public', f'*{suffix}')):
+                report_basename = os.path.basename(report_path)
+                original_base = report_basename[:-len(suffix)]
+                assembly = base_to_assembly.get(original_base)
+                if assembly is None:
+                    self.warning(f'Could not match accession report {report_path} to any file in EVAPRO')
+                    continue
+                assembly_to_reports.setdefault(assembly, []).append(report_path)
+
+        return assembly_to_reports
+
+    def extract_ss_ids_from_accession_reports(self, accession_report_paths, output_path):
+        """
+        Extract SS IDs from one or more VCF accession reports into a flat text file.
+
+        The VCF ID column contains values like 'ss1234567'; the pipeline expects
+        one plain integer per line (e.g. '1234567').
+
+        :param accession_report_paths: list of *.accessioned.vcf.gz paths
+        :param output_path: destination text file path
+        :returns: output_path
+        """
+        with open(output_path, 'w') as id_out:
+            for report_path in accession_report_paths:
+                with gzip.open(report_path, 'rt') as vcf_in:
+                    for line in vcf_in:
+                        if line.startswith('#'):
+                            continue
+                        fields = line.split('\t')
+                        if len(fields) < 3:
+                            continue
+                        id_field = fields[2].strip()
+                        if id_field.startswith('ss'):
+                            id_out.write(id_field[2:] + '\n')  # ss1234567 → 1234567
+        return output_path
+
     def create_deprecation_properties_per_assembly(self, assembly_accession, variant_id_file,
                                                     deprecation_suffix, deprecation_reason):
         """
@@ -144,7 +229,7 @@ class StudyDeprecation(AppLogger):
         properties = self.properties_generator.get_accession_import_properties(
             opencga_path=cfg['opencga_path']
         )
-        output_path = os.path.join(self.output_dir, 'drop_study.properties')
+        output_path = os.path.join(self.output_dir, f'{DROP_STUDY}.properties')
         with open(output_path, 'w') as f:
             f.write(properties)
         return output_path
@@ -170,7 +255,7 @@ class StudyDeprecation(AppLogger):
 
     def run_deprecate_study_workflow(self, resume, tasks):
         """Run the deprecate_study Nextflow workflow for the relevant tasks."""
-        nextflow_tasks = [t for t in tasks if t in ['deprecate_variants', 'drop_study']]
+        nextflow_tasks = [t for t in tasks if t in [DEPRECATE_ACCESSION, DROP_STUDY]]
         if not nextflow_tasks:
             return
 
@@ -257,12 +342,13 @@ class StudyDeprecation(AppLogger):
         self.loader.mark_analyses_hidden(self.project_accession)
         self.loader.refresh_study_browser()
 
-    def deprecate(self, variant_id_files_mapping, deprecation_suffix, deprecation_reason,
+    def deprecate(self, assembly_accession_reports, deprecation_suffix, deprecation_reason,
                   tasks=None, resume=False):
         """
         Main entry point for deprecating a study.
 
-        :param variant_id_files_mapping: dict mapping assembly_accession -> path to file containing SS IDs
+        :param assembly_accession_reports: dict mapping assembly_accession ->
+            list of *.accessioned.vcf.gz paths (the accession reports)
         :param deprecation_suffix: suffix appended to the deprecation operation ID
         :param deprecation_reason: human-readable reason for the deprecation
         :param tasks: list of tasks to perform; defaults to all_tasks
@@ -271,13 +357,20 @@ class StudyDeprecation(AppLogger):
         if tasks is None:
             tasks = list(self.all_tasks)
 
-        nextflow_tasks = [t for t in tasks if t in ['deprecate_variants', 'drop_study']]
+        nextflow_tasks = [t for t in tasks if t in [DEPRECATE_ACCESSION, DROP_STUDY]]
 
         if nextflow_tasks:
+            # Extract SS IDs from accession reports → variant_id_files_mapping
+            variant_id_files_mapping = {}
+            for assembly, report_paths in assembly_accession_reports.items():
+                variant_id_file = os.path.join(self.output_dir, f'{assembly}_variant_ids.txt')
+                self.extract_ss_ids_from_accession_reports(report_paths, variant_id_file)
+                variant_id_files_mapping[assembly] = variant_id_file
+
             assembly_db_pairs = self.get_assemblies_and_db_names()
             self.create_deprecation_csv(assembly_db_pairs, variant_id_files_mapping,
                                         deprecation_suffix, deprecation_reason)
             self.run_deprecate_study_workflow(resume, tasks)
 
-        if 'mark_inactive' in tasks:
+        if MARK_STUDY_INACTIVE in tasks:
             self.mark_project_inactive_in_evapro()

@@ -1,4 +1,5 @@
 import csv
+import gzip
 import os
 import shutil
 import subprocess
@@ -272,28 +273,35 @@ class TestStudyDeprecation(TestCase):
     # -------------------------
 
     def test_deprecate_all_tasks(self):
-        variant_id_files = {'GCA_000001405.2': '/path/ssids.txt'}
+        assembly_accession_reports = {'GCA_000001405.2': ['/path/report.accessioned.vcf.gz']}
         assembly_db_pairs = [('GCA_000001405.2', 'eva_hsapiens_grch37')]
+        expected_variant_id_file = os.path.join(self.output_dir, 'GCA_000001405.2_variant_ids.txt')
 
         with patch.object(self.deprecation, 'get_assemblies_and_db_names',
                           return_value=assembly_db_pairs), \
+                patch.object(self.deprecation, 'extract_ss_ids_from_accession_reports') as mock_extract, \
                 patch.object(self.deprecation, 'create_deprecation_csv') as mock_csv, \
                 patch.object(self.deprecation, 'run_deprecate_study_workflow') as mock_nf, \
                 patch.object(self.deprecation, 'mark_project_inactive_in_evapro') as mock_mark:
             self.deprecation.deprecate(
-                variant_id_files, 'PRJEB12345_OBSOLETE', 'Withdrawn',
+                assembly_accession_reports, 'PRJEB12345_OBSOLETE', 'Withdrawn',
                 tasks=['deprecate_variants', 'drop_study', 'mark_inactive']
             )
 
+        mock_extract.assert_called_once_with(
+            ['/path/report.accessioned.vcf.gz'], expected_variant_id_file
+        )
         mock_csv.assert_called_once_with(
-            assembly_db_pairs, variant_id_files, 'PRJEB12345_OBSOLETE', 'Withdrawn'
+            assembly_db_pairs, {'GCA_000001405.2': expected_variant_id_file},
+            'PRJEB12345_OBSOLETE', 'Withdrawn'
         )
         mock_nf.assert_called_once()
         mock_mark.assert_called_once()
 
     def test_deprecate_mark_inactive_only(self):
-        """mark_inactive standalone: no Nextflow, no CSV, no properties."""
+        """mark_inactive standalone: no Nextflow, no SS extraction, no CSV."""
         with patch.object(self.deprecation, 'get_assemblies_and_db_names') as mock_asm, \
+                patch.object(self.deprecation, 'extract_ss_ids_from_accession_reports') as mock_extract, \
                 patch.object(self.deprecation, 'create_deprecation_csv') as mock_csv, \
                 patch.object(self.deprecation, 'run_deprecate_study_workflow') as mock_nf, \
                 patch.object(self.deprecation, 'mark_project_inactive_in_evapro') as mock_mark:
@@ -302,32 +310,158 @@ class TestStudyDeprecation(TestCase):
             )
 
         mock_asm.assert_not_called()
+        mock_extract.assert_not_called()
         mock_csv.assert_not_called()
         mock_nf.assert_not_called()
         mock_mark.assert_called_once()
 
     def test_deprecate_nextflow_only(self):
         """deprecate_variants + drop_study without mark_inactive."""
-        variant_id_files = {'GCA_000001405.2': '/path/ssids.txt'}
+        assembly_accession_reports = {'GCA_000001405.2': ['/path/report.accessioned.vcf.gz']}
         assembly_db_pairs = [('GCA_000001405.2', 'eva_hsapiens_grch37')]
 
         with patch.object(self.deprecation, 'get_assemblies_and_db_names',
                           return_value=assembly_db_pairs), \
+                patch.object(self.deprecation, 'extract_ss_ids_from_accession_reports'), \
                 patch.object(self.deprecation, 'create_deprecation_csv'), \
                 patch.object(self.deprecation, 'run_deprecate_study_workflow') as mock_nf, \
                 patch.object(self.deprecation, 'mark_project_inactive_in_evapro') as mock_mark:
             self.deprecation.deprecate(
-                variant_id_files, 'SUFFIX', 'reason',
+                assembly_accession_reports, 'SUFFIX', 'reason',
                 tasks=['deprecate_variants', 'drop_study']
             )
 
         mock_nf.assert_called_once()
         mock_mark.assert_not_called()
 
+    # -------------------------
+    # get_accession_reports_for_project
+    # -------------------------
 
+    def test_get_accession_reports_for_project(self):
+        eload_result = MagicMock()
+        eload_result.fetchall.return_value = [(44,)]
+        files_result = MagicMock()
+        files_result.fetchall.return_value = [('myfile.vcf.gz', 'GCA_000001405.2')]
+        self.deprecation.loader.eva_session.execute = MagicMock(
+            side_effect=[eload_result, files_result]
+        )
 
+        report_path = 'tests/resources/eloads/ELOAD_44/60_eva_public/myfile.accessioned.vcf.gz'
+        with patch('eva_submission.eload_deprecation.glob.glob', return_value=[report_path]):
+            result = self.deprecation.get_accession_reports_for_project()
 
-    def test_failure(self):
-        # self.fail()
-        self.assertEqual('1', '2')
+        self.assertEqual(result, {'GCA_000001405.2': [report_path]})
 
+    def test_get_accession_reports_for_project_no_eload_raises(self):
+        eload_result = MagicMock()
+        eload_result.fetchall.return_value = []
+        self.deprecation.loader.eva_session.execute = MagicMock(return_value=eload_result)
+
+        with self.assertRaises(ValueError, msg='No eload ID found'):
+            self.deprecation.get_accession_reports_for_project()
+
+    def test_get_accession_reports_for_project_unmatched_report(self):
+        """A report with no matching EVAPRO file emits a warning and is excluded."""
+        eload_result = MagicMock()
+        eload_result.fetchall.return_value = [(44,)]
+        files_result = MagicMock()
+        files_result.fetchall.return_value = []  # no files in EVAPRO
+        self.deprecation.loader.eva_session.execute = MagicMock(
+            side_effect=[eload_result, files_result]
+        )
+
+        report_path = 'tests/resources/eloads/ELOAD_44/60_eva_public/unknown.accessioned.vcf.gz'
+        with patch('eva_submission.eload_deprecation.glob.glob', return_value=[report_path]):
+            result = self.deprecation.get_accession_reports_for_project()
+
+        self.assertEqual(result, {})
+
+    def test_get_accession_reports_for_project_multiple_eloads(self):
+        """Two eloads for the same project, each contributing a report for the same assembly."""
+        eload_result = MagicMock()
+        eload_result.fetchall.return_value = [(44,), (55,)]
+        files_result = MagicMock()
+        files_result.fetchall.return_value = [
+            ('file_a.vcf.gz', 'GCA_000001405.2'),
+            ('file_b.vcf.gz', 'GCA_000001405.2'),
+        ]
+        self.deprecation.loader.eva_session.execute = MagicMock(
+            side_effect=[eload_result, files_result]
+        )
+
+        report_a = 'tests/resources/eloads/ELOAD_44/60_eva_public/file_a.accessioned.vcf.gz'
+        report_b = 'tests/resources/eloads/ELOAD_55/60_eva_public/file_b.accessioned.vcf.gz'
+
+        def fake_glob(pattern):
+            if 'ELOAD_44' in pattern:
+                return [report_a]
+            if 'ELOAD_55' in pattern:
+                return [report_b]
+            return []
+
+        with patch('eva_submission.eload_deprecation.glob.glob', side_effect=fake_glob):
+            result = self.deprecation.get_accession_reports_for_project()
+
+        self.assertIn('GCA_000001405.2', result)
+        self.assertCountEqual(result['GCA_000001405.2'], [report_a, report_b])
+
+    # -------------------------
+    # extract_ss_ids_from_accession_reports
+    # -------------------------
+
+    def _write_vcf_gz(self, path, data_lines, extra_headers=None):
+        """Helper: write a minimal gzipped VCF with given data lines (list of tab-separated strings)."""
+        with gzip.open(path, 'wt') as f:
+            f.write('##fileformat=VCFv4.1\n')
+            if extra_headers:
+                for h in extra_headers:
+                    f.write(h + '\n')
+            f.write('#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n')
+            for line in data_lines:
+                f.write(line + '\n')
+
+    def test_extract_ss_ids_from_accession_reports(self):
+        report_path = os.path.join(self.output_dir, 'test.accessioned.vcf.gz')
+        self._write_vcf_gz(report_path, [
+            '1\t100\tss1234567\tA\tT\t.\t.\t.',
+            '1\t200\tss9876543\tC\tG\t.\t.\t.',
+        ])
+
+        output_path = os.path.join(self.output_dir, 'ss_ids.txt')
+        result = self.deprecation.extract_ss_ids_from_accession_reports([report_path], output_path)
+
+        self.assertEqual(result, output_path)
+        with open(output_path) as f:
+            lines = f.read().splitlines()
+        self.assertEqual(lines, ['1234567', '9876543'])
+
+    def test_extract_ss_ids_skips_non_ss_ids(self):
+        """Dot IDs and rs IDs in the ID column are ignored."""
+        report_path = os.path.join(self.output_dir, 'test.accessioned.vcf.gz')
+        self._write_vcf_gz(report_path, [
+            '1\t100\tss111\tA\tT\t.\t.\t.',
+            '1\t200\t.\tC\tG\t.\t.\t.',       # missing ID
+            '1\t300\trs999\tA\tC\t.\t.\t.',   # rs ID
+        ])
+
+        output_path = os.path.join(self.output_dir, 'ss_ids.txt')
+        self.deprecation.extract_ss_ids_from_accession_reports([report_path], output_path)
+
+        with open(output_path) as f:
+            lines = f.read().splitlines()
+        self.assertEqual(lines, ['111'])
+
+    def test_extract_ss_ids_multiple_reports(self):
+        """IDs from multiple report files are combined into one output file."""
+        report_a = os.path.join(self.output_dir, 'a.accessioned.vcf.gz')
+        report_b = os.path.join(self.output_dir, 'b.accessioned.vcf.gz')
+        self._write_vcf_gz(report_a, ['1\t100\tss111\tA\tT\t.\t.\t.'])
+        self._write_vcf_gz(report_b, ['1\t200\tss222\tC\tG\t.\t.\t.'])
+
+        output_path = os.path.join(self.output_dir, 'ss_ids.txt')
+        self.deprecation.extract_ss_ids_from_accession_reports([report_a, report_b], output_path)
+
+        with open(output_path) as f:
+            lines = f.read().splitlines()
+        self.assertEqual(lines, ['111', '222'])

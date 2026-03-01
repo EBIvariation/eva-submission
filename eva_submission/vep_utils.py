@@ -49,8 +49,6 @@ def get_vep_and_vep_cache_version(mongo_uri, db_name, assembly_accession, vep_ca
         vep_version, vep_cache_version = get_vep_and_vep_cache_version_from_ensembl(
             assembly_accession, ensembl_assembly_name=vep_cache_assembly_name
         )
-    elif not vep_cache_exists(vep_cache_version):
-
     if not check_vep_version_installed(vep_version):
         download_and_install_vep_version(vep_version)
 
