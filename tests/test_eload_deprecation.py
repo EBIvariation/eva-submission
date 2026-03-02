@@ -44,14 +44,8 @@ class TestStudyDeprecation(TestCase):
     def test_create_deprecation_csv(self):
         assembly_db_pairs = [('GCA_000001405.2', 'eva_hsapiens_grch37')]
         variant_id_files = {'GCA_000001405.2': '/path/to/ssids.txt'}
-        fake_props_path = os.path.join(self.output_dir, 'GCA_000001405.2_deprecation.properties')
 
-        with patch.object(self.deprecation, 'create_deprecation_properties_per_assembly',
-                          return_value=fake_props_path) as mock_create_props:
-            csv_path = self.deprecation.create_deprecation_csv(
-                assembly_db_pairs, variant_id_files,
-                'PRJEB12345_OBSOLETE', 'Withdrawn at submitter request'
-            )
+        csv_path = self.deprecation.create_deprecation_csv(assembly_db_pairs, variant_id_files)
 
         self.assertTrue(os.path.exists(csv_path))
         with open(csv_path, newline='') as f:
@@ -62,21 +56,13 @@ class TestStudyDeprecation(TestCase):
         self.assertEqual(row['assembly_accession'], 'GCA_000001405.2')
         self.assertEqual(row['variant_id_file'], '/path/to/ssids.txt')
         self.assertEqual(row['db_name'], 'eva_hsapiens_grch37')
-        self.assertEqual(row['deprecation_properties_file'], fake_props_path)
-
-        mock_create_props.assert_called_once_with(
-            'GCA_000001405.2', '/path/to/ssids.txt',
-            'PRJEB12345_OBSOLETE', 'Withdrawn at submitter request'
-        )
+        self.assertNotIn('deprecation_properties_file', row)
 
     def test_create_deprecation_csv_missing_file_raises(self):
         assembly_db_pairs = [('GCA_000001405.2', 'eva_hsapiens_grch37')]
         variant_id_files = {}  # missing entry for the assembly
         with self.assertRaises(ValueError):
-            self.deprecation.create_deprecation_csv(
-                assembly_db_pairs, variant_id_files,
-                'PRJEB12345_OBSOLETE', 'reason'
-            )
+            self.deprecation.create_deprecation_csv(assembly_db_pairs, variant_id_files)
 
     def test_create_deprecation_csv_multiple_assemblies(self):
         assembly_db_pairs = [
@@ -87,11 +73,7 @@ class TestStudyDeprecation(TestCase):
             'GCA_000001405.2': '/path/to/ssids_37.txt',
             'GCA_000001405.3': '/path/to/ssids_38.txt',
         }
-        with patch.object(self.deprecation, 'create_deprecation_properties_per_assembly',
-                          side_effect=lambda asm, f, s, r: f'{self.output_dir}/{asm}_deprecation.properties'):
-            csv_path = self.deprecation.create_deprecation_csv(
-                assembly_db_pairs, variant_id_files, 'SUFFIX', 'reason'
-            )
+        csv_path = self.deprecation.create_deprecation_csv(assembly_db_pairs, variant_id_files)
 
         with open(csv_path, newline='') as f:
             rows = list(csv.DictReader(f))
@@ -104,37 +86,31 @@ class TestStudyDeprecation(TestCase):
     # Properties file generation
     # -------------------------
 
-    def test_create_deprecation_properties_per_assembly(self):
-        variant_id_file = '/path/to/ssids.txt'
-        assembly = 'GCA_000001405.2'
-
+    def test_create_deprecation_properties(self):
         with patch.object(self.deprecation.properties_generator,
                           '_common_accessioning_clustering_properties',
                           return_value={'spring.batch.job.names': None}) as mock_common, \
                 patch.object(self.deprecation.properties_generator,
                              '_format', return_value='mocked_properties') as mock_format:
-            props_path = self.deprecation.create_deprecation_properties_per_assembly(
-                assembly, variant_id_file, 'PRJEB12345_OBSOLETE', 'Withdrawn'
-            )
+            props_path = self.deprecation.create_deprecation_properties('PRJEB12345_OBSOLETE', 'Withdrawn')
 
-        self.assertEqual(props_path, os.path.join(self.output_dir, f'{assembly}_deprecation.properties'))
+        self.assertEqual(props_path, os.path.join(self.output_dir, 'variant_deprecation.properties'))
         self.assertTrue(os.path.exists(props_path))
         with open(props_path) as f:
             self.assertEqual(f.read(), 'mocked_properties')
 
         mock_common.assert_called_once_with(
-            assembly_accession=assembly,
+            assembly_accession=None,
             read_preference='secondaryPreferred',
             chunk_size=100
         )
-        # The second positional argument to _format should include the expected keys
         format_call_args = mock_format.call_args
         extra_props = format_call_args[0][1]
         self.assertEqual(extra_props['spring.batch.job.names'],
                          'DEPRECATE_SUBMITTED_VARIANTS_FROM_FILE_JOB')
         self.assertEqual(extra_props['parameters.deprecationIdSuffix'], 'PRJEB12345_OBSOLETE')
         self.assertEqual(extra_props['parameters.deprecationReason'], 'Withdrawn')
-        self.assertEqual(extra_props['parameters.variantIdFile'], variant_id_file)
+        self.assertNotIn('parameters.variantIdFile', extra_props)
 
     def test_create_drop_study_properties(self):
         with patch.object(self.deprecation.properties_generator,
@@ -184,9 +160,12 @@ class TestStudyDeprecation(TestCase):
     def test_run_deprecate_study_workflow_both_tasks(self):
         with patch.object(self.deprecation, 'create_drop_study_properties',
                           return_value='/path/drop.properties'), \
+                patch.object(self.deprecation, 'create_deprecation_properties',
+                             return_value='/path/deprecation.properties'), \
                 patch.object(self.deprecation, 'run_nextflow') as mock_nf:
             self.deprecation.run_deprecate_study_workflow(
-                resume=False, tasks=['deprecate_variants', 'drop_study']
+                resume=False, tasks=['deprecate_variants', 'drop_study'],
+                deprecation_suffix='PRJEB12345_OBSOLETE', deprecation_reason='Withdrawn'
             )
 
         mock_nf.assert_called_once()
@@ -196,6 +175,7 @@ class TestStudyDeprecation(TestCase):
         self.assertIn('project_accession', params)
         self.assertEqual(params['project_accession'], 'PRJEB12345')
         self.assertEqual(params['drop_study_props'], '/path/drop.properties')
+        self.assertEqual(params['deprecation_props'], '/path/deprecation.properties')
         self.assertIn('jar', params)
         tasks_passed = call_args[0][3]
         self.assertIn('deprecate_variants', tasks_passed)
@@ -205,7 +185,8 @@ class TestStudyDeprecation(TestCase):
         """mark_inactive is not a Nextflow task; workflow should not be invoked."""
         with patch.object(self.deprecation, 'run_nextflow') as mock_nf:
             self.deprecation.run_deprecate_study_workflow(
-                resume=False, tasks=['mark_inactive']
+                resume=False, tasks=['mark_inactive'],
+                deprecation_suffix='SUFFIX', deprecation_reason='reason'
             )
         mock_nf.assert_not_called()
 
@@ -292,8 +273,7 @@ class TestStudyDeprecation(TestCase):
             ['/path/report.accessioned.vcf.gz'], expected_variant_id_file
         )
         mock_csv.assert_called_once_with(
-            assembly_db_pairs, {'GCA_000001405.2': expected_variant_id_file},
-            'PRJEB12345_OBSOLETE', 'Withdrawn'
+            assembly_db_pairs, {'GCA_000001405.2': expected_variant_id_file}
         )
         mock_nf.assert_called_once()
         mock_mark.assert_called_once()

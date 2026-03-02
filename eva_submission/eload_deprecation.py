@@ -30,7 +30,7 @@ from ebi_eva_internal_pyutils.spring_properties import SpringPropertiesGenerator
 from sqlalchemy import select
 
 from eva_submission import NEXTFLOW_DIR
-from eva_submission.eload_utils import get_nextflow_config_flag
+from eva_submission.eload_utils import get_nextflow_config_flag, open_gzip_if_required
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
 from eva_submission.evapro.table import Analysis, File, Project, ProjectEvaSubmission, Taxonomy
 
@@ -173,17 +173,10 @@ class StudyDeprecation(AppLogger):
     def extract_ss_ids_from_accession_reports(self, accession_report_paths, output_path):
         """
         Extract SS IDs from one or more VCF accession reports into a flat text file.
-
-        The VCF ID column contains values like 'ss1234567'; the pipeline expects
-        one plain integer per line (e.g. '1234567').
-
-        :param accession_report_paths: list of *.accessioned.vcf.gz paths
-        :param output_path: destination text file path
-        :returns: output_path
         """
         with open(output_path, 'w') as id_out:
             for report_path in accession_report_paths:
-                with gzip.open(report_path, 'rt') as vcf_in:
+                with open_gzip_if_required(report_path) as vcf_in:
                     for line in vcf_in:
                         if line.startswith('#'):
                             continue
@@ -195,16 +188,13 @@ class StudyDeprecation(AppLogger):
                             id_out.write(id_field[2:] + '\n')  # ss1234567 → 1234567
         return output_path
 
-    def create_deprecation_properties_per_assembly(self, assembly_accession, variant_id_file,
-                                                    deprecation_suffix, deprecation_reason):
+    def create_deprecation_properties(self, deprecation_suffix, deprecation_reason):
         """
-        Generate a Spring properties file for the deprecation pipeline for a given assembly.
-        Mirrors deprecate_submitted_variants.py::create_properties().
-        Returns the path to the written properties file.
+        Generate a generic Spring properties file for the deprecation pipeline.
         """
         properties = self.properties_generator._format(
             self.properties_generator._common_accessioning_clustering_properties(
-                assembly_accession=assembly_accession,
+                assembly_accession=None,
                 read_preference='secondaryPreferred',
                 chunk_size=100
             ),
@@ -212,10 +202,9 @@ class StudyDeprecation(AppLogger):
                 'spring.batch.job.names': 'DEPRECATE_SUBMITTED_VARIANTS_FROM_FILE_JOB',
                 'parameters.deprecationIdSuffix': deprecation_suffix,
                 'parameters.deprecationReason': deprecation_reason,
-                'parameters.variantIdFile': variant_id_file,
             }
         )
-        output_path = os.path.join(self.output_dir, f'{assembly_accession}_deprecation.properties')
+        output_path = os.path.join(self.output_dir, f'variant_deprecation.properties')
         with open(output_path, 'w') as f:
             f.write(properties)
         return output_path
@@ -234,37 +223,35 @@ class StudyDeprecation(AppLogger):
             f.write(properties)
         return output_path
 
-    def create_deprecation_csv(self, assembly_db_pairs, variant_id_files, deprecation_suffix, deprecation_reason):
+    def create_deprecation_csv(self, assembly_db_pairs, variant_id_files):
         """
         Write the CSV file consumed by the Nextflow deprecate_study workflow.
         Returns the path to the written CSV file.
         """
-        csv_path = os.path.join(self.output_dir, 'valid_deprecations.csv')
+        csv_path = os.path.join(self.output_dir, 'source_deprecations.csv')
         with open(csv_path, 'w', newline='') as f:
             writer = csv.writer(f)
-            writer.writerow(['assembly_accession', 'variant_id_file', 'db_name', 'deprecation_properties_file'])
+            writer.writerow(['assembly_accession', 'variant_id_file', 'db_name'])
             for assembly_accession, db_name in assembly_db_pairs:
                 variant_id_file = variant_id_files.get(assembly_accession)
                 if not variant_id_file:
                     raise ValueError(f'No variant_id_file provided for assembly {assembly_accession}')
-                properties_file = self.create_deprecation_properties_per_assembly(
-                    assembly_accession, variant_id_file, deprecation_suffix, deprecation_reason
-                )
-                writer.writerow([assembly_accession, variant_id_file, db_name, properties_file])
+                writer.writerow([assembly_accession, variant_id_file, db_name])
         return csv_path
 
-    def run_deprecate_study_workflow(self, resume, tasks):
+    def run_deprecate_study_workflow(self, resume, tasks, deprecation_suffix, deprecation_reason):
         """Run the deprecate_study Nextflow workflow for the relevant tasks."""
         nextflow_tasks = [t for t in tasks if t in [DEPRECATE_ACCESSION, DROP_STUDY]]
         if not nextflow_tasks:
             return
 
         drop_study_props = self.create_drop_study_properties()
-
+        deprecation_props = self.create_deprecation_properties(deprecation_suffix, deprecation_reason)
         params = {
             'valid_deprecations': os.path.join(self.output_dir, 'valid_deprecations.csv'),
             'project_accession': self.project_accession,
             'drop_study_props': drop_study_props,
+            'deprecation_props': deprecation_props,
             'logs_dir': self.output_dir,
             'jar': cfg['jar'],
             'tasks': nextflow_tasks,
@@ -368,9 +355,8 @@ class StudyDeprecation(AppLogger):
                 variant_id_files_mapping[assembly] = variant_id_file
 
             assembly_db_pairs = self.get_assemblies_and_db_names()
-            self.create_deprecation_csv(assembly_db_pairs, variant_id_files_mapping,
-                                        deprecation_suffix, deprecation_reason)
-            self.run_deprecate_study_workflow(resume, tasks)
+            self.create_deprecation_csv(assembly_db_pairs, variant_id_files_mapping)
+            self.run_deprecate_study_workflow(resume, tasks, deprecation_suffix, deprecation_reason)
 
         if MARK_STUDY_INACTIVE in tasks:
             self.mark_project_inactive_in_evapro()

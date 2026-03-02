@@ -1,3 +1,0 @@
-assembly_accession,variant_id_file,db_name,deprecation_properties_file
-GCA_000001405.2,test_ssids.txt,eva_hsapiens_grch37,test_deprecation_GCA_000001405.2.properties
-GCA_000001405.3,test_ssids.txt,eva_hsapiens_grch38,test_deprecation_GCA_000001405.3.properties

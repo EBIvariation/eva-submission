@@ -26,4 +26,6 @@ echo "run_tests_clustering.sh"
 echo "run_tests_remapping_clustering.sh"
 ./run_tests_remapping_clustering.sh
 
+echo "run_tests_deprecate_study.sh"
+./run_tests_deprecate_study.sh
 cd ${cwd}
