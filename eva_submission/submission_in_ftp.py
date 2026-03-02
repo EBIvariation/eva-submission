@@ -127,7 +127,7 @@ class FtpDepositBox(AppLogger):
                 json_data = json.load(f)
                 report_params['project_title'] = str(json_data.get('project').get('title'))
                 report_params['number_analysis'] = str(len(json_data.get('analysis')))
-                report_params['reference genome'] = ', '.join(set([str(a.get('referenceGenome')) for a in json_data.get('analysis')]))
+                report_params['reference genome'] = ', '.join({str(a.get('referenceGenome')) for a in json_data.get('analysis')})
                 report_params['number_samples'] = str(len(json_data.get('sample')))
             if file_to_delete and os.path.exists(file_to_delete):
                 os.remove(file_to_delete)
