@@ -132,7 +132,6 @@ class FtpDepositBox(AppLogger):
             if file_to_delete and os.path.exists(file_to_delete):
                 os.remove(file_to_delete)
         except Exception:
-            print(traceback.format_exc())
             self.error(traceback.format_exc())
             report_params['project_title'] = 'NA'
             report_params['number_analysis'] = 0
