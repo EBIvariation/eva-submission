@@ -164,7 +164,7 @@ class TestStudyDeprecation(TestCase):
                              return_value='/path/deprecation.properties'), \
                 patch.object(self.deprecation, 'run_nextflow') as mock_nf:
             self.deprecation.run_deprecate_study_workflow(
-                resume=False, tasks=['deprecate_variants', 'drop_study'],
+                resume=False, tasks=['deprecate_variants', 'drop_study'], source_csv_path='path/source.csv',
                 deprecation_suffix='PRJEB12345_OBSOLETE', deprecation_reason='Withdrawn'
             )
 
@@ -185,7 +185,7 @@ class TestStudyDeprecation(TestCase):
         """mark_inactive is not a Nextflow task; workflow should not be invoked."""
         with patch.object(self.deprecation, 'run_nextflow') as mock_nf:
             self.deprecation.run_deprecate_study_workflow(
-                resume=False, tasks=['mark_inactive'],
+                resume=False, tasks=['mark_inactive'], source_csv_path='path/source.csv',
                 deprecation_suffix='SUFFIX', deprecation_reason='reason'
             )
         mock_nf.assert_not_called()
