@@ -239,7 +239,7 @@ class StudyDeprecation(AppLogger):
                 writer.writerow([assembly_accession, variant_id_file, db_name])
         return csv_path
 
-    def run_deprecate_study_workflow(self, resume, tasks, deprecation_suffix, deprecation_reason):
+    def run_deprecate_study_workflow(self, resume, tasks, source_csv_path, deprecation_suffix, deprecation_reason):
         """Run the deprecate_study Nextflow workflow for the relevant tasks."""
         nextflow_tasks = [t for t in tasks if t in [DEPRECATE_ACCESSION, DROP_STUDY]]
         if not nextflow_tasks:
@@ -255,6 +255,7 @@ class StudyDeprecation(AppLogger):
             'logs_dir': self.output_dir,
             'jar': cfg['jar'],
             'tasks': nextflow_tasks,
+            'source_deprecations': source_csv_path
         }
         self.run_nextflow('deprecate_study', params, resume, nextflow_tasks)
 
@@ -355,8 +356,8 @@ class StudyDeprecation(AppLogger):
                 variant_id_files_mapping[assembly] = variant_id_file
 
             assembly_db_pairs = self.get_assemblies_and_db_names()
-            self.create_deprecation_csv(assembly_db_pairs, variant_id_files_mapping)
-            self.run_deprecate_study_workflow(resume, tasks, deprecation_suffix, deprecation_reason)
+            source_csv_path = self.create_deprecation_csv(assembly_db_pairs, variant_id_files_mapping)
+            self.run_deprecate_study_workflow(resume, tasks, source_csv_path, deprecation_suffix, deprecation_reason)
 
         if MARK_STUDY_INACTIVE in tasks:
             self.mark_project_inactive_in_evapro()
