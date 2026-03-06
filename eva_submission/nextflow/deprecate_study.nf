@@ -70,7 +70,7 @@ process deprecate_submitted_variants {
     java -Xmx4G -jar $params.jar.deprecate \
     --spring.config.location=file:${params.deprecation_props} \
     --parameters.variantIdFile=$variant_id_file \
-    --assembly_accession=$assembly_accession > ${log} 2>&1
+    --assembly_accession=$assembly_accession
     """
 }
 
