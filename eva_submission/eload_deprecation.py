@@ -195,7 +195,7 @@ class StudyDeprecation(AppLogger):
         properties = self.properties_generator._format(
             self.properties_generator._common_accessioning_clustering_properties(
                 assembly_accession=None,
-                read_preference='secondaryPreferred',
+                read_preference='primary',
                 chunk_size=100
             ),
             {
