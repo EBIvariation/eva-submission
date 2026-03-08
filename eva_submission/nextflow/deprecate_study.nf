@@ -69,7 +69,6 @@ process deprecate_submitted_variants {
     """
     java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.deprecate \
     --spring.config.location=file:${params.deprecation_props} \
-    --parameters.path=${params.deprecation_props} \
     --parameters.variantIdFile=$variant_id_file \
     --parameters.assemblyAccession=$assembly_accession
     """
@@ -97,6 +96,7 @@ process drop_study {
         --spring.config.location=file:$params.drop_study_props \
         --spring.batch.job.names=drop-study-job \
         --input.study.id=$params.project_accession \
-        --spring.data.mongodb.database=$db_name
+        --spring.data.mongodb.database=$db_name \
+        --parameters.path=${params.deprecation_props}
     """
 }
