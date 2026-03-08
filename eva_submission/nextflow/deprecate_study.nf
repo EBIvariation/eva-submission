@@ -93,10 +93,10 @@ process drop_study {
     log_filename = "drop_study.${db_name}_${params.project_accession}.log"
     """
     java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.eva_pipeline \
-        --spring.config.location=file:$params.drop_study_props \
+        --spring.config.location=file:${params.drop_study_props} \
         --spring.batch.job.names=drop-study-job \
         --input.study.id=$params.project_accession \
         --spring.data.mongodb.database=$db_name \
-        --parameters.path=${params.deprecation_props}
+        --parameters.path=${params.drop_study_props}
     """
 }
