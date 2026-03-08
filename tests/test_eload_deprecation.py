@@ -101,7 +101,7 @@ class TestStudyDeprecation(TestCase):
 
         mock_common.assert_called_once_with(
             assembly_accession=None,
-            read_preference='secondaryPreferred',
+            read_preference='primary',
             chunk_size=100
         )
         format_call_args = mock_format.call_args
