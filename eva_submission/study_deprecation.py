@@ -137,22 +137,22 @@ class StudyDeprecation(AppLogger):
         if not eload_ids:
             raise ValueError(f'No eload ID found for project {self.project_accession} in EVAPRO')
 
-        # Step 2: Build {original_base: assembly} from EVAPRO (Project → Analysis → File)
+        # Step 2: Build {original_vcf: assembly} from EVAPRO (Project → Analysis → File)
         files_query = (
             select(File.filename, Analysis.vcf_reference_accession).distinct()
             .join(File.analyses)
             .join(Analysis.projects)
             .where(Project.project_accession == self.project_accession)
         )
-        base_to_assembly = {}
+        original_vcf_to_assembly = {}
         for filename, assembly in self.loader.eva_session.execute(files_query).fetchall():
             if filename.endswith('.vcf.gz'):
-                base = filename[:-len('.vcf.gz')]
+                original_vcf = filename[:-len('.vcf.gz')]
             elif filename.endswith('.vcf'):
-                base = filename[:-len('.vcf')]
+                original_vcf = filename[:-len('.vcf')]
             else:
                 continue
-            base_to_assembly[base] = assembly
+            original_vcf_to_assembly[original_vcf] = assembly
 
         # Step 3: Glob 60_eva_public in each eload, match report to assembly
         assembly_to_reports = {}
@@ -161,8 +161,8 @@ class StudyDeprecation(AppLogger):
             eload_dir = os.path.join(cfg['eloads_dir'], f'ELOAD_{eload_id}')
             for report_path in glob.glob(os.path.join(eload_dir, '60_eva_public', f'*{suffix}')):
                 report_basename = os.path.basename(report_path)
-                original_base = report_basename[:-len(suffix)]
-                assembly = base_to_assembly.get(original_base)
+                original_vcf = report_basename[:-len(suffix)]
+                assembly = original_vcf_to_assembly.get(original_vcf)
                 if assembly is None:
                     self.warning(f'Could not match accession report {report_path} to any file in EVAPRO')
                     continue

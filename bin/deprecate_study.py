@@ -19,7 +19,7 @@ from argparse import ArgumentParser
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.eload_deprecation import StudyDeprecation
+from eva_submission.study_deprecation import StudyDeprecation
 from eva_submission.submission_config import load_config
 
 logger = log_cfg.get_logger(__name__)
