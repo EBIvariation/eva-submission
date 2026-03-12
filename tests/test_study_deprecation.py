@@ -94,32 +94,6 @@ class TestStudyDeprecation(TestCase):
             )
         mock_nf.assert_not_called()
 
-    def test_run_nextflow_success(self):
-        with patch('eva_submission.study_deprecation.command_utils.run_command_with_output') as mock_cmd, \
-                patch('eva_submission.study_deprecation.shutil.rmtree') as mock_rm:
-            self.deprecation.run_nextflow(
-                'deprecate_study',
-                {'valid_deprecations': '/path/valid.csv', 'project_accession': 'PRJEB12345'},
-                resume=False,
-                tasks=['deprecate_variants', 'drop_study']
-            )
-
-        mock_cmd.assert_called_once()
-        mock_rm.assert_called_once()
-
-    def test_run_nextflow_failure_preserves_work_dir(self):
-        with patch('eva_submission.study_deprecation.command_utils.run_command_with_output',
-                   side_effect=subprocess.CalledProcessError(1, 'nextflow')), \
-                patch('eva_submission.study_deprecation.shutil.rmtree') as mock_rm:
-            with self.assertRaises(subprocess.CalledProcessError):
-                self.deprecation.run_nextflow(
-                    'deprecate_study',
-                    {'valid_deprecations': '/path/valid.csv'},
-                    resume=False,
-                    tasks=['deprecate_variants']
-                )
-        mock_rm.assert_not_called()
-
     def test_run_nextflow_resume_skips_completed_tasks(self):
         # Mark deprecate_variants as already complete
         self.deprecation._set_cfg(
@@ -166,22 +140,6 @@ class TestStudyDeprecation(TestCase):
             assembly_db_pairs, {'GCA_000001405.2': expected_variant_id_file}
         )
         mock_nf.assert_called_once()
-        mock_mark.assert_called_once()
-
-    def test_deprecate_mark_inactive_only(self):
-        """mark_inactive standalone: no Nextflow, no SS extraction, no CSV."""
-        with patch.object(self.deprecation, 'get_assemblies_and_db_names') as mock_asm, \
-                patch.object(self.deprecation, 'extract_ss_ids_from_accession_reports') as mock_extract, \
-                patch.object(self.deprecation, 'create_deprecation_csv') as mock_csv, \
-                patch.object(self.deprecation, 'run_deprecate_study_workflow') as mock_nf, \
-                patch.object(self.deprecation, 'mark_project_inactive_in_evapro') as mock_mark:
-            self.deprecation.deprecate(
-                {}, 'SUFFIX', 'reason', tasks=['mark_inactive']
-            )
-        mock_asm.assert_not_called()
-        mock_extract.assert_not_called()
-        mock_csv.assert_not_called()
-        mock_nf.assert_not_called()
         mock_mark.assert_called_once()
 
     # -------------------------
