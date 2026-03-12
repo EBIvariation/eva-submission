@@ -20,7 +20,7 @@ class TestStudyDeprecation(TestCase):
         load_config(config_file)
         os.chdir(self.top_dir)
         self.output_dir = tempfile.mkdtemp()
-        with patch('eva_submission.eload_deprecation.EvaProjectLoader'):
+        with patch('eva_submission.study_deprecation.EvaProjectLoader'):
             self.deprecation = StudyDeprecation('PRJEB12345', self.output_dir)
 
     def tearDown(self):
@@ -95,8 +95,8 @@ class TestStudyDeprecation(TestCase):
         mock_nf.assert_not_called()
 
     def test_run_nextflow_success(self):
-        with patch('eva_submission.eload_deprecation.command_utils.run_command_with_output') as mock_cmd, \
-                patch('eva_submission.eload_deprecation.shutil.rmtree') as mock_rm:
+        with patch('eva_submission.study_deprecation.command_utils.run_command_with_output') as mock_cmd, \
+                patch('eva_submission.study_deprecation.shutil.rmtree') as mock_rm:
             self.deprecation.run_nextflow(
                 'deprecate_study',
                 {'valid_deprecations': '/path/valid.csv', 'project_accession': 'PRJEB12345'},
@@ -108,9 +108,9 @@ class TestStudyDeprecation(TestCase):
         mock_rm.assert_called_once()
 
     def test_run_nextflow_failure_preserves_work_dir(self):
-        with patch('eva_submission.eload_deprecation.command_utils.run_command_with_output',
+        with patch('eva_submission.study_deprecation.command_utils.run_command_with_output',
                    side_effect=subprocess.CalledProcessError(1, 'nextflow')), \
-                patch('eva_submission.eload_deprecation.shutil.rmtree') as mock_rm:
+                patch('eva_submission.study_deprecation.shutil.rmtree') as mock_rm:
             with self.assertRaises(subprocess.CalledProcessError):
                 self.deprecation.run_nextflow(
                     'deprecate_study',
@@ -126,8 +126,8 @@ class TestStudyDeprecation(TestCase):
             self.deprecation.config_section, 'deprecate_study', 'nextflow_dir', 'deprecate_variants',
             value=self.deprecation.nextflow_complete_value
         )
-        with patch('eva_submission.eload_deprecation.command_utils.run_command_with_output') as mock_cmd, \
-                patch('eva_submission.eload_deprecation.shutil.rmtree'):
+        with patch('eva_submission.study_deprecation.command_utils.run_command_with_output') as mock_cmd, \
+                patch('eva_submission.study_deprecation.shutil.rmtree'):
             returned_tasks = self.deprecation.run_nextflow(
                 'deprecate_study',
                 {'valid_deprecations': '/path/valid.csv'},
@@ -198,7 +198,7 @@ class TestStudyDeprecation(TestCase):
         )
 
         report_path = 'tests/resources/eloads/ELOAD_44/60_eva_public/myfile.accessioned.vcf.gz'
-        with patch('eva_submission.eload_deprecation.glob.glob', return_value=[report_path]):
+        with patch('eva_submission.study_deprecation.glob.glob', return_value=[report_path]):
             result = self.deprecation.get_accession_reports_for_project()
 
         self.assertEqual(result, {'GCA_000001405.2': [report_path]})
@@ -222,7 +222,7 @@ class TestStudyDeprecation(TestCase):
         )
 
         report_path = 'tests/resources/eloads/ELOAD_44/60_eva_public/unknown.accessioned.vcf.gz'
-        with patch('eva_submission.eload_deprecation.glob.glob', return_value=[report_path]):
+        with patch('eva_submission.study_deprecation.glob.glob', return_value=[report_path]):
             result = self.deprecation.get_accession_reports_for_project()
 
         self.assertEqual(result, {})
@@ -250,7 +250,7 @@ class TestStudyDeprecation(TestCase):
                 return [report_b]
             return []
 
-        with patch('eva_submission.eload_deprecation.glob.glob', side_effect=fake_glob):
+        with patch('eva_submission.study_deprecation.glob.glob', side_effect=fake_glob):
             result = self.deprecation.get_accession_reports_for_project()
 
         self.assertIn('GCA_000001405.2', result)
