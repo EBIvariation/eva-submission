@@ -8,7 +8,7 @@ def helpMessage() {
     Deprecate submitted variants and drop study from mongodb.
 
     Inputs:
-            --source_deprecations         csv file with columns: assembly_accession, variant_id_file, db_name, deprecation_properties_file
+            --source_deprecations         csv file with columns: assembly_accession, variant_id_file, db_name
             --project_accession          project accession to drop from the variant warehouse
             --drop_study_props           properties file for drop-study-job
             --deprecation_props          properties file for deprecate_variants
@@ -19,6 +19,7 @@ def helpMessage() {
 params.source_deprecations = null
 params.project_accession = null
 params.drop_study_props = null
+params.deprecation_props = null
 params.logs_dir = null
 // java jars
 params.jar = ["deprecate": "deprecate", "eva_pipeline": "eva_pipeline"]
