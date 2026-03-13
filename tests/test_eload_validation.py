@@ -1,4 +1,5 @@
 import os
+import tempfile
 from copy import deepcopy
 from unittest import TestCase
 from unittest.mock import patch
@@ -31,7 +32,7 @@ class TestEloadValidation(TestCase):
         assert self.validation.parse_sv_check_log(sv_check_log) == 33
 
     def test_update_cli_report_with_new_path(self):
-        report_file = os.path.join(self.resources_folder, 'tmp_report.txt')
+        report_file = os.path.join(tempfile.gettempdir(), 'tmp_report.txt')
         old_path = '/path/to/old/dir'
         new_path = '/path/to/new/dir'
         with open(report_file, 'w') as f:

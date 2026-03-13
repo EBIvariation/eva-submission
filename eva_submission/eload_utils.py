@@ -381,3 +381,10 @@ def convert_spreadsheet_to_json(metadata_xlsx, metadata_json_file_path, xls_pars
         except IndexError as e:
             logger.error(f'Could not convert metadata version {version} to JSON file: {metadata_xlsx}')
             raise e
+
+def open_gzip_if_required(input_file, mode='r'):
+    """Open a file in read mode using gzip if the file extension says .gz"""
+    if input_file.endswith('.gz'):
+        return gzip.open(input_file, mode + 't')
+    else:
+        return open(input_file, mode)

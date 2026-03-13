@@ -22,4 +22,7 @@ jar cfe remap-loading.jar FakeRemappingLoadingPipeline FakeRemappingLoadingPipel
 javac FakeClusteringPipeline.java
 jar cfe clustering.jar FakeClusteringPipeline FakeClusteringPipeline.class
 
+javac FakeDeprecatePipeline.java
+jar cfe deprecate.jar FakeDeprecatePipeline FakeDeprecatePipeline.class
+
 cd ${cwd}
