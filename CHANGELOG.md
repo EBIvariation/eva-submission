@@ -1,11 +1,11 @@
 Changelog for eva-submission
 ============================
 
-## 1.19.17 (unreleased)
+## 1.20.0 (2026-03-13)
 -----------------------
 
-- Nothing changed yet.
-
+- Fix detect_submission.py
+- Add deprecation script that automate the removal of a whole study
 
 ## 1.19.16 (2026-02-20)
 -----------------------
