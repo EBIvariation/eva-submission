@@ -14,7 +14,6 @@
 
 import csv
 import glob
-import gzip
 import os
 import random
 import shutil
@@ -47,7 +46,7 @@ class StudyDeprecation(AppLogger):
 
     def __init__(self, project_accession, output_dir, nextflow_config=None):
         self.project_accession = project_accession
-        self.output_dir = output_dir
+        self.output_dir = os.path.abspath(output_dir)
         os.makedirs(output_dir, exist_ok=True)
         self.nextflow_config = nextflow_config
         self.private_settings_file = cfg['maven']['settings_file']
