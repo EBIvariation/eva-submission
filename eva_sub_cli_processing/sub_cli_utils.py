@@ -49,6 +49,12 @@ def get_from_sub_ws(url):
     response.raise_for_status()
     return response.json()
 
+@retry(tries=5, backoff=2, jitter=.5)
+def get_text_from_sub_ws(url):
+    response = requests.get(url, auth=sub_ws_auth())
+    response.raise_for_status()
+    return response.text
+
 
 @retry(tries=5, backoff=2, jitter=.5)
 def put_to_sub_ws(url):

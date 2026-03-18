@@ -67,3 +67,6 @@ class SubCLIToEloadConverter(EloadPreparation):
     def _download_metadata_json_file(self, metadata_json_file_path):
         with open(metadata_json_file_path, "w", encoding="utf-8") as open_file:
             json.dump(self.metadata_json, open_file, indent=4)
+
+    def add_submission_id_to_config(self):
+        self.eload_cfg.set('submission', 'submission_id', value=self.submission_id)
