@@ -10,7 +10,7 @@ from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_en
 from ebi_eva_internal_pyutils.config_utils import get_contig_alias_db_creds_for_profile
 from retry import retry
 
-from eva_sub_cli_processing.sub_cli_utils import get_text_from_sub_ws, sub_ws_url_build
+from eva_sub_cli_processing.sub_cli_utils import sub_ws_url_build, get_from_sub_ws
 from eva_submission.biosample_submission.biosamples_submitters import get_biosample_characteristics
 from eva_submission.eload_submission import Eload, directory_structure
 from eva_submission.eload_utils import resolve_accession_from_text, get_reference_fasta_and_report, NCBIAssembly, \
@@ -358,8 +358,8 @@ class EloadPreparation(Eload):
         self.eload_cfg.set('submission', 'metadata_json', value=metadata_json_file_path)
 
     def add_submission_id_to_config(self):
-        submission_id = get_text_from_sub_ws(sub_ws_url_build("admin", "submission", str(self.eload_num), "submissionId"))
-        if submission_id:
-            self.eload_cfg.set('submission', 'submission_id', value=submission_id)
+        json_response = get_from_sub_ws(sub_ws_url_build("admin", "submission", str(self.eload_num), "submissionId"))
+        if 'submissionId' in json_response and json_response['submissionId']:
+            self.eload_cfg.set('submission', 'submission_id', value=json_response['submissionId'])
         else:
             raise ValueError(f"Could not retrieve submissionId for eload {self.eload_num}")
