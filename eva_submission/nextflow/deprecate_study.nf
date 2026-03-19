@@ -66,7 +66,7 @@ process deprecate_submitted_variants {
     val true, emit: deprecation_complete
 
     script:
-    def log_filename = "deprecate.${variant_id_file}_${assembly_accession}.log"
+    log_filename = "deprecate.${variant_id_file}_${assembly_accession}"
     """
     java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.deprecate \
     --spring.config.location=file:${params.deprecation_props} \
@@ -91,7 +91,7 @@ process drop_study {
     val true, emit: drop_complete
 
     script:
-    log_filename = "drop_study.${db_name}_${params.project_accession}.log"
+    log_filename = "drop_study.${db_name}_${params.project_accession}"
     """
     java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.eva_pipeline \
         --spring.config.location=file:${params.drop_study_props} \
