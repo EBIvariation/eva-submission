@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 from unittest import TestCase, mock
+from unittest.mock import patch
 
 import eva_sub_cli
 from ebi_eva_common_pyutils.config import cfg
@@ -259,3 +260,9 @@ class TestEloadPreparation(TestCase):
             {'analysisAlias': 'analysis1', 'sampleInVCF': '2', 'bioSampleAccession':'SAME0000001'}
         ]}
         assert self.eload.find_taxonomy(json_example) is None
+
+    def test_retrieving_and_adding_submission_id_to_config(self):
+        with patch('eva_submission.eload_preparation.get_from_sub_ws') as mock_get_from_sub_ws:
+            mock_get_from_sub_ws.return_value = {'submissionId': 'abcde-fghij-klmno-pqrst'}
+            self.eload.add_submission_id_to_config()
+            assert self.eload.eload_cfg.query('submission', 'submission_id') == 'abcde-fghij-klmno-pqrst'

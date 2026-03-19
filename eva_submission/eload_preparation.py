@@ -10,6 +10,7 @@ from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_en
 from ebi_eva_internal_pyutils.config_utils import get_contig_alias_db_creds_for_profile
 from retry import retry
 
+from eva_sub_cli_processing.sub_cli_utils import sub_ws_url_build, get_from_sub_ws
 from eva_submission.biosample_submission.biosamples_submitters import get_biosample_characteristics
 from eva_submission.eload_submission import Eload, directory_structure
 from eva_submission.eload_utils import resolve_accession_from_text, get_reference_fasta_and_report, NCBIAssembly, \
@@ -87,6 +88,7 @@ class EloadPreparation(Eload):
         self.detect_metadata_attributes()
         self.find_genome()
         self.update_metadata_json_if_required()
+        self.add_submission_id_to_config()
 
     def detect_submitted_metadata(self):
         metadata_dir = os.path.join(self.eload_dir, directory_structure['metadata'])
@@ -354,3 +356,10 @@ class EloadPreparation(Eload):
         metadata_xlsx = os.path.join(metadata_cli_dir, metadata_xlsx_name)
         convert_spreadsheet_to_json(metadata_xlsx, metadata_json_file_path)
         self.eload_cfg.set('submission', 'metadata_json', value=metadata_json_file_path)
+
+    def add_submission_id_to_config(self):
+        json_response = get_from_sub_ws(sub_ws_url_build("admin", "submission", str(self.eload_num), "submissionId"))
+        if 'submissionId' in json_response and json_response['submissionId']:
+            self.eload_cfg.set('submission', 'submission_id', value=json_response['submissionId'])
+        else:
+            raise ValueError(f"Could not retrieve submissionId for eload {self.eload_num}")
