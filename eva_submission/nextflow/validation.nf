@@ -7,11 +7,12 @@ def helpMessage() {
     Validate a set of VCF files and metadata to check if they are valid to be submitted to EVA.
 
     Inputs:
-            --vcf_files_mapping     csv file with the mappings for vcf files, fasta and assembly report
-            --output_dir            output_directory where the reports will be output
-            --metadata_json         metadata JSON to be validated with eva-sub-cli
-            --nextflow_config       nextflow config to run the workflow with (optional)
-            --shallow_validation    option to run shallow validation (validate only the first 10k lines) in eva-sub-cli (optional)
+            --vcf_files_mapping             csv file with the mappings for vcf files, fasta and assembly report
+            --output_dir                    output_directory where the reports will be output
+            --eva_sub_cli_validation_dir    output directory where the eva-sub-cli validation will run
+            --metadata_json                 metadata JSON to be validated with eva-sub-cli
+            --nextflow_config               nextflow config to run the workflow with (optional)
+            --shallow_validation            option to run shallow validation (validate only the first 10k lines) in eva-sub-cli (optional)
     """
 }
 
@@ -33,9 +34,10 @@ params.help = null
 if (params.help) exit 0, helpMessage()
 
 // Test input files
-if (!params.vcf_files_mapping || !params.output_dir || !params.metadata_json) {
+if (!params.vcf_files_mapping || !params.output_dir || !params.metadata_json || !params.eva_sub_cli_validation_dir) {
     if (!params.vcf_files_mapping)    log.warn('Provide a csv file with the mappings (vcf, fasta, assembly report) --vcf_files_mapping')
     if (!params.output_dir)    log.warn('Provide an output directory where the reports will be copied using --output_dir')
+    if (!params.eva_sub_cli_validation_dir)  log.warn('Provide a directory where the eva-sub-cli validation will be run using --eva_sub_cli_validation_dir')
     if (!params.metadata_json)    log.warn('Provide a json file containing the metadata and location of files using --metadata_json')
     exit 1, helpMessage()
 }
@@ -68,16 +70,8 @@ workflow {
 process run_eva_sub_cli {
     label 'long_time', 'med_mem'
 
-    publishDir "$params.output_dir",
-        overwrite: false,
-        mode: "copy"
-
     input:
     val tasks
-
-    output:
-    path "validation_results.yaml", emit: eva_sub_cli_results
-    path "validation_output", emit: eva_sub_cli_validation_dir
 
     script:
     def nf_config_arg = params.nextflow_config ? "--nextflow_config ${params.nextflow_config}" : ""
@@ -85,7 +79,7 @@ process run_eva_sub_cli {
 
     """
     source $params.executable.sub_cli_env
-    $params.executable.eva_sub_cli --submission_dir . --metadata_json ${params.metadata_json} --tasks VALIDATE --validation_tasks ${tasks} $nf_config_arg $shallow_validation_arg
+    $params.executable.eva_sub_cli --submission_dir ${params.eva_sub_cli_validation_dir} --metadata_json ${params.metadata_json} --tasks VALIDATE --validation_tasks ${tasks} $nf_config_arg $shallow_validation_arg
     """
 }
 

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import csv
 import os
-import re
 import shutil
 import subprocess
 
@@ -16,7 +15,6 @@ from eva_submission.submission_config import EloadConfig
 
 
 class EloadValidation(Eload):
-
     # eva-sub-cli tasks and their mapping to granular tasks
     sub_cli_tasks = {
         'vcf_check': ['vcf_check', 'evidence_type_check'],
@@ -41,8 +39,9 @@ class EloadValidation(Eload):
             self.eload_cfg.set('validation', validation_task, value={})
 
         # All validation tasks are run via nextflow
-        output_dir = self._run_validation_workflow(validation_tasks, shallow_validation)
-        self._collect_validation_workflow_results(output_dir, validation_tasks)
+        eva_sub_cli_validation_dir = os.path.join(self._get_dir('eva_sub_cli'), 'validation_submission_dir')
+        output_dir = self._run_validation_workflow(eva_sub_cli_validation_dir, validation_tasks, shallow_validation)
+        self._collect_validation_workflow_results(output_dir, eva_sub_cli_validation_dir, validation_tasks)
         shutil.rmtree(output_dir)
 
         self.mark_valid_files_and_metadata()
@@ -119,7 +118,7 @@ class EloadValidation(Eload):
                     self.warning(f"VCF files for analysis {analysis_alias} not found")
         return vcf_files_mapping_csv
 
-    def _run_validation_workflow(self, validation_tasks, shallow_validation=False):
+    def _run_validation_workflow(self, eva_sub_cli_validation_dir, validation_tasks, shallow_validation=False):
         assert self.eload_cfg.query('submission', 'metadata_json'), 'Metadata json is not set in the config file, Cannot proceed with validation'
         metadata_json = self.eload_cfg.query('submission', 'metadata_json')
         assert os.path.isfile(metadata_json), f'Metadata json {metadata_json} does not exist. Cannot proceed with validation'
@@ -129,6 +128,7 @@ class EloadValidation(Eload):
         validation_config = {
             'vcf_files_mapping': vcf_files_mapping_csv,
             'output_dir': output_dir,
+            'eva_sub_cli_validation_dir': eva_sub_cli_validation_dir,
             'metadata_json': metadata_json,
             'executable': cfg['executable'],
             'validation_tasks': validation_tasks,
@@ -163,11 +163,11 @@ class EloadValidation(Eload):
         else:
             return None
 
-    def _collect_validation_workflow_results(self, output_dir, validation_tasks):
+    def _collect_validation_workflow_results(self, output_dir, eva_sub_cli_validation_dir, validation_tasks):
         # Collect information from the output and summarise in the config
         vcf_files = self._get_vcf_files()
         if any(task in validation_tasks for task in self.sub_cli_tasks):
-            self._collect_eva_sub_cli_results(output_dir)
+            self._collect_eva_sub_cli_results(eva_sub_cli_validation_dir)
         if 'structural_variant_check' in validation_tasks:
             self._collect_structural_variant_check_results(vcf_files, output_dir)
         if 'naming_convention_check' in validation_tasks:
@@ -224,32 +224,8 @@ class EloadValidation(Eload):
         self.eload_cfg.set('validation', 'naming_convention_check', 'pass', value=True)
 
     def _collect_eva_sub_cli_results(self, output_dir):
-        # Move the results to the validations folder
-        results_path = resolve_single_file_path(os.path.join(output_dir, 'validation_results.yaml'))
-        results_dest_path = os.path.join(self._get_dir('eva_sub_cli'), 'validation_results.yaml')
-        self._move_file(results_path, results_dest_path)
-        source_validation_dir_path = resolve_single_file_path(os.path.join(output_dir, 'validation_output'))
-        dest_validation_dir_path = os.path.join(self._get_dir('eva_sub_cli'), 'validation_output')
-        # move the whole validation_output directory
-        if os.path.exists(dest_validation_dir_path):
-            shutil.rmtree(dest_validation_dir_path)
-        self._move_file(source_validation_dir_path, dest_validation_dir_path)
-
+        results_dest_path = os.path.join(output_dir, 'validation_results.yaml')
         self._update_config_with_cli_results(results_dest_path)
-        report_txt = resolve_single_file_path(os.path.join(dest_validation_dir_path, 'report.txt'))
-        report_html = resolve_single_file_path(os.path.join(dest_validation_dir_path, 'report.html'))
-        self._update_cli_report_with_new_path(report_txt, output_dir, dest_validation_dir_path)
-        self._update_cli_report_with_new_path(report_html, output_dir, dest_validation_dir_path)
-        self._update_cli_report_with_new_path(results_dest_path, output_dir, dest_validation_dir_path)
-
-    def _update_cli_report_with_new_path(self, report_file, nextflow_dir,  new_path):
-        with open(report_file) as open_file:
-            content = open_file.read()
-        with open(report_file, 'w') as open_file:
-            nextflow_validation_output = os.path.join(nextflow_dir, 'validation_output')
-            tmp = re.sub(nextflow_validation_output, new_path, content)
-            nextflow_validation_output = os.path.join(nextflow_dir, r'\w{2}', r'\w{30}', 'validation_output')
-            open_file.write(re.sub(nextflow_validation_output, new_path, tmp))
 
     def _update_config_with_cli_results(self, results_dest_path):
         """Update ELOAD config with pass/fail values and aggregation type (required for ingestion) from eva-sub-cli
