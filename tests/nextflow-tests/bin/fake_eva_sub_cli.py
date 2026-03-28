@@ -15,7 +15,7 @@ if __name__ == '__main__':
     parser.add_argument("--validation_tasks", nargs="+", required=True)
     parser.add_argument("--shallow", required=False, action="store_true")
     args = parser.parse_args()
-    os.mkdir(os.path.join(args.submission_dir, 'validation_output'))
+    os.makedirs(os.path.join(args.submission_dir, 'validation_output'), exist_ok=True)
     touch(os.path.join(args.submission_dir, 'validation_output/report.html'))
     touch(os.path.join(args.submission_dir, 'validation_output/report.txt'))
     touch(os.path.join(args.submission_dir, 'validation_results.yaml'))
