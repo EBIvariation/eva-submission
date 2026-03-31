@@ -5,7 +5,7 @@ from functools import cached_property
 
 from ebi_eva_common_pyutils.config import cfg
 
-from eva_sub_cli_processing.sub_cli_utils import sub_ws_url_build, get_from_sub_ws
+from eva_sub_cli_processing.sub_cli_utils import sub_ws_url_build, get_from_sub_ws, put_to_sub_ws
 from eva_submission.eload_preparation import EloadPreparation
 from eva_submission.submission_config import EloadConfig
 
@@ -68,5 +68,11 @@ class SubCLIToEloadConverter(EloadPreparation):
         with open(metadata_json_file_path, "w", encoding="utf-8") as open_file:
             json.dump(self.metadata_json, open_file, indent=4)
 
-    def add_submission_id_to_config(self):
+    def add_submission_id_to_config(self, source="eva-sub-cli"):
+        json_data = {
+            "eload": self.eload_num,
+            "submissionId": self.submission_id,
+            "source": source
+        }
+        put_to_sub_ws(sub_ws_url_build("admin", "submission", "eload", "submissionId"), json_data=json_data)
         self.eload_cfg.set('submission', 'submission_id', value=self.submission_id)

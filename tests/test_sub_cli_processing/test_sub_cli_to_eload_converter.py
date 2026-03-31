@@ -192,7 +192,7 @@ class TestSubCliToEloadConverter(TestCase):
                   cfg['submissions']['webservice']['admin_password']))
         assert submission_obj == {'json_property': 'json_value'}
 
-
-    def test_store_submission_id_in_config(self):
+    @patch("requests.put")
+    def test_store_submission_id_in_config(self, mock_put):
         self.cli_to_eload.add_submission_id_to_config()
         assert self.submission_id == self.cli_to_eload.eload_cfg.query('submission', 'submission_id')

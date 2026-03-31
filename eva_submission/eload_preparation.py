@@ -357,8 +357,8 @@ class EloadPreparation(Eload):
         convert_spreadsheet_to_json(metadata_xlsx, metadata_json_file_path)
         self.eload_cfg.set('submission', 'metadata_json', value=metadata_json_file_path)
 
-    def add_submission_id_to_config(self):
-        json_response = get_from_sub_ws(sub_ws_url_build("admin", "submission", str(self.eload_num), "submissionId"))
+    def add_submission_id_to_config(self, source="email"):
+        json_response = get_from_sub_ws(sub_ws_url_build("admin", "submission", str(self.eload_num), "submissionId", source=source))
         if 'submissionId' in json_response and json_response['submissionId']:
             self.eload_cfg.set('submission', 'submission_id', value=json_response['submissionId'])
         else:
