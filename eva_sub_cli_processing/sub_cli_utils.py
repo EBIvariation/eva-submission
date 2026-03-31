@@ -54,4 +54,7 @@ def get_from_sub_ws(url):
 def put_to_sub_ws(url, json_data=None):
     response = requests.put(url, auth=sub_ws_auth(), json=json_data)
     response.raise_for_status()
+    if not response.text:
+        return None
+
     return response.json()
