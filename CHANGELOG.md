@@ -1,10 +1,14 @@
 Changelog for eva-submission
 ============================
 
-## 1.20.1 (unreleased)
+## 1.20.1 (2026-04-14)
 ----------------------
 
-- Nothing changed yet.
+* Add support for relative output directory in deprecation
+* Fix deprecation log file names
+* Add submission id to config file
+* Avoid overwriting eva sub cli validation results
+* Create a submission id <-> ELOAD link when submitted from eva-sub-cli
 
 
 ## 1.20.0 (2026-03-13)
