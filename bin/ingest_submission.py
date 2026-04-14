@@ -56,7 +56,7 @@ def main():
 
     with EloadIngestion(args.eload, nextflow_config=args.nextflow_config) as ingestion:
         ingestion.upgrade_to_new_version_if_needed()
-        ingestion.ingest(
+        ingestion.run_ingestion_and_qc_result(
             tasks=args.tasks,
             vep_cache_assembly_name=args.vep_cache_assembly_name,
             resume=args.resume

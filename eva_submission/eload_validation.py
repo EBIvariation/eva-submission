@@ -8,6 +8,7 @@ import yaml
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 
+from eva_sub_cli_processing import sub_cli_utils
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import resolve_single_file_path, get_nextflow_config_flag, get_nextflow_config
@@ -45,6 +46,7 @@ class EloadValidation(Eload):
         shutil.rmtree(output_dir)
 
         self.mark_valid_files_and_metadata()
+        self.update_submission_validation_status()
 
     def set_validation_task_result_valid(self, validation_tasks):
         for validation_task in validation_tasks:
@@ -56,13 +58,17 @@ class EloadValidation(Eload):
                     self.eload_cfg.set('validation', validation_task, 'forced', value=True)
 
         self.mark_valid_files_and_metadata()
+        self.update_submission_validation_status()
 
-    def mark_valid_files_and_metadata(self):
-        if all([
+    def _validation_complete(self):
+        return all([
             self.eload_cfg.query('validation', validation_task, 'pass', ret_default=False) or
             self.eload_cfg.query('validation', validation_task, 'forced', ret_default=False)
             for validation_task in self.all_validation_tasks
-        ]):
+        ])
+
+    def mark_valid_files_and_metadata(self):
+        if self._validation_complete():
             for analysis_alias in self.eload_cfg.query('submission', 'analyses'):
                 u_analysis_alias = self._unique_alias(analysis_alias)
                 self.eload_cfg.set('validation', 'valid', 'analyses', u_analysis_alias,
@@ -77,6 +83,12 @@ class EloadValidation(Eload):
             elif self.eload_cfg.query('submission', 'metadata_spreadsheet'):
                 self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
                                    value=self.eload_cfg.query('submission', 'metadata_spreadsheet'))
+
+    def update_submission_validation_status(self):
+        if self._validation_complete():
+            self.update_submission_status(sub_cli_utils.VALIDATION, sub_cli_utils.SUCCESS)
+        else:
+            self.update_submission_status(sub_cli_utils.VALIDATION, sub_cli_utils.FAILURE)
 
     def _get_vcf_files(self):
         vcf_files = []

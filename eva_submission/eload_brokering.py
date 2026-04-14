@@ -9,6 +9,7 @@ import yaml
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 
+from eva_sub_cli_processing import sub_cli_utils
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.ENA_submission.upload_to_ENA import ENAUploader, ENAUploaderAsync
 from eva_submission.biosample_submission.biosamples_submitters import SampleMetadataSubmitter, SampleReferenceSubmitter, \
@@ -37,6 +38,7 @@ class EloadBrokering(Eload):
         self.broker_to_ena(force=('ena' in brokering_tasks_to_force), existing_project=existing_project,
                            async_upload=async_upload, dry_ena_upload=dry_ena_upload, output_format=output_format)
         self.update_biosamples_with_study(force=('update_biosamples' in brokering_tasks_to_force))
+        self.update_submission_brokering_status()
 
     def prepare_brokering(self, force=False):
         valid_analyses = self.eload_cfg.query('validation', 'valid', 'analyses', ret_default=[])
@@ -384,3 +386,9 @@ Archival Confirmation Text:
 
     def _brokering_complete(self):
         return all([self.eload_cfg.query('brokering', key, 'pass') for key in ['ena', 'Biosamples']])
+
+    def update_submission_brokering_status(self):
+        if self._brokering_complete():
+            self.update_submission_status(sub_cli_utils.BROKERING, sub_cli_utils.SUCCESS)
+        else:
+            self.update_submission_status(sub_cli_utils.BROKERING, sub_cli_utils.FAILURE)

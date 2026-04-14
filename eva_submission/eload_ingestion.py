@@ -21,12 +21,14 @@ from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query, execute
 from ebi_eva_internal_pyutils.spring_properties import SpringPropertiesGenerator
 from requests import HTTPError
 
+from eva_sub_cli_processing import sub_cli_utils
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.eload_submission import Eload
 from eva_submission.eload_utils import provision_new_database_for_variant_warehouse, check_project_exists_in_evapro, \
     get_nextflow_config_flag, get_nextflow_config
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
 from eva_submission.submission_config import EloadConfig
+from eva_submission.submission_qc_checks import EloadQC
 from eva_submission.vep_utils import get_vep_and_vep_cache_version
 
 project_dirs = {
@@ -59,6 +61,10 @@ class EloadIngestion(Eload):
         self.properties_generator = SpringPropertiesGenerator(self.maven_profile, self.private_settings_file)
         self.loader = EvaProjectLoader(self.eload_num)
         self.nextflow_config = nextflow_config
+
+    def run_ingestion_and_qc_result(self, tasks=None, vep_cache_assembly_name=None, resume=False):
+        self.ingest(tasks, vep_cache_assembly_name, resume)
+        self.qc_ingestion()
 
     def ingest(
             self,
@@ -119,6 +125,10 @@ class EloadIngestion(Eload):
         if clustering_performed_on_assembly:
             self._update_clustering_records(clustering_performed_on_assembly)
 
+    def qc_ingestion(self):
+        eload_qc = EloadQC(self.eload_num)
+        eload_qc.run_qc_checks_for_submission()
+        self.update_submission_ingestion_status()
 
     def _update_metadata_post_ingestion(self):
         self.loader.insert_browsable_files_for_project(self.project_accession)
@@ -675,3 +685,12 @@ class EloadIngestion(Eload):
                           f"in {self.project_dir.joinpath(project_dirs['logs'])} for more details.")
             self.error(error_msg)
             raise e
+
+    def _ingestion_complete(self):
+        return self.check_eload_qc_is_successful()
+
+    def update_submission_ingestion_status(self):
+        if self._ingestion_complete():
+            self.update_submission_status(sub_cli_utils.INGESTION, sub_cli_utils.SUCCESS)
+        else:
+            self.update_submission_status(sub_cli_utils.INGESTION, sub_cli_utils.FAILURE)
