@@ -126,8 +126,11 @@ class EloadIngestion(Eload):
             self._update_clustering_records(clustering_performed_on_assembly)
 
     def qc_ingestion(self):
-        eload_qc = EloadQC(self.eload_num)
-        eload_qc.run_qc_checks_for_submission()
+        try:
+            eload_qc = EloadQC(self.eload_num)
+            eload_qc.run_qc_checks_for_submission()
+        except Exception as e:
+            self.warning(f'Error running QC Ingestion: {e}')
         self.update_submission_ingestion_status()
 
     def _update_metadata_post_ingestion(self):
