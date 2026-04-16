@@ -33,5 +33,5 @@ setup(
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9'
     ],
-    scripts=glob.glob(join(dirname(__file__), 'bin', '*.py'))
+    scripts=glob.glob(join(dirname(__file__), 'bin', '*.py')) + glob.glob(join(dirname(__file__), 'non_standard_script', '*.py'))
 )

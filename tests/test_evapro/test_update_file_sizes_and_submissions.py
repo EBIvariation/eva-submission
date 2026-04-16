@@ -6,9 +6,9 @@ from unittest.mock import patch, PropertyMock, Mock
 import pytest
 from sqlalchemy import create_engine, select
 
-from bin.update_file_sizes_and_submissions import update_file_sizes_and_add_missing_submissions_for_project
+from non_standard_script.update_file_sizes_and_submissions import update_file_sizes_and_add_missing_submissions_for_project
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
-from eva_submission.evapro.table import metadata, Project, Analysis, File, Submission
+from eva_submission.evapro.table import metadata, File, Submission
 from eva_submission.submission_config import load_config
 
 
