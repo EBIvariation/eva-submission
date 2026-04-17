@@ -17,6 +17,7 @@
 import json
 import logging
 import os
+import shutil
 from argparse import ArgumentParser
 
 from ebi_eva_common_pyutils.config import cfg
@@ -50,6 +51,11 @@ def get_submission_id_from_db(project_title):
 def add_submission_id_for_eload(eload_num, dry_run=False):
     # Read metadata JSON path and project_title from ELOAD config
     project_title = None
+    # Check if the ELOAD directory exists before creating it
+    eload_dir = os.path.abspath(os.path.join(cfg['eloads_dir'], f'ELOAD_{eload_num}'))
+    to_delete = None
+    if not os.path.isdir(eload_dir):
+        to_delete = eload_dir
     with EloadPreparation(eload_num) as eload:
         metadata_json_path = eload.eload_cfg.query('submission', 'metadata_json')
 
@@ -82,7 +88,8 @@ def add_submission_id_for_eload(eload_num, dry_run=False):
     else:
         with EloadPreparation(eload_num) as eload:
             eload.add_submission_id_to_config()
-
+    if to_delete:
+        shutil.rmtree(to_delete)
 
 def main():
     argparse = ArgumentParser(
