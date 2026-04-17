@@ -127,7 +127,7 @@ class EloadIngestion(Eload):
 
     def qc_ingestion(self):
         try:
-            eload_qc = EloadQC(self.eload_num)
+            eload_qc = EloadQC(self.eload_num, config_object=self.eload_cfg)
             eload_qc.run_qc_checks_for_submission()
         except Exception as e:
             self.warning(f'Error running QC Ingestion: {e}')
