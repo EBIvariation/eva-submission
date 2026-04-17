@@ -111,7 +111,7 @@ Naming convention check:
 
     def test_update_config_with_cli_results(self):
         self.validation._update_config_with_cli_results(
-            os.path.join(self.validation._get_dir('eva_sub_cli'), 'validation_results.yaml'))
+            os.path.join(self.validation._get_dir('eva_sub_cli'), 'validation_submission_dir', 'validation_results.yaml'))
         expected_aggregation = {
             'ELOAD_2_Analysis A': None,
             'ELOAD_2_Analysis B': 'basic',

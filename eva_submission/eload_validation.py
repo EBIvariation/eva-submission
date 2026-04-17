@@ -278,7 +278,7 @@ class EloadValidation(Eload):
         return '\n'.join(reports)
 
     def _eva_sub_cli_report(self):
-        report_path = os.path.join(self._get_dir('eva_sub_cli'), 'validation_output', 'report.txt')
+        report_path = os.path.join(self._get_dir('eva_sub_cli'), 'validation_submission_dir', 'validation_output', 'report.txt')
         if os.path.exists(report_path):
             with open(report_path) as open_report:
                 return open_report.read()
