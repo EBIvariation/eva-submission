@@ -11,6 +11,7 @@ from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from ebi_eva_internal_pyutils.metadata_utils import get_metadata_connection_handle
 from packaging import version
 
+from eva_sub_cli_processing.sub_cli_utils import put_to_sub_ws, sub_ws_url_build
 from eva_submission import __version__
 from eva_submission.config_migration import upgrade_version_0_1, upgrade_version_1_14_to_1_15, \
     upgrade_version_1_15_to_1_16
@@ -74,6 +75,10 @@ class Eload(AppLogger):
     @cached_property
     def now(self):
         return datetime.now()
+
+    @cached_property
+    def submission_id(self):
+        return self.eload_cfg.query('submission', 'submission_id')
 
     def _unique_alias(self, alias):
         if alias and not alias.startswith(self.eload):
@@ -252,3 +257,23 @@ class Eload(AppLogger):
         if check_dict and check_dict.get('pass'):
             return 'PASS'
         return 'FAIL'
+
+    def update_submission_status(self, submission_step, step_status):
+        try:
+            if self.submission_id:
+                put_to_sub_ws(sub_ws_url_build('admin', 'submission-process', self.submission_id,
+                                               submission_step, step_status))
+            else:
+                self.warning(f'Could not update submission status ({submission_step} - {step_status}) as no submission id provided for Eload {self.eload}')
+        except Exception as e:
+            self.warning(f"Could not update status {step_status} for the submission step '{submission_step}'. Error {e}")
+
+    def check_eload_qc_is_successful(self):
+        from eva_submission.submission_qc_checks import EloadQC
+        qc_results = self.eload_cfg.query(EloadQC.config_section)
+        if not qc_results:
+            return False
+        for check in qc_results:
+            if qc_results[check] not in EloadQC.SUCCESSFUL_RESULTS:
+                return False
+        return True
