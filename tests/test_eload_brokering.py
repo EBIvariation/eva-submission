@@ -136,8 +136,41 @@ class TestEloadBrokering(TestCase):
             self.eload._run_brokering_prep_workflow()
         m_execute.assert_called_once_with(
             'Nextflow brokering preparation process',
-            f'path_to_nextflow {nf_script} -params-file {config_file} -work-dir {temp_dir} '
+            f'path_to_nextflow {nf_script} -params-file {config_file} -work-dir {temp_dir}  '
         )
+        assert self.eload.eload_cfg.query('brokering', 'prepare_brokering', 'nextflow_dir', 'preparation') == temp_dir
+
+    def test_run_brokering_prep_workflow_resume(self):
+        self.eload.eload_cfg.set('validation', 'valid', 'analyses', value={
+            'analysis_alias1': {
+                'vcf_files': [os.path.join(self.resources_folder, 'vcf_file.vcf')],
+            },
+        })
+        self.eload.eload_cfg.set('submission', 'analyses', value={
+            'analysis_alias1': {
+                'assembly_fasta': os.path.join(self.resources_folder, 'reference_genome.fa'),
+                'assembly_report': os.path.join(self.resources_folder, 'reference_genome_assembly_report.tx'),
+                'assembly_accession': 'GCA000000.1'
+            },
+        })
+        cfg.content['executable'] = {
+            'nextflow': 'path_to_nextflow',
+            'python': {'script_path': 'path_to_script'}
+        }
+        existing_work_dir = os.path.join(self.eload.eload_dir, 'existing_work_dir')
+        os.makedirs(existing_work_dir)
+        self.eload.eload_cfg.set('brokering', 'prepare_brokering', 'nextflow_dir', 'preparation',
+                                 value=existing_work_dir)
+        nf_script = os.path.join(NEXTFLOW_DIR, 'prepare_brokering.nf')
+        config_file = os.path.join(self.eload.eload_dir, 'brokering_config_file.yaml')
+
+        with patch('eva_submission.eload_brokering.command_utils.run_command_with_output') as m_execute:
+            self.eload._run_brokering_prep_workflow(resume=True)
+        m_execute.assert_called_once_with(
+            'Nextflow brokering preparation process',
+            f'path_to_nextflow {nf_script} -params-file {config_file} -work-dir {existing_work_dir} -resume '
+        )
+        shutil.rmtree(existing_work_dir)
 
     def test_parse_bcftools_norm_report(self):
         normalisation_log = os.path.join(self.resources_folder, 'validations', 'bcftools_norm.log')

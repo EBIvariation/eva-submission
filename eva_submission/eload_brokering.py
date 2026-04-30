@@ -22,6 +22,8 @@ from eva_submission.submission_config import EloadConfig
 class EloadBrokering(Eload):
 
     all_brokering_tasks = ['preparation', 'biosamples', 'ena', 'update_biosamples']
+    config_section = 'brokering'
+    nextflow_complete_value = '<complete>'
 
     def __init__(self, eload_number: int, config_object: EloadConfig = None, nextflow_config=None):
         super().__init__(eload_number, config_object)
@@ -30,25 +32,27 @@ class EloadBrokering(Eload):
             self.eload_cfg['validation'] = {}
 
     def broker(self, brokering_tasks_to_force=None, existing_project=None, async_upload=False, dry_ena_upload=False,
-               output_format='json'):
+               output_format='json', resume=False):
         """Run the brokering process"""
         self.eload_cfg.set('brokering', 'brokering_date', value=self.now)
-        self.prepare_brokering(force=('preparation' in brokering_tasks_to_force))
+        self.prepare_brokering(force=('preparation' in brokering_tasks_to_force), resume=resume)
         self.upload_to_bioSamples(force=('biosamples' in brokering_tasks_to_force))
         self.broker_to_ena(force=('ena' in brokering_tasks_to_force), existing_project=existing_project,
                            async_upload=async_upload, dry_ena_upload=dry_ena_upload, output_format=output_format)
         self.update_biosamples_with_study(force=('update_biosamples' in brokering_tasks_to_force))
         self.update_submission_brokering_status()
 
-    def prepare_brokering(self, force=False):
+    def prepare_brokering(self, force=False, resume=False):
         valid_analyses = self.eload_cfg.query('validation', 'valid', 'analyses', ret_default=[])
         if not all([
             self.eload_cfg.query('brokering', 'analyses', analysis, 'vcf_files')
             for analysis in valid_analyses
         ]) or force:
-            output_dir = self._run_brokering_prep_workflow()
+            output_dir = self._run_brokering_prep_workflow(resume=resume)
             self._collect_brokering_prep_results(output_dir)
             shutil.rmtree(output_dir)
+            self.eload_cfg.set(self.config_section, 'prepare_brokering', 'nextflow_dir', 'preparation',
+                               value=self.nextflow_complete_value)
         else:
             self.info('Preparation has already been run, Skip!')
 
@@ -178,15 +182,24 @@ class EloadBrokering(Eload):
                     writer.writerow([vcf_file, fasta, report, assembly_accession])
         return vcf_files_mapping_csv
 
-    def _run_brokering_prep_workflow(self):
-        output_dir = self.create_nextflow_temp_output_directory()
+    def _run_brokering_prep_workflow(self, resume=False):
+        work_dir = None
+        if resume:
+            prev_work_dir = self.eload_cfg.query(self.config_section, 'prepare_brokering', 'nextflow_dir', 'preparation')
+            if prev_work_dir and prev_work_dir != self.nextflow_complete_value and os.path.exists(prev_work_dir):
+                work_dir = prev_work_dir
+            else:
+                self.warning('Work directory for prepare_brokering not found or already complete, '
+                             'will start from scratch.')
+        if not work_dir:
+            work_dir = self.create_nextflow_temp_output_directory()
+        self.eload_cfg.set(self.config_section, 'prepare_brokering', 'nextflow_dir', 'preparation', value=work_dir)
         cfg['executable']['python']['script_path'] = os.path.dirname(os.path.dirname(__file__))
         brokering_config = {
             'vcf_files_mapping': self._generate_csv_mappings(),
-            'output_dir': output_dir,
+            'output_dir': work_dir,
             'executable': cfg['executable']
         }
-        # run the brokering preparation
         brokering_config_file = os.path.join(self.eload_dir, 'brokering_config_file.yaml')
         with open(brokering_config_file, 'w') as open_file:
             yaml.safe_dump(brokering_config, open_file)
@@ -197,14 +210,15 @@ class EloadBrokering(Eload):
                 ' '.join((
                     cfg['executable']['nextflow'], brokering_script,
                     '-params-file', brokering_config_file,
-                    '-work-dir', output_dir,
+                    '-work-dir', work_dir,
+                    '-resume' if resume else '',
                     get_nextflow_config_flag(self.nextflow_config)
                 ))
             )
         except subprocess.CalledProcessError as e:
             self.error('Nextflow pipeline failed: aborting brokering')
             raise e
-        return output_dir
+        return work_dir
 
     def parse_bcftools_norm_report(self, norm_report):
         total = split = realigned = skipped = 0

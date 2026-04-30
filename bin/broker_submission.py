@@ -58,6 +58,8 @@ def main():
     argparse.add_argument('--nextflow_config', type=str, required=False,
                           help='Path to the configuration file that will be applied to the Nextflow process. '
                                'This will override other nextflow configuration files on the filesystem')
+    argparse.add_argument('--resume', action='store_true', default=False,
+                          help='Whether to resume an existing Nextflow process within brokering preparation.')
 
     log_cfg.add_stdout_handler()
     args = argparse.parse_args()
@@ -70,7 +72,8 @@ def main():
         brokering.upgrade_to_new_version_if_needed()
         if not args.report:
             brokering.broker(brokering_tasks_to_force=args.force, existing_project=args.project_accession,
-                             async_upload=not args.use_legacy_upload, dry_ena_upload=args.dry_ena_upload, output_format=args.output_format)
+                             async_upload=not args.use_legacy_upload, dry_ena_upload=args.dry_ena_upload,
+                             output_format=args.output_format, resume=args.resume)
         brokering.report()
 
 
