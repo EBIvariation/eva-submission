@@ -1,10 +1,14 @@
 Changelog for eva-submission
 ============================
 
-## 1.20.2 (unreleased)
+## 1.21.0 (2026-05-05)
 ----------------------
 
-- Nothing changed yet.
+ * Add option to resume the brokering preparation
+ * Change the brokering default upload to be asynchronous   
+ * Fix path to validation report
+ * New add_submission_id.py to backfill submission_id for each eload
+ * Update submission processing status after validation, brokering and ingestion
 
 
 ## 1.20.1 (2026-04-14)
