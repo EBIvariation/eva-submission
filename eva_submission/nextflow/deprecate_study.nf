@@ -70,6 +70,7 @@ process deprecate_submitted_variants {
     """
     java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.deprecate \
     --spring.config.location=file:${params.deprecation_props} \
+    --spring.batch.job.names=DEPRECATE_SUBMITTED_VARIANTS_FROM_FILE_JOB \
     --parameters.variantIdFile=$variant_id_file \
     --parameters.assemblyAccession=$assembly_accession
     """
