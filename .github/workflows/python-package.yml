@@ -7,14 +7,17 @@ on:
   push:
     branches: [ master ]
   pull_request:
-    branches: [ master, cli-tasks-integration ]
+    branches: [ master ]
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.8, 3.9]
+        python-version: [3.11]
         nextflow-version: [23.10.0]
         java-version: [11]
 
