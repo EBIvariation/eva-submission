@@ -29,7 +29,8 @@ class TestEvaProjectLoader(TestCase):
         return patch.object(self.loader, '_evapro_engine', side_effect=PropertyMock(return_value=engine))
 
     def load_project_from_ena_and_assert(self, project_accession, linked_project_info, taxonomies_info_set,
-                                         submissions_info_set, analyses_set, platform, experiment_types, assembly_info):
+                                         submissions_info_set, analyses_set, platform, experiment_types, assembly_info,
+                                         sequence_info=None):
         eload = 101
         engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
         with self.patch_evapro_engine(engine):
@@ -83,10 +84,14 @@ class TestEvaProjectLoader(TestCase):
             if platform:
                 assert set(p.platform for p in analysis.platforms).pop() == platform
             assert set(e.experiment_type for e in analysis.experiment_types).pop() == experiment_types
-            assert (
-                       analysis.assembly_set.taxonomy_id, analysis.assembly_set.assembly_name,
-                       analysis.assembly_set.assembly_code
-                   ) == assembly_info
+            if assembly_info:
+                assert (
+                           analysis.assembly_set.taxonomy_id, analysis.assembly_set.assembly_name,
+                           analysis.assembly_set.assembly_code
+                       ) == assembly_info
+            if sequence_info:
+                assert set(s.sequence_accession for s in analysis.sequences) == set(sequence_info)
+
 
 
     @pytest.mark.skip(reason='Needs access to ERA database')
@@ -113,6 +118,20 @@ class TestEvaProjectLoader(TestCase):
             platform='Illumina NextSeq 500',
             experiment_types='Curation',
             assembly_info=(207598, 'GRCh38', 'grch38')
+        )
+
+    @pytest.mark.skip(reason='Needs access to ERA database')
+    def test_load_project_from_ena(self):
+        self.load_project_from_ena_and_assert(
+            project_accession='PRJEB95880',
+            linked_project_info=None,
+            taxonomies_info_set={(41396, None, 'Tectona grandis', 'tgrandis')},
+            submissions_info_set={('ERA33759214', 'ADD', 'PROJECT')},
+            analyses_set={'ERZ27397066', 'ERZ27397067', 'ERZ27397068'},
+            platform=None,
+            experiment_types='Target sequencing',
+            assembly_info=None,
+            sequence_info=['OK500352.1']
         )
 
     def test_load_project_without_ERA(self):
