@@ -155,5 +155,5 @@ drwxrwxr-x    2 ftp      ftp        102400 Apr 13 13:59 2_collection
             assert get_releases(ftp, 'pub', current_only=True) == {116: 'pub/release-116'}
 
         with get_ftp_connection(ensembl_genome_ftp_url) as ftp:
-            assert get_releases(ftp, ensembl_genome_dirs[0], current_only=True) == {62: 'ensemblgenomes/pub/plants/release-62'}
+            assert get_releases(ftp, ensembl_genome_dirs[0], current_only=True) == {63: 'ensemblgenomes/pub/plants/release-63'}
 
