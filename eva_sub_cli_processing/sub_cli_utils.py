@@ -38,7 +38,13 @@ def sub_ws_auth():
 def sub_ws_url_build(*args, **kwargs):
     url = cfg.query('submissions', 'webservice', 'url') + '/' + '/'.join(args)
     if kwargs:
-        return url + '?' + '&'.join(f'{k}={v}' for k, v in kwargs.items())
+        query_params = []
+        for k, v in kwargs.items():
+            if isinstance(v, list):
+                query_params.extend([f'{k}={v2}' for v2 in v])
+            else:
+                query_params.append(f'{k}={v}')
+        return url + '?' + '&'.join(query_params)
     else:
         return url
 
