@@ -1,6 +1,6 @@
 cached-property
 cerberus
-ebi-eva-common-pyutils[eva-internal]==0.9.9.dev0
+ebi-eva-common-pyutils[eva-internal]>=1.0.0.dev1
 eva_sub_cli>=0.4.14
 humanize
 lxml
