@@ -198,7 +198,6 @@ class StudyDeprecation(AppLogger):
                 chunk_size=100
             ),
             {
-                'spring.batch.job.names': 'DEPRECATE_SUBMITTED_VARIANTS_FROM_FILE_JOB',
                 'parameters.deprecationIdSuffix': deprecation_suffix,
                 'parameters.deprecationReason': deprecation_reason,
             }
@@ -214,9 +213,7 @@ class StudyDeprecation(AppLogger):
         The db_name and study id are supplied on the Nextflow command line.
         Returns the path to the written properties file.
         """
-        properties = self.properties_generator.get_accession_import_properties(
-            opencga_path=cfg['opencga_path']
-        )
+        properties = self.properties_generator.get_accession_import_properties()
         output_path = os.path.join(self.output_dir, f'{DROP_STUDY}.properties')
         with open(output_path, 'w') as f:
             f.write(properties)
