@@ -5,9 +5,9 @@ name: Python package
 
 on:
   push:
-    branches: [ master, java-21 ]
+    branches: [ master ]
   pull_request:
-    branches: [ master, java-21 ]
+    branches: [ master ]
 
 permissions:
   contents: read
