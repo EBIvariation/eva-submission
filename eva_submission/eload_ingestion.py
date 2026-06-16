@@ -562,16 +562,13 @@ class EloadIngestion(Eload):
             annotation_dir=self.project_dir.joinpath(project_dirs['annotation']),
             stats_dir=self.project_dir.joinpath(project_dirs['stats']),
             vep_cache_path=cfg['vep_cache_path'],
-            opencga_path=cfg['opencga_path']
         )
         with open(output_file_path, 'w') as open_file:
             open_file.write(properties)
         return output_file_path
 
     def create_accession_import_properties(self, output_file_path):
-        properties = self.properties_generator.get_accession_import_properties(
-            opencga_path=cfg['opencga_path']
-        )
+        properties = self.properties_generator.get_accession_import_properties()
         with open(output_file_path, 'w') as open_file:
             open_file.write(properties)
         return output_file_path
