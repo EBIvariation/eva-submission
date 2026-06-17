@@ -1,10 +1,13 @@
 Changelog for eva-submission
 ============================
 
-## 1.21.1 (unreleased)
+## 1.22.0 (2026-06-17)
 ----------------------
 
-- Nothing changed yet.
+* Fix archive only metadata ingestion
+* New script to retrieve and list the submissions from the submission-ws
+* New script to manually change the status of a submission from the submission-ws
+* Change spring properties to use spring3.4/java21 
 
 
 ## 1.21.0 (2026-05-05)
