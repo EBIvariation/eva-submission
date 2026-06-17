@@ -117,13 +117,17 @@ class EvaProjectLoader(AppLogger):
             ) = analysis_info
             if analysis_accession_to_load and analysis_accession != analysis_accession_to_load:
                 continue
-            assembly_set_obj = self.insert_assembly_set(taxonomy_obj=taxonomy_obj, assembly_accession=assembly)
+            if assembly:
+                assembly_set_obj = self.insert_assembly_set(taxonomy_obj=taxonomy_obj, assembly_accession=assembly)
+                assembly_set_id = assembly_set_obj.assembly_set_id
+            else:
+                assembly_set_id = None
             sequence_objs = self.insert_referenced_sequences(sequences)
 
             analysis_obj = self.insert_analysis(
                 analysis_accession=analysis_accession, title=analysis_title, alias=analysis_alias,
                 description=analysis_description, center_name=center_name, date=first_created,
-                assembly_set_id=assembly_set_obj.assembly_set_id, vcf_reference_accession=assembly)
+                assembly_set_id=assembly_set_id, vcf_reference_accession=assembly)
             if analysis_obj not in project_obj.analyses:
                 project_obj.analyses.append(analysis_obj)
             if analysis_obj and sequence_objs:
@@ -174,7 +178,7 @@ class EvaProjectLoader(AppLogger):
                 ftp_file = get_ftp_path(filename=filename, analysis_accession_id=analysis_accession)
                 file_obj = self.insert_file(
                     project_accession=project_accession,
-                    assembly_set_id=assembly_set_obj.assembly_set_id,
+                    assembly_set_id=assembly_set_id,
                     ena_submission_file_id=submission_file_id,
                     filename=filename,
                     file_md5=file_md5,
@@ -688,7 +692,7 @@ class EvaProjectLoader(AppLogger):
             result = self.eva_session.execute(query).fetchone()
             if result:
                 browsable_file_obj = result.BrowsableFile
-            else:
+            elif assembly_set_id:
                 browsable_file_obj = BrowsableFile(
                     file_id=file_obj.file_id, ena_submission_file_id=ena_submission_file_id, filename=filename,
                     project_accession=project_accession, assembly_set_id=assembly_set_id

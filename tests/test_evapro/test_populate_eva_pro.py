@@ -29,7 +29,8 @@ class TestEvaProjectLoader(TestCase):
         return patch.object(self.loader, '_evapro_engine', side_effect=PropertyMock(return_value=engine))
 
     def load_project_from_ena_and_assert(self, project_accession, linked_project_info, taxonomies_info_set,
-                                         submissions_info_set, analyses_set, platform, experiment_types, assembly_info):
+                                         submissions_info_set, analyses_set, platform, experiment_types, assembly_info,
+                                         sequence_info=None):
         eload = 101
         engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
         with self.patch_evapro_engine(engine):
@@ -83,10 +84,14 @@ class TestEvaProjectLoader(TestCase):
             if platform:
                 assert set(p.platform for p in analysis.platforms).pop() == platform
             assert set(e.experiment_type for e in analysis.experiment_types).pop() == experiment_types
-            assert (
-                       analysis.assembly_set.taxonomy_id, analysis.assembly_set.assembly_name,
-                       analysis.assembly_set.assembly_code
-                   ) == assembly_info
+            if assembly_info:
+                assert (
+                           analysis.assembly_set.taxonomy_id, analysis.assembly_set.assembly_name,
+                           analysis.assembly_set.assembly_code
+                       ) == assembly_info
+            if sequence_info:
+                assert set(s.sequence_accession for s in analysis.sequences) == set(sequence_info)
+
 
 
     @pytest.mark.skip(reason='Needs access to ERA database')
@@ -115,111 +120,150 @@ class TestEvaProjectLoader(TestCase):
             assembly_info=(207598, 'GRCh38', 'grch38')
         )
 
-    def test_load_project_without_ERA(self):
-        engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
-        project = 'PRJEB36082'
-        eload = 101
-        project_info = (
+    @pytest.mark.skip(reason='Needs access to ERA database')
+    def test_load_project_from_ena(self):
+        self.load_project_from_ena_and_assert(
+            project_accession='PRJEB95880',
+            linked_project_info=None,
+            taxonomies_info_set={(41396, None, 'Tectona grandis', 'tgrandis')},
+            submissions_info_set={('ERA33759214', 'ADD', 'PROJECT')},
+            analyses_set={'ERZ27397066', 'ERZ27397067', 'ERZ27397068'},
+            platform=None,
+            experiment_types='Target sequencing',
+            assembly_info=None,
+            sequence_info=['OK500352.1']
+        )
+
+    def seed_project_to_mock_ERA(self, **kwargs):
+        project = kwargs.get('project', 'PRJEB36082')
+        eload = kwargs.get('eload', 101)
+        parent_projects = kwargs.get('parent_projects', ['PRJNA9558'])
+        project_info = kwargs.get('project_info', (
             'ERP119220', 'PRJEB36082', 'ERA2336002',
-            'Shanghai Jiao Tong University Affiliated Sixth People’s Hospital', 'CTSK', 'Other',
+            "Shanghai Jiao Tong University Affiliated Sixth People's Hospital", 'CTSK', 'Other',
             datetime.datetime(2020, 1, 8, 11, 23, 31),
             'CTSK gene polymorphism', '9606', 'Homo sapiens', None, ''
-        )
-        submission_info = [
+        ))
+        submission_info = kwargs.get('submission_info', [
             ('ERA27275681', 'ELOAD_1194', datetime.datetime(2023, 9, 28, 15, 54, 7),
              '2023-10-01', {'type': 'ADD', 'schema': 'project', 'source': 'ELOAD_1194.Project.xml'})
-        ]
-        analysis_info = [
+        ])
+        analysis_info = kwargs.get('analysis_info', [
             ('ERZ498176', 'Identification of a large SNP dataset in Larimichthys crocea', 'Lc-SNP',
              'The large yellow croaker, Larimichthys crocea is a commercially important drum fish (Family: Sciaenidae) native to the East and South China Sea. Habitat deterioration and overfishing have led to significant population decline and the collapse of its fishery over the past decades. In this study, we employed SLAF-seq (specific-locus amplified fragment sequencing) technology to identify single nucleotide polymorphism (SNP) loci across the genome of L. crocea. Sixty samples were selected for SLAF analysis out of 1,000 progeny in the same cohort of a cultured stock. Our analysis obtained a total of 151,253 SLAFs, of which 65.88% (99,652) were identified to be polymorphic, scoring a total of 710,567 SNPs. Further filtration resulted in a final panel of 1,782 SNP loci. The data derived from this work could be beneficial for understanding the genetics of complex phenotypic traits, as well as for developing marker selection-assisted breeding programs in the L. crocea aquaculture.',
              'SEQUENCE_VARIATION', 'Zhejiang Ocean University',
              datetime.datetime(2018, 3, 26, 15, 33, 35),
              'GCA_000972845.1', None, None, {'GS00000.1'}, {'Whole genome sequencing'}, {'Illumina HiSeq 2500'})
-        ]
-        samples_info = [
+        ])
+        samples_info = kwargs.get('samples_info', [
             ('ERS18360856', 'SAMEA115348712'), ('ERS18360857', 'SAMEA115348713'), ('ERS18360858', 'SAMEA115348714')
-        ]
-        files_info = [
+        ])
+        files_info = kwargs.get('files_info', [
             ('ERZ293539', 'ERF11112570', 'IRIS_313-12319.snp.vcf.gz.tbi', 'b98e6396a38b1658d9e0116692e1dae3', 'TABIX',
              654781, 4),
             ('ERZ293539', 'ERF11112569', 'IRIS_313-12319.snp.vcf.gz', '642b2e31ce4fc6b8c92eb2dc53630d47', 'VCF',
              68320760281, 4)
-        ]
+        ])
+
+        engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
         with self.patch_evapro_engine(engine):
             metadata.create_all(engine)
-            # Prepare the platforms that are supposed to be in the database before the load
-            platform = Platform(platform='Illumina HiSeq 2500', manufacturer='Illumina')
-
-            self.loader.eva_session.add(platform)
-            # Add a dummy project to initiate eva_study_accession
-            project = Project(project_accession='dummy', center_name='dummy', alias='dummy', title='dummy',
-                              description='dummy', scope='dummy', material='dummy', type='dummy', study_type='dummy',
-                              secondary_study_id='dummy', eva_study_accession=1)
-            self.loader.eva_session.add(project)
-
+            self.loader.eva_session.add(Platform(platform='Illumina HiSeq 2500', manufacturer='Illumina'))
+            dummy_project = Project(
+                project_accession='dummy', center_name='dummy', alias='dummy', title='dummy',
+                description='dummy', scope='dummy', material='dummy', type='dummy', study_type='dummy',
+                secondary_study_id='dummy', eva_study_accession=1
+            )
+            self.loader.eva_session.add(dummy_project)
             self.loader.eva_session.commit()
-            # Populate the ENAFinder
             self.loader.ena_project_finder = PropertyMock(
                 find_project_from_ena_database=Mock(return_value=project_info),
-                find_parent_projects=Mock(return_value=['PRJNA9558']),
+                find_parent_projects=Mock(return_value=parent_projects),
                 find_ena_submission_for_project=Mock(return_value=submission_info),
                 find_analysis_in_ena=Mock(return_value=analysis_info),
                 find_samples_in_ena=Mock(return_value=samples_info),
                 find_files_in_ena=Mock(return_value=files_info)
             )
-            self.loader.load_project_from_ena(project, eload)
-            session = self.loader.eva_session
-            # Loaded project
-            result = session.execute(select(Project).where(Project.project_accession != 'dummy')).fetchone()
-            project = result.Project
-            assert project.project_accession == 'PRJEB36082'
-            assert project.eva_study_accession == 2
 
-            # Loaded Project Link
-            result = session.execute(select(LinkedProject)).fetchone()
-            linked_project = result.LinkedProject
+        return engine, {
+            'project': project,
+            'eload': eload,
+            'parent_projects': parent_projects,
+            'project_info': project_info,
+            'submission_info': submission_info,
+            'analysis_info': analysis_info,
+            'samples_info': samples_info,
+            'files_info': files_info,
+        }
+
+    def assert_for_loaded_project(self, engine, values, **kwargs):
+        expected_taxonomies = kwargs.get('expected_taxonomies', {(9606, 'human', 'Homo sapiens', 'hsapiens')})
+        expected_assembly = kwargs.get('expected_assembly', (9606, 'L_crocea_1.0', 'lcrocea10'))
+        session = self.loader.eva_session
+
+        # Loaded project
+        result = session.execute(select(Project).where(Project.project_accession != 'dummy')).fetchone()
+        loaded_project = result.Project
+        assert loaded_project.project_accession == values['project']
+        assert loaded_project.eva_study_accession == 2
+
+        # Loaded Project Link
+        result = session.execute(select(LinkedProject)).fetchone()
+        linked_project = result.LinkedProject
+        assert (
+            linked_project.project_accession,
+            linked_project.linked_project_accession,
+            linked_project.linked_project_relation
+        ) == (values['project'], values['parent_projects'][0], 'PARENT')
+
+        # Loaded Taxonomies
+        if expected_taxonomies is not None:
+            taxonomies = [r.Taxonomy for r in session.execute(select(Taxonomy)).fetchall()]
+            assert set([(t.taxonomy_id, t.common_name, t.scientific_name, t.taxonomy_code)
+                        for t in taxonomies]) == expected_taxonomies
+
+        # Loaded Submissions
+        submissions = [r.Submission for r in session.execute(select(Submission)).fetchall()]
+        assert set([(s.submission_accession, s.action, s.type) for s in submissions]) == \
+               {(values['submission_info'][0][0], 'ADD', 'PROJECT')}
+
+        # Loaded analysis
+        analyses = [r.Analysis for r in session.execute(select(Analysis)).fetchall()]
+        assert set(a.analysis_accession for a in analyses) == {info[0] for info in values['analysis_info']}
+        analysis = analyses[0]
+        assert set(p.platform for p in analysis.platforms) == values['analysis_info'][0][12]
+        assert set(e.experiment_type for e in analysis.experiment_types) == values['analysis_info'][0][11]
+        if expected_assembly is not None:
             assert (
-                       linked_project.project_accession,
-                       linked_project.linked_project_accession,
-                       linked_project.linked_project_relation
-                   ) == ('PRJEB36082', 'PRJNA9558', 'PARENT')
+                analysis.assembly_set.taxonomy_id,
+                analysis.assembly_set.assembly_name,
+                analysis.assembly_set.assembly_code
+            ) == expected_assembly
+        else:
+            assert analysis.assembly_set is None
+        assert analysis.sequences[0].sequence_accession == next(iter(values['analysis_info'][0][10]))
+        assert [f.filename for f in analysis.files] == [info[2] for info in values['files_info']]
+        assert [f.file_size for f in analysis.files] == [info[5] for info in values['files_info']]
 
-            # Loaded Taxonomies
-            taxonomies = [
-                result.Taxonomy
-                for result in session.execute(select(Taxonomy)).fetchall()
-            ]
-            assert set([(taxonomy.taxonomy_id, taxonomy.common_name, taxonomy.scientific_name, taxonomy.taxonomy_code)
-                        for taxonomy in taxonomies]) == {(9606, 'human', 'Homo sapiens', 'hsapiens')}
+    def test_load_project_without_ERA(self):
+        engine, values = self.seed_project_to_mock_ERA()
+        with self.patch_evapro_engine(engine):
+            self.loader.load_project_from_ena(values['project'], values['eload'])
+            self.assert_for_loaded_project(engine, values)
 
-            # Loaded Submissions
-            submissions = [
-                result.Submission
-                for result in session.execute(select(Submission)).fetchall()
-            ]
-            assert set([(submission.submission_accession, submission.action, submission.type) for submission in
-                        submissions]) == {('ERA27275681', 'ADD', 'PROJECT')}
-
-            # Loaded analysis
-            analyses = [
-                result.Analysis
-                for result in session.execute(select(Analysis)).fetchall()
-            ]
-
-            assert set([analysis.analysis_accession for analysis in analyses]) == {'ERZ498176'}
-            analysis = analyses[0]
-            assert set(p.platform for p in analysis.platforms) == {'Illumina HiSeq 2500'}
-            assert set(e.experiment_type for e in analysis.experiment_types) == {'Whole genome sequencing'}
-            assert (
-                       analysis.assembly_set.taxonomy_id, analysis.assembly_set.assembly_name,
-                       analysis.assembly_set.assembly_code
-                   ) == (9606, 'L_crocea_1.0', 'lcrocea10')
-            assert analysis.sequences[0].sequence_accession == 'GS00000.1'
-            file_names = [f.filename for f in analysis.files]
-            file_size = [f.file_size for f in analysis.files]
-            assert file_names == ['IRIS_313-12319.snp.vcf.gz.tbi', 'IRIS_313-12319.snp.vcf.gz']
-            assert file_size == [654781, 68320760281]
-
+    def test_load_project_without_ERA_single_sequence_only(self):
+        analysis_info =  [
+            ('ERZ498176', 'Identification of a large SNP dataset in Larimichthys crocea', 'Lc-SNP',
+             'The large yellow croaker, Larimichthys crocea is a commercially important drum fish (Family: Sciaenidae) native to the East and South China Sea. Habitat deterioration and overfishing have led to significant population decline and the collapse of its fishery over the past decades. In this study, we employed SLAF-seq (specific-locus amplified fragment sequencing) technology to identify single nucleotide polymorphism (SNP) loci across the genome of L. crocea. Sixty samples were selected for SLAF analysis out of 1,000 progeny in the same cohort of a cultured stock. Our analysis obtained a total of 151,253 SLAFs, of which 65.88% (99,652) were identified to be polymorphic, scoring a total of 710,567 SNPs. Further filtration resulted in a final panel of 1,782 SNP loci. The data derived from this work could be beneficial for understanding the genetics of complex phenotypic traits, as well as for developing marker selection-assisted breeding programs in the L. crocea aquaculture.',
+             'SEQUENCE_VARIATION', 'Zhejiang Ocean University',
+             datetime.datetime(2018, 3, 26, 15, 33, 35),
+             None,  # <== NO ASSEMBLY PROVIDED
+             None, None, {'GS00000.1'}, {'Whole genome sequencing'}, {'Illumina HiSeq 2500'})
+        ]
+        engine, values = self.seed_project_to_mock_ERA(analysis_info=analysis_info)
+        with self.patch_evapro_engine(engine):
+            self.loader.load_project_from_ena(values['project'], values['eload'])
+            self.assert_for_loaded_project(engine, values, expected_assembly=None)
 
     def test_load_samples_from_vcf_file(self):
         sample_name_2_sample_accession = {'NA00001': 'SAME000001', 'NA00002': 'SAME000002', 'NA00003': 'SAME000003'}
