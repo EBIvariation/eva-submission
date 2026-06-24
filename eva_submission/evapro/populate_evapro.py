@@ -158,6 +158,8 @@ class EvaProjectLoader(AppLogger):
                 # TODO this mimics the behaviour of the perl script, but we should update
                 if plat_obj:
                     platform_objs.append(plat_obj)
+                else:
+                    self.warning(f'Platform {platform} not found in EVAPRO. Add it manually and run again')
             analysis_obj.platforms = platform_objs
 
             ###
