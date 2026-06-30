@@ -18,8 +18,8 @@ jobs:
     strategy:
       matrix:
         python-version: [3.11]
-        nextflow-version: [23.10.0]
-        java-version: [11]
+        nextflow-version: [25.10.4]
+        java-version: [21]
 
     steps:
     - uses: actions/checkout@v2
