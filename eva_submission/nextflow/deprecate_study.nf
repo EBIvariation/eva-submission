@@ -56,8 +56,7 @@ workflow {
 process deprecate_submitted_variants {
     label 'long_time', 'med_mem'
 
-    clusterOptions "-o $params.logs_dir/${log_filename}.log \
-                    -e $params.logs_dir/${log_filename}.err"
+    clusterOptions "-o $params.logs_dir/${log_filename}.log", "-e $params.logs_dir/${log_filename}.err"
 
     input:
     tuple val(assembly_accession), path(variant_id_file)
@@ -83,8 +82,8 @@ process deprecate_submitted_variants {
 process drop_study {
     label 'long_time', 'med_mem'
 
-    clusterOptions "-o $params.logs_dir/${log_filename}.log \
-                    -e $params.logs_dir/${log_filename}.err"
+    clusterOptions "-o $params.logs_dir/${log_filename}.log", "-e $params.logs_dir/${log_filename}.err"
+
     input:
     val db_name
 
