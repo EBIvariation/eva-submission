@@ -538,7 +538,7 @@ process import_accession {
 
     clusterOptions {
         log_filename = vcf_file.getFileName().toString()
-        return "-o $params.logs_dir/acc_import.${log_filename}.log", "-e $params.logs_dir/acc_import.${log_filename}.err"
+        return ["-o $params.logs_dir/acc_import.${log_filename}.log", "-e $params.logs_dir/acc_import.${log_filename}.err"]
     }
 
     input:
