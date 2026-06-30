@@ -40,7 +40,9 @@ jobs:
         python setup.py install
         # Install Nextflow
         mkdir /tmp/nextflow && cd /tmp/nextflow
-        wget -qO- https://github.com/nextflow-io/nextflow/releases/download/v${{ matrix.nextflow-version }}/nextflow-${{ matrix.nextflow-version }}-all | bash
+        wget -qO- https://github.com/nextflow-io/nextflow/releases/download/v${{ matrix.nextflow-version }}/nextflow-${{ matrix.nextflow-version }}-dist
+        mv nextflow-${{ matrix.nextflow-version }}-dist nextflow 
+        chmod +x nextflow
         echo "/tmp/nextflow" >> $GITHUB_PATH
         cd -
         # Build java dependencies
