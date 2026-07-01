@@ -49,7 +49,7 @@ def map_sort(sort_values):
     result = []
     for s in sort_values:
         parts = s.split(',', 1)
-        field = PARAM_MAP.get(parts[0], default=parts[0])
+        field = PARAM_MAP.get(parts[0], parts[0])
         result.append(','.join([field] + parts[1:]))
     return result
 
@@ -91,7 +91,7 @@ def main():
     argparse.add_argument('--processing_status', required=False, choices=PROCESSING_STATUS,
                           help='Filter by processing status')
     argparse.add_argument('--sort', required=False, nargs='*',  action='extend', metavar='FIELD[,asc|desc]',
-                          help='Sort by field with optional direction (e.g. uploadedTime,desc); repeatable')
+                          help='Sort by field with optional direction (e.g. uploadedTime,desc); repeatable', default=['uploadedTime,desc'])
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
     args = argparse.parse_args()
