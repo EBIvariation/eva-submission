@@ -218,8 +218,12 @@ process normalise_vcf {
 process accession_vcf {
     label 'long_time', 'default_mem'
 
-    clusterOptions "-o $params.logs_dir/${log_filename}.log \
-                    -e $params.logs_dir/${log_filename}.err"
+    clusterOptions {
+        return [
+          "-o ${params.logs_dir}/${log_filename}.log".toString(),
+          "-e ${params.logs_dir}/${log_filename}.err".toString()
+        ]
+    }
 
     input:
     tuple val(vcf_filename), val(vcf_file), val(assembly_accession), val(aggregation), val(fasta), val(report)
@@ -253,7 +257,12 @@ process accession_vcf {
 process qc_accession_vcf {
     label 'long_time', 'big_mem'
 
-    clusterOptions "-o $params.logs_dir/${log_filename}.log", "-e $params.logs_dir/${log_filename}.err"
+    clusterOptions {
+        return [
+          "-o ${params.logs_dir}/${log_filename}.log".toString(),
+          "-e ${params.logs_dir}/${log_filename}.err".toString()
+        ]
+    }
 
     input:
     tuple val(vcf_filename), val(vcf_file), val(assembly_accession), val(aggregation), val(fasta), val(report), path(accession_log_file), val(accessioned_vcf_path)
@@ -306,7 +315,12 @@ process qc_accession_vcf {
 process qc_duplicate_ss_acc {
     label 'long_time', 'med_mem'
 
-    clusterOptions "-o $params.logs_dir/${log_filename}.log", "-e $params.logs_dir/${log_filename}.err"
+    clusterOptions {
+        return [
+          "-o ${params.logs_dir}/${log_filename}.log".toString(),
+          "-e ${params.logs_dir}/${log_filename}.err".toString()
+        ]
+    }
 
     input:
     tuple val(vcf_filename), val(vcf_file), val(assembly_accession), val(aggregation), val(fasta), val(report), path(accession_log_file), val(accessioned_vcf_path)
@@ -396,7 +410,12 @@ process csi_index_vcf {
 process load_variants_vcf {
     label 'long_time', 'med_mem'
 
-    clusterOptions "-o $params.logs_dir/load_variants.${vcf_filename}.log","-e $params.logs_dir/load_variants.${vcf_filename}.err"
+    clusterOptions {
+        return [
+          "-o ${params.logs_dir}/load_variants.${vcf_filename}.log".toString(),
+          "-e ${params.logs_dir}/load_variants.${vcf_filename}.err".toString()
+        ]
+    }
 
     input:
     tuple val(vcf_filename), val(vcf_file), val(fasta), val(analysis_accession), val(db_name), val(vep_version), val(vep_cache_version), val(vep_species), val(aggregation), val(report)
@@ -413,7 +432,7 @@ process load_variants_vcf {
     pipeline_parameters += " --input.assembly.report=file:" + report.toString()
     pipeline_parameters += " --spring.data.mongodb.database=" + db_name.toString()
 
-    """
+"""
     java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
     """
 }
@@ -425,7 +444,12 @@ process load_variants_vcf {
 process run_vep_on_variants {
     label 'long_time', 'med_mem'
 
-    clusterOptions  "-o $params.logs_dir/annotation.${analysis_accession}.log", "-e $params.logs_dir/annotation.${analysis_accession}.err"
+    clusterOptions {
+        return [
+          "-o ${params.logs_dir}/annotation.${analysis_accession}.log".toString(),
+          "-e ${params.logs_dir}/annotation.${analysis_accession}.err".toString()
+        ]
+    }
 
     when:
     vep_version.trim() != "" && vep_cache_version.trim() != ""
@@ -465,7 +489,12 @@ process run_vep_on_variants {
 process calculate_variant_statistics_vcf {
     label 'long_time', 'med_mem'
 
-    clusterOptions "-o $params.logs_dir/variant.statistics.${analysis_accession}.log","-e $params.logs_dir/variant.statistics.${analysis_accession}.err"
+    clusterOptions {
+        return [
+          "-o ${params.logs_dir}/variant.statistics.${analysis_accession}.log".toString(),
+          "-e ${params.logs_dir}/variant.statistics.${analysis_accession}.err".toString()
+        ]
+    }
 
     when:
     // Statistics calculation is not required for Already aggregated analysis/study
@@ -501,7 +530,12 @@ process calculate_variant_statistics_vcf {
 process calculate_study_statistics_vcf {
     label 'long_time', 'med_mem'
 
-    clusterOptions "-o $params.logs_dir/study.statistics.${analysis_accession}.log", "-e $params.logs_dir/study.statistics.${analysis_accession}.err"
+    clusterOptions {
+        return [
+          "-o ${params.logs_dir}/study.statistics.${analysis_accession}.log".toString(),
+          "-e ${params.logs_dir}/study.statistics.${analysis_accession}.err".toString()
+        ]
+    }
 
     when:
     // Statistics calculation is not required for Already aggregated analysis/study
@@ -538,7 +572,10 @@ process import_accession {
 
     clusterOptions {
         log_filename = vcf_file.getFileName().toString()
-        return ["-o $params.logs_dir/acc_import.${log_filename}.log", "-e $params.logs_dir/acc_import.${log_filename}.err"]
+        return [
+          "-o ${params.logs_dir}/acc_import.${log_filename}.log".toString(),
+          "-e ${params.logs_dir}/acc_import.${log_filename}.err".toString()
+        ]
     }
 
     input:
