@@ -56,7 +56,12 @@ workflow {
 process deprecate_submitted_variants {
     label 'long_time', 'med_mem'
 
-    clusterOptions "-o $params.logs_dir/${log_filename}.log", "-e $params.logs_dir/${log_filename}.err"
+    clusterOptions {
+        return [
+          "-o ${params.logs_dir}/${log_filename}.log".toString(),
+          "-e ${params.logs_dir}/${log_filename}.err".toString()
+        ]
+    }
 
     input:
     tuple val(assembly_accession), path(variant_id_file)
@@ -67,7 +72,7 @@ process deprecate_submitted_variants {
     script:
     log_filename = "deprecate.${variant_id_file}_${assembly_accession}"
     """
-    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.deprecate \
+    java -Xmx${Math.max(1, task.memory.toGiga()-1)}G -jar $params.jar.deprecate \
     --spring.config.location=file:${params.deprecation_props} \
     --spring.batch.job.names=DEPRECATE_SUBMITTED_VARIANTS_FROM_FILE_JOB \
     --parameters.variantIdFile=$variant_id_file \
@@ -82,7 +87,12 @@ process deprecate_submitted_variants {
 process drop_study {
     label 'long_time', 'med_mem'
 
-    clusterOptions "-o $params.logs_dir/${log_filename}.log", "-e $params.logs_dir/${log_filename}.err"
+    clusterOptions {
+        return [
+          "-o ${params.logs_dir}/${log_filename}.log".toString(),
+          "-e ${params.logs_dir}/${log_filename}.err".toString()
+        ]
+    }
 
     input:
     val db_name
@@ -93,7 +103,7 @@ process drop_study {
     script:
     log_filename = "drop_study.${db_name}_${params.project_accession}"
     """
-    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.eva_pipeline \
+    java -Xmx${Math.max(1, task.memory.toGiga()-1)}G -jar $params.jar.eva_pipeline \
         --spring.config.location=file:${params.drop_study_props} \
         --spring.batch.job.names=drop-study-job \
         --input.study.id=$params.project_accession \
