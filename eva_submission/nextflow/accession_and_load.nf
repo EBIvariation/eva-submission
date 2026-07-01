@@ -249,7 +249,7 @@ process accession_vcf {
 
     """
     set -eo pipefail
-    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.accession_pipeline --spring.batch.job.names=SUBSNP_ACCESSION_JOB --spring.config.location=file:$params.accession_job_props $pipeline_parameters | tee ${log_filename}.log
+    java -Xmx${Math.max(1, task.memory.toGiga()-1)}G -jar $params.jar.accession_pipeline --spring.batch.job.names=SUBSNP_ACCESSION_JOB --spring.config.location=file:$params.accession_job_props $pipeline_parameters | tee ${log_filename}.log
     """
 }
 
@@ -284,7 +284,7 @@ process qc_accession_vcf {
     pipeline_parameters += " --parameters.outputVcf=" + "${params.public_dir}/${accessioned_filename}"
 
     """
-    (java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.accession_pipeline --spring.batch.job.names=QC_SUBSNP_ACCESSION_JOB --spring.config.location=file:$params.accession_job_props $pipeline_parameters) || java_exit_code=\$?
+    (java -Xmx${Math.max(1, task.memory.toGiga()-1)}G -jar $params.jar.accession_pipeline --spring.batch.job.names=QC_SUBSNP_ACCESSION_JOB --spring.config.location=file:$params.accession_job_props $pipeline_parameters) || java_exit_code=\$?
     # need this line to ensure we do not get unbound variable when the java process is successful
     if [ \${java_exit_code:-"Not set"} == "Not set" ]; then java_exit_code=0; fi
     # If accessioning fails due to missing variants, but the only missing variants are structural variants,
@@ -348,7 +348,7 @@ process qc_duplicate_ss_acc {
     """
     set -eo pipefail
 
-    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.accession_pipeline \
+    java -Xmx${Math.max(1, task.memory.toGiga()-1)}G -jar $params.jar.accession_pipeline \
          --spring.batch.job.names=DUPLICATE_SS_ACC_QC_JOB \
          --spring.config.location=file:$params.accession_job_props  $pipeline_parameters \
          | tee ${log_filename}.log
@@ -433,7 +433,7 @@ process load_variants_vcf {
     pipeline_parameters += " --spring.data.mongodb.database=" + db_name.toString()
 
 """
-    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
+    java -Xmx${Math.max(1, task.memory.toGiga()-1)}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
     """
 }
 
@@ -477,7 +477,7 @@ process run_vep_on_variants {
     pipeline_parameters += " --app.vep.cache.species=" + vep_species.toString()
 
     """
-    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
+    java -Xmx${Math.max(1, task.memory.toGiga()-1)}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
     """
 }
 
@@ -519,7 +519,7 @@ process calculate_variant_statistics_vcf {
     pipeline_parameters += " --spring.data.mongodb.database=" + db_name.toString()
 
     """
-    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
+    java -Xmx${Math.max(1, task.memory.toGiga()-1)}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
     """
 }
 
@@ -560,7 +560,7 @@ process calculate_study_statistics_vcf {
     pipeline_parameters += " --spring.data.mongodb.database=" + db_name.toString()
 
     """
-    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
+    java -Xmx${Math.max(1, task.memory.toGiga()-1)}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.load_job_props --parameters.path=$params.load_job_props $pipeline_parameters
     """
 }
 
@@ -592,6 +592,6 @@ process import_accession {
     pipeline_parameters += " --spring.data.mongodb.database=" + db_name.toString()
 
     """
-    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.acc_import_job_props --parameters.path=$params.acc_import_job_props $pipeline_parameters
+    java -Xmx${Math.max(1, task.memory.toGiga()-1)}G -jar $params.jar.eva_pipeline --spring.config.location=file:$params.acc_import_job_props --parameters.path=$params.acc_import_job_props $pipeline_parameters
     """
 }

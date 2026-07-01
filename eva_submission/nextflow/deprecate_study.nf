@@ -72,7 +72,7 @@ process deprecate_submitted_variants {
     script:
     log_filename = "deprecate.${variant_id_file}_${assembly_accession}"
     """
-    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.deprecate \
+    java -Xmx${Math.max(1, task.memory.toGiga()-1)}G -jar $params.jar.deprecate \
     --spring.config.location=file:${params.deprecation_props} \
     --spring.batch.job.names=DEPRECATE_SUBMITTED_VARIANTS_FROM_FILE_JOB \
     --parameters.variantIdFile=$variant_id_file \
@@ -103,7 +103,7 @@ process drop_study {
     script:
     log_filename = "drop_study.${db_name}_${params.project_accession}"
     """
-    java -Xmx${task.memory.toGiga()-1}G -jar $params.jar.eva_pipeline \
+    java -Xmx${Math.max(1, task.memory.toGiga()-1)}G -jar $params.jar.eva_pipeline \
         --spring.config.location=file:${params.drop_study_props} \
         --spring.batch.job.names=drop-study-job \
         --input.study.id=$params.project_accession \

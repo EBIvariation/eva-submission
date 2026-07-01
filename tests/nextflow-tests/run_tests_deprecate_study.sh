@@ -11,6 +11,13 @@ SOURCE_DIR="$(dirname $(dirname $SCRIPT_DIR))/eva_submission/nextflow"
 cwd=${PWD}
 cd ${SCRIPT_DIR}
 
+# clusterOptions (and so the -o/-e logs it configures) are only honoured by grid executors,
+# not by the local executor used when running these tests outside of CI
+USING_SLURM=false
+if grep -q "executor = 'slurm'" nextflow.config; then
+    USING_SLURM=true
+fi
+
 log_dir=../../../project/logs
 mkdir -p project/logs
 
@@ -57,6 +64,15 @@ grep -r "input.study.id=PRJEB12345" work/ --include="*.command.sh" > /dev/null |
     echo "ERROR: drop_study did not pass correct project accession"
     exit 1
 }
+
+if [ "${USING_SLURM}" = true ]; then
+    # check that slurm actually submitted these jobs and wrote their -o/-e clusterOptions logs
+    printf "\e[32m====== Slurm deprecate/drop_study logs ======\e[0m\n"
+    ls project/logs/deprecate.test_ssids.txt_GCA_000001405.2.log project/logs/deprecate.test_ssids.txt_GCA_000001405.2.err
+    ls project/logs/deprecate.test_ssids.txt_GCA_000001405.3.log project/logs/deprecate.test_ssids.txt_GCA_000001405.3.err
+    ls project/logs/drop_study.eva_hsapiens_grch37_PRJEB12345.log project/logs/drop_study.eva_hsapiens_grch37_PRJEB12345.err
+    ls project/logs/drop_study.eva_hsapiens_grch38_PRJEB12345.log project/logs/drop_study.eva_hsapiens_grch38_PRJEB12345.err
+fi
 
 # clean up
 rm -rf work .nextflow*
