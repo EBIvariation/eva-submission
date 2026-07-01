@@ -12,6 +12,7 @@ cwd=${PWD}
 cd ${SCRIPT_DIR}
 
 log_dir=../../../project/logs
+mkdir -p project/logs
 
 # Create a minimal variant ID file and properties file for the test
 echo "ss123456" > test_ssids.txt
@@ -86,6 +87,7 @@ fi
 # clean up
 rm -rf work .nextflow*
 rm -f test_ssids.txt drop_study.properties deprecation.properties source_deprecations.csv
+rm -rf project
 
 printf "\e[32m==== ALL DEPRECATE STUDY TESTS PASSED ====\e[0m\n"
 cd ${cwd}

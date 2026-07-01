@@ -7,7 +7,7 @@ SOURCE_DIR="$(dirname $(dirname $SCRIPT_DIR))/eva_submission/nextflow"
 
 cwd=${PWD}
 cd ${SCRIPT_DIR}
-mkdir -p project project/accessions project/public ftp
+mkdir -p project project/accessions project/public project/logs ftp
 
 # run accession and variant load
 # note public_dir needs to be an absolute path, unlike others in config
