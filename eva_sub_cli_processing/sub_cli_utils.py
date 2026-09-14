@@ -67,13 +67,20 @@ def put_to_sub_ws(url, json_data=None):
     return response.json()
 
 
-@retry(tries=5, backoff=2, jitter=.5)
 def post_to_sub_ws(url, json_data=None):
     response = requests.post(url, auth=sub_ws_auth(), json=json_data)
     response.raise_for_status()
     if not response.text:
         return None
-    return response.json()
+
+    content_type = response.headers.get('Content-Type', '')
+    if 'application/json' in content_type:
+        return response.json()
+
+    try:
+        return response.json()
+    except ValueError:
+        return response.text.strip()
 
 
 def fetch_submission_from_eload(eload_id):
@@ -91,8 +98,8 @@ def fetch_submission(submission_id):
         return None
     return content[0]
 
-def initiate_eva_submission():
-    response = post_to_sub_ws(sub_ws_url_build('admin', 'submission', "initiate", size=1))
+def initiate_eva_submission(identifier):
+    response = post_to_sub_ws(sub_ws_url_build('admin', 'submission', "initiate", str(identifier), size=1))
     if not response:
         return None
     return response

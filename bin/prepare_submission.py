@@ -61,7 +61,7 @@ def main():
             sub_cli_submission.detect_all(args.taxid, args.reference)
             sub_cli_submission.link_submission_id_and_eload(args.submission_id, args.eload, "eva-sub-cli")
     else:
-        args.submission_id = initiate_eva_submission().get('submissionId')
+        args.submission_id = initiate_eva_submission(args.eload)
         assert args.submission_id is not None
 
         with SubmissionPreparation(args.submission_id) as submission:

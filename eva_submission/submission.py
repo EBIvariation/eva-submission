@@ -76,10 +76,6 @@ class Submission(AppLogger):
     def now(self):
         return datetime.now()
 
-    @cached_property
-    def submission_id(self):
-        return self.submission_cfg.query('submission', 'submission_id')
-
     def _unique_alias(self, alias):
         if alias and not alias.startswith(self.submission_id):
             return f'{self.submission_id}_{alias}'
