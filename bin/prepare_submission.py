@@ -21,7 +21,7 @@ from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
 from eva_sub_cli_processing.sub_cli_to_submission_converter.sub_cli_to_submission_converter import \
     SubCLIToSubmissionConverter
-from eva_sub_cli_processing.sub_cli_utils import initiate_eva_submission
+from eva_sub_cli_processing.sub_cli_utils import get_or_generate_submission_id_for_eload
 from eva_submission.submission_config import load_config
 from eva_submission.submission_preparation import SubmissionPreparation
 
@@ -61,7 +61,7 @@ def main():
             sub_cli_submission.detect_all(args.taxid, args.reference)
             sub_cli_submission.link_submission_id_and_eload(args.submission_id, args.eload, "eva-sub-cli")
     else:
-        args.submission_id = initiate_eva_submission(args.eload)
+        args.submission_id = get_or_generate_submission_id_for_eload(args.eload)
         assert args.submission_id is not None
 
         with SubmissionPreparation(args.submission_id) as submission:
