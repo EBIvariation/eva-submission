@@ -4,7 +4,7 @@ from unittest import TestCase
 
 from ebi_eva_common_pyutils.config import cfg
 
-from eva_submission.eload_migration import SubmissionMigration
+from eva_submission.submission_migration import SubmissionMigration
 from eva_submission.submission_config import load_config
 
 

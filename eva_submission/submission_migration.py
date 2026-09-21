@@ -18,9 +18,9 @@ class SubmissionMigration(Submission):
 
     def run_nextflow_copy(self, project_accession=None):
         migrate_params = {
-            'eload': self.submission_id,
-            'old_eloads_dir': cfg['noah']['eloads_new_mnt'],
-            'new_eloads_dir': cfg['eloads_dir'],
+            'submission_id': self.submission_id,
+            'old_submissions_dir': cfg['noah']['submissions_new_mnt'],
+            'new_submissions_dir': cfg['submissions_dir'],
             'old_projects_dir': cfg['noah']['projects_new_mnt'],
             'new_projects_dir': cfg['projects_dir'],
         }
@@ -57,7 +57,7 @@ class SubmissionMigration(Submission):
             config_contents = config_file.read()
         config_contents = config_contents\
             .replace(cfg['noah']['genomes_dir'], cfg['genome_downloader']['output_directory'])\
-            .replace(cfg['noah']['eloads_dir'], cfg['eloads_dir'])\
+            .replace(cfg['noah']['submissions_dir'], cfg['submissions_dir'])\
             .replace(cfg['noah']['projects_dir'], cfg['projects_dir'])
 
         with open(self.config_path, 'w') as config_file:

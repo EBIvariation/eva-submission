@@ -15,19 +15,21 @@
 # limitations under the License.
 
 import logging
+import sys
 from argparse import ArgumentParser
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.eload_migration import SubmissionMigration
+from eva_sub_cli_processing import sub_cli_utils
 from eva_submission.submission_config import load_config
+from eva_submission.submission_migration import SubmissionMigration
 
 logger = log_cfg.get_logger(__name__)
 
 
 def main():
     argparse = ArgumentParser(description='Migrate an in-progress submission to the current cluster')
-    argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number of the submission to migrate')
+    argparse.add_argument('--submission_id', required=True, type=str, help='Submission ID of the submission to migrate')
     argparse.add_argument('--project', required=False, type=str, help='Optional associated project accession')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
@@ -41,8 +43,13 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    with SubmissionMigration(args.eload) as eload:
-        eload.migrate(args.project)
+    submission = sub_cli_utils.fetch_submission(args.submission_id)
+    if not submission:
+        logger.error(f'Submission {args.submission_id} not found')
+        sys.exit(1)
+
+    with SubmissionMigration(args.submission_id) as submission_migration:
+        submission_migration.migrate(args.project)
 
 
 if __name__ == "__main__":

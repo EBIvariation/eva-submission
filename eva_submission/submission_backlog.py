@@ -53,7 +53,6 @@ class SubmissionBacklog(Submission):
                 raise ValueError(f'No project found for {self._preset_project_accession} in metadata DB.')
         else:
             with self.metadata_connection_handle as conn:
-                # TODO:
                 query = f"select project_accession from evapro.project_eva_submission where submission_id={self.submission_id};"
                 rows = get_all_results_for_query(conn, query)
             if len(rows) != 1:

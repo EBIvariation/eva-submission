@@ -271,7 +271,6 @@ class SubmissionIngestion(Submission):
             if check_project_exists_in_evapro(self.project_accession):
                 analyses = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS')
                 for analysis_accession in analyses.values():
-                    #  TODO:
                     self.loader.load_project_from_ena(self.project_accession,
                                                       self.submission_id, analysis_accession,
                                                       taxonomy_id_for_project=self.taxonomy,
