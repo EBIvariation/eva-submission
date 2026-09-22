@@ -195,7 +195,11 @@ class EloadPreparation(Eload):
                 analysis_reference[analysis_alias]['vcf_files'].append(file_full)
         self.eload_cfg.set('submission', 'analyses', value=analysis_reference)
 
-        self.eload_cfg.set('submission', 'project_title', value=eva_metadata.project_title)
+        project_title = self.find_project_title(
+            eva_metadata.project_title,
+            eva_metadata.project.get('Project Accession')
+        )
+        self.eload_cfg.set('submission', 'project_title', value=project_title)
 
         taxonomy_id = eva_metadata.project.get('Tax ID')
         if taxonomy_id and (isinstance(taxonomy_id, int) or taxonomy_id.isdigit()):
@@ -238,7 +242,11 @@ class EloadPreparation(Eload):
                 analysis_reference[analysis_alias]['vcf_files'].append(file_full)
         self.eload_cfg.set('submission', 'analyses', value=analysis_reference)
 
-        self.eload_cfg.set('submission', 'project_title', value=json_data.get('project').get('title'))
+        project_title = self.find_project_title(
+            json_data.get('project').get('title'),
+            json_data.get('project').get('projectAccession')
+        )
+        self.eload_cfg.set('submission', 'project_title', value=project_title)
 
         taxonomy_id = self.find_taxonomy(json_data)
         if taxonomy_id and (isinstance(taxonomy_id, int) or taxonomy_id.isdigit()):
@@ -271,6 +279,21 @@ class EloadPreparation(Eload):
                 else:
                     self.error(f'Cannot determine Taxonomy ID from samples defined in metadata')
         return taxonomy_id
+
+
+    def find_project_title(self, project_title, project_accession):
+        if not project_title and project_accession:
+            try:
+                xml_root = download_xml_from_ena(f'https://www.ebi.ac.uk/ena/browser/api/xml/{project_accession}')
+                xml_title = xml_root.xpath('/PROJECT_SET/PROJECT/TITLE')
+                if len(xml_title) > 0:
+                    project_title = xml_title[0].text
+            except:
+                self.error(f'Cannot find project title for project {project_accession}')
+        if not project_title:
+            self.error('Project title is missing for the submission')
+        return project_title
+
 
     def find_genome(self):
         scientific_name = self.eload_cfg.query('submission', 'scientific_name')
