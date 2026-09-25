@@ -4,7 +4,7 @@ from unittest import TestCase
 
 from ebi_eva_common_pyutils.config import cfg
 
-from eva_submission.eload_migration import EloadMigration
+from eva_submission.submission_migration import SubmissionMigration
 from eva_submission.submission_config import load_config
 
 
@@ -17,17 +17,17 @@ class TestEloadMigration(TestCase):
         load_config(config_file)
         # Need to set the directory so that the relative path set in the config file works from the top directory
         os.chdir(self.top_dir)
-        self.eload = EloadMigration(66)
-        self.original_config = deepcopy(self.eload.eload_cfg.content)
+        self.eload = SubmissionMigration('submission_66')
+        self.original_config = deepcopy(self.eload.submission_cfg.content)
 
     def tearDown(self):
-        self.eload.eload_cfg.content = self.original_config
-        self.eload.eload_cfg.write()
+        self.eload.submission_cfg.content = self.original_config
+        self.eload.submission_cfg.write()
 
     def test_update_and_reload_config(self):
         self.eload.update_and_reload_config()
         with open(self.eload.config_path) as config_file:
             contents = config_file.read()
-            self.assertEqual(contents.find(cfg['noah']['eloads_dir']), -1)
+            self.assertEqual(contents.find(cfg['noah']['submissions_dir']), -1)
             self.assertEqual(contents.find(cfg['noah']['projects_dir']), -1)
             self.assertEqual(contents.find(cfg['noah']['genomes_dir']), -1)

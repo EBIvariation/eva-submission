@@ -15,13 +15,15 @@
 # limitations under the License.
 
 import logging
+import sys
 from argparse import ArgumentParser
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.eload_backlog import EloadBacklog, EloadMetadataForBacklog
-from eva_submission.eload_brokering import EloadBrokering
-from eva_submission.eload_validation import EloadValidation
+from eva_sub_cli_processing import sub_cli_utils
+from eva_submission.submission_backlog import SubmissionBacklog, SubmissionMetadataForBacklog
+from eva_submission.submission_brokering import SubmissionBrokering
+from eva_submission.submission_validation import SubmissionValidation
 from eva_submission.submission_config import load_config
 
 logger = log_cfg.get_logger(__name__)
@@ -29,9 +31,9 @@ logger = log_cfg.get_logger(__name__)
 
 def main():
     possible_validation_tasks = ['vcf_check', 'assembly_check']
-    forced_validation_tasks = list(set(EloadValidation.all_validation_tasks) - set(possible_validation_tasks))
+    forced_validation_tasks = list(set(SubmissionValidation.all_validation_tasks) - set(possible_validation_tasks))
     argparse = ArgumentParser(description='Prepare to process backlog study and validate VCFs.')
-    argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
+    argparse.add_argument('--submission_id', required=True, type=str, help='Submission ID of the submission')
     argparse.add_argument('--project_accession', required=True, type=str,
                           help='Specify the project to be loaded from ENA into EVAPRO')
     argparse.add_argument('--analysis_accessions', required=False, type=str, nargs='+',
@@ -66,36 +68,42 @@ def main():
 
     # Load the config_file from default location
     load_config()
+
+    submission = sub_cli_utils.fetch_submission(args.submission_id)
+    if not submission:
+        logger.error(f'Submission {args.submission_id} not found')
+        sys.exit(1)
+
     if args.project_accession:
         logger.info(f'Load Metadata using project accession: {args.project_accession} analysis accessions: {args.analysis_accessions} and taxonomy: {args.taxonomy}' )
         # Ingest the metadata but do not create the config for it.
-        ingestion = EloadMetadataForBacklog(args.eload, args.project_accession, args.analysis_accessions, args.taxonomy)
+        ingestion = SubmissionMetadataForBacklog(args.submission_id, args.project_accession, args.analysis_accessions, args.taxonomy)
         ingestion.ingest(tasks='metadata_load')
 
-    with EloadBacklog(args.eload,
+    with SubmissionBacklog(args.submission_id,
                       project_accession=args.project_accession,
                       analysis_accessions=args.analysis_accessions) as preparation:
         if not args.report and not args.keep_config:
             preparation.fill_in_config(args.force_config)
 
     if not args.skip_validation:
-        # Pass the eload config object to validation so that the two objects share the same state
-        with EloadValidation(args.eload, preparation.eload_cfg, nextflow_config=args.nextflow_config) as validation:
+        # Pass the submission config object to validation so that the two objects share the same state
+        with SubmissionValidation(args.submission_id, preparation.submission_cfg, nextflow_config=args.nextflow_config) as validation:
             validation.set_validation_task_result_valid(forced_validation_tasks)
             validation.validate(validation_tasks=args.validation_tasks)
 
     # Stop the processing if the validation did not pass
-    if not validation.eload_cfg.query('validation', 'valid', 'analyses'):
+    if not validation.submission_cfg.query('validation', 'valid', 'analyses'):
         raise ValueError('Cannot proceed to the Ingestion preparation because one of the validation did not pass.')
 
-    with EloadBrokering(args.eload, config_object=preparation.eload_cfg, nextflow_config=args.nextflow_config) as eload_brokering:
-        eload_brokering.prepare_brokering()
+    with SubmissionBrokering(args.submission_id, config_object=preparation.submission_cfg, nextflow_config=args.nextflow_config) as submission_brokering:
+        submission_brokering.prepare_brokering()
         for key in ['ena', 'Biosamples']:
-            eload_brokering.eload_cfg.set('brokering', key, 'pass', value=True)
+            submission_brokering.submission_cfg.set('brokering', key, 'pass', value=True)
 
     preparation.report()
     # validation.report()
-    eload_brokering.report()
+    submission_brokering.report()
 
     logger.info('Preparation complete, if files are valid please run ingestion as normal.')
 

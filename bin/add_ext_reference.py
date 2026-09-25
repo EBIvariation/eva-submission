@@ -25,7 +25,7 @@ from ebi_eva_internal_pyutils.metadata_utils import get_metadata_connection_hand
 from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query, execute_query
 from retry import retry
 
-from eva_submission.eload_utils import check_project_exists_in_evapro, check_existing_project_in_ena
+from eva_submission.submission_utils import check_project_exists_in_evapro, check_existing_project_in_ena
 from eva_submission.submission_config import load_config
 
 logger = log_cfg.get_logger(__name__)

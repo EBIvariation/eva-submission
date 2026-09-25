@@ -25,8 +25,8 @@ from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from ebi_eva_internal_pyutils.metadata_utils import get_metadata_connection_handle
 from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query
 
-from eva_sub_cli_processing.sub_cli_to_eload_converter.sub_cli_to_eload_converter import SubCLIToEloadConverter
-from eva_submission.eload_preparation import EloadPreparation
+from eva_sub_cli_processing.sub_cli_to_submission_converter.sub_cli_to_submission_converter import SubCLIToSubmissionConverter
+from eva_submission.submission_preparation import SubmissionPreparation
 from eva_submission.submission_config import load_config
 
 logger = log_cfg.get_logger(__name__)
@@ -56,8 +56,8 @@ def add_submission_id_for_eload(eload_num, dry_run=False):
     to_delete = None
     if not os.path.isdir(eload_dir):
         to_delete = eload_dir
-    with EloadPreparation(eload_num) as eload:
-        metadata_json_path = eload.eload_cfg.query('submission', 'metadata_json')
+    with SubmissionPreparation(eload_num) as eload:
+        metadata_json_path = eload.submission_cfg.query('submission', 'metadata_json')
 
     if metadata_json_path and os.path.isfile(metadata_json_path):
         with open(metadata_json_path, 'r') as f:
@@ -83,10 +83,10 @@ def add_submission_id_for_eload(eload_num, dry_run=False):
         return
 
     if submission_id:
-        with SubCLIToEloadConverter(eload_num, submission_id) as eload:
+        with SubCLIToSubmissionConverter(eload_num, submission_id) as eload:
             eload.add_submission_id_to_config()
     else:
-        with EloadPreparation(eload_num) as eload:
+        with SubmissionPreparation(eload_num) as eload:
             eload.add_submission_id_to_config()
     if to_delete:
         shutil.rmtree(to_delete)

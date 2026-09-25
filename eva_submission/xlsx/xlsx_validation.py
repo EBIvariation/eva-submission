@@ -13,7 +13,7 @@ from ebi_eva_common_pyutils.taxonomy.taxonomy import get_scientific_name_from_ta
 from requests import HTTPError
 
 from eva_submission import ETC_DIR
-from eva_submission.eload_utils import cast_list, check_existing_project_in_ena, check_project_format
+from eva_submission.submission_utils import cast_list, check_existing_project_in_ena, check_project_format
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
 # Values coming from https://www.ebi.ac.uk/ena/browser/view/ERC000011
