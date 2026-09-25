@@ -107,7 +107,6 @@ def _sample_records_from_sample_map(eload_cfg, sample_name_to_accession):
         for sample_name, accession in sample_name_to_accession.items()
     ]
 
-
 def upgrade_version_1_15_to_1_16(submission_cfg, submission_dir):
     """
     Upgrades a version 1.15 directory structure to version 1.16 to change the path to ingestion nextflow directories

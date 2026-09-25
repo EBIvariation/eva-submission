@@ -217,6 +217,7 @@ class Submission(AppLogger):
             metadata_json = json.load(open_file)
         sample_objects = self._accessioned_sample_objects(metadata_json.get('sample'), self.sample_records())
 
+
         file_objects = []
         analyses = self.submission_cfg['brokering']['analyses']
         for analysis in analyses:
