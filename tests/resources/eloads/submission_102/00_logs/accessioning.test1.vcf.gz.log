@@ -1,0 +1,16 @@
+2023-04-15 21:13:02.919  INFO 2638664 --- [           main] u.a.e.e.accession.pipeline.Application   : Started Application in 30.494 seconds (JVM running for 32.778)
+2023-04-15 21:13:07.101  INFO 2638664 --- [           main] o.s.b.c.l.support.SimpleJobLauncher      : Job: [SimpleJob: [name=CREATE_SUBSNP_ACCESSION_JOB]] launched with the following parameters: []
+2023-04-15 21:13:07.141  INFO 2638664 --- [           main] o.s.batch.core.job.SimpleStepHandler     : Executing step: [CREATE_SUBSNP_ACCESSION_STEP]
+2023-04-15 21:13:08.311  INFO 2638664 --- [           main] .a.p.c.b.p.VariantProcessorConfiguration : Injecting VariantProcessor with parameters: uk.ac.ebi.eva.accession.pipeline.parameters.InputParameters@54c5a2ff
+2023-04-15 21:13:09.860  INFO 2638664 --- [           main] u.a.e.e.a.c.b.l.GenericProgressListener  : CREATE_SUBSNP_ACCESSION_STEP: Items read = 100, items written = 100
+2023-04-15 21:13:10.620  INFO 2638664 --- [           main] u.a.e.e.a.c.b.l.GenericProgressListener  : CREATE_SUBSNP_ACCESSION_STEP: Items read = 200, items written = 200
+2023-04-15 21:13:11.776  INFO 2638664 --- [           main] u.a.e.e.a.c.b.l.GenericProgressListener  : CREATE_SUBSNP_ACCESSION_STEP: Items read = 300, items written = 300
+2023-04-15 21:17:07.777  INFO 2638664 --- [           main] u.a.e.e.a.c.b.l.GenericProgressListener  : CREATE_SUBSNP_ACCESSION_STEP: Items read = 27300, items written = 27300
+2023-04-15 21:17:08.503  INFO 2638664 --- [           main] u.a.e.e.a.c.b.l.GenericProgressListener  : CREATE_SUBSNP_ACCESSION_STEP: Items read = 27400, items written = 27400
+2023-04-15 21:17:08.628  INFO 2638664 --- [           main] u.a.e.e.a.c.b.l.GenericProgressListener  : CREATE_SUBSNP_ACCESSION_STEP: Items read = 27408, items written = 27408
+2023-04-15 21:17:08.635  INFO 2638664 --- [           main] u.a.e.eva.metrics.metric.MetricCompute   : Count{id=null, process='accessioning_warehouse_ingestion', identifier='{"assembly":"GCA_000003205.6","study":"PRJEB55361"}', metric='discarded_variants', count=0}
+2023-04-15 21:17:09.154  INFO 2638664 --- [           main] u.a.e.eva.metrics.metric.MetricCompute   : Metric Count successfully saved In DB
+2023-04-26 10:45:35.204 ERROR 2166396 --- [cTaskExecutor-1] o.s.batch.core.step.AbstractStep         : Encountered an error executing step CREATE_SUBSNP_ACCESSION_STEP in job CREATE_SUBSNP_ACCESSION_JOB
+2023-04-15 21:17:09.199  INFO 2638664 --- [           main] o.s.batch.core.job.SimpleStepHandler     : Executing step: [BUILD_REPORT_STEP]
+2023-04-15 21:17:10.402  INFO 2638664 --- [           main] o.s.batch.core.job.SimpleStepHandler     : Executing step: [CHECK_SUBSNP_ACCESSION_STEP]
+2023-04-15 21:17:10.969  INFO 2638664 --- [           main] o.s.b.c.l.support.SimpleJobLauncher      : Job: [SimpleJob: [name=CREATE_SUBSNP_ACCESSION_JOB]] completed with the following parameters: [}] and the following status: [FAILED]

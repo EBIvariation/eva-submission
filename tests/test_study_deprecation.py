@@ -188,7 +188,7 @@ class TestStudyDeprecation(TestCase):
     def test_get_accession_reports_for_project_multiple_eloads(self):
         """Two eloads for the same project, each contributing a report for the same assembly."""
         eload_result = MagicMock()
-        eload_result.fetchall.return_value = [(44,), (55,)]
+        eload_result.fetchall.return_value = [('submission_44',), ('submission_55',)]
         files_result = MagicMock()
         files_result.fetchall.return_value = [
             ('file_a.vcf.gz', 'GCA_000001405.2'),
@@ -198,13 +198,13 @@ class TestStudyDeprecation(TestCase):
             side_effect=[eload_result, files_result]
         )
 
-        report_a = 'tests/resources/eloads/ELOAD_44/60_eva_public/file_a.accessioned.vcf.gz'
-        report_b = 'tests/resources/eloads/ELOAD_55/60_eva_public/file_b.accessioned.vcf.gz'
+        report_a = 'tests/resources/eloads/submission_44/60_eva_public/file_a.accessioned.vcf.gz'
+        report_b = 'tests/resources/eloads/submission_55/60_eva_public/file_b.accessioned.vcf.gz'
 
         def fake_glob(pattern):
-            if 'ELOAD_44' in pattern:
+            if 'submission_44' in pattern:
                 return [report_a]
-            if 'ELOAD_55' in pattern:
+            if 'submission_55' in pattern:
                 return [report_b]
             return []
 

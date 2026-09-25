@@ -8,7 +8,7 @@ from xml.etree.ElementTree import Element, ElementTree
 
 from ebi_eva_common_pyutils.logger import AppLogger
 
-from eva_submission.eload_utils import check_existing_project_in_ena, check_project_format, is_single_insdc_sequence, \
+from eva_submission.submission_utils import check_existing_project_in_ena, check_project_format, is_single_insdc_sequence, \
     get_scientific_name
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 

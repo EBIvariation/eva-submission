@@ -22,15 +22,14 @@ from argparse import ArgumentParser
 from ebi_eva_common_pyutils.command_utils import run_command_with_output
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.eload_backlog import EloadBacklog
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
+from eva_submission.submission_backlog import SubmissionBacklog
 from eva_submission.submission_config import load_config
 
 
-
 def main():
-    argparse = ArgumentParser(description='Retrieve information about VCF files in the config from an ELOAD or and load it to EVAPRO')
-    argparse.add_argument('--eload', type=int, help='The ELOAD number of the submission for which the samples should be loaded')
+    argparse = ArgumentParser(description='Retrieve information about VCF files in the config from an Submission and load it to EVAPRO')
+    argparse.add_argument('--submission_id', type=str, help='The Submission Id of the submission')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
     args = argparse.parse_args()
@@ -42,23 +41,23 @@ def main():
     # Load the config_file from default location
     load_config()
     exit_code = 0
-    file_loader = HistoricalProjectFileLoader(args.eload)
+    file_loader = HistoricalProjectFileLoader(args.submission_id)
     file_loader.load_files_from_config()
 
     return exit_code
 
-class HistoricalProjectFileLoader(EloadBacklog):
-    def __init__(self, eload):
-        super().__init__(eload_number=eload)
+class HistoricalProjectFileLoader(SubmissionBacklog):
+    def __init__(self, submission_id):
+        super().__init__(submission_id=submission_id)
         self.eva_project_loader = EvaProjectLoader()
 
 
     def load_files_from_config(self):
-        taxonomy_id=self.eload_cfg.query('submission', 'taxonomy_id')
-        for analysis_alias in self.eload_cfg.query('validation', 'aggregation_check', 'analyses'):
-            analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
+        taxonomy_id = self.submission_cfg.query('submission', 'taxonomy_id')
+        for analysis_alias in self.submission_cfg.query('validation', 'aggregation_check', 'analyses'):
+            analysis_accession = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
             assert analysis_accession in self.analysis_accessions, f'Analysis {analysis_accession} is not in EVAPRO'
-            analysis_info = self.eload_cfg.query('brokering', 'analyses', analysis_alias)
+            analysis_info = self.submission_cfg.query('brokering', 'analyses', analysis_alias)
             for vcf_file in analysis_info.get('vcf_files'):
                 if 'md5' not in analysis_info.get('vcf_files'):
                     # create the md5 of the vcf

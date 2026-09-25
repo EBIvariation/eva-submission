@@ -21,8 +21,8 @@ from argparse import ArgumentParser
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
 from eva_sub_cli_processing import sub_cli_utils
-from eva_submission.eload_brokering import EloadBrokering
-from eva_submission.eload_utils import check_existing_project_in_ena
+from eva_submission.submission_brokering import SubmissionBrokering
+from eva_submission.submission_utils import check_existing_project_in_ena
 from eva_submission.submission_config import load_config
 
 logger = log_cfg.get_logger(__name__)
@@ -37,16 +37,13 @@ def ENA_Project(project):
 
 
 def main():
-    argparse = ArgumentParser(description='Broker validated ELOAD to BioSamples and ENA')
-    target = argparse.add_mutually_exclusive_group(required=True)
-    target.add_argument('--submission_id', required=False, type=str,
-                        help='Submission ID, converted to ELOAD for downstream processing')
-    target.add_argument('--eload', required=False, type=int, help='The ELOAD number for this submission')
+    argparse = ArgumentParser(description='Broker validated Submission to BioSamples and ENA')
+    argparse.add_argument('--submission_id', required=True, type=str, help='Submission ID of the submission')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
     argparse.add_argument('--project_accession', required=False, type=ENA_Project,
                           help='Use this option to set an existing project accession that will be used to attach the '
-                               'new analyses from this ELOAD.')
+                               'new analyses from this Submission.')
     argparse.add_argument('--use_legacy_upload', action='store_true', default=False,
                           help='Change the mode of upload to ENA to use the version 1 metadata upload instead of the async queue.')
     argparse.add_argument('--dry_ena_upload', action='store_true', default=False,
@@ -54,7 +51,7 @@ def main():
     argparse.add_argument('--output_format', choices=['xml', 'json'], default='xml',
                           help='Format of the files that will be sent to ENA for the brokering.')
     argparse.add_argument('--force', required=False, type=str, nargs='+', default=[],
-                          choices=EloadBrokering.all_brokering_tasks,
+                          choices=SubmissionBrokering.all_brokering_tasks,
                           help='When not set, the script only performs the tasks that were not successful. Can be '
                                'set to specify one or several tasks to force during the brokering regardless of '
                                'previous status')
@@ -74,16 +71,12 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    if args.submission_id:
-        submission = sub_cli_utils.fetch_submission(args.submission_id)
-        if not submission:
-            logger.error(f'Submission {args.submission_id} not found')
-            sys.exit(1)
-        eload_id = submission.get('eloadId')
-    else:
-        eload_id = args.eload
+    submission = sub_cli_utils.fetch_submission(args.submission_id)
+    if not submission:
+        logger.error(f'Submission {args.submission_id} not found')
+        sys.exit(1)
 
-    with EloadBrokering(eload_id, nextflow_config=args.nextflow_config) as brokering:
+    with SubmissionBrokering(args.submission_id, nextflow_config=args.nextflow_config) as brokering:
         brokering.upgrade_to_new_version_if_needed()
         if not args.report:
             try:

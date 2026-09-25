@@ -1,7 +1,9 @@
 ftp_dir: 'tests/resources/ftpboxes'
 public_ftp_dir: '/path/to/public/ftp'
 eloads_dir: 'tests/resources/eloads'
+submissions_dir: 'tests/resources/eloads'
 nobackup_eloads_dir: 'tests/resources/nobackup_eloads'
+nobackup_submissions_dir: 'tests/resources/nobackup_eloads'
 projects_dir: 'tests/resources/projects'
 eva_pipeline_props: '/path/to/pipeline/properties'
 vep_path: 'tests/resources/vep'
@@ -11,8 +13,10 @@ opencga_path: '/path/to/opencga'
 noah:
   genomes_dir: 'old/genomes'
   eloads_dir: 'old/eloads'
+  submissions_dir: 'old/eloads'
   projects_dir: 'old/projects'
   eloads_new_mnt: 'old/mnt/eloads'
+  submissions_new_mnt: 'old/mnt/eloads'
   projects_new_mnt: 'old/mnt/projects'
 
 genome_downloader:
