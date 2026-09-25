@@ -29,7 +29,7 @@ from ebi_eva_internal_pyutils.spring_properties import SpringPropertiesGenerator
 from sqlalchemy import select
 
 from eva_submission import NEXTFLOW_DIR
-from eva_submission.eload_utils import get_nextflow_config_flag, open_gzip_if_required
+from eva_submission.submission_utils import get_nextflow_config_flag, open_gzip_if_required
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
 from eva_submission.evapro.table import Analysis, File, Project, ProjectEvaSubmission, Taxonomy
 
@@ -118,23 +118,23 @@ class StudyDeprecation(AppLogger):
         """
         Resolve accession report files (*.accessioned.vcf.gz) for the project.
 
-        1. Query project_eva_submission for eload_id(s) linked to this project.
+        1. Query project_eva_submission for submission_id(s) linked to this project.
         2. Query EVAPRO for (filename, assembly) pairs via Project → Analysis → File.
-        3. For each eload, glob 60_eva_public/*accessioned.vcf.gz and match to assembly
+        3. For each submission, glob 60_eva_public/*accessioned.vcf.gz and match to assembly
            using the convention: {base}.vcf.gz → {base}.accessioned.vcf.gz
 
         Returns dict: assembly_accession -> list of accession report file paths.
-        Raises ValueError if no eload is found for the project.
+        Raises ValueError if no submission is found for the project.
         """
-        # Step 1: Get eload_id(s)
-        eload_query = (
-            select(ProjectEvaSubmission.eload_id).distinct()
+        # Step 1: Get submission_id(s)
+        submission_query = (
+            select(ProjectEvaSubmission.submission_id).distinct()
             .where(ProjectEvaSubmission.project_accession == self.project_accession)
-            .where(ProjectEvaSubmission.eload_id.isnot(None))
+            .where(ProjectEvaSubmission.submission_id.isnot(None))
         )
-        eload_ids = [row[0] for row in self.loader.eva_session.execute(eload_query).fetchall()]
-        if not eload_ids:
-            raise ValueError(f'No eload ID found for project {self.project_accession} in EVAPRO')
+        submission_ids = [row[0] for row in self.loader.eva_session.execute(submission_query).fetchall()]
+        if not submission_ids:
+            raise ValueError(f'No submission ID found for project {self.project_accession} in EVAPRO')
 
         # Step 2: Build {original_vcf: assembly} from EVAPRO (Project → Analysis → File)
         files_query = (
@@ -153,12 +153,12 @@ class StudyDeprecation(AppLogger):
                 continue
             original_vcf_to_assembly[original_vcf] = assembly
 
-        # Step 3: Glob 60_eva_public in each eload, match report to assembly
+        # Step 3: Glob 60_eva_public in each submission, match report to assembly
         assembly_to_reports = {}
         suffix = '.accessioned.vcf.gz'
-        for eload_id in eload_ids:
-            eload_dir = os.path.join(cfg['eloads_dir'], f'ELOAD_{eload_id}')
-            for report_path in glob.glob(os.path.join(eload_dir, '60_eva_public', f'*{suffix}')):
+        for submission_id in submission_ids:
+            submission_dir = os.path.join(cfg['submissions_dir'], f'{submission_id}')
+            for report_path in glob.glob(os.path.join(submission_dir, '60_eva_public', f'*{suffix}')):
                 report_basename = os.path.basename(report_path)
                 original_vcf = report_basename[:-len(suffix)]
                 assembly = original_vcf_to_assembly.get(original_vcf)

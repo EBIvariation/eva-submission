@@ -239,7 +239,7 @@ class TestEnaXlsConverter(TestCase):
         assert elements_equal(root, expected_root)
 
     def test_create_single_submission_file(self):
-        with patch('eva_submission.eload_utils.get_scientific_name_from_evapro', return_value=None):
+        with patch('eva_submission.submission_utils.get_scientific_name_from_evapro', return_value=None):
             submission_file = self.converter.create_single_submission_file()
         assert os.path.exists(submission_file)
 

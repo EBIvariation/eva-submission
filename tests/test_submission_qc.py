@@ -5,7 +5,7 @@ from unittest.mock import patch
 from requests import HTTPError
 
 from eva_submission.submission_config import load_config
-from eva_submission.submission_qc_checks import EloadQC
+from eva_submission.submission_qc_checks import SubmissionQC
 
 
 class TestSubmissionQC(TestCase):
@@ -34,7 +34,7 @@ class TestSubmissionQC(TestCase):
         return mock_resp
 
     def test_submission_qc_checks_failed_1(self):
-        self.eload = EloadQC(101)
+        self.eload = SubmissionQC('submission_101')
 
         with self._patch_metadata_handle(), \
                 patch('eva_submission.submission_qc_checks.FTP.login'), \
@@ -51,10 +51,10 @@ class TestSubmissionQC(TestCase):
                                  self._mock_response(status=500, raise_for_status=HTTPError("service is down"))]
             m_ftp_nlst.return_value = []
             self.assertEqual(self.expected_report_of_eload_101(), self.eload.run_qc_checks_for_submission())
-            self.assertIn(EloadQC.config_section, self.eload.eload_cfg)
+            self.assertIn(SubmissionQC.config_section, self.eload.submission_cfg)
 
     def test_submission_qc_checks_failed_2(self):
-        self.eload = EloadQC(102)
+        self.eload = SubmissionQC('submission_102')
 
         with self._patch_metadata_handle(), \
                 patch('eva_submission.submission_qc_checks.FTP.login'), \
@@ -70,10 +70,10 @@ class TestSubmissionQC(TestCase):
             m_ftp_nlst.return_value = ['test1.vcf.gz.csi', 'test1.vcf.csi', 'test1.accessioned.vcf.gz.csi',
                                        'test1.accessioned.vcf.csi']
             self.assertEqual(self.expected_report_of_eload_102(), self.eload.run_qc_checks_for_submission())
-            self.assertIn(EloadQC.config_section, self.eload.eload_cfg)
+            self.assertIn(SubmissionQC.config_section, self.eload.submission_cfg)
 
     def test_submission_qc_checks_passed(self):
-        self.eload = EloadQC(103)
+        self.eload = SubmissionQC('submission_103')
 
         with self._patch_metadata_handle(), \
                 patch('eva_submission.submission_qc_checks.FTP.login'), \
@@ -98,10 +98,10 @@ class TestSubmissionQC(TestCase):
                                        'test2.vcf.gz.csi', 'test2.vcf.csi', 'test2.accessioned.vcf.gz',
                                        'test2.accessioned.vcf.gz.csi', 'test2.accessioned.vcf.csi']
             self.assertEqual(self.expected_report_of_eload_103(), self.eload.run_qc_checks_for_submission())
-            self.assertIn(EloadQC.config_section, self.eload.eload_cfg)
+            self.assertIn(SubmissionQC.config_section, self.eload.submission_cfg)
 
     def test_submission_qc_checks_missing_files(self):
-        self.eload = EloadQC(104)
+        self.eload = SubmissionQC('submission_104')
 
         with self._patch_metadata_handle(), \
                 patch('eva_submission.submission_qc_checks.FTP.login'), \
@@ -121,10 +121,10 @@ class TestSubmissionQC(TestCase):
             m_ftp_nlst.return_value = ['test1.vcf.gz', 'test1.vcf.gz.csi', 'test1.vcf.csi', 'test1.accessioned.vcf.gz',
                                        'test1.accessioned.vcf.gz.csi', 'test1.accessioned.vcf.csi']
             self.assertEqual(self.expected_report_of_eload_104(), self.eload.run_qc_checks_for_submission())
-            self.assertIn(EloadQC.config_section, self.eload.eload_cfg)
+            self.assertIn(SubmissionQC.config_section, self.eload.submission_cfg)
 
     def test_check_if_variant_load_completed_successfully(self):
-        self.eload = EloadQC(103)
+        self.eload = SubmissionQC('submission_103')
         result, report = self.eload.check_if_variant_load_completed_successfully()
         assert result == 'PASS'
         assert report == 'Success: PASS'

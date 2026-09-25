@@ -180,7 +180,7 @@ class TestEVAJsonToENAJsonConverter(TestCase):
         self.assert_json_equal(expected_submission_json_obj, ena_submission_json_obj)
 
     def test_create_ena_json_file(self):
-        with patch('eva_submission.eload_utils.get_scientific_name_from_evapro', return_value=None):
+        with patch('eva_submission.submission_utils.get_scientific_name_from_evapro', return_value=None):
             output_ena_json = self.converter.create_single_submission_file()
         assert os.path.exists(output_ena_json)
 

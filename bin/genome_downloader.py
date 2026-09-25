@@ -19,7 +19,7 @@ import sys
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.eload_utils import get_reference_fasta_and_report
+from eva_submission.submission_utils import get_reference_fasta_and_report
 
 from eva_submission.submission_config import load_config
 

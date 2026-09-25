@@ -7,10 +7,10 @@ from unittest.mock import patch, PropertyMock, Mock
 
 from ebi_eva_common_pyutils.config import cfg
 
-from eva_sub_cli_processing.sub_cli_to_eload_converter.sub_cli_to_eload_converter import SubCLIToEloadConverter
+from eva_sub_cli_processing.sub_cli_to_submission_converter.sub_cli_to_submission_converter import SubCLIToSubmissionConverter
 from eva_submission import ROOT_DIR
-from eva_submission.submission_config import load_config, EloadConfig
-from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxWriter, EvaXlsxReader
+from eva_submission.submission_config import load_config, SubmissionConfig
+from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxWriter
 
 
 def touch(filepath, content=None):
@@ -21,7 +21,7 @@ def touch(filepath, content=None):
 submission_json = 'submission_ws_response.json'
 
 
-class TestSubCliToEloadConverter(TestCase):
+class TestSubCliToSubmissionConverter(TestCase):
     resources_folder = os.path.join(ROOT_DIR, 'tests', 'resources')
 
     def setUp(self) -> None:
@@ -35,16 +35,16 @@ class TestSubCliToEloadConverter(TestCase):
         load_config(config_file)
         # Need to set the directory so that the relative path set in the config file works from the top directory
         os.chdir(ROOT_DIR)
-        self.submission_id = "abcdef_ghijkl_mnopqr_stuvwx"
+        self.submission_id = "submission_1"
 
-        self.cli_to_eload = SubCLIToEloadConverter(1, submission_id=self.submission_id)
+        self.cli_to_eload = SubCLIToSubmissionConverter(self.submission_id)
 
     def tearDown(self) -> None:
-        EloadConfig.content = {}
-        eloads = glob.glob(os.path.join(self.resources_folder, 'eloads', 'ELOAD_1'))
+        SubmissionConfig.content = {}
+        eloads = glob.glob(os.path.join(self.resources_folder, 'eloads', self.submission_id))
         for eload in eloads:
             shutil.rmtree(eload)
-        nobackup_eloads = glob.glob(os.path.join(self.resources_folder, 'nobackup_eloads', 'ELOAD_1'))
+        nobackup_eloads = glob.glob(os.path.join(self.resources_folder, 'nobackup_eloads', self.submission_id))
         for nobackup_eload in nobackup_eloads:
             shutil.rmtree(nobackup_eload)
         genomes = glob.glob(os.path.join(self.resources_folder, 'genomes'))
@@ -54,14 +54,14 @@ class TestSubCliToEloadConverter(TestCase):
     def create_vcfs(self, num_files=2):
         paths = []
         for i in range(num_files):
-            vcf = os.path.join(self.cli_to_eload.eload_dir, '10_submitted', 'vcf_files', f'file{i}.vcf')
+            vcf = os.path.join(self.cli_to_eload.submission_dir, '10_submitted', 'vcf_files', f'file{i}.vcf')
             touch(vcf)
             paths.append(vcf)
         return paths
 
     def create_metadata(self, num_analyses=0):
         source_metadata = os.path.join(self.resources_folder, 'metadata.xlsx')
-        metadata = os.path.join(self.cli_to_eload.eload_dir, '10_submitted', 'metadata_file',
+        metadata = os.path.join(self.cli_to_eload.submission_dir, '10_submitted', 'metadata_file',
                                 'metadata.xlsx')
         shutil.copyfile(source_metadata, metadata)
         if num_analyses:
@@ -79,7 +79,7 @@ class TestSubCliToEloadConverter(TestCase):
     def patch_submission_obj(self, json_response=None):
         if json_response is None:
             json_response =self.webservice_response_json
-        m_submission_obj = patch.object(SubCLIToEloadConverter, '_submission_obj',
+        m_submission_obj = patch.object(SubCLIToSubmissionConverter, '_submission_obj',
                                         new_callable=PropertyMock(return_value=json_response))
         return m_submission_obj
 
@@ -95,20 +95,20 @@ class TestSubCliToEloadConverter(TestCase):
                 self.cli_to_eload.check_status()
 
     def test_retrieve_vcf_files_from_sub_cli_ftp(self):
-        assert os.listdir(os.path.join(self.cli_to_eload.eload_dir, '10_submitted', 'vcf_files')) == []
-        assert os.listdir(os.path.join(self.cli_to_eload.eload_dir, '10_submitted', 'metadata_file')) == []
+        assert os.listdir(os.path.join(self.cli_to_eload.submission_dir, '10_submitted', 'vcf_files')) == []
+        assert os.listdir(os.path.join(self.cli_to_eload.submission_dir, '10_submitted', 'metadata_file')) == []
         with self.patch_submission_obj() as m_submission_obj:
             self.cli_to_eload.retrieve_vcf_files_from_sub_cli_ftp_dir()
-        assert os.listdir(os.path.join(self.cli_to_eload.eload_dir, '10_submitted', 'vcf_files')) == ['data.vcf.gz']
+        assert os.listdir(os.path.join(self.cli_to_eload.submission_dir, '10_submitted', 'vcf_files')) == ['data.vcf.gz']
 
     def test_download_metadata_json_and_store(self):
         with self.patch_submission_obj():
             self.cli_to_eload.download_metadata_json_and_store()
 
         # Check if json file was written correctly and converted to xlsx without any error
-        metadata_json_file_path = os.path.join(self.cli_to_eload.eload_dir, '10_submitted', 'metadata_file',
+        metadata_json_file_path = os.path.join(self.cli_to_eload.submission_dir, '10_submitted', 'metadata_file',
                                                'metadata_json.json')
-        metadata_xlsx_file_path = os.path.join(self.cli_to_eload.eload_dir, '10_submitted', 'metadata_file',
+        metadata_xlsx_file_path = os.path.join(self.cli_to_eload.submission_dir, '10_submitted', 'metadata_file',
                                                'metadata_xlsx.xlsx')
         assert os.path.exists(metadata_json_file_path)
         with open(metadata_json_file_path) as open_file:
@@ -125,21 +125,21 @@ class TestSubCliToEloadConverter(TestCase):
         self.cli_to_eload.detect_submitted_metadata()
         self.cli_to_eload.check_submitted_filenames()
         # Check that the metadata spreadsheet is in the config file
-        assert self.cli_to_eload.eload_cfg.query('submission', 'metadata_spreadsheet') == metadata
+        assert self.cli_to_eload.submission_cfg.query('submission', 'metadata_spreadsheet') == metadata
 
     def test_detect_metadata_attributes(self):
         self.create_vcfs()
         metadata = self.create_metadata()
-        self.cli_to_eload.eload_cfg.set('submission', 'metadata_spreadsheet', value=metadata)
-        with patch('eva_submission.eload_utils.get_scientific_name_from_evapro', return_value=None):
+        self.cli_to_eload.submission_cfg.set('submission', 'metadata_spreadsheet', value=metadata)
+        with patch('eva_submission.submission_utils.get_scientific_name_from_evapro', return_value=None):
             self.cli_to_eload.detect_metadata_attributes()
 
-        assert self.cli_to_eload.eload_cfg.query('submission', 'project_title') == 'Greatest project ever'
-        assert self.cli_to_eload.eload_cfg.query('submission', 'taxonomy_id') == 9606
-        assert self.cli_to_eload.eload_cfg.query('submission', 'scientific_name') == 'Homo sapiens'
-        assert self.cli_to_eload.eload_cfg.query('submission', 'analyses', 'ELOAD_1_GAE',
+        assert self.cli_to_eload.submission_cfg.query('submission', 'project_title') == 'Greatest project ever'
+        assert self.cli_to_eload.submission_cfg.query('submission', 'taxonomy_id') == 9606
+        assert self.cli_to_eload.submission_cfg.query('submission', 'scientific_name') == 'Homo sapiens'
+        assert self.cli_to_eload.submission_cfg.query('submission', 'analyses', 'submission_1_GAE',
                                                  'assembly_accession') == 'GCA_000001405.1'
-        vcf_files = self.cli_to_eload.eload_cfg.query('submission', 'analyses', 'ELOAD_1_GAE', 'vcf_files')
+        vcf_files = self.cli_to_eload.submission_cfg.query('submission', 'analyses', 'submission_1_GAE', 'vcf_files')
         assert len(vcf_files) == 1
         assert '10_submitted/vcf_files/T100.vcf.gz' in vcf_files[0]
 
@@ -154,30 +154,30 @@ class TestSubCliToEloadConverter(TestCase):
 
     def test_find_genome_single_sequence(self):
         cfg.content['eutils_api_key'] = None
-        self.cli_to_eload.eload_cfg.set('submission', 'scientific_name', value='Thingy thingus')
+        self.cli_to_eload.submission_cfg.set('submission', 'scientific_name', value='Thingy thingus')
         # Ensure no other analyses present in the config
-        self.cli_to_eload.eload_cfg.set('submission', 'analyses', value={})
-        self.cli_to_eload.eload_cfg.set('submission', 'analyses', 'Analysis alias test', 'assembly_accession',
-                                        value='AJ312413.2')
+        self.cli_to_eload.submission_cfg.set('submission', 'analyses', value={})
+        self.cli_to_eload.submission_cfg.set('submission', 'analyses', 'Analysis alias test', 'assembly_accession',
+                                             value='AJ312413.2')
 
-        with mock.patch("eva_submission.eload_preparation.requests.put", return_value=mock.Mock(status_code=200)):
+        with mock.patch("eva_submission.submission_preparation.requests.put", return_value=mock.Mock(status_code=200)):
             self.cli_to_eload.find_genome()
-            assert self.cli_to_eload.eload_cfg['submission']['analyses']['Analysis alias test']['assembly_fasta'] \
+            assert self.cli_to_eload.submission_cfg['submission']['analyses']['Analysis alias test']['assembly_fasta'] \
                    == 'tests/resources/genomes/thingy_thingus/AJ312413.2/AJ312413.2.fa'
-            assert self.cli_to_eload.eload_cfg['submission']['analyses']['Analysis alias test']['assembly_report'] \
+            assert self.cli_to_eload.submission_cfg['submission']['analyses']['Analysis alias test']['assembly_report'] \
                    == 'tests/resources/genomes/thingy_thingus/AJ312413.2/AJ312413.2_assembly_report.txt'
 
     def test_contig_alias_db_update(self):
         cfg.content['eutils_api_key'] = None
         # Ensure no other analyses present in the config
-        self.cli_to_eload.eload_cfg.set('submission', 'analyses', value={})
-        self.cli_to_eload.eload_cfg.set('submission', 'scientific_name', value='Thingy thingus')
-        self.cli_to_eload.eload_cfg.set('submission', 'analyses', 'Analysis alias test', 'assembly_accession',
-                                        value='GCA_000001405.10')
+        self.cli_to_eload.submission_cfg.set('submission', 'analyses', value={})
+        self.cli_to_eload.submission_cfg.set('submission', 'scientific_name', value='Thingy thingus')
+        self.cli_to_eload.submission_cfg.set('submission', 'analyses', 'Analysis alias test', 'assembly_accession',
+                                             value='GCA_000001405.10')
 
-        with mock.patch("eva_submission.eload_preparation.get_reference_fasta_and_report",
+        with mock.patch("eva_submission.submission_preparation.get_reference_fasta_and_report",
                         return_value=('assembly', 'report')), \
-                mock.patch("eva_submission.eload_preparation.requests.put") as mockput:
+                mock.patch("eva_submission.submission_preparation.requests.put") as mockput:
             self.cli_to_eload.find_genome()
 
             mockput.assert_called_once_with('host/v1/admin/assemblies/GCA_000001405.10', auth=('user', 'pass'))
@@ -199,4 +199,4 @@ class TestSubCliToEloadConverter(TestCase):
     @patch("requests.put")
     def test_store_submission_id_in_config(self, mock_put):
         self.cli_to_eload.add_submission_id_to_config()
-        assert self.submission_id == self.cli_to_eload.eload_cfg.query('submission', 'submission_id')
+        assert self.submission_id == self.cli_to_eload.submission_cfg.query('submission', 'submission_id')

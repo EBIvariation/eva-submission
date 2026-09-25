@@ -1,0 +1,151 @@
+import gzip
+import os
+import shutil
+import tarfile
+from pathlib import Path
+
+from ebi_eva_common_pyutils.config import cfg
+
+from eva_submission.submission import Submission
+from eva_submission.submission_in_ftp import deposit_box
+
+
+
+class SubmissionDeletion(Submission):
+    def __init__(self, submission_id):
+        super().__init__(submission_id)
+        self.project_accession = self.submission_cfg.query('brokering', 'ena', 'PROJECT')
+        self.project_dir = None
+        if self.project_accession:
+            self.project_dir = os.path.join(cfg['projects_dir'], self.project_accession)
+        archive_dir = os.path.join(cfg['submissions_lts_dir'])
+        assert os.path.isdir(archive_dir), f'Archive directory {archive_dir} does not exist. Are you on a datamover nodes ?'
+        self.lts_archive_file = os.path.join(archive_dir, f'{self.submission_id}.tar')
+
+    def delete_submission(self, ftp_box, submitter, force_delete=False):
+        # check if already present in LTS
+        if os.path.exists(self.lts_archive_file) and not force_delete:
+            raise Exception(
+                f'File already exists in the LTS for the submission {self.submission_id}. LTS file: {self.lts_archive_file}')
+
+        self.upgrade_to_new_version_if_needed()
+
+        # check that QC has been run and passed
+        if not self.check_submission_qc_is_successful() and not force_delete:
+                raise Exception(f'QC has not been run successfully for submission {self.submission_id}')
+
+        self.archive_submission()
+
+        # delete
+        if ftp_box and submitter:
+            ftp_dir = deposit_box(ftp_box, submitter)
+            self.delete_ftp_dir(ftp_dir)
+        if self.project_dir:
+            self.delete_project_dir(self.project_dir)
+        self.delete_submission_dir(self.submission_dir)
+        self.delete_submission_dir(self.nobackup_submission_dir)
+
+    def is_compressed(self, file_name):
+        compressed_exts = (".gz", ".xz", ".bz2", ".zip", ".rar", ".7z")
+        return file_name.endswith(compressed_exts)
+
+    def is_compressed_or_index_file(self, file_name):
+        return self.is_compressed(file_name) or file_name.endswith(".csi")
+
+    def archive_submission(self):
+        archive_dir = os.path.join(self.submission_dir, 'archive_dir')
+        # delete if already exists
+        shutil.rmtree(archive_dir, ignore_errors=True)
+        submission_archive_dir = os.path.join(archive_dir, f'{self.submission_id}')
+        os.makedirs(submission_archive_dir, exist_ok=True)
+
+        # copy relevant files to the archive_dir
+        self.copy_submission_files(submission_archive_dir)
+
+        # gzip each file if they are not already compressed
+        for root, _, files in os.walk(submission_archive_dir):
+            for file in files:
+                file_path = os.path.join(root, file)
+                if not self.is_compressed_or_index_file(file):
+                    gzip_path = f"{file_path}.gz"
+                    with open(file_path, 'rb') as f_in, gzip.open(gzip_path, 'wb') as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+                    os.remove(file_path)
+
+        # Create a tar archive of the entire submission_archive_dir
+        archive_tar_file = os.path.join(self.submission_dir, f'{self.submission_id}.tar')
+        with tarfile.open(archive_tar_file, mode="w") as tar:
+            for root, _, files in os.walk(submission_archive_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, start=archive_dir)  # Avoid nesting archive_dir
+                    tar.add(file_path, arcname=arcname)
+
+        # copy to LTS
+        try:
+            shutil.copy(archive_tar_file, self.lts_archive_file)
+        except Exception as e:
+            print(f"Error copying archive to LTS: {e}")
+            raise e
+
+    def safe_copy(self, src, dst):
+        if os.path.isfile(src):
+            shutil.copy(src, dst)
+        elif os.path.isdir(src):
+            shutil.copytree(src, dst)
+        else:
+            self.warning(f'{src} Does not exist so will not be archived')
+
+    def copy_submission_files(self, archive_dir):
+        # copy config file
+        self.safe_copy(self.config_path, archive_dir)
+
+        # copy submission logs
+        for file in Path(self.submission_dir).glob("*_submission.log"):
+            self.safe_copy(file, archive_dir)
+
+        # copy metadata spreadsheet and vcf files along with index
+        src_ena_dir = os.path.join(self.submission_dir, '18_brokering/ena')
+        archive_ena_dir = os.path.join(archive_dir, '18_brokering/ena')
+        os.makedirs(archive_ena_dir, exist_ok=True)
+        metadata_spreadsheet = os.path.join(src_ena_dir, 'metadata_spreadsheet.xlsx')
+        if os.path.exists(metadata_spreadsheet):
+            self.safe_copy(metadata_spreadsheet, archive_ena_dir)
+        metadata_json = os.path.join(src_ena_dir, 'metadata_json.json')
+        if os.path.exists(metadata_json):
+            self.safe_copy(metadata_json, archive_ena_dir)
+        for file in Path(src_ena_dir).glob("*.vcf.gz"):
+            self.safe_copy(file, archive_ena_dir)
+        for file in Path(src_ena_dir).glob("*.csi"):
+            if file.name.endswith(".vcf.gz.csi") or file.name.endswith(".vcf.csi"):
+                self.safe_copy(file, archive_ena_dir)
+
+        # copy 00_logs
+        src_log_dir = os.path.join(self.submission_dir, '00_logs')
+        real_src_log_dir = os.path.realpath(src_log_dir)
+        archive_log_dir = os.path.join(archive_dir, '00_logs')
+        self.safe_copy(real_src_log_dir, archive_log_dir)
+
+        # copy accessioned files from 60_eva_public
+        src_accessioned_files_dir = os.path.join(self.submission_dir, "60_eva_public")
+        real_accessioned_files_dir = os.path.realpath(src_accessioned_files_dir)
+        archive_accession_files_dir = os.path.join(archive_dir, "60_eva_public")
+        os.makedirs(archive_accession_files_dir, exist_ok=True)
+        for file in Path(real_accessioned_files_dir).glob("*.accessioned.vcf.gz*"):
+            if file.name.endswith(".accessioned.vcf.gz") or file.name.endswith(".accessioned.vcf.gz.csi"):
+                self.safe_copy(file, archive_accession_files_dir)
+
+    def delete_ftp_dir(self, ftp_dir):
+        self.info(f'Deleting FTP directory {ftp_dir}')
+        if os.path.exists(ftp_dir):
+            shutil.rmtree(ftp_dir)
+
+    def delete_project_dir(self, project_dir):
+        self.info(f'Deleting Project directory {project_dir}')
+        if os.path.exists(project_dir):
+            shutil.rmtree(project_dir)
+
+    def delete_submission_dir(self, submission_dir):
+        self.info(f'Deleting Submission directory {submission_dir}')
+        if os.path.exists(submission_dir):
+            shutil.rmtree(submission_dir, ignore_errors=True)

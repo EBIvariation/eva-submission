@@ -66,7 +66,6 @@ def put_to_sub_ws(url, json_data=None):
         return None
     return response.json()
 
-
 def fetch_submission_from_eload(eload_id):
     response = get_from_sub_ws(sub_ws_url_build('admin', 'submissions', eloadId=eload_id, size=1))
     content = response.get('content', [])
@@ -82,6 +81,11 @@ def fetch_submission(submission_id):
         return None
     return content[0]
 
+def get_or_generate_submission_id_for_eload(eload_id, source='email'):
+    response = get_from_sub_ws(sub_ws_url_build('admin', 'submission', str(eload_id), 'submissionId', source=source))
+    if not response:
+        return None
+    return response.get('submissionId')
 
 def update_tracking_details(submission_id, release_date=None, project_accession=None, analysis_accessions=None,
                             rt_link=None):

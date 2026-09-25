@@ -19,16 +19,18 @@ from argparse import ArgumentParser
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_sub_cli_processing.sub_cli_to_eload_converter.sub_cli_to_eload_converter import SubCLIToEloadConverter
-from eva_submission.eload_preparation import EloadPreparation
+from eva_sub_cli_processing.sub_cli_to_submission_converter.sub_cli_to_submission_converter import \
+    SubCLIToSubmissionConverter
+from eva_sub_cli_processing.sub_cli_utils import get_or_generate_submission_id_for_eload
 from eva_submission.submission_config import load_config
+from eva_submission.submission_preparation import SubmissionPreparation
 
 logger = log_cfg.get_logger(__name__)
 
 
 def main():
     argparse = ArgumentParser(description='Copies data from the ftp (if specified) and search for VCF and metadata files.'
-                                          'then create a config file storing information about the eload')
+                    'then create a config file storing information about the submission')
     argparse.add_argument('--ftp_box', required=False, type=int, choices=range(1, 21),
                           help='box number where the data should have been uploaded. Required to copy the data from the FTP')
     argparse.add_argument('--submitter', required=False, type=str,
@@ -52,16 +54,21 @@ def main():
     load_config()
 
     if args.submission_id:
-        with SubCLIToEloadConverter(args.eload, args.submission_id) as sub_cli_eload:
-            sub_cli_eload.check_status()
-            sub_cli_eload.retrieve_vcf_files_from_sub_cli_ftp_dir()
-            sub_cli_eload.download_metadata_json_and_store()
-            sub_cli_eload.detect_all(args.taxid, args.reference)
+        with SubCLIToSubmissionConverter(args.submission_id) as sub_cli_submission:
+            sub_cli_submission.check_status()
+            sub_cli_submission.retrieve_vcf_files_from_sub_cli_ftp_dir()
+            sub_cli_submission.download_metadata_json_and_store()
+            sub_cli_submission.detect_all(args.taxid, args.reference)
+            sub_cli_submission.link_submission_id_and_eload(args.submission_id, args.eload, "eva-sub-cli")
     else:
-        with EloadPreparation(args.eload) as eload:
+        args.submission_id = get_or_generate_submission_id_for_eload(args.eload)
+        assert args.submission_id is not None
+
+        with SubmissionPreparation(args.submission_id) as submission:
             if args.ftp_box and args.submitter:
-                eload.copy_from_ftp(args.ftp_box, args.submitter)
-            eload.detect_all(args.taxid, args.reference)
+                submission.copy_from_ftp(args.ftp_box, args.submitter)
+            submission.detect_all(args.taxid, args.reference)
+            submission.link_submission_id_and_eload(args.submission_id, args.eload, "email")
 
 
 if __name__ == "__main__":

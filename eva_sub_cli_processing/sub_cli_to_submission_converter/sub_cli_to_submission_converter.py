@@ -1,0 +1,68 @@
+import json
+import os
+import shutil
+from functools import cached_property
+
+from ebi_eva_common_pyutils.config import cfg
+
+from eva_sub_cli_processing.sub_cli_utils import sub_ws_url_build, get_from_sub_ws, put_to_sub_ws
+from eva_submission.submission_preparation import SubmissionPreparation
+from eva_submission.submission_config import SubmissionConfig
+
+
+class SubCLIToSubmissionConverter(SubmissionPreparation):
+
+    def __init__(self, submission_id:str, config_object: SubmissionConfig = None):
+        super().__init__(submission_id, config_object)
+
+    @cached_property
+    def _submission_obj(self):
+        submission_details_url = sub_ws_url_build("admin", "submission", self.submission_id)
+        return get_from_sub_ws(submission_details_url)
+
+    @property
+    def submission_account_id(self):
+        submission_account_id =  self._submission_obj.get('submission', {}).get('submissionAccount', {}).get('id')
+        if not submission_account_id:
+            raise ValueError(f"Missing: submission.submissionAccount.id field in the response for "
+                             f"submission {self.submission_id}")
+        return submission_account_id
+
+    @property
+    def metadata_json(self):
+        metadata_json_data = self._submission_obj.get('metadataJson', {})
+        if not metadata_json_data:
+            raise ValueError(f"Metadata json retrieval: missing metadata_json field in the response for "
+                             f"submission {self.submission_id}")
+        return metadata_json_data
+
+    @property
+    def sub_cli_submission_dir_path(self) -> str:
+        return str(os.path.join(cfg['ftp_dir'], 'eva-sub-cli', 'upload', self.submission_account_id, self.submission_id))
+
+    def check_status(self):
+        status = self._submission_obj.get('submission', {}).get('status')
+        assert status == 'UPLOADED', f'Status for submission {self.submission_id} must be UPLOADED'
+
+    def retrieve_vcf_files_from_sub_cli_ftp_dir(self):
+        vcf_dir = self._get_dir('vcf')
+        for root, dirs, files in os.walk(self.sub_cli_submission_dir_path):
+            for name in files:
+                file_path = os.path.join(root, name)
+                if file_path.endswith('.vcf.gz') or file_path.endswith('.vcf'):
+                    dest = os.path.join(vcf_dir, os.path.basename(file_path))
+                    shutil.copyfile(file_path, dest)
+
+
+    def download_metadata_json_and_store(self):
+        metadata_dir = self._get_dir('metadata')
+        metadata_json_file_path = os.path.join(metadata_dir, "metadata_json.json")
+        # download metadata json
+        self._download_metadata_json_file(metadata_json_file_path)
+        # Store path to metadata json in the submission config
+        self.submission_cfg.set('submission', 'metadata_json', value=metadata_json_file_path)
+
+
+    def _download_metadata_json_file(self, metadata_json_file_path):
+        with open(metadata_json_file_path, "w", encoding="utf-8") as open_file:
+            json.dump(self.metadata_json, open_file, indent=4)

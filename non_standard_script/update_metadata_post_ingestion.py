@@ -18,7 +18,7 @@ import logging
 from argparse import ArgumentParser
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
-from eva_submission.eload_ingestion import EloadIngestion
+from eva_submission.submission_ingestion import SubmissionIngestion
 from eva_submission.submission_config import load_config
 
 logger = log_cfg.get_logger(__name__)
@@ -26,7 +26,7 @@ logger = log_cfg.get_logger(__name__)
 
 def main():
     argparse = ArgumentParser(description='Update metadata after study has been ingested')
-    argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission.')
+    argparse.add_argument('--submission_id', required=True, type=str, help='Submission ID of the submission')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level.')
 
@@ -39,7 +39,7 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    with EloadIngestion(args.eload) as ingestion:
+    with SubmissionIngestion(args.submission_id) as ingestion:
         ingestion.upgrade_to_new_version_if_needed()
         ingestion.update_assembly_set_in_analysis()
         ingestion.loader.insert_browsable_files_for_project(ingestion.project_accession)
