@@ -1,5 +1,7 @@
 import glob
+import hashlib
 import json
+import tempfile
 import os
 import shutil
 from unittest import TestCase, mock
@@ -100,6 +102,56 @@ class TestSubCliToEloadConverter(TestCase):
         with self.patch_submission_obj() as m_submission_obj:
             self.cli_to_eload.retrieve_vcf_files_from_sub_cli_ftp_dir()
         assert os.listdir(os.path.join(self.cli_to_eload.eload_dir, '10_submitted', 'vcf_files')) == ['data.vcf.gz']
+
+    def _upload_dir_with_parts(self, content, part_size):
+        """Create an upload directory containing content split into parts, and return the parts' description."""
+        upload_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, upload_dir)
+        parts = []
+        for index, offset in enumerate(range(0, len(content), part_size)):
+            part_name = f'large.vcf.gz.part{index + 1:03d}'
+            with open(os.path.join(upload_dir, part_name), 'wb') as open_file:
+                open_file.write(content[offset:offset + part_size])
+            parts.append({'fileName': part_name, 'fileSize': len(content[offset:offset + part_size])})
+        return upload_dir, parts
+
+    def _submission_with_file_in_parts(self, content, parts, md5=None):
+        json_response = json.loads(json.dumps(self.webservice_response_json))
+        json_response['metadataJson']['files'] = [{
+            'analysisAlias': 'VD1', 'fileName': 'large.vcf.gz', 'fileSize': len(content),
+            'md5': md5 or hashlib.md5(content).hexdigest(), 'fileParts': parts
+        }]
+        return json_response
+
+    def _assemble(self, upload_dir, json_response):
+        vcf_dir = os.path.join(self.cli_to_eload.eload_dir, '10_submitted', 'vcf_files')
+        with self.patch_submission_obj(json_response), \
+                patch.object(SubCLIToEloadConverter, 'sub_cli_submission_dir_path',
+                             new_callable=PropertyMock(return_value=upload_dir)):
+            self.cli_to_eload.retrieve_vcf_files_from_sub_cli_ftp_dir()
+        return vcf_dir
+
+    def test_retrieve_vcf_files_assembles_file_uploaded_in_parts(self):
+        content = bytes(range(256)) * 4
+        upload_dir, parts = self._upload_dir_with_parts(content, part_size=300)
+        vcf_dir = self._assemble(upload_dir, self._submission_with_file_in_parts(content, parts))
+        # The parts are not copied as VCF files, only the assembled file
+        assert os.listdir(vcf_dir) == ['large.vcf.gz']
+        with open(os.path.join(vcf_dir, 'large.vcf.gz'), 'rb') as open_file:
+            assert open_file.read() == content
+
+    def test_retrieve_vcf_files_part_missing(self):
+        content = bytes(range(256)) * 4
+        upload_dir, parts = self._upload_dir_with_parts(content, part_size=300)
+        os.remove(os.path.join(upload_dir, 'large.vcf.gz.part002'))
+        with self.assertRaises(ValueError):
+            self._assemble(upload_dir, self._submission_with_file_in_parts(content, parts))
+
+    def test_retrieve_vcf_files_assembled_md5_mismatch(self):
+        content = bytes(range(256)) * 4
+        upload_dir, parts = self._upload_dir_with_parts(content, part_size=300)
+        with self.assertRaises(ValueError):
+            self._assemble(upload_dir, self._submission_with_file_in_parts(content, parts, md5='0' * 32))
 
     def test_download_metadata_json_and_store(self):
         with self.patch_submission_obj():
