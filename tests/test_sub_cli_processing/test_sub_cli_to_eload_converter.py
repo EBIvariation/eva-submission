@@ -1,3 +1,4 @@
+import copy
 import glob
 import hashlib
 import json
@@ -41,6 +42,7 @@ class TestSubCliToEloadConverter(TestCase):
 
         self.cli_to_eload = SubCLIToEloadConverter(1, submission_id=self.submission_id)
         self.upload_dir = os.path.join(self.resources_folder, 'upload_dir')
+        os.makedirs(self.upload_dir, exist_ok=True)
 
 
     def tearDown(self) -> None:
@@ -118,7 +120,7 @@ class TestSubCliToEloadConverter(TestCase):
         return self.upload_dir, parts
 
     def _submission_with_file_in_parts(self, content, parts, md5=None):
-        json_response = json.loads(json.dumps(self.webservice_response_json))
+        json_response = copy.deepcopy(self.webservice_response_json)
         json_response['metadataJson']['files'] = [{
             'analysisAlias': 'VD1', 'fileName': 'large.vcf.gz', 'fileSize': len(content),
             'md5': md5 or hashlib.md5(content).hexdigest(), 'fileParts': parts
