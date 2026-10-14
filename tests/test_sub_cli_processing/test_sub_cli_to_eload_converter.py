@@ -40,6 +40,8 @@ class TestSubCliToEloadConverter(TestCase):
         self.submission_id = "abcdef_ghijkl_mnopqr_stuvwx"
 
         self.cli_to_eload = SubCLIToEloadConverter(1, submission_id=self.submission_id)
+        self.upload_dir = os.path.join(self.resources_folder, 'upload_dir')
+
 
     def tearDown(self) -> None:
         EloadConfig.content = {}
@@ -52,6 +54,8 @@ class TestSubCliToEloadConverter(TestCase):
         genomes = glob.glob(os.path.join(self.resources_folder, 'genomes'))
         for genome in genomes:
             shutil.rmtree(genome)
+        if os.path.exists(self.upload_dir):
+            shutil.rmtree(self.upload_dir)
 
     def create_vcfs(self, num_files=2):
         paths = []
@@ -104,16 +108,14 @@ class TestSubCliToEloadConverter(TestCase):
         assert os.listdir(os.path.join(self.cli_to_eload.eload_dir, '10_submitted', 'vcf_files')) == ['data.vcf.gz']
 
     def _upload_dir_with_parts(self, content, part_size):
-        """Create an upload directory containing content split into parts, and return the parts' description."""
-        upload_dir = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, upload_dir)
+        """Populate upload directory with content split into parts, and return the parts' description."""
         parts = []
         for index, offset in enumerate(range(0, len(content), part_size)):
             part_name = f'large.vcf.gz.part{index + 1:03d}'
-            with open(os.path.join(upload_dir, part_name), 'wb') as open_file:
+            with open(os.path.join(self.upload_dir, part_name), 'wb') as open_file:
                 open_file.write(content[offset:offset + part_size])
             parts.append({'fileName': part_name, 'fileSize': len(content[offset:offset + part_size])})
-        return upload_dir, parts
+        return self.upload_dir, parts
 
     def _submission_with_file_in_parts(self, content, parts, md5=None):
         json_response = json.loads(json.dumps(self.webservice_response_json))
@@ -167,8 +169,6 @@ class TestSubCliToEloadConverter(TestCase):
             metadata_json = json.load(open_file)
             assert metadata_json.get('project').get('title') == 'Example Project'
             assert metadata_json.get('project').get('description') == 'An example project for demonstration purposes'
-
-
 
     def test_detect_submitted_metadata(self):
         self.create_vcfs()

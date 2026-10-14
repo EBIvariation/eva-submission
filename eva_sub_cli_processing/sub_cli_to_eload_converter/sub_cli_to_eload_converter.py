@@ -106,6 +106,7 @@ class SubCLIToEloadConverter(EloadPreparation):
             file_name = os.path.basename(file_info.get('fileName') or '')
             expected_md5 = file_info.get('md5')
             if not expected_md5 or not (file_name.endswith('.vcf.gz') or file_name.endswith('.vcf')):
+                self.warning(f'{file_name} does not have an md5 or is not a vcf file')
                 continue
             file_path = os.path.join(vcf_dir, file_name)
             if not os.path.isfile(file_path):
