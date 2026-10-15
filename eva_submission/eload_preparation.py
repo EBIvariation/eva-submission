@@ -233,7 +233,7 @@ class EloadPreparation(Eload):
             if assembly_accession:
                 analysis_reference[analysis_alias] = {'assembly_accession': assembly_accession, 'vcf_files': []}
             else:
-                self.error(f"Reference is missing for Analysis {analysis.get('Analysis Alias')}")
+                self.error(f"Reference is missing for Analysis {analysis.get('analysisAlias')}")
 
         for file_entry in json_data.get('files'):
             if is_vcf_file(file_entry.get('fileName')):
