@@ -1,5 +1,8 @@
+import copy
 import glob
+import hashlib
 import json
+import tempfile
 import os
 import shutil
 from unittest import TestCase, mock
@@ -38,6 +41,9 @@ class TestSubCliToEloadConverter(TestCase):
         self.submission_id = "abcdef_ghijkl_mnopqr_stuvwx"
 
         self.cli_to_eload = SubCLIToEloadConverter(1, submission_id=self.submission_id)
+        self.upload_dir = os.path.join(self.resources_folder, 'upload_dir')
+        os.makedirs(self.upload_dir, exist_ok=True)
+
 
     def tearDown(self) -> None:
         EloadConfig.content = {}
@@ -50,6 +56,8 @@ class TestSubCliToEloadConverter(TestCase):
         genomes = glob.glob(os.path.join(self.resources_folder, 'genomes'))
         for genome in genomes:
             shutil.rmtree(genome)
+        if os.path.exists(self.upload_dir):
+            shutil.rmtree(self.upload_dir)
 
     def create_vcfs(self, num_files=2):
         paths = []
@@ -101,6 +109,54 @@ class TestSubCliToEloadConverter(TestCase):
             self.cli_to_eload.retrieve_vcf_files_from_sub_cli_ftp_dir()
         assert os.listdir(os.path.join(self.cli_to_eload.eload_dir, '10_submitted', 'vcf_files')) == ['data.vcf.gz']
 
+    def _upload_dir_with_parts(self, content, part_size):
+        """Populate upload directory with content split into parts, and return the parts' description."""
+        parts = []
+        for index, offset in enumerate(range(0, len(content), part_size)):
+            part_name = f'large.vcf.gz.part{index + 1:03d}'
+            with open(os.path.join(self.upload_dir, part_name), 'wb') as open_file:
+                open_file.write(content[offset:offset + part_size])
+            parts.append({'fileName': part_name, 'fileSize': len(content[offset:offset + part_size])})
+        return self.upload_dir, parts
+
+    def _submission_with_file_in_parts(self, content, parts, md5=None):
+        json_response = copy.deepcopy(self.webservice_response_json)
+        json_response['metadataJson']['files'] = [{
+            'analysisAlias': 'VD1', 'fileName': 'large.vcf.gz', 'fileSize': len(content),
+            'md5': md5 or hashlib.md5(content).hexdigest(), 'fileParts': parts
+        }]
+        return json_response
+
+    def _assemble(self, upload_dir, json_response):
+        vcf_dir = os.path.join(self.cli_to_eload.eload_dir, '10_submitted', 'vcf_files')
+        with self.patch_submission_obj(json_response), \
+                patch.object(SubCLIToEloadConverter, 'sub_cli_submission_dir_path',
+                             new_callable=PropertyMock(return_value=upload_dir)):
+            self.cli_to_eload.retrieve_vcf_files_from_sub_cli_ftp_dir()
+        return vcf_dir
+
+    def test_retrieve_vcf_files_assembles_file_uploaded_in_parts(self):
+        content = bytes(range(256)) * 4
+        upload_dir, parts = self._upload_dir_with_parts(content, part_size=300)
+        vcf_dir = self._assemble(upload_dir, self._submission_with_file_in_parts(content, parts))
+        # The parts are not copied as VCF files, only the assembled file
+        assert os.listdir(vcf_dir) == ['large.vcf.gz']
+        with open(os.path.join(vcf_dir, 'large.vcf.gz'), 'rb') as open_file:
+            assert open_file.read() == content
+
+    def test_retrieve_vcf_files_part_missing(self):
+        content = bytes(range(256)) * 4
+        upload_dir, parts = self._upload_dir_with_parts(content, part_size=300)
+        os.remove(os.path.join(upload_dir, 'large.vcf.gz.part002'))
+        with self.assertRaises(ValueError):
+            self._assemble(upload_dir, self._submission_with_file_in_parts(content, parts))
+
+    def test_retrieve_vcf_files_assembled_md5_mismatch(self):
+        content = bytes(range(256)) * 4
+        upload_dir, parts = self._upload_dir_with_parts(content, part_size=300)
+        with self.assertRaises(ValueError):
+            self._assemble(upload_dir, self._submission_with_file_in_parts(content, parts, md5='0' * 32))
+
     def test_download_metadata_json_and_store(self):
         with self.patch_submission_obj():
             self.cli_to_eload.download_metadata_json_and_store()
@@ -115,8 +171,6 @@ class TestSubCliToEloadConverter(TestCase):
             metadata_json = json.load(open_file)
             assert metadata_json.get('project').get('title') == 'Example Project'
             assert metadata_json.get('project').get('description') == 'An example project for demonstration purposes'
-
-
 
     def test_detect_submitted_metadata(self):
         self.create_vcfs()
