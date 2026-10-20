@@ -133,36 +133,37 @@ class SubmissionBrokering(Submission):
 
         if sample_submitter.check_submit_done():
             self.info('Biosamples accession already provided in the metadata, Skip!')
-            self.submission_cfg.set('brokering', 'Biosamples', 'pass', value=True)
-            # Retrieve the sample names to accession from the metadata
-            sample_name_to_accession = sample_submitter.already_submitted_sample_names_to_accessions()
-            self.submission_cfg.set('brokering', 'Biosamples', 'Samples', value=sample_name_to_accession)
+            # Retrieve the sample records from the metadata and the name of the samples from BioSamples
+            sample_records = sample_submitter.already_submitted_sample_records()
+            self.submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=sample_records)
+            self.submission_cfg.set('brokering', 'Biosamples', 'pass',
+                               value=sample_submitter.check_sample_records(sample_records))
         elif (
-                self.submission_cfg.query('brokering', 'Biosamples', 'Samples')
+                (self.submission_cfg.query('brokering', 'Biosamples', 'sample_records')
+                 or self.submission_cfg.query('brokering', 'Biosamples', 'Samples'))
             and self.submission_cfg.query('brokering', 'Biosamples', 'pass')
         ):
             self.info('BioSamples brokering is already done, Skip!')
         else:
-            sample_name_to_accession = sample_submitter.submit_to_bioSamples()
+            sample_records = sample_submitter.submit_to_bioSamples()
             # Check whether all samples have been accessioned
-            passed = (
-                bool(sample_name_to_accession)
-                and all(sample_name in sample_name_to_accession for sample_name in sample_submitter.all_sample_names())
-            )
+            passed = sample_submitter.check_sample_records(sample_records)
             self.submission_cfg.set('brokering', 'Biosamples', 'date', value=self.now)
-            self.submission_cfg.set('brokering', 'Biosamples', 'Samples', value=sample_name_to_accession)
+            self.submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=sample_records)
             self.submission_cfg.set('brokering', 'Biosamples', 'pass', value=passed)
             # Make sure we crash if we haven't brokered everything
             if not passed:
                 raise ValueError(f'Not all samples were successfully brokered to BioSamples! '
-                                 f'Found {len(sample_name_to_accession)} and expected '
-                                 f'{len(sample_submitter.all_sample_names())}. '
-                                 f'Missing samples are '
-                                 f'{[sample_name for sample_name in sample_submitter.all_sample_names() if sample_name not in sample_name_to_accession]}')
+                                 f'Found {len(sample_records)} and expected {sample_submitter.nb_input_samples()}. '
+                                 f'Samples without accession are '
+                                 f'{[r.get("sampleInVCF") for r in sample_records if not r.get("accession")]}')
 
     def update_biosamples_with_study(self, force=False):
         if not self.submission_cfg.query('brokering', 'Biosamples', 'backlinks') or force:
-            biosample_accession_list = self.submission_cfg.query('brokering', 'Biosamples', 'Samples').values()
+            # The same sample can be referenced by several records: only add the backlink once
+            biosample_accession_list = list(set(
+                record.get('accession') for record in self.sample_records() if record.get('accession')
+            ))
             project_accession = self.submission_cfg.query('brokering', 'ena', 'PROJECT')
             if project_accession:
                 self.info(f'Add external reference to {len(biosample_accession_list)} BioSamples.')
@@ -313,8 +314,15 @@ class SubmissionBrokering(Submission):
     def _biosamples_report(self):
         reports = []
         results = self.submission_cfg.query('brokering', 'Biosamples', ret_default={})
+        sample_lines = []
+        for record in self.sample_records():
+            sample_label = record.get('sampleInVCF') or record.get('name') or record.get('accession')
+            line = f'{sample_label}: {record.get("accession")}'
+            if record.get('analysisAlias'):
+                line += f' ({", ".join(record.get("analysisAlias"))})'
+            sample_lines.append(line)
         report_data = {
-            'samples_to_accessions': '\n'.join(['%s: %s' % (s, a) for s, a in results.get('Samples',  {}).items()]),
+            'samples_to_accessions': '\n'.join(sample_lines),
             'pass': 'PASS' if results.get('pass') else 'FAIL'
         }
         reports.append("""  * Biosamples: {pass}

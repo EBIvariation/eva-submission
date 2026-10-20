@@ -224,7 +224,8 @@ class HistoricalProjectSampleLoader(SubmissionBacklog):
             # Add link between sample accession and sample name
             aggregation_type = self.analysis_accession_2_aggregation_type.get(analysis_accession)
             if aggregation_type == 'basic':
-                result &= self.eva_project_loader.load_samples_from_analysis(self.sample_name_2_accession, analysis_accession)
+                sample_accession_2_name = {accession: name for name, accession in self.sample_name_2_accession.items()}
+                result &= self.eva_project_loader.load_samples_from_analysis(sample_accession_2_name, analysis_accession)
             else:
                 for vcf_file, vcf_file_md5 in self.analysis_accession_2_file_info.get(analysis_accession, []):
                     result &= self.eva_project_loader.load_samples_from_vcf_file(
@@ -278,7 +279,7 @@ class HistoricalProjectSampleLoader(SubmissionBacklog):
     @cached_property
     def sample_name_2_accession(self):
         """Retrieve the sample to biosample accession map from the config or from the ENA API"""
-        sample_name_2_accession = self.submission_cfg.query('brokering', 'Biosamples', 'Samples', ret_default={})
+        sample_name_2_accession = self.sample_name_to_accession()
         if not sample_name_2_accession:
                 sample_name_2_accession = {name: accession
                                            for analysis_accession in self.sample_name_2_accessions_per_analysis

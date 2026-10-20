@@ -12,16 +12,11 @@ class SubCliProcessBrokering(SubCliProcess):
         self.upload_to_bioSamples()
 
     def upload_to_bioSamples(self, ):
-        sample_submitter = SampleJSONSubmitter(('create',), metadata_json=self.submission_detail.get('metadataJson'))
-        sample_name_to_accession = sample_submitter.submit_to_bioSamples()
+        sample_submitter = SampleJSONSubmitter(self.submission_detail.get('metadataJson'), submit_type=('create',))
+        sample_records = sample_submitter.submit_to_bioSamples()
         # Check whether all samples have been accessioned
-        passed = (
-            bool(sample_name_to_accession)
-            and all(sample_name in sample_name_to_accession for sample_name in sample_submitter.all_sample_names())
-        )
-        if not passed:
+        if not sample_submitter.check_sample_records(sample_records):
             raise ValueError(f'Not all samples were successfully brokered to BioSamples! '
-                             f'Found {len(sample_name_to_accession)} and expected '
-                             f'{len(sample_submitter.all_sample_names())}. '
-                             f'Missing samples are '
-                             f'{[sample_name for sample_name in sample_submitter.all_sample_names() if sample_name not in sample_name_to_accession]}')
+                             f'Found {len(sample_records)} and expected {sample_submitter.nb_input_samples()}. '
+                             f'Samples without accession are '
+                             f'{[r.get("sampleInVCF") for r in sample_records if not r.get("accession")]}')
