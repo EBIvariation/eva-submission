@@ -93,9 +93,14 @@ def main():
     with open(metadata_json_file_path, 'r') as f:
         metadata_json = json.load(f)
         sample_submitter = SampleJSONSubmitter(metadata_json, submit_type=(args.action,))
-        sample_name_to_accession = sample_submitter.submit_to_bioSamples()
-        for sample_name, accession in sample_name_to_accession.items():
-            print(f'{sample_name}: {accession}')
+        sample_records = sample_submitter.submit_to_bioSamples()
+        for record in sample_records:
+            sample_label = record.get('sampleInVCF') or record.get('name')
+            action = 'not modified' if record.get('action') == 'None' else record.get('action')
+            line = f'{sample_label}: {record.get("accession")} ({action})'
+            if record.get('derivedFrom'):
+                line += f' derived from {", ".join(record.get("derivedFrom"))}'
+            print(line)
 
 
 if __name__ == "__main__":

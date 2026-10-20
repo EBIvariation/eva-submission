@@ -13,6 +13,7 @@ from packaging import version
 
 from eva_sub_cli_processing.sub_cli_utils import put_to_sub_ws, sub_ws_url_build
 from eva_submission import __version__
+from eva_submission.biosample_submission.biosamples_submitters import create_sample_record
 from eva_submission.config_migration import upgrade_version_0_1, upgrade_version_1_14_to_1_15, \
     upgrade_version_1_15_to_1_16
 from eva_submission.eload_utils import get_hold_date_from_ena
@@ -91,6 +92,71 @@ class Eload(AppLogger):
             return alias[len(self.eload) + 1:]
         return alias
 
+    def sample_records(self):
+        """
+        Returns the records of the samples brokered to BioSamples.
+        ELOADs brokered before the records were introduced only have a sample name to accession dict ('Samples'):
+        it is converted to records that have no analysis information.
+        """
+        sample_records = self.eload_cfg.query('brokering', 'Biosamples', 'sample_records')
+        if sample_records is not None:
+            return sample_records
+        sample_name_to_accession = self.eload_cfg.query('brokering', 'Biosamples', 'Samples', ret_default={})
+        legacy_records = []
+        for sample_name, accession in sample_name_to_accession.items():
+            record = create_sample_record(accession, None, sample_in_vcf=sample_name)
+            record['analysisAlias'] = None
+            legacy_records.append(record)
+        return legacy_records
+
+    def _sample_records_for_analysis(self, analysis_alias):
+        """Records belonging to the analysis. Records without analysis information belong to all analyses."""
+        unique_analysis_alias = self._unique_alias(analysis_alias)
+        return [
+            record for record in self.sample_records()
+            if not record.get('analysisAlias')
+            or unique_analysis_alias in [self._unique_alias(alias) for alias in record.get('analysisAlias')]
+        ]
+
+    def sample_name_to_accession(self):
+        """Map of sample name in VCF to accession across all analyses. Only used by the legacy spreadsheet path."""
+        sample_name_to_accession = {}
+        for record in self.sample_records():
+            if record.get('sampleInVCF') and record['sampleInVCF'] not in sample_name_to_accession:
+                sample_name_to_accession[record['sampleInVCF']] = record.get('accession')
+        return sample_name_to_accession
+
+    def sample_name_to_accession_for_analysis(self, analysis_alias):
+        """Map of sample name in VCF to accession for one analysis. Used to load genotype analyses."""
+        sample_name_to_accession = {}
+        for record in self._sample_records_for_analysis(analysis_alias):
+            sample_name = record.get('sampleInVCF')
+            if not sample_name:
+                continue
+            if sample_name in sample_name_to_accession and \
+                    sample_name_to_accession[sample_name] != record.get('accession'):
+                raise ValueError(f'Sample {sample_name} in analysis {analysis_alias} is associated with multiple '
+                                 f'accessions: {sample_name_to_accession[sample_name]}, {record.get("accession")}')
+            sample_name_to_accession[sample_name] = record.get('accession')
+        return sample_name_to_accession
+
+    def sample_accession_to_name_for_analysis(self, analysis_alias):
+        """
+        Map of accession to sample name for one analysis. Used to load allele frequency analyses.
+        The name is the sample name in VCF if provided, else the BioSample name, else the accession.
+        """
+        sample_accession_to_name = {}
+        for record in self._sample_records_for_analysis(analysis_alias):
+            accession = record.get('accession')
+            sample_name = record.get('sampleInVCF') or record.get('name') or accession
+            if accession in sample_accession_to_name:
+                if sample_accession_to_name[accession] != sample_name:
+                    self.warning(f'Sample {accession} in analysis {analysis_alias} has multiple names: '
+                                 f'{sample_accession_to_name[accession]} and {sample_name}. Keep the first one.')
+                continue
+            sample_accession_to_name[accession] = sample_name
+        return sample_accession_to_name
+
     def create_log_file(self):
         logfile_name = os.path.join(self.eload_dir, str(self.eload) + "_submission.log")
         if logfile_name not in eload_logging_files:
@@ -127,11 +193,33 @@ class Eload(AppLogger):
         hold_date = get_hold_date_from_ena(project_accession, project_alias)
         self.eload_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
 
-    def update_metadata_json(self, input_json_file, output_json_file, existing_project=None):
-        with open(input_json_file) as open_file:
-            metadata_json = json.load(open_file)
+    def _accessioned_sample_objects(self, samples, sample_records):
+        """The sample records are in the same order as the samples in the metadata: sample i gets record i."""
+        if len(samples) != len(sample_records):
+            raise ValueError(f'The metadata contains {len(samples)} samples but {len(sample_records)} were brokered '
+                             f'to BioSamples')
         sample_objects = []
-        for sample_obj in metadata_json.get('sample'):
+        for sample_obj, record in zip(samples, sample_records):
+            accession_in_metadata = sample_obj.get('bioSampleAccession')
+            if accession_in_metadata and 'derivedFrom' not in record and accession_in_metadata != record.get('accession'):
+                raise ValueError(f'Sample {accession_in_metadata} in the metadata does not match the brokered sample '
+                                 f'{record.get("accession")}: the metadata was modified after brokering')
+            analysis_aliases = sample_obj.get('analysisAlias') or []
+            if isinstance(analysis_aliases, str):
+                analysis_aliases = [analysis_aliases]
+            sample_object = {
+                'analysisAlias': [self._unique_alias(a) for a in analysis_aliases],
+                'bioSampleAccession': record.get('accession')
+            }
+            if record.get('sampleInVCF'):
+                sample_object['sampleInVCF'] = record.get('sampleInVCF')
+            sample_objects.append(sample_object)
+        return sample_objects
+
+    def _legacy_accessioned_sample_objects(self, samples):
+        """ELOADs brokered before the sample records were introduced use the sample name to accession dict."""
+        sample_objects = []
+        for sample_obj in samples:
             if self.eload_cfg.query('brokering', 'Biosamples', 'Samples', sample_obj.get('sampleInVCF')):
                 sample_objects.append({
                     'analysisAlias': [self._unique_alias(a) for a in sample_obj.get('analysisAlias')],
@@ -141,6 +229,16 @@ class Eload(AppLogger):
             else:
                 sample_obj['analysisAlias'] = [self._unique_alias(a) for a in sample_obj.get('analysisAlias')]
                 sample_objects.append(sample_obj)
+        return sample_objects
+
+    def update_metadata_json(self, input_json_file, output_json_file, existing_project=None):
+        with open(input_json_file) as open_file:
+            metadata_json = json.load(open_file)
+        sample_records = self.eload_cfg.query('brokering', 'Biosamples', 'sample_records')
+        if sample_records is not None:
+            sample_objects = self._accessioned_sample_objects(metadata_json.get('sample'), sample_records)
+        else:
+            sample_objects = self._legacy_accessioned_sample_objects(metadata_json.get('sample'))
 
         file_objects = []
         analyses = self.eload_cfg['brokering']['analyses']
@@ -190,14 +288,15 @@ class Eload(AppLogger):
         if len(reader.analysis) == 1:
             single_analysis_alias = self._unique_alias(reader.analysis[0].get('Analysis Alias'))
 
+        sample_name_to_accession = self.sample_name_to_accession()
         sample_rows = []
         for sample_row in reader.samples:
-            if self.eload_cfg.query('brokering', 'Biosamples', 'Samples', sample_row.get('Sample Name')):
+            if sample_name_to_accession.get(sample_row.get('Sample Name')):
                 sample_rows.append({
                     'row_num': sample_row.get('row_num'),
                     'Analysis Alias': self._unique_alias(sample_row.get('Analysis Alias')) or single_analysis_alias,
                     'Sample ID': sample_row.get('Sample Name'),
-                    'Sample Accession': self.eload_cfg['brokering']['Biosamples']['Samples'][sample_row.get('Sample Name')]
+                    'Sample Accession': sample_name_to_accession[sample_row.get('Sample Name')]
                 })
             else:
                 sample_row['Analysis Alias'] = self._unique_alias(sample_row['Analysis Alias'])

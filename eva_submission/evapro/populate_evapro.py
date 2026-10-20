@@ -37,7 +37,7 @@ class EvaProjectLoader(AppLogger):
     loader = EvaProjectLoader()
     loader.load_project_from_ena(project_accession) -> Retrieve a project from ENA and add it to the metadata database
     loader.load_samples_from_vcf_file(sample_name_2_sample_accession, vcf_file, vcf_file_md5) -> Retrieve samples from a VCF file
-    loader.load_samples_from_analysis(sample_name_2_sample_accession, analysis_accession) -> Retrieve samples for all files in an analysis
+    loader.load_samples_from_analysis(sample_accession_2_sample_name, analysis_accession) -> Retrieve samples for all files in an analysis
     The last 2 methods assume the project/analysis and file have been loaded already
     """
 
@@ -240,13 +240,15 @@ class EvaProjectLoader(AppLogger):
         self.eva_session.commit()
         return True
 
-    def load_samples_from_analysis(self, sample_name_2_sample_accession, analysis_accession):
+    def load_samples_from_analysis(self, sample_accession_2_sample_name, analysis_accession):
         # For analyses with aggregated VCFs, get sample accessions associated with the analysis
-        sample_accessions = [sample_info[1] for sample_info in
-                             self.ena_project_finder.find_samples_in_ena(analysis_accession)]
+        sample_accessions = list(dict.fromkeys(
+            sample_info[1] for sample_info in self.ena_project_finder.find_samples_in_ena(analysis_accession)
+        ))
         self.info(f'Sample accessions for {analysis_accession} found in ENA: {sample_accessions}')
-        sample_accession_2_sample_name = dict(
-            zip(sample_name_2_sample_accession.values(), sample_name_2_sample_accession.keys()))
+        not_in_ena = set(sample_accession_2_sample_name) - set(sample_accessions)
+        if not_in_ena:
+            self.warning(f'Samples {sorted(not_in_ena)} are not associated with {analysis_accession} in ENA')
         self.begin_or_continue_transaction()
         file_objs = self.get_files_for_analysis(analysis_accession)
         for sample_accession in sample_accessions:
@@ -257,9 +259,9 @@ class EvaProjectLoader(AppLogger):
                 self.eva_session.rollback()
                 return False
             if not sample_name:
-                self.error(f'Cannot find the name for sample {sample_accession}')
-                self.eva_session.rollback()
-                return False
+                self.warning(f'Sample {sample_accession} associated with {analysis_accession} in ENA was not brokered '
+                             f'with this submission: use its accession as name')
+                sample_name = sample_accession
             # Associate these samples with all files in the analysis
             for file_obj in file_objs:
                 self.insert_sample_in_file(file_id=file_obj.file_id, sample_id=sample_obj.sample_id,
