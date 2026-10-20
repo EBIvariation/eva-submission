@@ -296,7 +296,7 @@ class TestEvaProjectLoader(TestCase):
             assert results == expected_results
 
     def test_load_samples_from_analysis(self):
-        sample_name_2_sample_accession = {'POP': 'SAME000001', 'not present': 'SAME000002'}
+        sample_accession_2_sample_name = {'SAME000001': 'POP', 'SAME000002': 'not present'}
         vcf_file = os.path.join(self.resources_dir, 'vcf_files', 'file_basic_aggregation.vcf')
         vcf_file_name = os.path.basename(vcf_file)
         engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
@@ -316,7 +316,7 @@ class TestEvaProjectLoader(TestCase):
                 find_samples_in_ena=Mock(return_value=[('ERS000001', 'SAME000001')])
             )
 
-            self.loader.load_samples_from_analysis(sample_name_2_sample_accession, 'ERZ000001')
+            assert self.loader.load_samples_from_analysis(sample_accession_2_sample_name, 'ERZ000001')
             query = select(SampleInFile)
             expected_results = [('POP', 'SAME000001', vcf_file_name)]
 
@@ -326,6 +326,33 @@ class TestEvaProjectLoader(TestCase):
                 results.append((sample_in_file.name_in_file, sample_in_file.sample.biosample_accession,
                                 sample_in_file.file.filename))
             assert results == expected_results
+
+    def test_load_samples_from_analysis_with_duplicate_names(self):
+        # AF samples can share the same name: each accession must still be loaded with its name
+        sample_accession_2_sample_name = {'SAME000001': 'POP', 'SAME000002': 'POP'}
+        vcf_file_name = 'file_basic_aggregation.vcf'
+        engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+        with self.patch_evapro_engine(engine):
+            metadata.create_all(engine)
+            self.loader.begin_or_continue_transaction()
+            analysis_obj = self.loader.insert_analysis('ERZ000001', 'title', 'alias', 'description', 'center_name',
+                                                       datetime.datetime(2018, 3, 26, 15, 33, 35), 1)
+            file_obj = self.loader.insert_file('prj000001', 1, 1, vcf_file_name, 'md5sum', 'vcf', 10, 'path/to/ftp')
+            analysis_obj.files.append(file_obj)
+            for accession in ['SAME000001', 'SAME000002', 'SAME000003']:
+                self.loader.insert_sample(accession, accession)
+            self.loader.eva_session.commit()
+
+            # SAME000003 is in ENA but was not brokered with this submission: its accession is used as name
+            self.loader.ena_project_finder = PropertyMock(find_samples_in_ena=Mock(return_value=[
+                ('ERS000001', 'SAME000001'), ('ERS000002', 'SAME000002'), ('ERS000003', 'SAME000003')
+            ]))
+            assert self.loader.load_samples_from_analysis(sample_accession_2_sample_name, 'ERZ000001')
+            results = sorted(
+                (result.SampleInFile.name_in_file, result.SampleInFile.sample.biosample_accession)
+                for result in self.loader.eva_session.execute(select(SampleInFile)).fetchall()
+            )
+            assert results == [('POP', 'SAME000001'), ('POP', 'SAME000002'), ('SAME000003', 'SAME000003')]
 
     def _load_project_analysis_files_samples(
             self, project_accession='prj000001',  analysis_accession='erz000001',

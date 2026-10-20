@@ -89,3 +89,54 @@ class TestEload(TestCase):
         self.eload.eload_cfg.content = deepcopy(self.original_v1_14_config.content)
         self.eload.upgrade_to_new_version_if_needed()
         self.assertEqual(self.updated_v1_15_config.content, self.eload.eload_cfg.content)
+
+
+class TestEloadSampleRecords(TestCase):
+
+    def setUp(self):
+        load_config(os.path.join(ROOT_DIR, 'tests', 'resources', 'submission_config.yml'))
+        os.chdir(ROOT_DIR)
+        self.eload = Eload(55)
+        self.eload.eload_cfg.content = {}
+
+    def tearDown(self):
+        for file_path in [self.eload.eload_cfg.config_file, f'{self.eload.eload_cfg.config_file}.1']:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+
+    def test_sample_records_per_analysis(self):
+        self.eload.eload_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
+            # Same sampleInVCF in two genotype analyses
+            {'accession': 'SAME000001', 'analysisAlias': ['GT1'], 'sampleInVCF': 'S1'},
+            {'accession': 'SAME000002', 'analysisAlias': ['ELOAD_55_GT2'], 'sampleInVCF': 'S1'},
+            # AF samples with and without sampleInVCF or name
+            {'accession': 'SAME000003', 'analysisAlias': ['AF1'], 'sampleInVCF': 'P1', 'name': 'bsd3'},
+            {'accession': 'SAME000004', 'analysisAlias': ['AF1'], 'name': 'bsd4'},
+            {'accession': 'SAME000005', 'analysisAlias': ['AF1']},
+            {'accession': 'SAME000004', 'analysisAlias': ['AF1'], 'name': 'other_name'},
+        ])
+        assert self.eload.sample_name_to_accession_for_analysis('GT1') == {'S1': 'SAME000001'}
+        assert self.eload.sample_name_to_accession_for_analysis('ELOAD_55_GT2') == {'S1': 'SAME000002'}
+        assert self.eload.sample_name_to_accession_for_analysis('GT2') == {'S1': 'SAME000002'}
+        assert self.eload.sample_accession_to_name_for_analysis('AF1') == {
+            'SAME000003': 'P1', 'SAME000004': 'bsd4', 'SAME000005': 'SAME000005'
+        }
+
+    def test_sample_name_with_multiple_accessions_in_analysis(self):
+        self.eload.eload_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
+            {'accession': 'SAME000001', 'analysisAlias': ['GT1'], 'sampleInVCF': 'S1'},
+            {'accession': 'SAME000002', 'analysisAlias': ['GT1'], 'sampleInVCF': 'S1'},
+        ])
+        with self.assertRaises(ValueError):
+            self.eload.sample_name_to_accession_for_analysis('GT1')
+
+    def test_legacy_samples(self):
+        self.eload.eload_cfg.set('brokering', 'Biosamples', 'Samples', value={'S1': 'SAME000001', 'S2': 'SAME000002'})
+        assert self.eload.sample_records() == [
+            {'accession': 'SAME000001', 'analysisAlias': None, 'sampleInVCF': 'S1'},
+            {'accession': 'SAME000002', 'analysisAlias': None, 'sampleInVCF': 'S2'},
+        ]
+        # Legacy records belong to every analysis
+        assert self.eload.sample_name_to_accession_for_analysis('GT1') == {'S1': 'SAME000001', 'S2': 'SAME000002'}
+        assert self.eload.sample_accession_to_name_for_analysis('AF1') == {'SAME000001': 'S1', 'SAME000002': 'S2'}
+        assert self.eload.sample_name_to_accession() == {'S1': 'SAME000001', 'S2': 'SAME000002'}
