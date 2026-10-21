@@ -22,6 +22,7 @@ from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 
 from eva_submission.biosample_submission.biosample_converter_utils import update_sample_to_post_4_13
+from eva_submission.biosample_submission.sample_record import SampleRecord, NO_ACTION
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 _now = datetime.now().isoformat()
@@ -37,34 +38,6 @@ RELEASE_PROP = 'release'
 TAX_ID_PROP = 'taxId'
 LAST_UPDATED_BY_PROP = 'last_updated_by'
 ANALYSIS_ALIAS_PROP = 'analysisAlias'
-DERIVED_FROM_PROP = 'derivedFrom'
-ACTION_PROP = 'action'
-
-
-def normalise_sample_in_vcf(sample_in_vcf):
-    """Return the sample name in VCF or None when it is missing, null, empty or only whitespace."""
-    if sample_in_vcf is None or not str(sample_in_vcf).strip():
-        return None
-    return sample_in_vcf
-
-
-def create_sample_record(accession, analysis_aliases, sample_in_vcf=None, name=None, action=None,
-                         derived_from=None):
-    """
-    Create the record tracking one input sample: its accession, the analyses it belongs to and, when known,
-    its name in the VCF and its BioSample name.
-    """
-    record = {ACCESSION_PROP: accession, ANALYSIS_ALIAS_PROP: list(analysis_aliases or [])}
-    sample_in_vcf = normalise_sample_in_vcf(sample_in_vcf)
-    if sample_in_vcf:
-        record[SAMPLE_IN_VCF_PROP] = sample_in_vcf
-    if name:
-        record['name'] = name
-    if derived_from:
-        record[DERIVED_FROM_PROP] = list(derived_from)
-    if action:
-        record[ACTION_PROP] = action
-    return record
 
 
 def get_biosample_characteristics(sample, property_name, data_type='text'):
@@ -392,15 +365,15 @@ class SampleSubmitter(AppLogger):
         sample_json = self.submitter._get_existing_sample(sample_accession)
         if not sample_json:
             raise ValueError(f'Pre-registered sample {sample_accession} could not be retrieved from BioSamples')
-        return create_sample_record(sample_accession, analysis_aliases, sample_in_vcf=sample_in_vcf,
-                                    name=sample_json.get('name'), action='None')
+        return SampleRecord(sample_accession, analysis_aliases, sample_in_vcf=sample_in_vcf,
+                            name=sample_json.get('name'), action=NO_ACTION)
 
     def check_sample_records(self, sample_records):
         """All the input samples must have a record with an accession"""
         return (
             bool(sample_records)
             and len(sample_records) == self.nb_input_samples()
-            and all(record.get(ACCESSION_PROP) for record in sample_records)
+            and all(record.accession for record in sample_records)
         )
 
     def submit_to_bioSamples(self):
@@ -417,7 +390,7 @@ class SampleSubmitter(AppLogger):
                 derived_from = None
                 if action_taken == 'derive':
                     derived_from = source_sample_json.get(ACCESSION_PROP).split(',')
-                record = create_sample_record(
+                record = SampleRecord(
                     sample_json.get(ACCESSION_PROP), analysis_aliases, sample_in_vcf=sample_in_vcf,
                     name=sample_json.get('name'), action=action_taken, derived_from=derived_from
                 )
@@ -425,9 +398,9 @@ class SampleSubmitter(AppLogger):
                 record = self._pre_registered_sample_record(sample_accession, sample_in_vcf, analysis_aliases)
             else:
                 self.error(f'Sample {sample_in_vcf} has neither a BioSample object nor an accession')
-                record = create_sample_record(None, analysis_aliases, sample_in_vcf=sample_in_vcf)
+                record = SampleRecord(None, analysis_aliases, sample_in_vcf=sample_in_vcf)
             sample_records.append(record)
-            action_to_samples[record.get(ACTION_PROP)].append(record.get(ACCESSION_PROP))
+            action_to_samples[record.action].append(record.accession)
         for action in action_to_samples:
             self.info(f'Action: {action} -> {len(action_to_samples[action])} sample(s)')
         return sample_records

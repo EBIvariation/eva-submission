@@ -11,6 +11,7 @@ from ebi_eva_common_pyutils.biosamples_communicators import HALCommunicator, Web
 
 from eva_submission import ROOT_DIR
 from eva_submission.biosample_submission import biosamples_submitters
+from eva_submission.biosample_submission.sample_record import SampleRecord
 from eva_submission.biosample_submission.biosamples_submitters import BioSamplesSubmitter, SampleMetadataSubmitter, \
     SampleReferenceSubmitter, SampleJSONSubmitter, get_biosample_characteristics
 
@@ -489,8 +490,8 @@ class TestSampleJSONSubmitter(BSDTestCase):
                              return_value={'accession': 'SAME000001', 'name': 'bsd_name1'}) as m_get:
             sample_records = submitter.submit_to_bioSamples()
             m_get.assert_called_once_with('SAME000001')
-            assert sample_records == [{'accession': 'SAME000001', 'analysisAlias': ['alias1'], 'sampleInVCF': 'sample1',
-                                       'name': 'bsd_name1', 'action': 'None'}]
+            assert sample_records == [SampleRecord('SAME000001', analysis_aliases=['alias1'], sample_in_vcf='sample1',
+                                                   name='bsd_name1', action='None')]
 
 
     def test_get_biosample_characteristics(self):
@@ -545,8 +546,8 @@ class TestSampleRecords(BSDTestCase):
             {'analysisAlias': ['AF1'], 'bioSampleAccession': 'SAME000002', 'sampleInVCF': None},
         ]
         assert self._submit(samples) == [
-            {'accession': 'SAME000001', 'analysisAlias': ['AF1'], 'name': 'bsd_name1', 'action': 'None'},
-            {'accession': 'SAME000002', 'analysisAlias': ['AF1'], 'name': 'bsd_name2', 'action': 'None'},
+            SampleRecord('SAME000001', analysis_aliases=['AF1'], name='bsd_name1', action='None'),
+            SampleRecord('SAME000002', analysis_aliases=['AF1'], name='bsd_name2', action='None'),
         ]
 
     def test_pre_registered_samples_with_empty_or_populated_sample_in_vcf(self):
@@ -555,9 +556,8 @@ class TestSampleRecords(BSDTestCase):
             {'analysisAlias': ['AF1'], 'bioSampleAccession': 'SAME000002', 'sampleInVCF': 'S2'},
         ]
         assert self._submit(samples) == [
-            {'accession': 'SAME000001', 'analysisAlias': ['AF1'], 'name': 'bsd_name1', 'action': 'None'},
-            {'accession': 'SAME000002', 'analysisAlias': ['AF1'], 'sampleInVCF': 'S2', 'name': 'bsd_name2',
-             'action': 'None'},
+            SampleRecord('SAME000001', analysis_aliases=['AF1'], name='bsd_name1', action='None'),
+            SampleRecord('SAME000002', analysis_aliases=['AF1'], sample_in_vcf='S2', name='bsd_name2', action='None'),
         ]
 
     def test_new_and_pre_registered_samples(self):
@@ -567,10 +567,10 @@ class TestSampleRecords(BSDTestCase):
             {'analysisAlias': ['AF1'], 'bioSampleAccession': 'SAME000001'},
         ]
         assert self._submit(samples) == [
-            {'accession': 'SAMEA_NEW_LH1', 'analysisAlias': ['GT1', 'GT2'], 'sampleInVCF': 'S1', 'name': 'LH1',
-             'action': 'create'},
-            {'accession': 'SAMEA_NEW_LH2', 'analysisAlias': ['AF1'], 'name': 'LH2', 'action': 'create'},
-            {'accession': 'SAME000001', 'analysisAlias': ['AF1'], 'name': 'bsd_name1', 'action': 'None'},
+            SampleRecord('SAMEA_NEW_LH1', analysis_aliases=['GT1', 'GT2'], sample_in_vcf='S1', name='LH1',
+                         action='create'),
+            SampleRecord('SAMEA_NEW_LH2', analysis_aliases=['AF1'], name='LH2', action='create'),
+            SampleRecord('SAME000001', analysis_aliases=['AF1'], name='bsd_name1', action='None'),
         ]
 
     def test_failed_retrieval_of_pre_registered_sample(self):
@@ -581,8 +581,8 @@ class TestSampleRecords(BSDTestCase):
     def test_derive(self):
         samples = [{'analysisAlias': ['GT1'], 'sampleInVCF': 'S1', 'bioSampleAccession': 'SAME000001'}]
         assert self._submit(samples, submit_type=('derive',)) == [
-            {'accession': 'SAMEA_NEW_bsd_name1', 'analysisAlias': ['GT1'], 'sampleInVCF': 'S1', 'name': 'bsd_name1',
-             'derivedFrom': ['SAME000001'], 'action': 'derive'},
+            SampleRecord('SAMEA_NEW_bsd_name1', analysis_aliases=['GT1'], sample_in_vcf='S1', name='bsd_name1',
+                         derived_from=['SAME000001'], action='derive'),
         ]
 
     def test_overwrite_without_ownership(self):
@@ -590,24 +590,21 @@ class TestSampleRecords(BSDTestCase):
         samples = [{'analysisAlias': ['GT1'], 'sampleInVCF': 'S1',
                     'bioSampleObject': self._bio_sample_object('LH1', accession='SAME000001')}]
         assert self._submit(samples, submit_type=('overwrite',)) == [
-            {'accession': 'SAME000001', 'analysisAlias': ['GT1'], 'sampleInVCF': 'S1', 'name': 'bsd_name1',
-             'action': 'None'},
+            SampleRecord('SAME000001', analysis_aliases=['GT1'], sample_in_vcf='S1', name='bsd_name1', action='None'),
         ]
 
     def test_override_non_ncbi_sample(self):
         samples = [{'analysisAlias': ['GT1'], 'sampleInVCF': 'S1',
                     'bioSampleObject': self._bio_sample_object('LH1', accession='SAME000001')}]
         assert self._submit(samples, submit_type=('override',)) == [
-            {'accession': 'SAME000001', 'analysisAlias': ['GT1'], 'sampleInVCF': 'S1', 'name': 'bsd_name1',
-             'action': 'None'},
+            SampleRecord('SAME000001', analysis_aliases=['GT1'], sample_in_vcf='S1', name='bsd_name1', action='None'),
         ]
 
     def test_curate(self):
         samples = [{'analysisAlias': ['GT1'], 'sampleInVCF': 'S1',
                     'bioSampleObject': self._bio_sample_object('LH1', accession='SAME000001')}]
         assert self._submit(samples, submit_type=('curate',)) == [
-            {'accession': 'SAME000001', 'analysisAlias': ['GT1'], 'sampleInVCF': 'S1', 'name': 'LH1',
-             'action': 'curate'},
+            SampleRecord('SAME000001', analysis_aliases=['GT1'], sample_in_vcf='S1', name='LH1', action='curate'),
         ]
 
     def test_already_submitted_sample_records_json(self):
@@ -617,9 +614,9 @@ class TestSampleRecords(BSDTestCase):
         ]})
         with patch.object(BioSamplesSubmitter, '_get_existing_sample', side_effect=self._get_fake_sample):
             assert submitter.already_submitted_sample_records() == [
-                {'accession': 'SAME000001', 'analysisAlias': ['AF1'], 'name': 'bsd_name1', 'action': 'None'},
-                {'accession': 'SAME000002', 'analysisAlias': ['GT1'], 'sampleInVCF': 'S2', 'name': 'bsd_name2',
-                 'action': 'None'},
+                SampleRecord('SAME000001', analysis_aliases=['AF1'], name='bsd_name1', action='None'),
+                SampleRecord('SAME000002', analysis_aliases=['GT1'], sample_in_vcf='S2', name='bsd_name2',
+                             action='None'),
             ]
 
     def test_already_submitted_sample_records_spreadsheet(self):
@@ -629,13 +626,13 @@ class TestSampleRecords(BSDTestCase):
                           side_effect=lambda accession: {'accession': accession, 'name': 'bsd_' + accession}):
             sample_records = submitter.already_submitted_sample_records()
         assert len(sample_records) == submitter.nb_input_samples()
-        assert sample_records[0] == {'accession': 'SAMD1234567', 'analysisAlias': ['GAE'], 'sampleInVCF': 'S1',
-                                     'name': 'bsd_SAMD1234567', 'action': 'None'}
+        assert sample_records[0] == SampleRecord('SAMD1234567', analysis_aliases=['GAE'], sample_in_vcf='S1',
+                                                 name='bsd_SAMD1234567', action='None')
         assert submitter.check_sample_records(sample_records)
 
     def test_check_sample_records(self):
         submitter = SampleJSONSubmitter({'sample': [{}, {}]})
-        assert submitter.check_sample_records([{'accession': 'SAME000001'}, {'accession': 'SAME000002'}])
-        assert not submitter.check_sample_records([{'accession': 'SAME000001'}])
-        assert not submitter.check_sample_records([{'accession': 'SAME000001'}, {'accession': None}])
+        assert submitter.check_sample_records([SampleRecord('SAME000001'), SampleRecord('SAME000002')])
+        assert not submitter.check_sample_records([SampleRecord('SAME000001')])
+        assert not submitter.check_sample_records([SampleRecord('SAME000001'), SampleRecord(None)])
         assert not submitter.check_sample_records([])

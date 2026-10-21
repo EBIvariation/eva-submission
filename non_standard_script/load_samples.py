@@ -224,12 +224,14 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             # Add link between sample accession and sample name
             aggregation_type = self.analysis_accession_2_aggregation_type.get(analysis_accession)
             if aggregation_type == 'basic':
-                sample_accession_2_name = {accession: name for name, accession in self.sample_name_2_accession.items()}
-                result &= self.eva_project_loader.load_samples_from_analysis(sample_accession_2_name, analysis_accession)
+                result &= self.eva_project_loader.load_samples_from_analysis(
+                    self.sample_accession_2_name_for_analysis(analysis_accession), analysis_accession
+                )
             else:
+                sample_name_2_accession = self.sample_name_2_accession_for_analysis(analysis_accession)
                 for vcf_file, vcf_file_md5 in self.analysis_accession_2_file_info.get(analysis_accession, []):
                     result &= self.eva_project_loader.load_samples_from_vcf_file(
-                        self.sample_name_2_accession, vcf_file, vcf_file_md5,
+                        sample_name_2_accession, vcf_file, vcf_file_md5,
                         analysis_accession=analysis_accession,
                         sample_mapping=self.sample_mapping)
         if not result:
@@ -286,6 +288,28 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                                            for name, accession in
                                            self.sample_name_2_accessions_per_analysis[analysis_accession].items()}
         return sample_name_2_accession
+
+    @cached_property
+    def analysis_accession_2_alias(self):
+        """Analysis aliases of this ELOAD keyed by their accession. Empty when the ELOAD config is not available."""
+        analysis_alias_2_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
+        if not isinstance(analysis_alias_2_accession, dict):
+            return {}
+        return {accession: alias for alias, accession in analysis_alias_2_accession.items()}
+
+    def sample_name_2_accession_for_analysis(self, analysis_accession):
+        """Use the sample records of the analysis when they exist, otherwise the map for the whole project."""
+        analysis_alias = self.analysis_accession_2_alias.get(analysis_accession)
+        if analysis_alias and self.sample_records():
+            return self.sample_name_to_accession_for_analysis(analysis_alias)
+        return self.sample_name_2_accession
+
+    def sample_accession_2_name_for_analysis(self, analysis_accession):
+        """Use the sample records of the analysis when they exist, otherwise invert the map for the whole project."""
+        analysis_alias = self.analysis_accession_2_alias.get(analysis_accession)
+        if analysis_alias and self.sample_records():
+            return self.sample_accession_to_name_for_analysis(analysis_alias)
+        return {accession: name for name, accession in self.sample_name_2_accession.items()}
 
     @cached_property
     def analysis_accession_2_file_info(self):
