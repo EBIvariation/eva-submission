@@ -95,11 +95,10 @@ def main():
         sample_submitter = SampleJSONSubmitter(metadata_json, submit_type=(args.action,))
         sample_records = sample_submitter.submit_to_bioSamples()
         for record in sample_records:
-            sample_label = record.get('sampleInVCF') or record.get('name')
-            action = 'not modified' if record.get('action') == 'None' else record.get('action')
-            line = f'{sample_label}: {record.get("accession")} ({action})'
-            if record.get('derivedFrom'):
-                line += f' derived from {", ".join(record.get("derivedFrom"))}'
+            action = record.action if record.modified else 'not modified'
+            line = f'{record.label}: {record.accession} ({action})'
+            if record.is_derived:
+                line += f' derived from {", ".join(record.derived_from)}'
             print(line)
 
 

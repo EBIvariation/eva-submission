@@ -19,4 +19,4 @@ class SubCliProcessBrokering(SubCliProcess):
             raise ValueError(f'Not all samples were successfully brokered to BioSamples! '
                              f'Found {len(sample_records)} and expected {sample_submitter.nb_input_samples()}. '
                              f'Samples without accession are '
-                             f'{[r.get("sampleInVCF") for r in sample_records if not r.get("accession")]}')
+                             f'{[r.sample_in_vcf for r in sample_records if not r.accession]}')

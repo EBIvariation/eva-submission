@@ -15,9 +15,10 @@ from eva_submission import NEXTFLOW_DIR
 from eva_submission.ENA_submission.upload_to_ENA import ENAUploader, ENAUploaderAsync
 from eva_submission.biosample_submission.biosamples_submitters import SampleMetadataSubmitter, SampleReferenceSubmitter, \
     SampleJSONSubmitter
-from eva_submission.submission import Submission
-from eva_submission.submission_utils import read_md5, get_nextflow_config_flag
-from eva_submission.submission_config import SubmissionConfig
+from eva_submission.biosample_submission.sample_record import records_to_dicts
+from eva_submission.eload_submission import Eload
+from eva_submission.eload_utils import read_md5, get_nextflow_config_flag
+from eva_submission.submission_config import EloadConfig
 
 
 class SubmissionBrokering(Submission):
@@ -135,7 +136,7 @@ class SubmissionBrokering(Submission):
             self.info('Biosamples accession already provided in the metadata, Skip!')
             # Retrieve the sample records from the metadata and the name of the samples from BioSamples
             sample_records = sample_submitter.already_submitted_sample_records()
-            self.submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=sample_records)
+            self.submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=records_to_dicts(sample_records))
             self.submission_cfg.set('brokering', 'Biosamples', 'pass',
                                value=sample_submitter.check_sample_records(sample_records))
         elif (
@@ -149,20 +150,20 @@ class SubmissionBrokering(Submission):
             # Check whether all samples have been accessioned
             passed = sample_submitter.check_sample_records(sample_records)
             self.submission_cfg.set('brokering', 'Biosamples', 'date', value=self.now)
-            self.submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=sample_records)
+            self.submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=records_to_dicts(sample_records))
             self.submission_cfg.set('brokering', 'Biosamples', 'pass', value=passed)
             # Make sure we crash if we haven't brokered everything
             if not passed:
                 raise ValueError(f'Not all samples were successfully brokered to BioSamples! '
                                  f'Found {len(sample_records)} and expected {sample_submitter.nb_input_samples()}. '
                                  f'Samples without accession are '
-                                 f'{[r.get("sampleInVCF") for r in sample_records if not r.get("accession")]}')
+                                 f'{[r.sample_in_vcf for r in sample_records if not r.accession]}')
 
     def update_biosamples_with_study(self, force=False):
         if not self.submission_cfg.query('brokering', 'Biosamples', 'backlinks') or force:
             # The same sample can be referenced by several records: only add the backlink once
             biosample_accession_list = list(set(
-                record.get('accession') for record in self.sample_records() if record.get('accession')
+                record.accession for record in self.sample_records() if record.accession
             ))
             project_accession = self.submission_cfg.query('brokering', 'ena', 'PROJECT')
             if project_accession:
@@ -316,10 +317,9 @@ class SubmissionBrokering(Submission):
         results = self.submission_cfg.query('brokering', 'Biosamples', ret_default={})
         sample_lines = []
         for record in self.sample_records():
-            sample_label = record.get('sampleInVCF') or record.get('name') or record.get('accession')
-            line = f'{sample_label}: {record.get("accession")}'
-            if record.get('analysisAlias'):
-                line += f' ({", ".join(record.get("analysisAlias"))})'
+            line = f'{record.label}: {record.accession}'
+            if record.analysis_aliases:
+                line += f' ({", ".join(record.analysis_aliases)})'
             sample_lines.append(line)
         report_data = {
             'samples_to_accessions': '\n'.join(sample_lines),

@@ -10,6 +10,7 @@ from ebi_eva_common_pyutils.config import cfg
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.ENA_submission.upload_to_ENA import ENAUploader
 from eva_submission.biosample_submission.biosamples_submitters import SampleMetadataSubmitter
+from eva_submission.biosample_submission.sample_record import SampleRecord
 from eva_submission.submission_brokering import SubmissionBrokering
 from eva_submission.submission import Submission
 from eva_submission.submission_config import load_config, SubmissionConfig
@@ -86,14 +87,19 @@ class TestEloadBrokering(TestCase):
         self.eload.submission_cfg.set('validation', 'valid', 'metadata_spreadsheet',
                                       value=os.path.join(self.resources_folder, 'metadata.xlsx'))
 
-        samples = [{'accession': f'SAME{i}', 'analysisAlias': ['GAE'], 'sampleInVCF': f'S{i}'} for i in range(1, 101)]
+        samples = [SampleRecord(f'SAME{i}', analysis_aliases=['GAE'], sample_in_vcf=f'S{i}', action='create')
+                   for i in range(1, 101)]
         with patch.object(SampleMetadataSubmitter, 'submit_to_bioSamples', return_value=samples) as mock_submit,\
                 patch.object(SubmissionBrokering, 'now', new_callable=PropertyMock(return_value='a_date')):
             self.eload.upload_to_bioSamples()
 
         assert mock_submit.call_count == 1
         assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'pass')
-        assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'sample_records') == samples
+        # The records are stored as plain dicts in the config and read back as SampleRecord
+        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'sample_records')[0] == {
+            'accession': 'SAME1', 'analysisAlias': ['GAE'], 'sampleInVCF': 'S1', 'action': 'create'
+        }
+        assert self.eload.sample_records() == samples
         assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'Samples') is None
         assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'date') == 'a_date'
 
@@ -101,7 +107,7 @@ class TestEloadBrokering(TestCase):
         self.eload.submission_cfg.set('validation', 'valid', 'metadata_spreadsheet',
                                       value=os.path.join(self.resources_folder, 'metadata.xlsx'))
 
-        incomplete = [{'accession': 'SAME1', 'analysisAlias': ['GAE'], 'sampleInVCF': 'S1'}]
+        incomplete = [SampleRecord('SAME1', analysis_aliases=['GAE'], sample_in_vcf='S1')]
         with patch.object(SampleMetadataSubmitter, 'submit_to_bioSamples', return_value=incomplete) as mock_submit,\
                 patch.object(SubmissionBrokering, 'now', new_callable=PropertyMock(return_value='a_date')):
             with self.assertRaises(ValueError):
@@ -109,21 +115,22 @@ class TestEloadBrokering(TestCase):
 
         assert mock_submit.call_count == 1
         assert not self.eload.submission_cfg.query('brokering', 'Biosamples', 'pass')
-        assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'sample_records') == incomplete
+        assert self.eload.sample_records() == incomplete
         assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'date') == 'a_date'
 
     def test_upload_to_bioSamples_not_required(self):
         self.eload.submission_cfg.set('validation', 'valid', 'metadata_spreadsheet',
                                       value=os.path.join(self.resources_folder, 'metadata.xlsx'))
 
-        samples = [{'accession': f'SAME{i}', 'analysisAlias': ['GAE'], 'sampleInVCF': f'S{i}', 'name': f'bsd{i}'}
+        samples = [SampleRecord(f'SAME{i}', analysis_aliases=['GAE'], sample_in_vcf=f'S{i}', name=f'bsd{i}',
+                                action='None')
                    for i in range(1, 101)]
         with patch.object(SampleMetadataSubmitter, 'check_submit_done', return_value=True) as check_submit_done, \
                 patch.object(SampleMetadataSubmitter, 'already_submitted_sample_records', return_value=samples):
             self.eload.upload_to_bioSamples()
         assert check_submit_done.call_count == 1
         assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'pass')
-        assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'sample_records') == samples
+        assert self.eload.sample_records() == samples
 
     def test_upload_to_bioSamples_done(self):
         self.eload.submission_cfg.set('validation', 'valid', 'metadata_spreadsheet',

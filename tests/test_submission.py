@@ -5,9 +5,10 @@ from unittest.mock import patch
 
 import yaml
 
-from eva_submission import ROOT_DIR, __version__, submission
-from eva_submission.submission import Submission
-from eva_submission.submission_config import SubmissionConfig, load_config
+from eva_submission import ROOT_DIR, __version__, eload_submission
+from eva_submission.biosample_submission.sample_record import SampleRecord
+from eva_submission.eload_submission import Eload
+from eva_submission.submission_config import EloadConfig, load_config
 
 
 class TestEload(TestCase):
@@ -122,6 +123,21 @@ class TestEloadSampleRecords(TestCase):
             'SAME000003': 'P1', 'SAME000004': 'bsd4', 'SAME000005': 'SAME000005'
         }
 
+    def test_sample_records_for_analysis(self):
+        self.eload.eload_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
+            {'accession': 'SAME000001', 'analysisAlias': ['GT1', 'AF1'], 'sampleInVCF': 'S1'},
+            {'accession': 'SAME000002', 'analysisAlias': ['ELOAD_55_AF1'], 'name': 'bsd2'},
+            {'accession': 'SAME000003', 'analysisAlias': ['GT1']},
+        ])
+        # Aliases match whether or not they are prefixed with the ELOAD
+        assert self.eload.sample_records_for_analysis('AF1') == [
+            SampleRecord('SAME000001', analysis_aliases=['GT1', 'AF1'], sample_in_vcf='S1'),
+            SampleRecord('SAME000002', analysis_aliases=['ELOAD_55_AF1'], name='bsd2'),
+        ]
+        assert [r.accession for r in self.eload.sample_records_for_analysis('ELOAD_55_GT1')] == [
+            'SAME000001', 'SAME000003'
+        ]
+
     def test_sample_name_with_multiple_accessions_in_analysis(self):
         self.eload.eload_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
             {'accession': 'SAME000001', 'analysisAlias': ['GT1'], 'sampleInVCF': 'S1'},
@@ -133,8 +149,8 @@ class TestEloadSampleRecords(TestCase):
     def test_legacy_samples(self):
         self.eload.eload_cfg.set('brokering', 'Biosamples', 'Samples', value={'S1': 'SAME000001', 'S2': 'SAME000002'})
         assert self.eload.sample_records() == [
-            {'accession': 'SAME000001', 'analysisAlias': None, 'sampleInVCF': 'S1'},
-            {'accession': 'SAME000002', 'analysisAlias': None, 'sampleInVCF': 'S2'},
+            SampleRecord('SAME000001', analysis_aliases=None, sample_in_vcf='S1'),
+            SampleRecord('SAME000002', analysis_aliases=None, sample_in_vcf='S2'),
         ]
         # Legacy records belong to every analysis
         assert self.eload.sample_name_to_accession_for_analysis('GT1') == {'S1': 'SAME000001', 'S2': 'SAME000002'}
