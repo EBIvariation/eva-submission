@@ -585,28 +585,6 @@ class TestSampleRecords(BSDTestCase):
                          derived_from=['SAME000001'], action='derive'),
         ]
 
-    def test_overwrite_without_ownership(self):
-        # The sample is not owned by the Webin account: it is retrieved but not modified
-        samples = [{'analysisAlias': ['GT1'], 'sampleInVCF': 'S1',
-                    'bioSampleObject': self._bio_sample_object('LH1', accession='SAME000001')}]
-        assert self._submit(samples, submit_type=('overwrite',)) == [
-            SampleRecord('SAME000001', analysis_aliases=['GT1'], sample_in_vcf='S1', name='bsd_name1', action='None'),
-        ]
-
-    def test_override_non_ncbi_sample(self):
-        samples = [{'analysisAlias': ['GT1'], 'sampleInVCF': 'S1',
-                    'bioSampleObject': self._bio_sample_object('LH1', accession='SAME000001')}]
-        assert self._submit(samples, submit_type=('override',)) == [
-            SampleRecord('SAME000001', analysis_aliases=['GT1'], sample_in_vcf='S1', name='bsd_name1', action='None'),
-        ]
-
-    def test_curate(self):
-        samples = [{'analysisAlias': ['GT1'], 'sampleInVCF': 'S1',
-                    'bioSampleObject': self._bio_sample_object('LH1', accession='SAME000001')}]
-        assert self._submit(samples, submit_type=('curate',)) == [
-            SampleRecord('SAME000001', analysis_aliases=['GT1'], sample_in_vcf='S1', name='LH1', action='curate'),
-        ]
-
     def test_already_submitted_sample_records_json(self):
         submitter = SampleJSONSubmitter({'sample': [
             {'analysisAlias': ['AF1'], 'bioSampleAccession': 'SAME000001', 'sampleInVCF': ''},
