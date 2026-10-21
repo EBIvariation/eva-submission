@@ -121,47 +121,21 @@ class TestAlleleFrequencySampleTracking(TestCase):
         assert ena_samples == expected_ena_samples
         assert self._load_in_evapro(ena_samples) == expected_names_in_evapro
 
-    def test_pre_registered_one_sample_omitted(self):
-        self.assert_sample_tracking(
-            [{'analysisAlias': ['AF1'], 'bioSampleAccession': 'SAME000001'}],
-            [{'accession': 'SAME000001'}],
-            [('SAME000001', 'bsd_name1')]
-        )
-
-    def test_pre_registered_two_samples_omitted(self):
+    def test_pre_registered_without_sample_in_vcf(self):
+        # Used to collapse to a single accession: each sample must keep its own accession and get its BioSample name
         self.assert_sample_tracking(
             [{'analysisAlias': ['AF1'], 'bioSampleAccession': 'SAME000001'},
-             {'analysisAlias': ['AF1'], 'bioSampleAccession': 'SAME000002'}],
-            [{'accession': 'SAME000001'}, {'accession': 'SAME000002'}],
-            [('SAME000001', 'bsd_name1'), ('SAME000002', 'bsd_name2')]
-        )
-
-    def test_pre_registered_null_and_empty(self):
-        self.assert_sample_tracking(
-            [{'analysisAlias': ['AF1'], 'bioSampleAccession': 'SAME000001', 'sampleInVCF': None},
              {'analysisAlias': ['AF1'], 'bioSampleAccession': 'SAME000002', 'sampleInVCF': ''}],
             [{'accession': 'SAME000001'}, {'accession': 'SAME000002'}],
             [('SAME000001', 'bsd_name1'), ('SAME000002', 'bsd_name2')]
         )
 
-    def test_pre_registered_populated(self):
+    def test_pre_registered_and_new_with_and_without_sample_in_vcf(self):
         self.assert_sample_tracking(
-            [{'analysisAlias': ['AF1'], 'bioSampleAccession': 'SAME000001', 'sampleInVCF': 'POP1'},
-             {'analysisAlias': ['AF1'], 'bioSampleAccession': 'SAME000002', 'sampleInVCF': 'POP1'}],
-            [{'accession': 'SAME000001', 'alias': 'POP1'}, {'accession': 'SAME000002', 'alias': 'POP1'}],
-            [('SAME000001', 'POP1'), ('SAME000002', 'POP1')]
-        )
-
-    def test_new_omitted_and_populated(self):
-        self.assert_sample_tracking(
-            [self._new_sample('LH1'), self._new_sample('LH2', sample_in_vcf='POP2')],
-            [{'accession': 'SAMEA_NEW_LH1'}, {'accession': 'SAMEA_NEW_LH2', 'alias': 'POP2'}],
-            [('SAMEA_NEW_LH1', 'LH1'), ('SAMEA_NEW_LH2', 'POP2')]
-        )
-
-    def test_pre_registered_and_new_omitted(self):
-        self.assert_sample_tracking(
-            [{'analysisAlias': ['AF1'], 'bioSampleAccession': 'SAME000001'}, self._new_sample('LH1')],
-            [{'accession': 'SAME000001'}, {'accession': 'SAMEA_NEW_LH1'}],
-            [('SAME000001', 'bsd_name1'), ('SAMEA_NEW_LH1', 'LH1')]
+            [{'analysisAlias': ['AF1'], 'bioSampleAccession': 'SAME000001'},
+             self._new_sample('LH1'),
+             self._new_sample('LH2', sample_in_vcf='POP2')],
+            [{'accession': 'SAME000001'}, {'accession': 'SAMEA_NEW_LH1'},
+             {'accession': 'SAMEA_NEW_LH2', 'alias': 'POP2'}],
+            [('SAME000001', 'bsd_name1'), ('SAMEA_NEW_LH1', 'LH1'), ('SAMEA_NEW_LH2', 'POP2')]
         )
