@@ -1,7 +1,7 @@
 import os
 from unittest import TestCase
 
-from eva_submission.evapro.eload_metadata_loader import EloadMetadataJsonLoader
+from eva_submission.evapro.eload_metadata_loader import SubmissionMetadataJsonLoader
 from eva_submission.submission_config import load_config
 
 
@@ -15,7 +15,7 @@ class TestEloadMetadataJsonLoader(TestCase):
         load_config(config_file)
         # Need to set the directory so that the relative path set in the config file works from the top directory
         os.chdir(self.top_dir)
-        self.eload_metadata_json_loader = EloadMetadataJsonLoader(104)
+        self.eload_metadata_json_loader = SubmissionMetadataJsonLoader('submission_104')
 
 
     def test_get_experiment_types(self):

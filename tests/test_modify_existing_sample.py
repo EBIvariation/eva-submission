@@ -4,7 +4,7 @@ from unittest import TestCase
 
 from bin.modify_existing_sample import XlsxExistingSampleParser
 from eva_submission.biosample_submission.biosamples_submitters import SampleJSONSubmitter
-from eva_submission.eload_utils import convert_spreadsheet_to_json
+from eva_submission.submission_utils import convert_spreadsheet_to_json
 
 
 class TestModifyExistingSample(TestCase):

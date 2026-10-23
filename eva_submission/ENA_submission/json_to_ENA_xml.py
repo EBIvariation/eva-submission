@@ -10,7 +10,7 @@ from ebi_eva_common_pyutils.logger import AppLogger
 
 from eva_submission.ENA_submission.json_to_ENA_json import EnaJsonConverter
 from eva_submission.ENA_submission.xlsx_to_ENA_xml import add_element, add_links, add_attribute_elements, prettify
-from eva_submission.eload_utils import check_project_format, check_existing_project_in_ena, is_single_insdc_sequence, \
+from eva_submission.submission_utils import check_project_format, check_existing_project_in_ena, is_single_insdc_sequence, \
     is_vcf_file, get_scientific_name
 
 

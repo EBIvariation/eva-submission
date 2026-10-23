@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import text
 
 from eva_submission.evapro.connection import get_evapro_engine
-from eva_submission.evapro.eload_metadata_loader import EloadMetadataJsonLoader
+from eva_submission.evapro.eload_metadata_loader import SubmissionMetadataJsonLoader
 from eva_submission.evapro.find_from_ena import OracleEnaProjectFinder
 from eva_submission.evapro.table import Project, Taxonomy, LinkedProject, Submission, ProjectEnaSubmission, \
     EvaSubmission, ProjectEvaSubmission, Analysis, AssemblySet, AccessionedAssembly, File, BrowsableFile, \
@@ -41,17 +41,17 @@ class EvaProjectLoader(AppLogger):
     The last 2 methods assume the project/analysis and file have been loaded already
     """
 
-    def __init__(self, eload=None):
+    def __init__(self, submission_id=None):
         self.ena_project_finder = OracleEnaProjectFinder()
-        if eload:
-            self.eload_metadata_json_loader = EloadMetadataJsonLoader(eload)
+        if submission_id:
+            self.submission_metadata_json_loader = SubmissionMetadataJsonLoader(submission_id)
         else:
-            self.eload_metadata_json_loader = None
+            self.submission_metadata_json_loader = None
 
-    def load_project_from_ena(self, project_accession, eload, analysis_accession_to_load=None,
+    def load_project_from_ena(self, project_accession, submission_id, analysis_accession_to_load=None,
                               taxonomy_id_for_project=None, load_browsable_files=True):
         """
-        Loads a project from ENA for the given ELOAD and adds it to the metadata database.
+        Loads a project from ENA for the given Submission and adds it to the metadata database.
         If analysis_accession_to_load is specified, will only load that analysis; otherwise all analyses are added.
         """
         self.begin_or_continue_transaction()
@@ -60,7 +60,7 @@ class EvaProjectLoader(AppLogger):
         # LOAD PROJECT
         ###
         (
-            study_id, project_accession, submission_id, center_name, project_alias, study_type, first_created,
+            study_id, project_accession, ena_submission_id, center_name, project_alias, study_type, first_created,
             project_title, taxonomy_id, scientific_name, common_name, study_description
         ) = self.ena_project_finder.find_project_from_ena_database(project_accession)
         if taxonomy_id is None and taxonomy_id_for_project:
@@ -92,13 +92,13 @@ class EvaProjectLoader(AppLogger):
         ###
         # LOAD SUBMISSIONS
         ###
-        self.insert_project_eva_submission(project_obj, eload)
+        self.insert_project_eva_submission(project_obj, submission_id)
 
         for submission_info in self.ena_project_finder.find_ena_submission_for_project(
                 project_accession=project_accession):
-            submission_id, alias, last_updated, hold_date, action = submission_info
-            # action {"type": ADD, "schema": project, "source": ELOAD.Project.xml}
-            submission_obj = self.insert_ena_submission(ena_submission_accession=submission_id,
+            ena_submission_id, alias, last_updated, hold_date, action = submission_info
+            # action {"type": ADD, "schema": project, "source": Submission.Project.xml}
+            submission_obj = self.insert_ena_submission(ena_submission_accession=ena_submission_id,
                                                         action=action.get('type'),
                                                         submission_alias=alias, submission_date=last_updated,
                                                         brokered=1,
@@ -138,8 +138,8 @@ class EvaProjectLoader(AppLogger):
             # some specific to an analysis when they are submitted separately
             for submission_info in self.ena_project_finder.find_ena_submission_for_analysis(
                     analysis_accession=analysis_accession):
-                submission_id, alias, last_updated, hold_date, action = submission_info
-                submission_obj = self.insert_ena_submission(ena_submission_accession=submission_id,
+                ena_submission_id, alias, last_updated, hold_date, action = submission_info
+                submission_obj = self.insert_ena_submission(ena_submission_accession=ena_submission_id,
                                                             action=action.get('type'),
                                                             submission_alias=alias, submission_date=last_updated,
                                                             brokered=1,
@@ -163,9 +163,9 @@ class EvaProjectLoader(AppLogger):
             ###
             # LOAD EXPERIMENT TYPE
             ###
-            if not experiment_types and self.eload_metadata_json_loader:
+            if not experiment_types and self.submission_metadata_json_loader:
                 # Find the experiment types in local metadata
-                experiment_types = self.eload_metadata_json_loader.get_experiment_types(analysis_accession=analysis_accession)
+                experiment_types = self.submission_metadata_json_loader.get_experiment_types(analysis_accession=analysis_accession)
             experiment_type_objs = [self.insert_experiment_type(experiment_type) for experiment_type in
                                     experiment_types]
             analysis_obj.experiment_types = experiment_type_objs
@@ -584,28 +584,28 @@ class EvaProjectLoader(AppLogger):
                                                               submission_id=submission_obj.submission_id)
             self.eva_session.add(project_ena_submission_obj)
 
-    def insert_project_eva_submission(self, project_obj, eload):
+    def insert_project_eva_submission(self, project_obj, submission_id):
         """
-        This function links project and ELOAD in EVAPRO.
+        This function links project and Submission in EVAPRO.
         TODO: This is project specific where it should be analysis specific.
         """
-        query = select(EvaSubmission).where(EvaSubmission.eva_submission_id == eload)
+        query = select(EvaSubmission).where(EvaSubmission.eva_submission_id == submission_id)
         result = self.eva_session.execute(query).fetchone()
         if result:
             eva_submission_obj = result.EvaSubmission
         else:
-            eva_submission_obj = EvaSubmission(eva_submission_id=eload, eva_submission_status_id=6)
+            eva_submission_obj = EvaSubmission(eva_submission_id=submission_id, eva_submission_status_id=6)
             self.eva_session.add(eva_submission_obj)
         query = select(ProjectEvaSubmission).where(
             ProjectEvaSubmission.project_accession == project_obj.project_accession,
-            ProjectEvaSubmission.eload_id == eload
+            ProjectEvaSubmission.submission_id == submission_id
         )
         result = self.eva_session.execute(query).fetchone()
         if result:
             project_eva_submission_obj = result.ProjectEvaSubmission
         else:
             project_eva_submission_obj = ProjectEvaSubmission(project_accession=project_obj.project_accession,
-                                                              old_ticket_id=eload, eload_id=eload)
+                                                              old_ticket_id=submission_id, submission_id=submission_id)
             self.eva_session.add(project_eva_submission_obj)
 
 

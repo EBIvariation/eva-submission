@@ -1,0 +1,17 @@
+2023-04-15 21:23:21.566  INFO 2255770 --- [           main] u.a.e.eva.remapping.source.Application   : Started Application in 53.64 seconds (JVM running for 58.383)
+2023-04-15 21:23:21.891  INFO 2255770 --- [           main] ionRemappingJobLauncherCommandLineRunner : Running job 'EXPORT_SUBMITTED_VARIANTS_JOB' with parameters:
+2023-04-15 21:23:22.049  INFO 2255770 --- [           main] o.s.b.c.l.support.SimpleJobLauncher      : Job: [SimpleJob: [name=EXPORT_SUBMITTED_VARIANTS_JOB]] launched with the following parameters: []
+2023-04-15 21:23:22.091  INFO 2255770 --- [           main] o.s.batch.core.job.SimpleStepHandler     : Executing step: [EXPORT_EVA_SUBMITTED_VARIANTS_STEP]
+2023-04-15 21:23:42.753  INFO 2255770 --- [           main] u.a.e.e.a.c.b.l.GenericProgressListener  : EXPORT_EVA_SUBMITTED_VARIANTS_STEP: Items read = 1000, items written = 1000
+2023-04-15 21:23:42.811  INFO 2255770 --- [           main] u.a.e.e.a.c.b.l.GenericProgressListener  : EXPORT_EVA_SUBMITTED_VARIANTS_STEP: Items read = 2000, items written = 2000
+2023-04-15 21:23:43.594  INFO 2255770 --- [           main] u.a.e.e.a.c.b.l.GenericProgressListener  : EXPORT_EVA_SUBMITTED_VARIANTS_STEP: Items read = 26000, items written = 26000
+2023-04-15 21:23:43.621  INFO 2255770 --- [           main] u.a.e.e.a.c.b.l.GenericProgressListener  : EXPORT_EVA_SUBMITTED_VARIANTS_STEP: Items read = 27000, items written = 27000
+2023-04-15 21:23:43.634  INFO 2255770 --- [           main] u.a.e.e.a.c.b.l.GenericProgressListener  : EXPORT_EVA_SUBMITTED_VARIANTS_STEP: Items read = 27408, items written = 27408
+2023-04-15 21:23:43.634  INFO 2255770 --- [           main] u.a.e.e.r.s.b.l.ExcludeVariantsListener  : Processors filtered out 0 variants (possible reason is that they were named variants)
+2023-04-15 21:23:43.634  WARN 2255770 --- [           main] u.a.e.e.r.s.b.l.ExcludeVariantsListener  : Processors skipped 0 variants because the start position is greater than the chromosome end
+2023-04-15 21:23:43.703  INFO 2255770 --- [           main] o.s.batch.core.job.SimpleStepHandler     : Executing step: [EXPORT_DBSNP_SUBMITTED_VARIANTS_STEP]
+2023-04-15 21:23:43.707  INFO 2255770 --- [           main] SubmittedVariantMongoReaderConfiguration : Injecting DbsnpSubmittedVariantMongoReader with parameters: uk.ac.ebi.eva.remapping.source.parameters.InputParameters@29f7cefd55361"] }, "tax" : 9915 }, Fields: { }, Sort: { }
+2023-04-15 21:33:52.932  INFO 2255770 --- [           main] u.a.e.e.a.c.b.l.GenericProgressListener  : EXPORT_DBSNP_SUBMITTED_VARIANTS_STEP: Items read = 0, items written = 0
+2023-04-15 21:33:52.932  INFO 2255770 --- [           main] u.a.e.e.r.s.b.l.ExcludeVariantsListener  : Processors filtered out 0 variants (possible reason is that they were named variants)
+2023-04-15 21:33:52.932  WARN 2255770 --- [           main] u.a.e.e.r.s.b.l.ExcludeVariantsListener  : Processors skipped 0 variants because the start position is greater than the chromosome end
+2023-04-15 21:33:52.940  INFO 2255770 --- [           main] o.s.b.c.l.support.SimpleJobLauncher      : Job: [SimpleJob: [name=EXPORT_SUBMITTED_VARIANTS_JOB]] completed with the following parameters: [] and the following status: [COMPLETED]

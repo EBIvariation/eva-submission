@@ -13,7 +13,7 @@ from retry import retry
 from eva_submission.ENA_submission.json_to_ENA_json import EnaJsonConverter
 from eva_submission.ENA_submission.json_to_ENA_xml import EnaJson2XmlConverter
 from eva_submission.ENA_submission.xlsx_to_ENA_xml import EnaXlsxConverter
-from eva_submission.eload_utils import get_file_content
+from eva_submission.submission_utils import get_file_content
 
 
 class HackFTP_TLS(ftplib.FTP_TLS):
