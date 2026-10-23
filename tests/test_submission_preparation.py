@@ -277,7 +277,5 @@ class TestEloadPreparation(TestCase):
                 "Genomic characterization of Uruguayan Creole cattle by medium density single nucleotide polymorphism panels")
 
     def test_retrieving_and_adding_submission_id_to_config(self):
-        with patch('eva_submission.eload_preparation.get_from_sub_ws') as mock_get_from_sub_ws:
-            mock_get_from_sub_ws.return_value = {'submissionId': 'abcde-fghij-klmno-pqrst'}
-            self.eload.add_submission_id_to_config()
-            assert self.eload.eload_cfg.query('submission', 'submission_id') == 'abcde-fghij-klmno-pqrst'
+        self.eload.add_submission_id_to_config()
+        assert self.eload.submission_cfg.query('submission', 'submission_id') == 'submission_1'

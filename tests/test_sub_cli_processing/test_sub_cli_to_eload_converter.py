@@ -40,7 +40,7 @@ class TestSubCliToSubmissionConverter(TestCase):
         os.chdir(ROOT_DIR)
         self.submission_id = "submission_1"
 
-        self.cli_to_eload = SubCLIToSubmissionConverter(1, submission_id=self.submission_id)
+        self.cli_to_submission = SubCLIToSubmissionConverter(submission_id=self.submission_id)
         self.upload_dir = os.path.join(self.resources_folder, 'upload_dir')
         os.makedirs(self.upload_dir, exist_ok=True)
 
@@ -62,14 +62,14 @@ class TestSubCliToSubmissionConverter(TestCase):
     def create_vcfs(self, num_files=2):
         paths = []
         for i in range(num_files):
-            vcf = os.path.join(self.cli_to_eload.submission_dir, '10_submitted', 'vcf_files', f'file{i}.vcf')
+            vcf = os.path.join(self.cli_to_submission.submission_dir, '10_submitted', 'vcf_files', f'file{i}.vcf')
             touch(vcf)
             paths.append(vcf)
         return paths
 
     def create_metadata(self, num_analyses=0):
         source_metadata = os.path.join(self.resources_folder, 'metadata.xlsx')
-        metadata = os.path.join(self.cli_to_eload.submission_dir, '10_submitted', 'metadata_file',
+        metadata = os.path.join(self.cli_to_submission.submission_dir, '10_submitted', 'metadata_file',
                                 'metadata.xlsx')
         shutil.copyfile(source_metadata, metadata)
         if num_analyses:
@@ -93,21 +93,21 @@ class TestSubCliToSubmissionConverter(TestCase):
 
     def test_check_status(self):
         with self.patch_submission_obj() as m_submission_obj:
-            self.cli_to_eload.check_status()
+            self.cli_to_submission.check_status()
             # Check that nothing was raised
             assert True
 
     def test_check_status_fail(self):
         with self.patch_submission_obj(json_response={'submission':{'status': "OPEN"}}) as m_submission_obj:
             with self.assertRaises(AssertionError):
-                self.cli_to_eload.check_status()
+                self.cli_to_submission.check_status()
 
     def test_retrieve_vcf_files_from_sub_cli_ftp(self):
-        assert os.listdir(os.path.join(self.cli_to_eload.submission_dir, '10_submitted', 'vcf_files')) == []
-        assert os.listdir(os.path.join(self.cli_to_eload.submission_dir, '10_submitted', 'metadata_file')) == []
+        assert os.listdir(os.path.join(self.cli_to_submission.submission_dir, '10_submitted', 'vcf_files')) == []
+        assert os.listdir(os.path.join(self.cli_to_submission.submission_dir, '10_submitted', 'metadata_file')) == []
         with self.patch_submission_obj() as m_submission_obj:
-            self.cli_to_eload.retrieve_vcf_files_from_sub_cli_ftp_dir()
-        assert os.listdir(os.path.join(self.cli_to_eload.submission_dir, '10_submitted', 'vcf_files')) == ['data.vcf.gz']
+            self.cli_to_submission.retrieve_vcf_files_from_sub_cli_ftp_dir()
+        assert os.listdir(os.path.join(self.cli_to_submission.submission_dir, '10_submitted', 'vcf_files')) == ['data.vcf.gz']
 
     def _upload_dir_with_parts(self, content, part_size):
         """Populate upload directory with content split into parts, and return the parts' description."""
@@ -128,11 +128,11 @@ class TestSubCliToSubmissionConverter(TestCase):
         return json_response
 
     def _assemble(self, upload_dir, json_response):
-        vcf_dir = os.path.join(self.cli_to_eload.eload_dir, '10_submitted', 'vcf_files')
+        vcf_dir = os.path.join(self.cli_to_submission.submission_dir, '10_submitted', 'vcf_files')
         with self.patch_submission_obj(json_response), \
-                patch.object(SubCLIToEloadConverter, 'sub_cli_submission_dir_path',
+                patch.object(SubCLIToSubmissionConverter, 'sub_cli_submission_dir_path',
                              new_callable=PropertyMock(return_value=upload_dir)):
-            self.cli_to_eload.retrieve_vcf_files_from_sub_cli_ftp_dir()
+            self.cli_to_submission.retrieve_vcf_files_from_sub_cli_ftp_dir()
         return vcf_dir
 
     def test_retrieve_vcf_files_assembles_file_uploaded_in_parts(self):
@@ -159,12 +159,12 @@ class TestSubCliToSubmissionConverter(TestCase):
 
     def test_download_metadata_json_and_store(self):
         with self.patch_submission_obj():
-            self.cli_to_eload.download_metadata_json_and_store()
+            self.cli_to_submission.download_metadata_json_and_store()
 
         # Check if json file was written correctly and converted to xlsx without any error
-        metadata_json_file_path = os.path.join(self.cli_to_eload.submission_dir, '10_submitted', 'metadata_file',
+        metadata_json_file_path = os.path.join(self.cli_to_submission.submission_dir, '10_submitted', 'metadata_file',
                                                'metadata_json.json')
-        metadata_xlsx_file_path = os.path.join(self.cli_to_eload.submission_dir, '10_submitted', 'metadata_file',
+        metadata_xlsx_file_path = os.path.join(self.cli_to_submission.submission_dir, '10_submitted', 'metadata_file',
                                                'metadata_xlsx.xlsx')
         assert os.path.exists(metadata_json_file_path)
         with open(metadata_json_file_path) as open_file:
@@ -176,24 +176,24 @@ class TestSubCliToSubmissionConverter(TestCase):
         self.create_vcfs()
         metadata = self.create_metadata()
 
-        self.cli_to_eload.detect_submitted_metadata()
-        self.cli_to_eload.check_submitted_filenames()
+        self.cli_to_submission.detect_submitted_metadata()
+        self.cli_to_submission.check_submitted_filenames()
         # Check that the metadata spreadsheet is in the config file
-        assert self.cli_to_eload.submission_cfg.query('submission', 'metadata_spreadsheet') == metadata
+        assert self.cli_to_submission.submission_cfg.query('submission', 'metadata_spreadsheet') == metadata
 
     def test_detect_metadata_attributes(self):
         self.create_vcfs()
         metadata = self.create_metadata()
-        self.cli_to_eload.submission_cfg.set('submission', 'metadata_spreadsheet', value=metadata)
+        self.cli_to_submission.submission_cfg.set('submission', 'metadata_spreadsheet', value=metadata)
         with patch('eva_submission.submission_utils.get_scientific_name_from_evapro', return_value=None):
-            self.cli_to_eload.detect_metadata_attributes()
+            self.cli_to_submission.detect_metadata_attributes()
 
-        assert self.cli_to_eload.submission_cfg.query('submission', 'project_title') == 'Greatest project ever'
-        assert self.cli_to_eload.submission_cfg.query('submission', 'taxonomy_id') == 9606
-        assert self.cli_to_eload.submission_cfg.query('submission', 'scientific_name') == 'Homo sapiens'
-        assert self.cli_to_eload.submission_cfg.query('submission', 'analyses', 'submission_1_GAE',
+        assert self.cli_to_submission.submission_cfg.query('submission', 'project_title') == 'Greatest project ever'
+        assert self.cli_to_submission.submission_cfg.query('submission', 'taxonomy_id') == 9606
+        assert self.cli_to_submission.submission_cfg.query('submission', 'scientific_name') == 'Homo sapiens'
+        assert self.cli_to_submission.submission_cfg.query('submission', 'analyses', 'submission_1_GAE',
                                                  'assembly_accession') == 'GCA_000001405.1'
-        vcf_files = self.cli_to_eload.submission_cfg.query('submission', 'analyses', 'submission_1_GAE', 'vcf_files')
+        vcf_files = self.cli_to_submission.submission_cfg.query('submission', 'analyses', 'submission_1_GAE', 'vcf_files')
         assert len(vcf_files) == 1
         assert '10_submitted/vcf_files/T100.vcf.gz' in vcf_files[0]
 
@@ -202,37 +202,37 @@ class TestSubCliToSubmissionConverter(TestCase):
         self.create_vcfs(num_files=5)
         self.create_metadata(num_analyses=2)
 
-        self.cli_to_eload.detect_submitted_metadata()
+        self.cli_to_submission.detect_submitted_metadata()
         with self.assertRaises(ValueError):
-            self.cli_to_eload.check_submitted_filenames()
+            self.cli_to_submission.check_submitted_filenames()
 
     def test_find_genome_single_sequence(self):
         cfg.content['eutils_api_key'] = None
-        self.cli_to_eload.submission_cfg.set('submission', 'scientific_name', value='Thingy thingus')
+        self.cli_to_submission.submission_cfg.set('submission', 'scientific_name', value='Thingy thingus')
         # Ensure no other analyses present in the config
-        self.cli_to_eload.submission_cfg.set('submission', 'analyses', value={})
-        self.cli_to_eload.submission_cfg.set('submission', 'analyses', 'Analysis alias test', 'assembly_accession',
-                                             value='AJ312413.2')
+        self.cli_to_submission.submission_cfg.set('submission', 'analyses', value={})
+        self.cli_to_submission.submission_cfg.set('submission', 'analyses', 'Analysis alias test', 'assembly_accession',
+                                                  value='AJ312413.2')
 
         with mock.patch("eva_submission.submission_preparation.requests.put", return_value=mock.Mock(status_code=200)):
-            self.cli_to_eload.find_genome()
-            assert self.cli_to_eload.submission_cfg['submission']['analyses']['Analysis alias test']['assembly_fasta'] \
+            self.cli_to_submission.find_genome()
+            assert self.cli_to_submission.submission_cfg['submission']['analyses']['Analysis alias test']['assembly_fasta'] \
                    == 'tests/resources/genomes/thingy_thingus/AJ312413.2/AJ312413.2.fa'
-            assert self.cli_to_eload.submission_cfg['submission']['analyses']['Analysis alias test']['assembly_report'] \
+            assert self.cli_to_submission.submission_cfg['submission']['analyses']['Analysis alias test']['assembly_report'] \
                    == 'tests/resources/genomes/thingy_thingus/AJ312413.2/AJ312413.2_assembly_report.txt'
 
     def test_contig_alias_db_update(self):
         cfg.content['eutils_api_key'] = None
         # Ensure no other analyses present in the config
-        self.cli_to_eload.submission_cfg.set('submission', 'analyses', value={})
-        self.cli_to_eload.submission_cfg.set('submission', 'scientific_name', value='Thingy thingus')
-        self.cli_to_eload.submission_cfg.set('submission', 'analyses', 'Analysis alias test', 'assembly_accession',
-                                             value='GCA_000001405.10')
+        self.cli_to_submission.submission_cfg.set('submission', 'analyses', value={})
+        self.cli_to_submission.submission_cfg.set('submission', 'scientific_name', value='Thingy thingus')
+        self.cli_to_submission.submission_cfg.set('submission', 'analyses', 'Analysis alias test', 'assembly_accession',
+                                                  value='GCA_000001405.10')
 
         with mock.patch("eva_submission.submission_preparation.get_reference_fasta_and_report",
                         return_value=('assembly', 'report')), \
                 mock.patch("eva_submission.submission_preparation.requests.put") as mockput:
-            self.cli_to_eload.find_genome()
+            self.cli_to_submission.find_genome()
 
             mockput.assert_called_once_with('host/v1/admin/assemblies/GCA_000001405.10', auth=('user', 'pass'))
 
@@ -242,7 +242,7 @@ class TestSubCliToSubmissionConverter(TestCase):
         mock_response.status_code = 200
         mock_response.json=Mock(return_value={'json_property': 'json_value'})
 
-        submission_obj = self.cli_to_eload._submission_obj
+        submission_obj = self.cli_to_submission._submission_obj
         # Check if requests.get was called with the correct URL
         mock_requests.assert_called_once_with(
             f"{cfg['submissions']['webservice']['url']}/admin/submission/{self.submission_id}",
@@ -252,5 +252,5 @@ class TestSubCliToSubmissionConverter(TestCase):
 
     @patch("requests.put")
     def test_store_submission_id_in_config(self, mock_put):
-        self.cli_to_eload.add_submission_id_to_config()
-        assert self.submission_id == self.cli_to_eload.submission_cfg.query('submission', 'submission_id')
+        self.cli_to_submission.add_submission_id_to_config()
+        assert self.submission_id == self.cli_to_submission.submission_cfg.query('submission', 'submission_id')
