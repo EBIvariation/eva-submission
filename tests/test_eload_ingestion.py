@@ -219,14 +219,6 @@ class TestEloadIngestion(TestCase):
             assert call.args[0] == {'S1': 'SAME000001'}
         m_af.assert_called_once_with({'SAME000003': 'bsd3', 'SAME000004': 'SAME000004'}, 'ERZ0000002')
 
-    def test_load_from_ena_with_legacy_samples(self):
-        self._add_af_analysis()
-        self.eload.eload_cfg.set('brokering', 'Biosamples', 'Samples', value={'S1': 'SAME000001', 'P1': 'SAME000002'})
-        m_vcf, m_af = self._load_from_ena_with_mocked_loaders()
-        for call in m_vcf.call_args_list:
-            assert call.args[0] == {'S1': 'SAME000001', 'P1': 'SAME000002'}
-        m_af.assert_called_once_with({'SAME000001': 'S1', 'SAME000002': 'P1'}, 'ERZ0000002')
-
     def test_load_from_ena_sample_load_fails(self):
         with self.assertRaises(ValueError):
             self._load_from_ena_with_mocked_loaders(load_vcf_result=False)

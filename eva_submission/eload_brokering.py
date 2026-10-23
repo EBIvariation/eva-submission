@@ -139,11 +139,7 @@ class EloadBrokering(Eload):
             self.eload_cfg.set('brokering', 'Biosamples', 'sample_records', value=records_to_dicts(sample_records))
             self.eload_cfg.set('brokering', 'Biosamples', 'pass',
                                value=sample_submitter.check_sample_records(sample_records))
-        elif (
-                (self.eload_cfg.query('brokering', 'Biosamples', 'sample_records')
-                 or self.eload_cfg.query('brokering', 'Biosamples', 'Samples'))
-            and self.eload_cfg.query('brokering', 'Biosamples', 'pass')
-        ):
+        elif self.sample_records() and self.eload_cfg.query('brokering', 'Biosamples', 'pass'):
             self.info('BioSamples brokering is already done, Skip!')
         else:
             sample_records = sample_submitter.submit_to_bioSamples()
@@ -162,7 +158,7 @@ class EloadBrokering(Eload):
     def update_biosamples_with_study(self, force=False):
         if not self.eload_cfg.query('brokering', 'Biosamples', 'backlinks') or force:
             # The same sample can be referenced by several records: only add the backlink once
-            biosample_accession_list = list(set(
+            biosample_accession_list = list(dict.fromkeys(
                 record.accession for record in self.sample_records() if record.accession
             ))
             project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')

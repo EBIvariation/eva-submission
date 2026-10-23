@@ -1,8 +1,14 @@
 brokering:
   Biosamples:
-    Samples:
-      S1: SAMEA0000001
-      S2: SAMEA0000002
+    sample_records:
+    - accession: SAMEA0000001
+      analysisAlias:
+      - alias1
+      sampleInVCF: S1
+    - accession: SAMEA0000002
+      analysisAlias:
+      - alias1
+      sampleInVCF: S2
     date: 2021-01-01 12:20:.0
     pass: true
   brokering_date: 2021-01-01 12:20:.0

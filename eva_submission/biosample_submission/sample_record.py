@@ -37,8 +37,6 @@ class SampleRecord:
     """
     Tracks one input sample: its accession, the analyses it belongs to and, when known, its name in the VCF and its
     BioSample name.
-    analysis_aliases is None for records converted from the legacy sample name to accession dict: they belong to all
-    analyses.
     """
     accession: Optional[str]
     analysis_aliases: Optional[List[str]] = None
@@ -48,17 +46,11 @@ class SampleRecord:
     action: Optional[str] = None
 
     def __post_init__(self):
-        if self.analysis_aliases is not None:
-            self.analysis_aliases = list(self.analysis_aliases)
+        self.analysis_aliases = list(self.analysis_aliases or [])
         self.sample_in_vcf = normalise_sample_in_vcf(self.sample_in_vcf)
         self.name = self.name or None
         self.derived_from = list(self.derived_from) if self.derived_from else None
         self.action = self.action or None
-
-    @classmethod
-    def from_legacy(cls, sample_name, accession):
-        """Convert one entry of the legacy sample name to accession dict."""
-        return cls(accession, analysis_aliases=None, sample_in_vcf=sample_name)
 
     @classmethod
     def from_dict(cls, record_dict):
@@ -100,11 +92,9 @@ class SampleRecord:
 
     def in_analysis(self, analysis_alias, normalise_alias=None):
         """
-        Whether this record belongs to the analysis. Records without analysis information belong to all analyses.
+        Whether this record belongs to the analysis.
         normalise_alias is applied to both sides before comparison (e.g. to compare unique aliases).
         """
-        if not self.analysis_aliases:
-            return True
         normalise_alias = normalise_alias or (lambda alias: alias)
         return normalise_alias(analysis_alias) in [normalise_alias(alias) for alias in self.analysis_aliases]
 

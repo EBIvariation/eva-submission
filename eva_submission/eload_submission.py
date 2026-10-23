@@ -13,9 +13,9 @@ from packaging import version
 
 from eva_sub_cli_processing.sub_cli_utils import put_to_sub_ws, sub_ws_url_build
 from eva_submission import __version__
-from eva_submission.biosample_submission.sample_record import SampleRecord, records_from_dicts
+from eva_submission.biosample_submission.sample_record import records_from_dicts
 from eva_submission.config_migration import upgrade_version_0_1, upgrade_version_1_14_to_1_15, \
-    upgrade_version_1_15_to_1_16
+    upgrade_version_1_15_to_1_16, needs_sample_records_upgrade, upgrade_samples_to_sample_records
 from eva_submission.eload_utils import get_hold_date_from_ena
 from eva_submission.submission_config import EloadConfig
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
@@ -92,30 +92,15 @@ class Eload(AppLogger):
             return alias[len(self.eload) + 1:]
         return alias
 
-    def _stored_sample_records(self):
-        """The sample records stored in the config, or None if the samples were not brokered with records."""
-        record_dicts = self.eload_cfg.query('brokering', 'Biosamples', 'sample_records')
-        if record_dicts is None:
-            return None
-        return records_from_dicts(record_dicts)
-
     def sample_records(self):
         """
         Returns the records of the samples brokered to BioSamples.
-        ELOADs brokered before the records were introduced only have a sample name to accession dict ('Samples'):
-        it is converted to records that have no analysis information.
+        Configs from before the records were introduced are converted by upgrade_sample_records_if_needed.
         """
-        sample_records = self._stored_sample_records()
-        if sample_records is not None:
-            return sample_records
-        sample_name_to_accession = self.eload_cfg.query('brokering', 'Biosamples', 'Samples', ret_default={})
-        return [
-            SampleRecord.from_legacy(sample_name, accession)
-            for sample_name, accession in sample_name_to_accession.items()
-        ]
+        return records_from_dicts(self.eload_cfg.query('brokering', 'Biosamples', 'sample_records', ret_default=[]))
 
     def sample_records_for_analysis(self, analysis_alias):
-        """Records belonging to the analysis. Records without analysis information belong to all analyses."""
+        """Records belonging to the analysis."""
         return [
             record for record in self.sample_records()
             if record.in_analysis(analysis_alias, normalise_alias=self._unique_alias)
@@ -171,6 +156,7 @@ class Eload(AppLogger):
          - using the provided analysis alias for all vcf files (pre version 1)
          - reformat nextflow directories in the config (pre version 1.15)
          - link project subdirectories  to the eload directories and update the config (pre version 1.16)
+         - replace the BioSamples sample name to accession dict with sample records (any version)
         """
         if 'version' not in self.eload_cfg:
             self.debug(f'No version found in config, upgrading to version {__version__}.')
@@ -189,6 +175,20 @@ class Eload(AppLogger):
             upgrade_version_1_15_to_1_16(self.eload_cfg, self.eload_dir)
         else:
             self.debug(f"Config is version {self.eload_cfg.query('version')}, not upgrading.")
+        self.upgrade_sample_records_if_needed()
+
+    def upgrade_sample_records_if_needed(self):
+        """
+        Replaces the sample name to accession dict of configs brokered before the sample records were introduced.
+        This does not depend on the config version because these configs can have any version.
+        """
+        if needs_sample_records_upgrade(self.eload_cfg):
+            # Imported here to avoid a circular import through the EVAPRO metadata loader
+            from eva_submission.evapro.populate_evapro import EvaProjectLoader
+            self.info('Convert the BioSamples sample name to accession dict to sample records')
+            self.eload_cfg.backup()
+            upgrade_samples_to_sample_records(self.eload_cfg, EvaProjectLoader().get_samples_in_analysis)
+            self.eload_cfg.write()
 
     def update_config_with_hold_date(self, project_accession, project_alias=None):
         hold_date = get_hold_date_from_ena(project_accession, project_alias)
@@ -217,29 +217,10 @@ class Eload(AppLogger):
             sample_objects.append(sample_object)
         return sample_objects
 
-    def _legacy_accessioned_sample_objects(self, samples):
-        """ELOADs brokered before the sample records were introduced use the sample name to accession dict."""
-        sample_objects = []
-        for sample_obj in samples:
-            if self.eload_cfg.query('brokering', 'Biosamples', 'Samples', sample_obj.get('sampleInVCF')):
-                sample_objects.append({
-                    'analysisAlias': [self._unique_alias(a) for a in sample_obj.get('analysisAlias')],
-                    'sampleInVCF': sample_obj.get('sampleInVCF'),
-                    'bioSampleAccession': self.eload_cfg['brokering']['Biosamples']['Samples'][sample_obj.get('sampleInVCF')]
-                })
-            else:
-                sample_obj['analysisAlias'] = [self._unique_alias(a) for a in sample_obj.get('analysisAlias')]
-                sample_objects.append(sample_obj)
-        return sample_objects
-
     def update_metadata_json(self, input_json_file, output_json_file, existing_project=None):
         with open(input_json_file) as open_file:
             metadata_json = json.load(open_file)
-        sample_records = self._stored_sample_records()
-        if sample_records is not None:
-            sample_objects = self._accessioned_sample_objects(metadata_json.get('sample'), sample_records)
-        else:
-            sample_objects = self._legacy_accessioned_sample_objects(metadata_json.get('sample'))
+        sample_objects = self._accessioned_sample_objects(metadata_json.get('sample'), self.sample_records())
 
         file_objects = []
         analyses = self.eload_cfg['brokering']['analyses']

@@ -353,6 +353,11 @@ class TestEvaProjectLoader(TestCase):
                 for result in self.loader.eva_session.execute(select(SampleInFile)).fetchall()
             )
             assert results == [('POP', 'SAME000001'), ('POP', 'SAME000002'), ('SAME000003', 'SAME000003')]
+            # Used to rebuild the sample records of ELOADs brokered before they were introduced
+            assert self.loader.get_samples_in_analysis('ERZ000001') == [
+                ('SAME000001', 'POP'), ('SAME000002', 'POP'), ('SAME000003', 'SAME000003')
+            ]
+            assert self.loader.get_samples_in_analysis('ERZ000002') == []
 
     def _load_project_analysis_files_samples(
             self, project_accession='prj000001',  analysis_accession='erz000001',
