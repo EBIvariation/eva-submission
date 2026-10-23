@@ -19,7 +19,7 @@ from argparse import ArgumentParser
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from eva_submission.eload_status import EloadStatus
+from eva_submission.submission_status import SubmissionStatus
 from eva_submission.submission_config import load_config
 
 logger = log_cfg.get_logger(__name__)
@@ -27,7 +27,7 @@ logger = log_cfg.get_logger(__name__)
 
 def main():
     argparse = ArgumentParser(description='Provide a submission status for any ELOAD based on what has been accessioned and loaded.')
-    argparse.add_argument('--eload', required=True, type=int, help='The ELOAD number for this submission')
+    argparse.add_argument('--submission_id', required=True, type=int, help='The submission_id of the submission')
     argparse.add_argument('--debug', action='store_true', default=False,
                           help='Set the script to output logging information at debug level')
 
@@ -40,8 +40,8 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    eload = EloadStatus(args.eload)
-    eload.status()
+    submission = SubmissionStatus(args.submission_id)
+    submission.status()
 
 
 if __name__ == "__main__":

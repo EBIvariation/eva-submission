@@ -15,15 +15,15 @@ from eva_submission.qc_utils import did_job_complete_successfully_from_log, get_
 from requests import HTTPError
 from retry import retry
 
-from eva_submission.eload_submission import Eload
-from eva_submission.submission_config import EloadConfig
+from eva_submission.submission import Submission
+from eva_submission.submission_config import SubmissionConfig
 
 
 def rreplace(s, old, new, occurrence=1):
     li = s.rsplit(old, occurrence)
     return new.join(li)
 
-class EloadQC(Eload):
+class SubmissionQC(Submission):
     config_section = 'qc_checks'  # top-level config key
 
     # Possible QC results
@@ -34,19 +34,19 @@ class EloadQC(Eload):
     # QC statuses that are considered successful
     SUCCESSFUL_RESULTS = {PASS, SKIP, PASS_WITH_WARNING}
 
-    def __init__(self, eload_number, config_object: EloadConfig = None):
-        super().__init__(eload_number, config_object)
+    def __init__(self, submission_id, config_object: SubmissionConfig = None):
+        super().__init__(submission_id, config_object)
         self.profile = cfg['maven']['environment']
         self.private_config_xml_file = cfg['maven']['settings_file']
-        self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
-        self.path_to_logs_dir = os.path.join(self.eload_dir, '00_logs')
+        self.project_accession = self.submission_cfg.query('brokering', 'ena', 'PROJECT')
+        self.path_to_logs_dir = os.path.join(self.submission_dir, '00_logs')
         if not os.path.isdir(self.path_to_logs_dir) and 'projects_dir' in cfg and self.project_accession:
             path_to_data_dir = Path(cfg['projects_dir'], self.project_accession)
             self.path_to_logs_dir = os.path.join(path_to_data_dir, '00_logs')
         if not os.path.isdir(self.path_to_logs_dir):
-            raise ValueError(f'Cannot locate the log directory for ELOAD {self.eload}')
-        self.taxonomy = self.eload_cfg.query('submission', 'taxonomy_id')
-        self.analyses = self.eload_cfg.query('brokering', 'analyses', ret_default={})
+            raise ValueError(f'Cannot locate the log directory for Submission {self.submission_id}')
+        self.taxonomy = self.submission_cfg.query('submission', 'taxonomy_id')
+        self.analyses = self.submission_cfg.query('brokering', 'analyses', ret_default={})
 
     @cached_property
     def vcf_files(self):
@@ -59,7 +59,7 @@ class EloadQC(Eload):
     @cached_property
     def analysis_to_file_names(self):
         analysis_to_file_names = {}
-        for analysis_alias, analysis_accession in self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={}).items():
+        for analysis_alias, analysis_accession in self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={}).items():
             # Find the files associated with this analysis
             analysis_to_file_names[analysis_accession] = [
                 os.path.basename(f) for f in self.analyses.get(analysis_alias).get('vcf_files')
@@ -171,20 +171,20 @@ class EloadQC(Eload):
 
     @staticmethod
     def _report_for_human():
-        result = EloadQC.SKIP
+        result = SubmissionQC.SKIP
         report = 'Success: SKIPPED (human taxonomy)'
         return result, report
 
     @staticmethod
     def _report_did_not_run():
-        result = EloadQC.FAIL
+        result = SubmissionQC.FAIL
         report = 'Success: DID NOT RUN'
         return result, report
 
     @staticmethod
     def _report_for_log(failed_unit):
         """Create a result string and a detailed report based on the error reported in failed unit"""
-        result = EloadQC.PASS if not failed_unit else EloadQC.FAIL
+        result = SubmissionQC.PASS if not failed_unit else SubmissionQC.FAIL
         report = f"""Success: {result}"""
         if failed_unit:
             report += f"""
@@ -206,9 +206,9 @@ class EloadQC(Eload):
             self.error(str(e))
             json_response = {}
         if self._check_if_study_present_in_response(json_response, 'id'):
-            result = EloadQC.PASS
+            result = SubmissionQC.PASS
         else:
-            result = EloadQC.FAIL
+            result = SubmissionQC.FAIL
 
         report = f"""Success: {result}"""
         return result, report
@@ -220,7 +220,7 @@ class EloadQC(Eload):
             if not self._check_if_study_appears_in_variant_browser(species_name):
                 missing_assemblies.append(f"{species_name}({analysis_data['assembly_accession']})")
 
-        result = EloadQC.PASS if not missing_assemblies else EloadQC.FAIL
+        result = SubmissionQC.PASS if not missing_assemblies else SubmissionQC.FAIL
         report = f"""Success: {result}
                 missing assemblies: {missing_assemblies if missing_assemblies else None}"""
         return result, report
@@ -230,13 +230,13 @@ class EloadQC(Eload):
             files_in_ftp = self._get_files_from_ftp(self.project_accession)
         except Exception as e:
             self.error(f"Error fetching files from ftp for study {self.project_accession}. Exception  {e}")
-            result = EloadQC.FAIL
+            result = SubmissionQC.FAIL
             report = f"""Error: Error fetching files from ftp for study {self.project_accession}"""
             return result, report
 
         if not files_in_ftp:
             self.error(f"No file found in ftp for study {self.project_accession}")
-            result = EloadQC.FAIL
+            result = SubmissionQC.FAIL
             report = f"""Error: No files found in FTP for study {self.project_accession}"""
             return result, report
 
@@ -259,7 +259,7 @@ class EloadQC(Eload):
                         f'{no_ext_accessioned_file}.csi' not in files_in_ftp:
                     missing_files.append(f'{accessioned_file}.csi or {no_ext_accessioned_file}.csi')
 
-        result = EloadQC.PASS if not missing_files else EloadQC.FAIL
+        result = SubmissionQC.PASS if not missing_files else SubmissionQC.FAIL
         report = f"""Success: {result} 
                 Missing files: {missing_files if missing_files else None}"""
         return result, report
@@ -280,7 +280,7 @@ class EloadQC(Eload):
             else:
                 failed_files[file] = f"Accessioning Error : No accessioning file found for {file}"
 
-        result = EloadQC.PASS if not failed_files else EloadQC.FAIL
+        result = SubmissionQC.PASS if not failed_files else SubmissionQC.FAIL
         report = f"""Success: {result}"""
         if failed_files:
             report += f"""
@@ -319,10 +319,10 @@ class EloadQC(Eload):
     def check_if_vep_completed_successfully(self):
         failed_analysis = {}
         any_vep_run = False
-        for analysis_alias, analysis_accession in self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={}).items():
+        for analysis_alias, analysis_accession in self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={}).items():
             # annotation only happens if a VEP cache can be found
-            assembly_accession = self.eload_cfg.query('brokering', 'analyses', analysis_alias, 'assembly_accession')
-            if self.eload_cfg.query('ingestion', 'vep', assembly_accession, 'cache_version') is not None:
+            assembly_accession = self.submission_cfg.query('brokering', 'analyses', analysis_alias, 'assembly_accession')
+            if self.submission_cfg.query('ingestion', 'vep', assembly_accession, 'cache_version') is not None:
                 any_vep_run = True
                 logs_to_check = []
                 jobs_to_check = []
@@ -337,13 +337,13 @@ class EloadQC(Eload):
         if any_vep_run:
             return self._report_for_log(failed_analysis)
         else:
-            return EloadQC.SKIP, f"""Annotation result - SKIPPED (no VEP cache)"""
+            return SubmissionQC.SKIP, f"""Annotation result - SKIPPED (no VEP cache)"""
 
     def check_if_variant_statistic_completed_successfully(self):
         failed_analysis = {}
         any_stats_run = False
-        for analysis_alias, analysis_accession in self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={}).items():
-            if self.eload_cfg.query('ingestion', 'aggregation', analysis_accession) == 'none':
+        for analysis_alias, analysis_accession in self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={}).items():
+            if self.submission_cfg.query('ingestion', 'aggregation', analysis_accession) == 'none':
                 any_stats_run = True
                 logs_to_check = []
                 jobs_to_check = []
@@ -361,13 +361,13 @@ class EloadQC(Eload):
         if any_stats_run:
             return self._report_for_log(failed_analysis)
         else:
-            return EloadQC.SKIP, f"""Variant statistics result - SKIPPED (aggregated VCF)"""
+            return SubmissionQC.SKIP, f"""Variant statistics result - SKIPPED (aggregated VCF)"""
 
     def check_if_study_statistic_completed_successfully(self):
         failed_analysis = {}
         any_stats_run = False
-        for analysis_alias, analysis_accession in self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={}).items():
-            if self.eload_cfg.query('ingestion', 'aggregation', analysis_accession) == 'none':
+        for analysis_alias, analysis_accession in self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={}).items():
+            if self.submission_cfg.query('ingestion', 'aggregation', analysis_accession) == 'none':
                 any_stats_run = True
                 logs_to_check = []
                 jobs_to_check = []
@@ -385,7 +385,7 @@ class EloadQC(Eload):
         if any_stats_run:
             return self._report_for_log(failed_analysis)
         else:
-            return EloadQC.SKIP, f"""Study statistics result - SKIPPED (aggregated VCF)"""
+            return SubmissionQC.SKIP, f"""Study statistics result - SKIPPED (aggregated VCF)"""
 
     def check_if_variants_were_skipped_while_accessioning(self):
         # No accessioning check is required for human
@@ -405,7 +405,7 @@ class EloadQC(Eload):
             else:
                 failed_files[file] = f"Accessioning Error : No accessioning file found for {file}"
 
-        result = EloadQC.PASS if not failed_files else EloadQC.PASS_WITH_WARNING
+        result = SubmissionQC.PASS if not failed_files else SubmissionQC.PASS_WITH_WARNING
         report = f"""Success: {result}"""
         if failed_files:
             report += f"""
@@ -419,7 +419,7 @@ class EloadQC(Eload):
     def check_if_browsable_files_entered_correctly_in_db(self):
         browsable_files_from_db = self._get_browsable_files_for_study()
         missing_files = set(self.vcf_files) - set(browsable_files_from_db)
-        result = EloadQC.PASS if len(missing_files) == 0 else EloadQC.FAIL
+        result = SubmissionQC.PASS if len(missing_files) == 0 else SubmissionQC.FAIL
         report = f"""Success : {result}
             Expected files: {self.vcf_files}
             Missing files: {missing_files if missing_files else 'None'}"""
@@ -428,7 +428,7 @@ class EloadQC(Eload):
     def clustering_check_report(self):
         if self.taxonomy == 9606:
             return self._report_for_human()
-        target_assembly = self.eload_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly')
+        target_assembly = self.submission_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly')
         if not target_assembly:
             return self._report_did_not_run()
         clustering_check_pass, clustering_error = self._find_log_and_check_job(
@@ -439,24 +439,24 @@ class EloadQC(Eload):
         )
 
         if clustering_check_pass and clustering_qc_check_pass:
-            result = EloadQC.PASS
+            result = SubmissionQC.PASS
         else:
-            result = EloadQC.FAIL
+            result = SubmissionQC.FAIL
 
-        report = f"""Clustering Job: {EloadQC.PASS if clustering_check_pass else EloadQC.FAIL} - {clustering_error if not clustering_check_pass else "No error"}
-            Clustering QC Job: {EloadQC.PASS if clustering_qc_check_pass else EloadQC.FAIL} - {clustering_qc_error if not clustering_qc_check_pass else "No error"}"""
+        report = f"""Clustering Job: {SubmissionQC.PASS if clustering_check_pass else SubmissionQC.FAIL} - {clustering_error if not clustering_check_pass else "No error"}
+            Clustering QC Job: {SubmissionQC.PASS if clustering_qc_check_pass else SubmissionQC.FAIL} - {clustering_qc_error if not clustering_qc_check_pass else "No error"}"""
         return result, report
 
     def remapping_check_report(self):
         if self.taxonomy == 9606:
             return self._report_for_human()
-        target_assembly = self.eload_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly')
+        target_assembly = self.submission_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly')
         if not target_assembly:
             return self._report_did_not_run()
         asm_res = defaultdict(dict)
         for analysis_data in self.analyses.values():
             assembly_accession = analysis_data['assembly_accession']
-            vcf_extractor_result = remapping_ingestion_result = EloadQC.SKIP
+            vcf_extractor_result = remapping_ingestion_result = SubmissionQC.SKIP
             vcf_extractor_error = remapping_ingestion_error = ""
             if assembly_accession != target_assembly:
                 vcf_extractor_pass, vcf_extractor_error = self._find_log_and_check_job(
@@ -465,14 +465,14 @@ class EloadQC(Eload):
                 remapping_ingestion_pass, remapping_ingestion_error = self._find_log_and_check_job(
                     assembly_accession, f"{assembly_accession}*_eva_remapped.vcf_ingestion.log", "remapping_ingestion"
                 )
-                vcf_extractor_result = EloadQC.PASS if vcf_extractor_pass else EloadQC.FAIL
-                remapping_ingestion_result = EloadQC.PASS if remapping_ingestion_pass else EloadQC.FAIL
+                vcf_extractor_result = SubmissionQC.PASS if vcf_extractor_pass else SubmissionQC.FAIL
+                remapping_ingestion_result = SubmissionQC.PASS if remapping_ingestion_pass else SubmissionQC.FAIL
             asm_res[assembly_accession]['vcf_extractor_result'] = vcf_extractor_result
             asm_res[assembly_accession]['vcf_extractor_error'] = vcf_extractor_error
             asm_res[assembly_accession]['remapping_ingestion_result'] = remapping_ingestion_result
             asm_res[assembly_accession]['remapping_ingestion_error'] = remapping_ingestion_error
 
-        result = EloadQC.PASS
+        result = SubmissionQC.PASS
 
         report_lines = []
         for asm, res in asm_res.items():
@@ -481,8 +481,8 @@ class EloadQC(Eload):
             remap_ingest_res = res['remapping_ingestion_result']
             remap_ingest_err = 'No Error' if res['remapping_ingestion_error'] == "" \
                 else res['remapping_ingestion_error']
-            if vcf_ext_res == EloadQC.FAIL or remap_ingest_res == EloadQC.FAIL:
-                result = EloadQC.FAIL
+            if vcf_ext_res == SubmissionQC.FAIL or remap_ingest_res == SubmissionQC.FAIL:
+                result = SubmissionQC.FAIL
 
             report_lines.append(f"""Source assembly {asm}:
                 - vcf_extractor_result : {vcf_ext_res} - {vcf_ext_err}
@@ -492,7 +492,7 @@ class EloadQC(Eload):
     def backpropagation_check_report(self):
         if self.taxonomy == 9606:
             return self._report_for_human()
-        target_assembly = self.eload_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly')
+        target_assembly = self.submission_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly')
         if not target_assembly:
             return self._report_did_not_run()
         asm_res = defaultdict(dict)
@@ -503,20 +503,20 @@ class EloadQC(Eload):
                     assembly_accession, f"{target_assembly}_backpropagate_to_{assembly_accession}.log",
                     "backpropagation"
                 )
-                asm_res[assembly_accession]['result'] = EloadQC.PASS if backpropagation_pass else EloadQC.FAIL
+                asm_res[assembly_accession]['result'] = SubmissionQC.PASS if backpropagation_pass else SubmissionQC.FAIL
                 asm_res[assembly_accession]['error'] = backpropagation_error
             else:
-                asm_res[assembly_accession]['result'] = EloadQC.SKIP
+                asm_res[assembly_accession]['result'] = SubmissionQC.SKIP
                 asm_res[assembly_accession]['error'] = ""
 
-        result = EloadQC.PASS
+        result = SubmissionQC.PASS
 
         report_lines = []
         for asm, bckp_result in asm_res.items():
             res = bckp_result['result']
             err = 'No Error' if bckp_result['error'] == '' else bckp_result['error']
-            if res == EloadQC.FAIL:
-                result = EloadQC.FAIL
+            if res == SubmissionQC.FAIL:
+                result = SubmissionQC.FAIL
             report_lines.append(f"""Backpropagation result to {asm}: {res} - {err}""")
 
         return result, '\n            '.join(report_lines)
@@ -559,7 +559,7 @@ class EloadQC(Eload):
             'study_webservice': study_check_result,
             'study_metadata': study_metadata_check_result,
         }
-        self.eload_cfg.set(EloadQC.config_section, value=result_summary)
+        self.submission_cfg.set(SubmissionQC.config_section, value=result_summary)
 
         report = f"""
         QC Result Summary:

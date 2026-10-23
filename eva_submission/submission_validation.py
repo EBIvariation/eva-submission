@@ -10,12 +10,12 @@ from ebi_eva_common_pyutils.config import cfg
 
 from eva_sub_cli_processing import sub_cli_utils
 from eva_submission import NEXTFLOW_DIR
-from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import resolve_single_file_path, get_nextflow_config_flag, get_nextflow_config
-from eva_submission.submission_config import EloadConfig
+from eva_submission.submission import Submission
+from eva_submission.submission_utils import resolve_single_file_path, get_nextflow_config_flag, get_nextflow_config
+from eva_submission.submission_config import SubmissionConfig
 
 
-class EloadValidation(Eload):
+class SubmissionValidation(Submission):
     # eva-sub-cli tasks and their mapping to granular tasks
     sub_cli_tasks = {
         'vcf_check': ['vcf_check', 'evidence_type_check'],
@@ -25,8 +25,8 @@ class EloadValidation(Eload):
     }
     all_validation_tasks = list(sub_cli_tasks.keys()) + ['structural_variant_check', 'naming_convention_check']
 
-    def __init__(self, eload_number: int, config_object: EloadConfig = None, nextflow_config=None):
-        super().__init__(eload_number, config_object)
+    def __init__(self, submission_id: str, config_object: SubmissionConfig = None, nextflow_config=None):
+        super().__init__(submission_id, config_object)
         self.nextflow_config = nextflow_config
 
     def validate(self, validation_tasks=None, shallow_validation=False):
@@ -35,10 +35,10 @@ class EloadValidation(Eload):
             validation_tasks = self.all_validation_tasks
 
         # (Re-)Initialise the config file output
-        self.eload_cfg.set('validation', 'validation_date', value=self.now)
-        self.eload_cfg.set('validation', 'valid', value={})
+        self.submission_cfg.set('validation', 'validation_date', value=self.now)
+        self.submission_cfg.set('validation', 'valid', value={})
         for validation_task in validation_tasks:
-            self.eload_cfg.set('validation', validation_task, value={})
+            self.submission_cfg.set('validation', validation_task, value={})
 
         # All validation tasks are run via nextflow
         eva_sub_cli_validation_dir = os.path.join(self._get_dir('eva_sub_cli'), 'validation_submission_dir')
@@ -52,39 +52,39 @@ class EloadValidation(Eload):
 
     def set_validation_task_result_valid(self, validation_tasks):
         for validation_task in validation_tasks:
-            if validation_task not in self.eload_cfg.query('validation', ret_default={}):
+            if validation_task not in self.submission_cfg.query('validation', ret_default={}):
                 self.warning(f"Validation task {validation_task} has not been run yet.")
-                self.eload_cfg.set('validation', validation_task, 'forced', value=True)
+                self.submission_cfg.set('validation', validation_task, 'forced', value=True)
             else:
-                if not self.eload_cfg.query('validation', validation_task, 'pass', ret_default=False):
-                    self.eload_cfg.set('validation', validation_task, 'forced', value=True)
+                if not self.submission_cfg.query('validation', validation_task, 'pass', ret_default=False):
+                    self.submission_cfg.set('validation', validation_task, 'forced', value=True)
 
         self.mark_valid_files_and_metadata()
         self.update_submission_validation_status()
 
     def _validation_complete(self):
         return all([
-            self.eload_cfg.query('validation', validation_task, 'pass', ret_default=False) or
-            self.eload_cfg.query('validation', validation_task, 'forced', ret_default=False)
+            self.submission_cfg.query('validation', validation_task, 'pass', ret_default=False) or
+            self.submission_cfg.query('validation', validation_task, 'forced', ret_default=False)
             for validation_task in self.all_validation_tasks
         ])
 
     def mark_valid_files_and_metadata(self):
         if self._validation_complete():
-            for analysis_alias in self.eload_cfg.query('submission', 'analyses'):
+            for analysis_alias in self.submission_cfg.query('submission', 'analyses'):
                 u_analysis_alias = self._unique_alias(analysis_alias)
-                self.eload_cfg.set('validation', 'valid', 'analyses', u_analysis_alias,
-                                   value=self.eload_cfg.query('submission', 'analyses', analysis_alias))
-                self.eload_cfg.set(
+                self.submission_cfg.set('validation', 'valid', 'analyses', u_analysis_alias,
+                                        value=self.submission_cfg.query('submission', 'analyses', analysis_alias))
+                self.submission_cfg.set(
                     'validation', 'valid', 'analyses', u_analysis_alias, 'vcf_files',
-                    value=self.eload_cfg.query('submission', 'analyses', analysis_alias, 'vcf_files')
+                    value=self.submission_cfg.query('submission', 'analyses', analysis_alias, 'vcf_files')
                 )
-            if self.eload_cfg.query('submission', 'metadata_json'):
-                self.eload_cfg.set('validation', 'valid', 'metadata_json',
-                                   value=self.eload_cfg.query('submission', 'metadata_json'))
-            elif self.eload_cfg.query('submission', 'metadata_spreadsheet'):
-                self.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
-                                   value=self.eload_cfg.query('submission', 'metadata_spreadsheet'))
+            if self.submission_cfg.query('submission', 'metadata_json'):
+                self.submission_cfg.set('validation', 'valid', 'metadata_json',
+                                        value=self.submission_cfg.query('submission', 'metadata_json'))
+            elif self.submission_cfg.query('submission', 'metadata_spreadsheet'):
+                self.submission_cfg.set('validation', 'valid', 'metadata_spreadsheet',
+                                        value=self.submission_cfg.query('submission', 'metadata_spreadsheet'))
 
     def update_submission_validation_status(self):
         if self._validation_complete():
@@ -94,14 +94,14 @@ class EloadValidation(Eload):
 
     def _get_vcf_files(self):
         vcf_files = []
-        for analysis_alias in self.eload_cfg.query('submission', 'analyses'):
-            files = self.eload_cfg.query('submission', 'analyses', analysis_alias, 'vcf_files')
+        for analysis_alias in self.submission_cfg.query('submission', 'analyses'):
+            files = self.submission_cfg.query('submission', 'analyses', analysis_alias, 'vcf_files')
             vcf_files.extend(files) if files else None
         return vcf_files
 
     def _get_valid_vcf_files_by_analysis(self):
         vcf_files = {}
-        valid_analysis_dict = self.eload_cfg.query('validation', 'valid', 'analyses')
+        valid_analysis_dict = self.submission_cfg.query('validation', 'valid', 'analyses')
         if valid_analysis_dict:
             for analysis_alias in valid_analysis_dict:
                 vcf_files[self._unique_alias(analysis_alias)] = valid_analysis_dict[analysis_alias]['vcf_files']
@@ -116,11 +116,11 @@ class EloadValidation(Eload):
             return 0
 
     def _generate_csv_mappings(self):
-        vcf_files_mapping_csv = os.path.join(self.eload_dir, 'validation_vcf_files_mapping.csv')
+        vcf_files_mapping_csv = os.path.join(self.submission_dir, 'validation_vcf_files_mapping.csv')
         with open(vcf_files_mapping_csv, 'w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(['vcf', 'fasta', 'report', 'assembly_accession'])
-            analyses = self.eload_cfg.query('submission', 'analyses')
+            analyses = self.submission_cfg.query('submission', 'analyses')
             for analysis_alias, analysis_data in analyses.items():
                 fasta = analysis_data['assembly_fasta']
                 report = analysis_data['assembly_report']
@@ -133,8 +133,8 @@ class EloadValidation(Eload):
         return vcf_files_mapping_csv
 
     def _run_validation_workflow(self, eva_sub_cli_validation_dir, validation_tasks, shallow_validation=False):
-        assert self.eload_cfg.query('submission', 'metadata_json'), 'Metadata json is not set in the config file, Cannot proceed with validation'
-        metadata_json = self.eload_cfg.query('submission', 'metadata_json')
+        assert self.submission_cfg.query('submission', 'metadata_json'), 'Metadata json is not set in the config file, Cannot proceed with validation'
+        metadata_json = self.submission_cfg.query('submission', 'metadata_json')
         assert os.path.isfile(metadata_json), f'Metadata json {metadata_json} does not exist. Cannot proceed with validation'
         work_dir = self.create_nextflow_temp_output_directory()
         vcf_files_mapping_csv = self._generate_csv_mappings()
@@ -151,7 +151,7 @@ class EloadValidation(Eload):
             'shallow_validation': shallow_validation
         }
         # run the validation
-        validation_config_file = os.path.join(self.eload_dir, 'validation_config_file.yaml')
+        validation_config_file = os.path.join(self.submission_dir, 'validation_config_file.yaml')
         with open(validation_config_file, 'w') as open_file:
             yaml.safe_dump(validation_config, open_file)
         validation_script = os.path.join(NEXTFLOW_DIR, 'validation.nf')
@@ -171,7 +171,7 @@ class EloadValidation(Eload):
         return work_dir
 
     def _tmp_output_dir(self):
-        return os.path.join(self.eload_dir, '13_validation', 'tmp')
+        return os.path.join(self.submission_dir, '13_validation', 'tmp')
 
     def _move_file(self, source, dest):
         if source:
@@ -214,9 +214,9 @@ class EloadValidation(Eload):
 
             if sv_check_log and sv_check_sv_vcf:
                 nb_sv = self.parse_sv_check_log(sv_check_log)
-                self.eload_cfg.set('validation', 'structural_variant_check', 'files', os.path.basename(vcf_file),
-                                   value={'has_structural_variant': nb_sv > 0, 'number_sv': nb_sv})
-        self.eload_cfg.set('validation', 'structural_variant_check', 'pass', value=True)
+                self.submission_cfg.set('validation', 'structural_variant_check', 'files', os.path.basename(vcf_file),
+                                        value={'has_structural_variant': nb_sv > 0, 'number_sv': nb_sv})
+        self.submission_cfg.set('validation', 'structural_variant_check', 'pass', value=True)
 
     def _collect_naming_convention_check_results(self, vcf_files, output_dir):
         naming_conventions = set()
@@ -233,27 +233,27 @@ class EloadValidation(Eload):
             if nc_check_yml:
                 with open(nc_check_yml) as open_yaml:
                     data = yaml.safe_load(open_yaml)
-                self.eload_cfg.set('validation', 'naming_convention_check', 'files', os.path.basename(vcf_file),
-                                   value=data[0])
+                self.submission_cfg.set('validation', 'naming_convention_check', 'files', os.path.basename(vcf_file),
+                                        value=data[0])
                 naming_conventions.add(data[0]['naming_convention'])
         if len(naming_conventions) == 1:
-            self.eload_cfg.set('validation', 'naming_convention_check', 'naming_convention',
-                               value=naming_conventions.pop())
-        self.eload_cfg.set('validation', 'naming_convention_check', 'pass', value=True)
+            self.submission_cfg.set('validation', 'naming_convention_check', 'naming_convention',
+                                    value=naming_conventions.pop())
+        self.submission_cfg.set('validation', 'naming_convention_check', 'pass', value=True)
 
     def _collect_eva_sub_cli_results(self, output_dir):
         results_dest_path = os.path.join(output_dir, 'validation_results.yaml')
         self._update_config_with_cli_results(results_dest_path)
 
     def _update_config_with_cli_results(self, results_dest_path):
-        """Update ELOAD config with pass/fail values and aggregation type (required for ingestion) from eva-sub-cli
+        """Update Submission config with pass/fail values and aggregation type (required for ingestion) from eva-sub-cli
         results."""
         if os.path.exists(results_dest_path):
             with open(results_dest_path) as open_yaml:
                 results = yaml.safe_load(open_yaml)
                 for task, granular_tasks in self.sub_cli_tasks.items():
                     passed = all(results.get(t, {}).get('pass', False) for t in granular_tasks)
-                    self.eload_cfg.set('validation', task, 'pass', value=passed)
+                    self.submission_cfg.set('validation', task, 'pass', value=passed)
 
                 # Store evidence/aggregation type separately as it's required for ingestion
                 evidence_check_dict = results.get('evidence_type_check', {})
@@ -261,7 +261,7 @@ class EloadValidation(Eload):
                 for alias, evidence in evidence_check_dict.items():
                     if alias not in ['pass', 'report_path', 'run_status']:
                         aggregation_check_dict[self._unique_alias(alias)] = self._evidence_type_to_aggregation(evidence['evidence_type'])
-                self.eload_cfg.set('validation', 'aggregation_check', 'analyses', value=aggregation_check_dict)
+                self.submission_cfg.set('validation', 'aggregation_check', 'analyses', value=aggregation_check_dict)
 
     def _evidence_type_to_aggregation(self, s):
         if s == 'genotype':
@@ -271,7 +271,7 @@ class EloadValidation(Eload):
         return s
 
     def _structural_variant_check_report(self):
-        sv_dict = self.eload_cfg.query('validation', 'structural_variant_check', 'files')
+        sv_dict = self.submission_cfg.query('validation', 'structural_variant_check', 'files')
         reports = []
         if sv_dict:
             for vcf_file, sv_check_status in sv_dict.items():
@@ -282,12 +282,12 @@ class EloadValidation(Eload):
         return '\n'.join(reports)
 
     def _naming_convention_check_report(self):
-        vcf_files_2_naming_conv = self.eload_cfg.query('validation', 'naming_convention_check', 'files')
+        vcf_files_2_naming_conv = self.submission_cfg.query('validation', 'naming_convention_check', 'files')
         reports = []
         if vcf_files_2_naming_conv:
             reports.append(
                 f"  * Naming convention: "
-                f"{self.eload_cfg.query('validation', 'naming_convention_check', 'naming_convention')}"
+                f"{self.submission_cfg.query('validation', 'naming_convention_check', 'naming_convention')}"
             )
             for vcf_file in vcf_files_2_naming_conv:
                 reports.append(f"    * {vcf_file}: {vcf_files_2_naming_conv[vcf_file]['naming_convention']}")
@@ -300,21 +300,21 @@ class EloadValidation(Eload):
         if os.path.exists(report_path):
             with open(report_path) as open_report:
                 return open_report.read()
-        if self.eload_cfg.query('submission', 'metadata_json'):
+        if self.submission_cfg.query('submission', 'metadata_json'):
             return f'Process failed, check logs'
         return f'Did not run'
 
     def report(self):
         """Collect information from the config and write the report."""
         report_data = {
-            'validation_date': self.eload_cfg.query('validation', 'validation_date'),
-            'vcf_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'vcf_check')),
-            'assembly_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'assembly_check')),
-            'metadata_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'metadata_check')),
-            'sample_check': self._check_pass_or_fail(self.eload_cfg.query('validation', 'sample_check')),
-            'structural_variant_check': self._check_pass_or_fail(self.eload_cfg.query('validation',
+            'validation_date': self.submission_cfg.query('validation', 'validation_date'),
+            'vcf_check': self._check_pass_or_fail(self.submission_cfg.query('validation', 'vcf_check')),
+            'assembly_check': self._check_pass_or_fail(self.submission_cfg.query('validation', 'assembly_check')),
+            'metadata_check': self._check_pass_or_fail(self.submission_cfg.query('validation', 'metadata_check')),
+            'sample_check': self._check_pass_or_fail(self.submission_cfg.query('validation', 'sample_check')),
+            'structural_variant_check': self._check_pass_or_fail(self.submission_cfg.query('validation',
                                                                                       'structural_variant_check')),
-            'naming_convention_check': self._check_pass_or_fail(self.eload_cfg.query('validation',
+            'naming_convention_check': self._check_pass_or_fail(self.submission_cfg.query('validation',
                                                                                       'naming_convention_check')),
             'structural_variant_check_report': self._structural_variant_check_report(),
             'naming_convention_check_report': self._naming_convention_check_report(),

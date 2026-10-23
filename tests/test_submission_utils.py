@@ -8,7 +8,7 @@ from lxml import etree
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from eva_submission.eload_utils import check_existing_project_in_ena, detect_vcf_aggregation, \
+from eva_submission.submission_utils import check_existing_project_in_ena, detect_vcf_aggregation, \
     check_project_exists_in_evapro, create_assembly_report_from_fasta, get_hold_date_from_ena
 from eva_submission.evapro.table import metadata, Project
 from eva_submission.submission_config import load_config
@@ -44,7 +44,7 @@ class TestEloadUtils(TestCase):
             session.add(Project(project_accession='existing project', alias='alias1', center_name='c', scope='s',
                                 material='m'))
             session.commit()
-        with patch('eva_submission.eload_utils.get_evapro_engine', return_value=engine):
+        with patch('eva_submission.submission_utils.get_evapro_engine', return_value=engine):
             assert check_project_exists_in_evapro('existing project')
             assert not check_project_exists_in_evapro('non existing project')
 
@@ -114,7 +114,7 @@ class TestEloadUtils(TestCase):
 </PROJECT>
 </PROJECT_SET>'''
         expected_project_xml_public_as_ET = etree.XML(bytes(expected_project_xml_public, encoding='utf-8'))
-        with patch('eva_submission.eload_utils.requests.post', return_value=Mock(status_code=200, text=expected_receipt_xml_public)),\
-                patch('eva_submission.eload_utils.download_xml_from_ena', return_value=expected_project_xml_public_as_ET):
+        with patch('eva_submission.submission_utils.requests.post', return_value=Mock(status_code=200, text=expected_receipt_xml_public)),\
+                patch('eva_submission.submission_utils.download_xml_from_ena', return_value=expected_project_xml_public_as_ET):
             hold_date = get_hold_date_from_ena(project_accession='PRJEB13088', project_alias='Anopheles 16 genomes project - Anopheles epiroticus variant calls')
             assert hold_date == datetime.strptime('2016-03-17', '%Y-%m-%d')

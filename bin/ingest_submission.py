@@ -22,22 +22,19 @@ from copy import copy
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
 from eva_sub_cli_processing import sub_cli_utils
-from eva_submission.eload_ingestion import EloadIngestion
+from eva_submission.submission_ingestion import SubmissionIngestion
 from eva_submission.submission_config import load_config
 
 logger = log_cfg.get_logger(__name__)
 
 
 def main():
-    default_tasks = copy(EloadIngestion.all_tasks)
+    default_tasks = copy(SubmissionIngestion.all_tasks)
     default_tasks.remove('archive_only')
     argparse = ArgumentParser(description='Accession and ingest submission data into EVA')
-    target = argparse.add_mutually_exclusive_group(required=True)
-    target.add_argument('--submission_id', required=False, type=str,
-                        help='Submission ID, converted to ELOAD for downstream processing')
-    target.add_argument('--eload', required=False, type=int, help='The ELOAD number for this submission')
+    argparse.add_argument('--submission_id', required=True, type=str, help='Submission ID of the submission')
     argparse.add_argument('--tasks', required=False, type=str, nargs='+',
-                          default=default_tasks, choices=EloadIngestion.all_tasks,
+                          default=default_tasks, choices=SubmissionIngestion.all_tasks,
                           help='Task or set of tasks to perform during ingestion.')
     argparse.add_argument('--vep_cache_assembly_name', required=False, type=str,
                           help='The assembly name used in the VEP cache to help the script to find the correct cache '
@@ -60,16 +57,12 @@ def main():
     # Load the config_file from default location
     load_config()
 
-    if args.submission_id:
-        submission = sub_cli_utils.fetch_submission(args.submission_id)
-        if not submission:
-            logger.error(f'Submission {args.submission_id} not found')
-            sys.exit(1)
-        eload_id = submission.get('eloadId')
-    else:
-        eload_id = args.eload
+    submission = sub_cli_utils.fetch_submission(args.submission_id)
+    if not submission:
+        logger.error(f'Submission {args.submission_id} not found')
+        sys.exit(1)
 
-    with EloadIngestion(eload_id, nextflow_config=args.nextflow_config) as ingestion:
+    with SubmissionIngestion(args.submission_id, nextflow_config=args.nextflow_config) as ingestion:
         ingestion.upgrade_to_new_version_if_needed()
         try:
             ingestion.run_ingestion_and_qc_result(

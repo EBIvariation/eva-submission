@@ -6,10 +6,10 @@ import requests
 from cached_property import cached_property
 from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query
 
-from eva_submission.eload_ingestion import EloadIngestion
-from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import get_reference_fasta_and_report, get_project_alias, download_file
-from eva_submission.submission_config import EloadConfig
+from eva_submission.submission_ingestion import SubmissionIngestion
+from eva_submission.submission import Submission
+from eva_submission.submission_utils import get_reference_fasta_and_report, get_project_alias, download_file
+from eva_submission.submission_config import SubmissionConfig
 
 
 def list_to_sql_in_list(l):
@@ -17,30 +17,30 @@ def list_to_sql_in_list(l):
     return '(' + ','.join(f"'{e}'" for e in l) + ')'
 
 
-class EloadBacklog(Eload):
+class SubmissionBacklog(Submission):
 
-    def __init__(self, eload_number: int, config_object: EloadConfig = None, project_accession: str = None,
+    def __init__(self, submission_id: int, config_object: SubmissionConfig = None, project_accession: str = None,
                  analysis_accessions: list = None):
-        super().__init__(eload_number, config_object)
+        super().__init__(submission_id, config_object)
         self._preset_project_accession = project_accession
         self._preset_analysis_accessions = analysis_accessions
 
     def fill_in_config(self, force_config=False):
         """Fills in config params from metadata DB and ENA, enabling later parts of pipeline to run."""
-        if not self.eload_cfg.is_empty() and not force_config:
-            self.error(f'Already found a config file for {self.eload} while running backlog preparation')
+        if not self.submission_cfg.is_empty() and not force_config:
+            self.error(f'Already found a config file for {self.submission_id} while running backlog preparation')
             self.error('Please remove the existing config file and try again.')
-            raise ValueError(f'Already found a config file for {self.eload} while running backlog preparation')
-        elif not self.eload_cfg.is_empty():
+            raise ValueError(f'Already found a config file for {self.submission_id} while running backlog preparation')
+        elif not self.submission_cfg.is_empty():
             # backup the previous config and remove the existing content
-            self.eload_cfg.backup()
-            self.eload_cfg.clear()
-        self.eload_cfg.set('brokering', 'ena', 'PROJECT', value=self.project_accession)
+            self.submission_cfg.backup()
+            self.submission_cfg.clear()
+        self.submission_cfg.set('brokering', 'ena', 'PROJECT', value=self.project_accession)
         self.get_analysis_info()
         self.get_species_info()
         self.populate_metadata_json()
         self.update_config_with_hold_date(self.project_accession, self.project_alias)
-        self.eload_cfg.write()
+        self.submission_cfg.write()
 
     @cached_property
     def project_accession(self):
@@ -53,10 +53,10 @@ class EloadBacklog(Eload):
                 raise ValueError(f'No project found for {self._preset_project_accession} in metadata DB.')
         else:
             with self.metadata_connection_handle as conn:
-                query = f"select project_accession from evapro.project_eva_submission where eload_id={self.eload_num};"
+                query = f"select project_accession from evapro.project_eva_submission where submission_id={self.submission_id};"
                 rows = get_all_results_for_query(conn, query)
             if len(rows) != 1:
-                raise ValueError(f'No project accession for {self.eload} found in metadata DB.')
+                raise ValueError(f'No project accession for {self.submission_id} found in metadata DB.')
         return rows[0][0]
 
     @cached_property
@@ -99,8 +99,8 @@ class EloadBacklog(Eload):
         elif len(rows) > 1:
             raise ValueError(f'Multiple taxonomy for {self.project_accession} found in metadata DB.')
         tax_id, sci_name = rows[0]
-        self.eload_cfg.set('submission', 'taxonomy_id', value=tax_id)
-        self.eload_cfg.set('submission', 'scientific_name', value=sci_name)
+        self.submission_cfg.set('submission', 'taxonomy_id', value=tax_id)
+        self.submission_cfg.set('submission', 'scientific_name', value=sci_name)
 
         with self.metadata_connection_handle as conn:
             query = f"select distinct analysis_accession, vcf_reference_accession " \
@@ -110,10 +110,10 @@ class EloadBacklog(Eload):
         for analysis_accession, asm_accession in rows:
             if not asm_accession:
                 raise ValueError(f'No reference accession for {analysis_accession} found in metadata DB.')
-            self.eload_cfg.set('submission', 'analyses', self._unique_alias(analysis_accession), 'assembly_accession', value=asm_accession)
+            self.submission_cfg.set('submission', 'analyses', self._unique_alias(analysis_accession), 'assembly_accession', value=asm_accession)
             fasta_path, report_path = get_reference_fasta_and_report(sci_name, asm_accession, genbank_only=True)
-            self.eload_cfg.set('submission', 'analyses', self._unique_alias(analysis_accession), 'assembly_fasta', value=fasta_path)
-            self.eload_cfg.set('submission', 'analyses', self._unique_alias(analysis_accession), 'assembly_report', value=report_path)
+            self.submission_cfg.set('submission', 'analyses', self._unique_alias(analysis_accession), 'assembly_fasta', value=fasta_path)
+            self.submission_cfg.set('submission', 'analyses', self._unique_alias(analysis_accession), 'assembly_report', value=report_path)
 
     def find_local_file(self, fn):
         full_path = os.path.join(self._get_dir('vcf'), fn)
@@ -168,7 +168,7 @@ class EloadBacklog(Eload):
 
         for analysis_accession, filenames in rows:
             # Uses the analysis accession as analysis alias
-            self.eload_cfg.set('brokering', 'ena', 'ANALYSIS', self._unique_alias(analysis_accession), value=analysis_accession)
+            self.submission_cfg.set('brokering', 'ena', 'ANALYSIS', self._unique_alias(analysis_accession), value=analysis_accession)
             vcf_file_list = []
             for fn in filenames:
                 if not fn.endswith('.vcf.gz'):
@@ -182,7 +182,7 @@ class EloadBacklog(Eload):
 
             # Using analysis_accession instead of analysis alias. This should not have any detrimental effect on
             # ingestion
-            self.eload_cfg.set('submission', 'analyses', self._unique_alias(analysis_accession), 'vcf_files', value=vcf_file_list)
+            self.submission_cfg.set('submission', 'analyses', self._unique_alias(analysis_accession), 'vcf_files', value=vcf_file_list)
 
     def populate_metadata_json(self):
         """
@@ -197,7 +197,7 @@ class EloadBacklog(Eload):
 
         }
         for analysis_accession in self.analysis_accessions:
-            analysis_info = self.eload_cfg.query('submission', 'analyses', self._unique_alias(analysis_accession))
+            analysis_info = self.submission_cfg.query('submission', 'analyses', self._unique_alias(analysis_accession))
             json_data['analysis'].append({
                 'analysisAlias': self._unique_alias(analysis_accession),
                 'referenceGenome': analysis_info.get('assembly_accession'),
@@ -209,7 +209,7 @@ class EloadBacklog(Eload):
         backlog_metadata_json = os.path.join(self._get_dir('metadata'), 'backlog_metadata.json')
         with open(backlog_metadata_json, 'w') as open_file:
             json.dump(json_data, open_file)
-        self.eload_cfg.set('submission', 'metadata_json', value=backlog_metadata_json)
+        self.submission_cfg.set('submission', 'metadata_json', value=backlog_metadata_json)
 
     def _analysis_report(self, all_analysis):
         reports = []
@@ -227,9 +227,9 @@ class EloadBacklog(Eload):
     def report(self):
         """Collect information from the config and write the report."""
         report_data = {
-            'project': self.eload_cfg.query('brokering', 'ena', 'PROJECT', ret_default=''),
-            'analyses': ', '.join(self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default=[])),
-            'analyses_report': self._analysis_report(self.eload_cfg.query('brokering', 'analyses', ret_default=[]))
+            'project': self.submission_cfg.query('brokering', 'ena', 'PROJECT', ret_default=''),
+            'analyses': ', '.join(self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default=[])),
+            'analyses_report': self._analysis_report(self.submission_cfg.query('brokering', 'analyses', ret_default=[]))
         }
 
         report = """Results of backlog study preparation:
@@ -240,10 +240,10 @@ Analysis information: {analyses_report}
         print(report.format(**report_data))
 
 
-class EloadMetadataForBacklog(EloadIngestion):
+class SubmissionMetadataForBacklog(SubmissionIngestion):
 
-    def __init__(self, eload_number, project_accession, analysis_accessions=None, taxonomy=None):
-        super().__init__(eload_number=eload_number)
+    def __init__(self, submission_id, project_accession, analysis_accessions=None, taxonomy=None):
+        super().__init__(submission_id=submission_id)
         self._project_accession = project_accession
         if analysis_accessions:
             self._analysis_accessions = analysis_accessions
@@ -258,11 +258,11 @@ class EloadMetadataForBacklog(EloadIngestion):
         if self._analysis_accessions:
             for analysis_accession in self._analysis_accessions:
                 self.loader.load_project_from_ena(self._project_accession,
-                                                  self.eload_num, analysis_accession,
+                                                  self.submission_id, analysis_accession,
                                                   taxonomy_id_for_project=self._taxonomy,
                                                   load_browsable_files=True)
         else:
             self.loader.load_project_from_ena(self._project_accession,
-                                          self.eload_num,
+                                          self.submission_id,
                                           taxonomy_id_for_project=self._taxonomy,
                                           load_browsable_files=True)

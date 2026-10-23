@@ -22,12 +22,12 @@ from requests import HTTPError
 
 from eva_sub_cli_processing import sub_cli_utils
 from eva_submission import NEXTFLOW_DIR
-from eva_submission.eload_submission import Eload
-from eva_submission.eload_utils import provision_new_database_for_variant_warehouse, check_project_exists_in_evapro, \
+from eva_submission.submission import Submission
+from eva_submission.submission_utils import provision_new_database_for_variant_warehouse, check_project_exists_in_evapro, \
     get_nextflow_config_flag, get_nextflow_config, get_species_name_for_assembly
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
-from eva_submission.submission_config import EloadConfig
-from eva_submission.submission_qc_checks import EloadQC
+from eva_submission.submission_config import SubmissionConfig
+from eva_submission.submission_qc_checks import SubmissionQC
 from eva_submission.vep_utils import get_vep_and_vep_cache_version
 
 project_dirs = {
@@ -45,20 +45,20 @@ project_dirs = {
 SUPPORTED_ASSEMBLY_TRACKER_TABLE = "evapro.supported_assembly_tracker"
 
 
-class EloadIngestion(Eload):
+class SubmissionIngestion(Submission):
     config_section = 'ingestion'  # top-level config key
     all_tasks = ['archive_only', 'metadata_load', 'accession', 'variant_load', 'optional_remap_and_cluster']
     nextflow_complete_value = '<complete>'
 
-    def __init__(self, eload_number, config_object: EloadConfig = None, nextflow_config=None):
-        super().__init__(eload_number, config_object)
-        self.project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
-        self.taxonomy = self.eload_cfg.query('submission', 'taxonomy_id')
+    def __init__(self, submission_id, config_object: SubmissionConfig = None, nextflow_config=None):
+        super().__init__(submission_id, config_object)
+        self.project_accession = self.submission_cfg.query('brokering', 'ena', 'PROJECT')
+        self.taxonomy = self.submission_cfg.query('submission', 'taxonomy_id')
         self.private_settings_file = cfg['maven']['settings_file']
         self.maven_profile = cfg['maven']['environment']
         self.mongo_uri = get_mongo_uri_for_eva_profile(self.maven_profile, self.private_settings_file)
         self.properties_generator = SpringPropertiesGenerator(self.maven_profile, self.private_settings_file)
-        self.loader = EvaProjectLoader(self.eload_num)
+        self.loader = EvaProjectLoader(self.submission_id)
         self.nextflow_config = nextflow_config
 
     def run_ingestion_and_qc_result(self, tasks=None, vep_cache_assembly_name=None, resume=False):
@@ -73,7 +73,7 @@ class EloadIngestion(Eload):
     ):
         self.update_submission_status(sub_cli_utils.INGESTION, sub_cli_utils.RUNNING)
         clustering_performed_on_assembly = None
-        self.eload_cfg.set(self.config_section, 'ingestion_date', value=self.now)
+        self.submission_cfg.set(self.config_section, 'ingestion_date', value=self.now)
         self.project_dir = self.setup_project_dir()
 
         if not tasks:
@@ -111,7 +111,7 @@ class EloadIngestion(Eload):
         if 'optional_remap_and_cluster' in tasks:
             target_assembly = self._get_target_assembly()
             if target_assembly:
-                self.eload_cfg.set(self.config_section, 'remap_and_cluster', 'target_assembly', value=target_assembly)
+                self.submission_cfg.set(self.config_section, 'remap_and_cluster', 'target_assembly', value=target_assembly)
                 tasks = self.run_remap_and_cluster_workflow(target_assembly, resume=resume)
                 if tasks:
                     # clustering was successfully performed on the target assembly
@@ -127,45 +127,45 @@ class EloadIngestion(Eload):
 
     def qc_ingestion(self):
         try:
-            eload_qc = EloadQC(self.eload_num, config_object=self.eload_cfg)
-            eload_qc.run_qc_checks_for_submission()
+            submission_qc = SubmissionQC(self.submission_id, config_object=self.submission_cfg)
+            submission_qc.run_qc_checks_for_submission()
         except Exception as e:
             self.warning(f'Error running QC Ingestion: {e}')
         self.update_submission_ingestion_status()
 
     def _update_metadata_post_ingestion(self):
         self.loader.insert_browsable_files_for_project(self.project_accession)
-        release_date = self.eload_cfg.query('brokering', 'ena', 'hold_date')
+        release_date = self.submission_cfg.query('brokering', 'ena', 'hold_date')
         self.loader.mark_release_browsable_files_for_project(self.project_accession, release_date)
         self.loader.update_loaded_assembly_in_browsable_files_for_project(self.project_accession)
         self.loader.update_files_with_ftp_path_for_project(self.project_accession)
         self.loader.refresh_study_browser()
 
     def _update_clustering_records(self, target_assembly):
-        clustering_source = f'{self.project_accession},ELOAD_{self.eload_num}'
+        clustering_source = f'{self.project_accession},{self.submission_id}'
         self.loader.load_clustering_record(self.taxonomy, target_assembly, clustering_source)
 
     def fill_vep_versions(self, vep_cache_assembly_name=None):
-        analyses = self.eload_cfg.query('brokering', 'analyses')
+        analyses = self.submission_cfg.query('brokering', 'analyses')
         for analysis_alias, analysis_data in analyses.items():
             assembly_accession = analysis_data['assembly_accession']
-            if ('vep' in self.eload_cfg.query(self.config_section)
-                    and assembly_accession in self.eload_cfg.query(self.config_section, 'vep')):
+            if ('vep' in self.submission_cfg.query(self.config_section)
+                    and assembly_accession in self.submission_cfg.query(self.config_section, 'vep')):
                 continue
             vep_version, vep_cache_version = get_vep_and_vep_cache_version(
                 self.mongo_uri,
-                self.eload_cfg.query(self.config_section, 'database', assembly_accession, 'db_name'),
+                self.submission_cfg.query(self.config_section, 'database', assembly_accession, 'db_name'),
                 assembly_accession,
                 vep_cache_assembly_name
             )
             vep_species = get_species_name_for_assembly(assembly_accession, ncbi_api_key=cfg.get('eutils_api_key'))
-            self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'version', value=vep_version)
-            self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'cache_version', value=vep_cache_version)
-            self.eload_cfg.set(self.config_section, 'vep', assembly_accession, 'species', value=vep_species)
+            self.submission_cfg.set(self.config_section, 'vep', assembly_accession, 'version', value=vep_version)
+            self.submission_cfg.set(self.config_section, 'vep', assembly_accession, 'cache_version', value=vep_cache_version)
+            self.submission_cfg.set(self.config_section, 'vep', assembly_accession, 'species', value=vep_species)
 
     def _get_vcf_files_from_brokering(self):
         vcf_files = []
-        analyses = self.eload_cfg.query('brokering', 'analyses')
+        analyses = self.submission_cfg.query('brokering', 'analyses')
         if analyses:
             for analysis_alias, analysis_data in analyses.items():
                 files = analysis_data['vcf_files']
@@ -189,14 +189,14 @@ class EloadIngestion(Eload):
 
     def check_aggregation_done(self):
         errors = []
-        for analysis_alias, analysis_acc in self.eload_cfg.query('brokering', 'ena', 'ANALYSIS').items():
-            aggregation = self.eload_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
+        for analysis_alias, analysis_acc in self.submission_cfg.query('brokering', 'ena', 'ANALYSIS').items():
+            aggregation = self.submission_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
             if aggregation is None:
                 error = f'Aggregation type was not determined during validation for {analysis_alias}'
                 self.error(error)
                 errors.append(error)
             else:
-                self.eload_cfg.set(self.config_section, 'aggregation', analysis_acc, value=aggregation)
+                self.submission_cfg.set(self.config_section, 'aggregation', analysis_acc, value=aggregation)
         if errors:
             raise ValueError(f'{len(errors)} analysis have not set the aggregation. '
                              f'Rerun the validation with --validation_tasks eva_sub_cli')
@@ -216,7 +216,7 @@ class EloadIngestion(Eload):
     @cached_property
     def assembly_accessions(self):
         assembly_accessions = set()
-        analyses = self.eload_cfg.query('submission', 'analyses')
+        analyses = self.submission_cfg.query('submission', 'analyses')
         for analysis_alias, analysis_data in analyses.items():
             assembly_accessions.add(analysis_data['assembly_accession'])
         return assembly_accessions
@@ -233,7 +233,7 @@ class EloadIngestion(Eload):
             db_name_retrieved = self.get_db_name(assembly_accession)
             assembly_to_db_name[assembly_accession] = {'db_name': db_name_retrieved}
 
-        self.eload_cfg.set(self.config_section, 'database', value=assembly_to_db_name)
+        self.submission_cfg.set(self.config_section, 'database', value=assembly_to_db_name)
 
         # insert the database names components if they're not already in the metadata
         with self.metadata_connection_handle as conn:
@@ -263,35 +263,35 @@ class EloadIngestion(Eload):
 
     def load_from_ena(self, archive_only=False):
         """
-        Loads Project and Analysis metadata from ENA into EVAPRO to the project associated with this ELOAD.
+        Loads Project and Analysis metadata from ENA into EVAPRO to the project associated with this Submission.
         """
         try:
             # Load entire project, or only analyses associated with this submission
             if check_project_exists_in_evapro(self.project_accession):
-                analyses = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
+                analyses = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS')
                 for analysis_accession in analyses.values():
                     self.loader.load_project_from_ena(self.project_accession,
-                                                      self.eload_num, analysis_accession,
+                                                      self.submission_id, analysis_accession,
                                                       taxonomy_id_for_project=self.taxonomy,
                                                       load_browsable_files=False if archive_only else True)
             else:
                 self.loader.load_project_from_ena(self.project_accession,
-                                                  self.eload_num,
+                                                  self.submission_id,
                                                   taxonomy_id_for_project=self.taxonomy,
                                                   load_browsable_files=False if archive_only else True)
 
             # Check aggregation type for each analysis in this submission to determine if we should load samples by file
             # or by analysis
-            for analysis_alias in self.eload_cfg.query('validation', 'aggregation_check', 'analyses'):
-                aggregation_type = self.eload_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
-                analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
+            for analysis_alias in self.submission_cfg.query('validation', 'aggregation_check', 'analyses'):
+                aggregation_type = self.submission_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
+                analysis_accession = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
                 if aggregation_type == 'basic':
                     sample_accession_2_name = self.sample_accession_to_name_for_analysis(analysis_alias)
                     if not self.loader.load_samples_from_analysis(sample_accession_2_name, analysis_accession):
                         raise ValueError(f'Samples from analysis {analysis_alias} could not be loaded in EVAPRO')
                 else:
                     sample_name_2_accession = self.sample_name_to_accession_for_analysis(analysis_alias)
-                    analysis_info = self.eload_cfg.query('brokering', 'analyses', analysis_alias)
+                    analysis_info = self.submission_cfg.query('brokering', 'analyses', analysis_alias)
                     for vcf_file in analysis_info['vcf_files']:
                         vcf_file_md5 = analysis_info['vcf_files'][vcf_file]['md5']
                         if not self.loader.load_samples_from_vcf_file(sample_name_2_accession, vcf_file, vcf_file_md5,
@@ -300,10 +300,10 @@ class EloadIngestion(Eload):
             self.loader.update_project_samples_temp1(self.project_accession)
 
             self.loader.refresh_study_browser()
-            self.eload_cfg.set(self.config_section, 'ena_load', value='success')
+            self.submission_cfg.set(self.config_section, 'ena_load', value='success')
         except Exception as e:
             self.error('ENA metadata load failed: aborting ingestion.')
-            self.eload_cfg.set(self.config_section, 'ena_load', value='failure')
+            self.submission_cfg.set(self.config_section, 'ena_load', value='failure')
             raise e
 
     def _hardlink_file(self, source_path, target_dir):
@@ -315,15 +315,15 @@ class EloadIngestion(Eload):
 
     def setup_project_dir(self):
         """
-        Sets up project directory and copies VCF files from the eload directory.
+        Sets up project directory and copies VCF files from the submission directory.
         """
-        project_dir = Path(self.eload_dir)
+        project_dir = Path(self.submission_dir)
         for v in project_dirs.values():
             os.makedirs(project_dir.joinpath(v), exist_ok=True)
         # Link valid vcfs + index to 'valid' folder and 'public' folder
         valid_dir = project_dir.joinpath(project_dirs['valid'])
         public_dir = project_dir.joinpath(project_dirs['public'])
-        analyses = self.eload_cfg.query('brokering', 'analyses')
+        analyses = self.submission_cfg.query('brokering', 'analyses')
         for analysis_alias, analysis_data in analyses.items():
             for vcf_file, vcf_file_info in analysis_data['vcf_files'].items():
                 vcf_path = Path(vcf_file)
@@ -332,7 +332,7 @@ class EloadIngestion(Eload):
                 csi_path = Path(vcf_file_info['csi'])
                 self._hardlink_file(csi_path, valid_dir)
                 self._hardlink_file(csi_path, public_dir)
-        self.eload_cfg.set(self.config_section, 'project_dir', value=str(project_dir))
+        self.submission_cfg.set(self.config_section, 'project_dir', value=str(project_dir))
         return project_dir
 
     def get_study_name(self):
@@ -344,27 +344,27 @@ class EloadIngestion(Eload):
         return rows[0][0]
 
     def _generate_csv_mappings_to_ingest(self):
-        vcf_files_to_ingest = os.path.join(self.eload_dir, 'vcf_files_to_ingest.csv')
+        vcf_files_to_ingest = os.path.join(self.submission_dir, 'vcf_files_to_ingest.csv')
         with open(vcf_files_to_ingest, 'w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(['vcf_file', 'csi_file', 'assembly_accession', 'fasta', 'report', 'analysis_accession',
                              'db_name', 'vep_version', 'vep_cache_version', 'vep_species', 'aggregation'])
-            analyses = self.eload_cfg.query('brokering', 'analyses')
+            analyses = self.submission_cfg.query('brokering', 'analyses')
             for analysis_alias, analysis_data in analyses.items():
                 assembly_accession = analysis_data['assembly_accession']
                 fasta = analysis_data['assembly_fasta']
                 report = analysis_data['assembly_report']
-                analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
-                db_name = self.eload_cfg.query(self.config_section, 'database', assembly_accession, 'db_name')
-                vep_version = self.eload_cfg.query(self.config_section, 'vep', assembly_accession, 'version')
-                vep_cache_version = self.eload_cfg.query(self.config_section, 'vep', assembly_accession,
+                analysis_accession = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
+                db_name = self.submission_cfg.query(self.config_section, 'database', assembly_accession, 'db_name')
+                vep_version = self.submission_cfg.query(self.config_section, 'vep', assembly_accession, 'version')
+                vep_cache_version = self.submission_cfg.query(self.config_section, 'vep', assembly_accession,
                                                          'cache_version')
-                vep_species = self.eload_cfg.query(self.config_section, 'vep', assembly_accession, 'species')
+                vep_species = self.submission_cfg.query(self.config_section, 'vep', assembly_accession, 'species')
                 if not vep_version or not vep_cache_version:
                     vep_version = ''
                     vep_cache_version = ''
                     vep_species = ''
-                aggregation = self.eload_cfg.query(self.config_section, 'aggregation', analysis_accession)
+                aggregation = self.submission_cfg.query(self.config_section, 'aggregation', analysis_accession)
                 if analysis_data['vcf_files']:
                     for vcf_file in analysis_data['vcf_files']:
                         csi_file = analysis_data['vcf_files'][vcf_file]['csi']
@@ -403,7 +403,7 @@ class EloadIngestion(Eload):
         self.run_nextflow('accession_and_load', accession_config, resume, tasks)
 
     def run_remap_and_cluster_workflow(self, target_assembly, resume):
-        scientific_name = self.eload_cfg.query('submission', 'scientific_name')
+        scientific_name = self.submission_cfg.query('submission', 'scientific_name')
         # this is where all the output will get stored - logs, properties, work dirs...
         output_dir = os.path.join(self.project_dir, project_dirs['clustering'])
 
@@ -592,12 +592,12 @@ class EloadIngestion(Eload):
                                f'assembly_set_id {assembly_set_id} from browsable_file')
 
     def update_assembly_set_in_analysis(self):
-        analyses = self.eload_cfg.query('submission', 'analyses')
+        analyses = self.submission_cfg.query('submission', 'analyses')
         with self.metadata_connection_handle as conn:
             for analysis_alias, analysis_data in analyses.items():
                 assembly_accession = analysis_data['assembly_accession']
                 assembly_set_id = get_assembly_set_from_metadata(conn, self.taxonomy, assembly_accession)
-                analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
+                analysis_accession = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
                 # Check if the update is needed
                 check_query = (f"select assembly_set_id from evapro.analysis "
                                f"where analysis_accession = '{analysis_accession}';")
@@ -626,7 +626,7 @@ class EloadIngestion(Eload):
         if resume:
             completed_tasks = [
                 task for task in tasks
-                if self.eload_cfg.query(self.config_section, workflow_name, 'nextflow_dir', task) == self.nextflow_complete_value
+                if self.submission_cfg.query(self.config_section, workflow_name, 'nextflow_dir', task) == self.nextflow_complete_value
             ]
             for task in completed_tasks:
                 self.info(f'Task {task} already completed, skipping.')
@@ -638,7 +638,7 @@ class EloadIngestion(Eload):
                 return
             # Retrieve the work directory for the remaining tasks
             work_dirs = [
-                self.eload_cfg.query(self.config_section, workflow_name, 'nextflow_dir', task)
+                self.submission_cfg.query(self.config_section, workflow_name, 'nextflow_dir', task)
                 for task in tasks
             ]
             # Remove None and non-existing directories because they are not started
@@ -651,7 +651,7 @@ class EloadIngestion(Eload):
         if not resume or not work_dir:
             work_dir = self.create_nextflow_temp_output_directory()
             for task in tasks:
-                self.eload_cfg.set(self.config_section, workflow_name, 'nextflow_dir', task, value=work_dir)
+                self.submission_cfg.set(self.config_section, workflow_name, 'nextflow_dir', task, value=work_dir)
         # Set the tasks for nextflow to perform
         if tasks:
             params['tasks'] = tasks
@@ -677,19 +677,19 @@ class EloadIngestion(Eload):
             )
             shutil.rmtree(work_dir)
             for task in tasks:
-                self.eload_cfg.set(self.config_section, workflow_name, 'nextflow_dir', task,
-                                   value=self.nextflow_complete_value)
+                self.submission_cfg.set(self.config_section, workflow_name, 'nextflow_dir', task,
+                                        value=self.nextflow_complete_value)
             # Notify which tasks were actually performed
             return tasks
         except subprocess.CalledProcessError as e:
             error_msg = f'Nextflow {workflow_name} pipeline failed: results might not be complete.'
-            error_msg += (f"See Nextflow logs in {self.eload_dir}/.nextflow.log or pipeline logs "
+            error_msg += (f"See Nextflow logs in {self.submission_dir}/.nextflow.log or pipeline logs "
                           f"in {self.project_dir.joinpath(project_dirs['logs'])} for more details.")
             self.error(error_msg)
             raise e
 
     def _ingestion_complete(self):
-        return self.check_eload_qc_is_successful()
+        return self.check_submission_qc_is_successful()
 
     def update_submission_ingestion_status(self):
         if self._ingestion_complete():

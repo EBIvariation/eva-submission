@@ -11,11 +11,11 @@ from eva_submission import NEXTFLOW_DIR
 from eva_submission.ENA_submission.upload_to_ENA import ENAUploader
 from eva_submission.biosample_submission.biosamples_submitters import SampleMetadataSubmitter
 from eva_submission.biosample_submission.sample_record import SampleRecord
-from eva_submission.eload_brokering import EloadBrokering
-from eva_submission.eload_submission import Eload
-from eva_submission.submission_config import load_config, EloadConfig
+from eva_submission.submission_brokering import SubmissionBrokering
+from eva_submission.submission import Submission
+from eva_submission.submission_config import load_config, SubmissionConfig
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
-from tests.test_eload_preparation import touch
+from tests.test_submission_preparation import touch
 
 
 class TestEloadBrokering(TestCase):
@@ -69,58 +69,58 @@ class TestEloadBrokering(TestCase):
         load_config(config_file)
         # Need to set the directory so that the relative path set in the config file works from the top directory
         os.chdir(self.top_dir)
-        self.eload = EloadBrokering(3)
+        self.eload = SubmissionBrokering('submission_3')
         # Ensure we've cleared any past brokering status
-        self.eload.eload_cfg.pop('brokering', 'Biosamples')
-        self.existing_eload = EloadBrokering(4)
+        self.eload.submission_cfg.pop('brokering', 'Biosamples')
+        self.existing_eload = SubmissionBrokering('submission_4')
 
     def tearDown(self) -> None:
-        EloadConfig.content = {}
-        eloads = glob.glob(os.path.join(self.resources_folder, 'eloads', 'ELOAD_3'))
+        SubmissionConfig.content = {}
+        eloads = glob.glob(os.path.join(self.resources_folder, 'eloads', 'submission_3'))
         for eload in eloads:
             shutil.rmtree(eload)
-        nobackup_eloads = glob.glob(os.path.join(self.resources_folder, 'nobackup_eloads', 'ELOAD_3'))
+        nobackup_eloads = glob.glob(os.path.join(self.resources_folder, 'nobackup_eloads', 'submission_3'))
         for nobackup_eload in nobackup_eloads:
             shutil.rmtree(nobackup_eload)
 
     def test_upload_to_bioSamples(self):
-        self.eload.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
-                                 value=os.path.join(self.resources_folder, 'metadata.xlsx'))
+        self.eload.submission_cfg.set('validation', 'valid', 'metadata_spreadsheet',
+                                      value=os.path.join(self.resources_folder, 'metadata.xlsx'))
 
         samples = [SampleRecord(f'SAME{i}', analysis_aliases=['GAE'], sample_in_vcf=f'S{i}', action='create')
                    for i in range(1, 101)]
         with patch.object(SampleMetadataSubmitter, 'submit_to_bioSamples', return_value=samples) as mock_submit,\
-                patch.object(EloadBrokering, 'now', new_callable=PropertyMock(return_value='a_date')):
+                patch.object(SubmissionBrokering, 'now', new_callable=PropertyMock(return_value='a_date')):
             self.eload.upload_to_bioSamples()
 
         assert mock_submit.call_count == 1
-        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'pass')
+        assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'pass')
         # The records are stored as plain dicts in the config and read back as SampleRecord
-        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'sample_records')[0] == {
+        assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'sample_records')[0] == {
             'accession': 'SAME1', 'analysisAlias': ['GAE'], 'sampleInVCF': 'S1', 'action': 'create'
         }
         assert self.eload.sample_records() == samples
-        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'Samples') is None
-        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'date') == 'a_date'
+        assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'Samples') is None
+        assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'date') == 'a_date'
 
     def test_upload_to_bioSamples_incomplete(self):
-        self.eload.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
-                                 value=os.path.join(self.resources_folder, 'metadata.xlsx'))
+        self.eload.submission_cfg.set('validation', 'valid', 'metadata_spreadsheet',
+                                      value=os.path.join(self.resources_folder, 'metadata.xlsx'))
 
         incomplete = [SampleRecord('SAME1', analysis_aliases=['GAE'], sample_in_vcf='S1')]
         with patch.object(SampleMetadataSubmitter, 'submit_to_bioSamples', return_value=incomplete) as mock_submit,\
-                patch.object(EloadBrokering, 'now', new_callable=PropertyMock(return_value='a_date')):
+                patch.object(SubmissionBrokering, 'now', new_callable=PropertyMock(return_value='a_date')):
             with self.assertRaises(ValueError):
                 self.eload.upload_to_bioSamples()
 
         assert mock_submit.call_count == 1
-        assert not self.eload.eload_cfg.query('brokering', 'Biosamples', 'pass')
+        assert not self.eload.submission_cfg.query('brokering', 'Biosamples', 'pass')
         assert self.eload.sample_records() == incomplete
-        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'date') == 'a_date'
+        assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'date') == 'a_date'
 
     def test_upload_to_bioSamples_not_required(self):
-        self.eload.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
-                                 value=os.path.join(self.resources_folder, 'metadata.xlsx'))
+        self.eload.submission_cfg.set('validation', 'valid', 'metadata_spreadsheet',
+                                      value=os.path.join(self.resources_folder, 'metadata.xlsx'))
 
         samples = [SampleRecord(f'SAME{i}', analysis_aliases=['GAE'], sample_in_vcf=f'S{i}', name=f'bsd{i}',
                                 action='None')
@@ -129,58 +129,58 @@ class TestEloadBrokering(TestCase):
                 patch.object(SampleMetadataSubmitter, 'already_submitted_sample_records', return_value=samples):
             self.eload.upload_to_bioSamples()
         assert check_submit_done.call_count == 1
-        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'pass')
+        assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'pass')
         assert self.eload.sample_records() == samples
 
     def test_upload_to_bioSamples_done(self):
-        self.eload.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
-                                 value=os.path.join(self.resources_folder, 'metadata.xlsx'))
-        self.eload.eload_cfg.set('brokering', 'Biosamples', 'sample_records',
-                                 value=[{'accession': 'SAMPLE1', 'analysisAlias': ['GAE'], 'sampleInVCF': 'sample1'}])
-        self.eload.eload_cfg.set('brokering', 'Biosamples', 'pass', value=True)
+        self.eload.submission_cfg.set('validation', 'valid', 'metadata_spreadsheet',
+                                      value=os.path.join(self.resources_folder, 'metadata.xlsx'))
+        self.eload.submission_cfg.set('brokering', 'Biosamples', 'sample_records',
+                                      value=[{'accession': 'SAMPLE1', 'analysisAlias': ['GAE'], 'sampleInVCF': 'sample1'}])
+        self.eload.submission_cfg.set('brokering', 'Biosamples', 'pass', value=True)
         with patch.object(SampleMetadataSubmitter, 'submit_to_bioSamples') as mock_submit:
             self.eload.upload_to_bioSamples()
         mock_submit.assert_not_called()
 
     def test_broker_to_ena_xml(self):
-        self.eload.eload_cfg.set('validation', 'valid', 'metadata_spreadsheet',
-                                 value=os.path.join(self.resources_folder, 'metadata.xlsx'))
-        self.eload.eload_cfg.set('brokering', 'analyses', value={'AA1':{'vcf_files':{}}})
+        self.eload.submission_cfg.set('validation', 'valid', 'metadata_spreadsheet',
+                                      value=os.path.join(self.resources_folder, 'metadata.xlsx'))
+        self.eload.submission_cfg.set('brokering', 'analyses', value={'AA1':{'vcf_files':{}}})
         response = Mock(text=self.ena_receipt_xml, headers={'Content-Type': 'application/xml'})
         with patch.object(ENAUploader, 'upload_vcf_files_to_ena_ftp'),\
               patch.object(ENAUploader, '_post_metadata_file_to_ena', return_value=response),\
-              patch('eva_submission.eload_utils.get_scientific_name_from_evapro', return_value=None):
+              patch('eva_submission.submission_utils.get_scientific_name_from_evapro', return_value=None):
             self.eload.broker_to_ena()
 
     def _set_brokered_sample_records(self, metadata_json):
         """Records as brokering would store them for the samples of the metadata JSON."""
         with open(metadata_json) as open_file:
             samples = json.load(open_file)['sample']
-        self.eload.eload_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
+        self.eload.submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
             {'accession': sample.get('bioSampleAccession') or f'SAME0000{i + 1}',
              'analysisAlias': sample['analysisAlias'], 'sampleInVCF': sample['sampleInVCF']}
             for i, sample in enumerate(samples)
         ])
 
     def test_broker_to_ena_json(self):
-        self.eload.eload_cfg.set('validation', 'valid', 'metadata_json',
-                                 value=os.path.join(self.resources_folder, 'brokering', 'eva_metadata_json.json'))
-        self._set_brokered_sample_records(self.eload.eload_cfg.query('validation', 'valid', 'metadata_json'))
-        self.eload.eload_cfg.set('brokering', 'analyses', value={'AA1':{'vcf_files':{}}})
+        self.eload.submission_cfg.set('validation', 'valid', 'metadata_json',
+                                      value=os.path.join(self.resources_folder, 'brokering', 'eva_metadata_json.json'))
+        self._set_brokered_sample_records(self.eload.submission_cfg.query('validation', 'valid', 'metadata_json'))
+        self.eload.submission_cfg.set('brokering', 'analyses', value={'AA1':{'vcf_files':{}}})
         upload_response = Mock(text='{"submissionId": 123, "_links": {"poll": {"href": "http://mock-poll.com/123"}}}',
                                headers={'Content-Type': 'application/json'}, status_code=200)
         poll_response = Mock(text=self.ena_receipt_json, headers={'Content-Type': 'application/json'})
         with patch.object(ENAUploader, 'upload_vcf_files_to_ena_ftp'),\
               patch.object(ENAUploader, '_post_metadata_file_to_ena', return_value=upload_response),\
               patch('eva_submission.ENA_submission.upload_to_ENA.requests.get', return_value=poll_response),\
-              patch('eva_submission.eload_utils.get_scientific_name_from_evapro', return_value=None):
+              patch('eva_submission.submission_utils.get_scientific_name_from_evapro', return_value=None):
             self.eload.broker_to_ena(async_upload=True)
 
     def test_broker_to_ena_json_existing_project(self):
-        self.eload.eload_cfg.set('validation', 'valid', 'metadata_json',
-                                 value=os.path.join(self.resources_folder, 'brokering', 'eva_metadata_existing_project.json'))
-        self._set_brokered_sample_records(self.eload.eload_cfg.query('validation', 'valid', 'metadata_json'))
-        self.eload.eload_cfg.set('brokering', 'analyses', value={'AA1':{'vcf_files':{}}})
+        self.eload.submission_cfg.set('validation', 'valid', 'metadata_json',
+                                      value=os.path.join(self.resources_folder, 'brokering', 'eva_metadata_existing_project.json'))
+        self._set_brokered_sample_records(self.eload.submission_cfg.query('validation', 'valid', 'metadata_json'))
+        self.eload.submission_cfg.set('brokering', 'analyses', value={'AA1':{'vcf_files':{}}})
         response = Mock(text='', headers={'Content-Type': 'application/json'})
         with patch.object(ENAUploader, 'upload_vcf_files_to_ena_ftp'),\
               patch.object(ENAUploader, '_post_metadata_file_to_ena', return_value=response),\
@@ -188,12 +188,12 @@ class TestEloadBrokering(TestCase):
             self.eload.broker_to_ena(async_upload=True)
 
     def test_run_brokering_prep_workflow(self):
-        self.eload.eload_cfg.set('validation', 'valid', 'analyses', value={
+        self.eload.submission_cfg.set('validation', 'valid', 'analyses', value={
             'analysis_alias1': {
                 'vcf_files': [os.path.join(self.resources_folder, 'vcf_file.vcf')],
             },
         })
-        self.eload.eload_cfg.set('submission', 'analyses', value={
+        self.eload.submission_cfg.set('submission', 'analyses', value={
             'analysis_alias1': {
                 'assembly_fasta': os.path.join(self.resources_folder, 'reference_genome.fa'),
                 'assembly_report': os.path.join(self.resources_folder, 'reference_genome_assembly_report.tx'),
@@ -206,24 +206,24 @@ class TestEloadBrokering(TestCase):
         }
         temp_dir = 'temporary_directory'
         nf_script = os.path.join(NEXTFLOW_DIR, 'prepare_brokering.nf')
-        config_file = os.path.join(self.eload.eload_dir, 'brokering_config_file.yaml')
+        config_file = os.path.join(self.eload.submission_dir, 'brokering_config_file.yaml')
 
-        with patch('eva_submission.eload_brokering.command_utils.run_command_with_output') as m_execute, \
-                patch.object(Eload, 'create_nextflow_temp_output_directory', return_value=temp_dir):
+        with patch('eva_submission.submission_brokering.command_utils.run_command_with_output') as m_execute, \
+                patch.object(Submission, 'create_nextflow_temp_output_directory', return_value=temp_dir):
             self.eload._run_brokering_prep_workflow()
         m_execute.assert_called_once_with(
             'Nextflow brokering preparation process',
             f'path_to_nextflow {nf_script} -params-file {config_file} -work-dir {temp_dir}  '
         )
-        assert self.eload.eload_cfg.query('brokering', 'prepare_brokering', 'nextflow_dir', 'preparation') == temp_dir
+        assert self.eload.submission_cfg.query('brokering', 'prepare_brokering', 'nextflow_dir', 'preparation') == temp_dir
 
     def test_run_brokering_prep_workflow_resume(self):
-        self.eload.eload_cfg.set('validation', 'valid', 'analyses', value={
+        self.eload.submission_cfg.set('validation', 'valid', 'analyses', value={
             'analysis_alias1': {
                 'vcf_files': [os.path.join(self.resources_folder, 'vcf_file.vcf')],
             },
         })
-        self.eload.eload_cfg.set('submission', 'analyses', value={
+        self.eload.submission_cfg.set('submission', 'analyses', value={
             'analysis_alias1': {
                 'assembly_fasta': os.path.join(self.resources_folder, 'reference_genome.fa'),
                 'assembly_report': os.path.join(self.resources_folder, 'reference_genome_assembly_report.tx'),
@@ -234,14 +234,14 @@ class TestEloadBrokering(TestCase):
             'nextflow': 'path_to_nextflow',
             'python': {'script_path': 'path_to_script'}
         }
-        existing_work_dir = os.path.join(self.eload.eload_dir, 'existing_work_dir')
+        existing_work_dir = os.path.join(self.eload.submission_dir, 'existing_work_dir')
         os.makedirs(existing_work_dir)
-        self.eload.eload_cfg.set('brokering', 'prepare_brokering', 'nextflow_dir', 'preparation',
-                                 value=existing_work_dir)
+        self.eload.submission_cfg.set('brokering', 'prepare_brokering', 'nextflow_dir', 'preparation',
+                                      value=existing_work_dir)
         nf_script = os.path.join(NEXTFLOW_DIR, 'prepare_brokering.nf')
-        config_file = os.path.join(self.eload.eload_dir, 'brokering_config_file.yaml')
+        config_file = os.path.join(self.eload.submission_dir, 'brokering_config_file.yaml')
 
-        with patch('eva_submission.eload_brokering.command_utils.run_command_with_output') as m_execute:
+        with patch('eva_submission.submission_brokering.command_utils.run_command_with_output') as m_execute:
             self.eload._run_brokering_prep_workflow(resume=True)
         m_execute.assert_called_once_with(
             'Nextflow brokering preparation process',
@@ -260,7 +260,7 @@ class TestEloadBrokering(TestCase):
         assert self.eload.parse_bcftools_norm_report(normalisation_log) == expected
 
     def test_collect_brokering_workflow_results(self):
-        output_dir = os.path.join(self.eload.eload_dir, 'output')
+        output_dir = os.path.join(self.eload.submission_dir, 'output')
         os.makedirs(output_dir)
         for f in ['vcf_file1.vcf.gz']:
             touch(os.path.join(output_dir, f))
@@ -268,18 +268,18 @@ class TestEloadBrokering(TestCase):
             touch(os.path.join(output_dir, f), content=f'md5checksum {f}')
         touch(os.path.join(output_dir, 'vcf_file1.vcf_bcftools_norm.log'),
               content=f'Lines   total/split/realigned/skipped:  2/0/1/0')
-        self.eload.eload_cfg.set('validation', 'valid', 'analyses',  value={'analysis alias 1':{
+        self.eload.submission_cfg.set('validation', 'valid', 'analyses', value={'analysis alias 1':{
             'assembly_accession': 'GCA_000001000.1',
             'assembly_fasta': 'fasta.fa',
             'assembly_report': 'assembly_report.txt',
             'vcf_files': ['vcf_file1.vcf']
         }})
         self.eload._collect_brokering_prep_results(output_dir)
-        vcf_file1 = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.gz')
-        vcf_file1_csi = os.path.join(self.eload.eload_dir, '18_brokering/ena/vcf_file1.vcf.csi')
+        vcf_file1 = os.path.join(self.eload.submission_dir, '18_brokering/ena/vcf_file1.vcf.gz')
+        vcf_file1_csi = os.path.join(self.eload.submission_dir, '18_brokering/ena/vcf_file1.vcf.csi')
         assert os.path.isfile(vcf_file1)
         assert os.path.isfile(vcf_file1_csi)
-        assert self.eload.eload_cfg['brokering']['analyses'] == {
+        assert self.eload.submission_cfg['brokering']['analyses'] == {
             'analysis alias 1': {
                 'assembly_accession': 'GCA_000001000.1',
                 'assembly_fasta': 'fasta.fa',
@@ -320,7 +320,7 @@ ANALYSIS: {'alias1': 'ERZ0000001'}
     - Errors: 
     - receipt: <?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="receipt.xsl"?>
-<RECEIPT receiptDate="2021-01-01T12:01:001.0Z" submissionFile="ELOAD_3.Submission.xml" success="true">
+<RECEIPT receiptDate="2021-01-01T12:01:001.0Z" submissionFile="submission_3.Submission.xml" success="true">
      <ANALYSIS accession="ERZ0000001" alias="alias1" status="PRIVATE"/>
      <PROJECT accession="PRJEB00001" alias="alias1" status="PRIVATE" holdUntilDate="2023-02-16Z">
           <EXT_ID accession="ERP000001" type="study"/>
@@ -348,7 +348,7 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
 
 '''
         with patch('builtins.print') as mprint:
-            self.existing_eload.eload_cfg.set('submission', 'metadata_spreadsheet', value=os.path.join(self.existing_eload.eload_dir, '10_submitted/metadata_file/metadata_sheet.xlsx'))
+            self.existing_eload.submission_cfg.set('submission', 'metadata_spreadsheet', value=os.path.join(self.existing_eload.submission_dir, '10_submitted/metadata_file/metadata_sheet.xlsx'))
             self.existing_eload.report()
         mprint.assert_called_once_with(expected_report)
 
@@ -356,9 +356,9 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
         # This metadata file contains multiple analysis each containing multiple files.
         # the file get merged into 1 file per analysis
         metadata_file = os.path.join(self.resources_folder, 'metadata_2_analysis.xlsx')
-        ena_metadata_file = os.path.join(self.eload.eload_dir, 'metadata_2_analysis_for_brokering.xlsx')
+        ena_metadata_file = os.path.join(self.eload.submission_dir, 'metadata_2_analysis_for_brokering.xlsx')
         analyses = {
-            'ELOAD_3_GAE': {
+            'submission_3_GAE': {
                 'assembly_accession': 'GCA_000001405.1',
                 'vcf_files': {
                     'path/to/GAE.vcf.gz': {
@@ -370,7 +370,7 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
                     }
                 }
             },
-            'ELOAD_3_GAE2': {
+            'submission_3_GAE2': {
                 'assembly_accession': 'GCA_000001405.1',
                 'vcf_files': {
                     'path/to/GAE2.vcf.gz': {
@@ -383,7 +383,7 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
                 }
             }
         }
-        self.eload.eload_cfg.set('brokering', 'analyses', value=analyses)
+        self.eload.submission_cfg.set('brokering', 'analyses', value=analyses)
 
         source_reader = EvaXlsxReader(metadata_file)
         self.eload.update_metadata_spreadsheet(metadata_file, ena_metadata_file)
@@ -392,13 +392,13 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
         assert len(source_reader.files) == 12
         assert len(reader.files) == 4
         assert reader.files == [
-            {'Analysis Alias': 'ELOAD_3_GAE', 'File Name': 'ELOAD_3/GAE.vcf.gz', 'File Type': 'vcf', 'MD5': None,
+            {'Analysis Alias': 'submission_3_GAE', 'File Name': 'submission_3/GAE.vcf.gz', 'File Type': 'vcf', 'MD5': None,
              'row_num': 2},
-            {'Analysis Alias': 'ELOAD_3_GAE', 'File Name': 'ELOAD_3/GAE.vcf.gz.csi', 'File Type': 'csi', 'MD5': None,
+            {'Analysis Alias': 'submission_3_GAE', 'File Name': 'submission_3/GAE.vcf.gz.csi', 'File Type': 'csi', 'MD5': None,
              'row_num': 3},
-            {'Analysis Alias': 'ELOAD_3_GAE2', 'File Name': 'ELOAD_3/GAE2.vcf.gz', 'File Type': 'vcf', 'MD5': None,
+            {'Analysis Alias': 'submission_3_GAE2', 'File Name': 'submission_3/GAE2.vcf.gz', 'File Type': 'vcf', 'MD5': None,
              'row_num': 4},
-            {'Analysis Alias': 'ELOAD_3_GAE2', 'File Name': 'ELOAD_3/GAE2.vcf.gz.csi', 'File Type': 'csi', 'MD5': None,
+            {'Analysis Alias': 'submission_3_GAE2', 'File Name': 'submission_3/GAE2.vcf.gz.csi', 'File Type': 'csi', 'MD5': None,
              'row_num': 5}
         ]
         # Updated the reference genome to what the brokering contains
@@ -409,7 +409,7 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
         input_metadata_json = os.path.join(self.resources_folder, 'brokering', 'eva_metadata_json.json')
         output_metadata_json = os.path.join(self.resources_folder, 'brokering', 'updated_metadata.json')
         analyses = {
-            'ELOAD_3_VD1': {
+            'submission_3_VD1': {
                 'assembly_accession': 'GCA_000001405.1',
                 'vcf_files': {
                     'path/to/example1.vcf.gz': {
@@ -421,7 +421,7 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
                     }
                 }
             },
-            'ELOAD_3_VD2': {
+            'submission_3_VD2': {
                 'assembly_accession': 'GCA_000001405.1',
                 'vcf_files': {
                     'path/to/example2.vcf.gz': {
@@ -433,7 +433,7 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
                     }
                 }
             },
-            'ELOAD_3_VD3': {
+            'submission_3_VD3': {
                 'assembly_accession': 'GCA_000001405.1',
                 'vcf_files': {
                     'path/to/example3.vcf.gz': {
@@ -446,7 +446,7 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
                 }
             }
         }
-        self.eload.eload_cfg.set('brokering', 'analyses', value=analyses)
+        self.eload.submission_cfg.set('brokering', 'analyses', value=analyses)
         self._set_brokered_sample_records(input_metadata_json)
 
         self.eload.update_metadata_json(input_metadata_json, output_metadata_json)
@@ -458,7 +458,7 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
             aliases_from_analysis = {a['analysisAlias'] for a in updated_metadata['analysis']}
             aliases_from_samples = {a for s in updated_metadata['sample'] for a in s['analysisAlias']}
             aliases_from_files = {f['analysisAlias'] for f in updated_metadata['files']}
-            assert all(alias.startswith('ELOAD_3_') for alias in aliases_from_analysis | aliases_from_samples | aliases_from_files)
+            assert all(alias.startswith('submission_3_') for alias in aliases_from_analysis | aliases_from_samples | aliases_from_files)
 
             # Analysis references have been modified
             reference_for_each_analysis = [a['referenceGenome'] for a in updated_metadata['analysis']]
@@ -467,20 +467,20 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
             # Files now includes index files
             assert len(updated_metadata['files']) == 6
             file_names = sorted([f['fileName'] for f in updated_metadata['files']])
-            assert file_names == ['ELOAD_3/example1.vcf.gz', 'ELOAD_3/example1.vcf.gz.csi', 'ELOAD_3/example2.vcf.gz',
-                                 'ELOAD_3/example2.vcf.gz.csi', 'ELOAD_3/example3.vcf.gz', 'ELOAD_3/example3.vcf.gz.csi']
+            assert file_names == ['submission_3/example1.vcf.gz', 'submission_3/example1.vcf.gz.csi', 'submission_3/example2.vcf.gz',
+                                 'submission_3/example2.vcf.gz.csi', 'submission_3/example3.vcf.gz', 'submission_3/example3.vcf.gz.csi']
 
     def _update_af_metadata_json(self, samples, sample_records):
-        input_metadata_json = os.path.join(self.eload.eload_dir, 'af_metadata.json')
-        output_metadata_json = os.path.join(self.eload.eload_dir, 'af_metadata_updated.json')
-        os.makedirs(self.eload.eload_dir, exist_ok=True)
+        input_metadata_json = os.path.join(self.eload.submission_dir, 'af_metadata.json')
+        output_metadata_json = os.path.join(self.eload.submission_dir, 'af_metadata_updated.json')
+        os.makedirs(self.eload.submission_dir, exist_ok=True)
         with open(input_metadata_json, 'w') as open_file:
             json.dump({'analysis': [{'analysisAlias': 'AF1', 'referenceGenome': 'GCA_000001405.1'}],
                        'sample': samples, 'files': []}, open_file)
-        self.eload.eload_cfg.set('brokering', 'analyses', value={
-            'ELOAD_3_AF1': {'assembly_accession': 'GCA_000001405.1', 'vcf_files': {}}
+        self.eload.submission_cfg.set('brokering', 'analyses', value={
+            'submission_3_AF1': {'assembly_accession': 'GCA_000001405.1', 'vcf_files': {}}
         })
-        self.eload.eload_cfg.set('brokering', 'Biosamples', 'sample_records', value=sample_records)
+        self.eload.submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=sample_records)
         self.eload.update_metadata_json(input_metadata_json, output_metadata_json)
         with open(output_metadata_json) as open_file:
             return json.load(open_file)
@@ -499,9 +499,9 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
         ]
         updated_metadata = self._update_af_metadata_json(samples, sample_records)
         assert updated_metadata['sample'] == [
-            {'analysisAlias': ['ELOAD_3_AF1'], 'bioSampleAccession': 'SAME000001'},
-            {'analysisAlias': ['ELOAD_3_AF1'], 'bioSampleAccession': 'SAME000002'},
-            {'analysisAlias': ['ELOAD_3_AF1'], 'bioSampleAccession': 'SAME000003', 'sampleInVCF': 'S3'},
+            {'analysisAlias': ['submission_3_AF1'], 'bioSampleAccession': 'SAME000001'},
+            {'analysisAlias': ['submission_3_AF1'], 'bioSampleAccession': 'SAME000002'},
+            {'analysisAlias': ['submission_3_AF1'], 'bioSampleAccession': 'SAME000003', 'sampleInVCF': 'S3'},
         ]
 
     def test_update_metadata_json_with_mismatching_sample_records(self):
@@ -515,23 +515,23 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
         updated_metadata = self._update_af_metadata_json(
             samples, [{'accession': 'SAME000002', 'analysisAlias': ['AF1'], 'derivedFrom': ['SAME000001']}]
         )
-        assert updated_metadata['sample'] == [{'analysisAlias': ['ELOAD_3_AF1'], 'bioSampleAccession': 'SAME000002'}]
+        assert updated_metadata['sample'] == [{'analysisAlias': ['submission_3_AF1'], 'bioSampleAccession': 'SAME000002'}]
 
     def test_update_biosamples_with_study_deduplicates_accessions(self):
-        self.eload.eload_cfg.set('brokering', 'ena', 'PROJECT', value='PRJEB00001')
-        self.eload.eload_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
+        self.eload.submission_cfg.set('brokering', 'ena', 'PROJECT', value='PRJEB00001')
+        self.eload.submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
             {'accession': 'SAME000001', 'analysisAlias': ['GT1'], 'sampleInVCF': 'S1'},
             {'accession': 'SAME000001', 'analysisAlias': ['GT2'], 'sampleInVCF': 'S1_bis'},
             {'accession': 'SAME000002', 'analysisAlias': ['AF1']},
         ])
-        with patch('eva_submission.eload_brokering.SampleReferenceSubmitter') as m_submitter:
+        with patch('eva_submission.submission_brokering.SampleReferenceSubmitter') as m_submitter:
             self.eload.update_biosamples_with_study()
         m_submitter.assert_called_once_with(['SAME000001', 'SAME000002'], 'PRJEB00001')
-        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'backlinks') == 'PRJEB00001'
+        assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'backlinks') == 'PRJEB00001'
 
     def test_biosamples_report_with_sample_records(self):
-        self.eload.eload_cfg.set('brokering', 'Biosamples', 'pass', value=True)
-        self.eload.eload_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
+        self.eload.submission_cfg.set('brokering', 'Biosamples', 'pass', value=True)
+        self.eload.submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
             {'accession': 'SAME000001', 'analysisAlias': ['GT1', 'GT2'], 'sampleInVCF': 'S1'},
             {'accession': 'SAME000002', 'analysisAlias': ['AF1'], 'name': 'bsd2'},
             {'accession': 'SAME000003', 'analysisAlias': ['AF1']},
@@ -543,12 +543,12 @@ SAME000003: SAME000003 (AF1)
 """
 
     def test_archival_confirmation_text(self):
-        self.eload.eload_cfg.set('submission', 'project_title', value='Great project')
-        self.eload.eload_cfg.set('brokering', 'Biosamples', 'pass', value=True)
-        self.eload.eload_cfg.set('brokering', 'ena', 'pass', value=True)
-        self.eload.eload_cfg.set('brokering', 'ena', 'hold_date', value='2022-10-21 09:14:53.389160')
-        self.eload.eload_cfg.set('brokering', 'ena', 'PROJECT', value='PRJEB00001')
-        self.eload.eload_cfg.set('brokering', 'ena', 'ANALYSIS', value={'ELOAD_3_alias1': 'ERZ00000001', 'ELOAD_3_alias2': 'ERZ00000002'})
+        self.eload.submission_cfg.set('submission', 'project_title', value='Great project')
+        self.eload.submission_cfg.set('brokering', 'Biosamples', 'pass', value=True)
+        self.eload.submission_cfg.set('brokering', 'ena', 'pass', value=True)
+        self.eload.submission_cfg.set('brokering', 'ena', 'hold_date', value='2022-10-21 09:14:53.389160')
+        self.eload.submission_cfg.set('brokering', 'ena', 'PROJECT', value='PRJEB00001')
+        self.eload.submission_cfg.set('brokering', 'ena', 'ANALYSIS', value={'submission_3_alias1': 'ERZ00000001', 'submission_3_alias2': 'ERZ00000002'})
         expected_text = '''
 Your EVA submission "Great project" has now been archived and will be made available to the public on 2022-10-21. The accessions associated with your submission are:
 Project: PRJEB00001

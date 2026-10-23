@@ -14,36 +14,36 @@ from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 logger = log_cfg.get_logger(__name__)
 
 
-def needs_sample_records_upgrade(eload_cfg):
+def needs_sample_records_upgrade(submission_cfg):
     """Configs brokered before the sample records were introduced only have a sample name to accession dict."""
-    return bool(eload_cfg.query('brokering', 'Biosamples', 'Samples')) and \
-        eload_cfg.query('brokering', 'Biosamples', 'sample_records') is None
+    return bool(submission_cfg.query('brokering', 'Biosamples', 'Samples')) and \
+        submission_cfg.query('brokering', 'Biosamples', 'sample_records') is None
 
 
-def upgrade_samples_to_sample_records(eload_cfg, samples_in_evapro_analysis=None):
+def upgrade_samples_to_sample_records(submission_cfg, samples_in_evapro_analysis=None):
     """
     Replaces the legacy sample name to accession dict (brokering > Biosamples > Samples) with sample records.
     The records are rebuilt from, in order of preference:
-     - EVAPRO, when every analysis of the ELOAD has samples loaded,
+     - EVAPRO, when every analysis of the submission has samples loaded,
      - the metadata JSON or spreadsheet, when every sample in it can be given an accession,
-     - the legacy dict itself, assigning each sample to every analysis of the ELOAD.
+     - the legacy dict itself, assigning each sample to every analysis of the submission.
     samples_in_evapro_analysis is a function that returns the (BioSample accession, name in file) of the samples of
     an analysis accession.
     """
-    if not needs_sample_records_upgrade(eload_cfg):
+    if not needs_sample_records_upgrade(submission_cfg):
         return
-    sample_name_to_accession = eload_cfg.query('brokering', 'Biosamples', 'Samples')
+    sample_name_to_accession = submission_cfg.query('brokering', 'Biosamples', 'Samples')
     sample_records = (
-        _sample_records_from_evapro(eload_cfg, samples_in_evapro_analysis)
-        or _sample_records_from_metadata(eload_cfg, sample_name_to_accession)
-        or _sample_records_from_sample_map(eload_cfg, sample_name_to_accession)
+        _sample_records_from_evapro(submission_cfg, samples_in_evapro_analysis)
+        or _sample_records_from_metadata(submission_cfg, sample_name_to_accession)
+        or _sample_records_from_sample_map(submission_cfg, sample_name_to_accession)
     )
-    eload_cfg.set('brokering', 'Biosamples', 'sample_records', value=records_to_dicts(sample_records))
-    eload_cfg.pop('brokering', 'Biosamples', 'Samples')
+    submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=records_to_dicts(sample_records))
+    submission_cfg.pop('brokering', 'Biosamples', 'Samples')
 
 
-def _sample_records_from_evapro(eload_cfg, samples_in_evapro_analysis):
-    analysis_alias_to_accession = eload_cfg.query('brokering', 'ena', 'ANALYSIS')
+def _sample_records_from_evapro(submission_cfg, samples_in_evapro_analysis):
+    analysis_alias_to_accession = submission_cfg.query('brokering', 'ena', 'ANALYSIS')
     if not samples_in_evapro_analysis or not isinstance(analysis_alias_to_accession, dict):
         return None
     analysis_aliases_per_sample = defaultdict(list)
@@ -66,10 +66,10 @@ def _sample_records_from_evapro(eload_cfg, samples_in_evapro_analysis):
     ]
 
 
-def _sample_records_from_metadata(eload_cfg, sample_name_to_accession):
-    metadata_json = eload_cfg.query('validation', 'valid', 'metadata_json')
-    metadata_spreadsheet = eload_cfg.query('validation', 'valid', 'metadata_spreadsheet') or \
-        eload_cfg.query('submission', 'metadata_spreadsheet')
+def _sample_records_from_metadata(submission_cfg, sample_name_to_accession):
+    metadata_json = submission_cfg.query('validation', 'valid', 'metadata_json')
+    metadata_spreadsheet = submission_cfg.query('validation', 'valid', 'metadata_spreadsheet') or \
+        submission_cfg.query('submission', 'metadata_spreadsheet')
     if metadata_json and os.path.exists(metadata_json):
         with open(metadata_json) as open_file:
             samples = [
@@ -98,8 +98,8 @@ def _sample_records_from_metadata(eload_cfg, sample_name_to_accession):
     return sample_records
 
 
-def _sample_records_from_sample_map(eload_cfg, sample_name_to_accession):
-    analysis_aliases = list(eload_cfg.query('brokering', 'analyses', ret_default={}))
+def _sample_records_from_sample_map(submission_cfg, sample_name_to_accession):
+    analysis_aliases = list(submission_cfg.query('brokering', 'analyses', ret_default={}))
     logger.warning('Sample records could not be rebuilt from EVAPRO or the metadata: '
                    f'each sample is assigned to all the analyses {analysis_aliases}')
     return [
@@ -108,18 +108,18 @@ def _sample_records_from_sample_map(eload_cfg, sample_name_to_accession):
     ]
 
 
-def upgrade_version_1_15_to_1_16(eload_cfg, eload_dir):
+def upgrade_version_1_15_to_1_16(submission_cfg, submission_dir):
     """
     Upgrades a version 1.15 directory structure to version 1.16 to change the path to ingestion nextflow directories
     """
-    project_dir = eload_cfg.query('ingestion', 'project_dir')
+    project_dir = submission_cfg.query('ingestion', 'project_dir')
     if not project_dir:
-        # This ELOAD never went through ingestion so there is no need to change anything
+        # This Submission never went through ingestion so there is no need to change anything
         return
 
     for sub_dir_or_file in os.listdir(project_dir):
         source = os.path.join(project_dir, sub_dir_or_file)
-        dest = os.path.join(eload_dir, sub_dir_or_file)
+        dest = os.path.join(submission_dir, sub_dir_or_file)
         if os.path.exists(dest):
             if (os.path.islink(dest) and os.readlink(dest) == source) or dest == source:
                 logger.debug(f'symbolic link {dest} already exist and is correct')
@@ -132,67 +132,67 @@ def upgrade_version_1_15_to_1_16(eload_cfg, eload_dir):
             os.symlink(source, dest)
 
 
-def upgrade_version_1_14_to_1_15(eload_cfg):
+def upgrade_version_1_14_to_1_15(submission_cfg):
     """
     Upgrades a version 1.14 config to version 1.15 to change the path to ingestion nextflow directories
     """
-    accession_nexflow_dir = eload_cfg.query('ingestion', 'accession', 'nextflow_dir')
-    variant_load_nexflow_dir = eload_cfg.query('ingestion', 'variant_load', 'nextflow_dir')
+    accession_nexflow_dir = submission_cfg.query('ingestion', 'accession', 'nextflow_dir')
+    variant_load_nexflow_dir = submission_cfg.query('ingestion', 'variant_load', 'nextflow_dir')
     if accession_nexflow_dir:
-        eload_cfg.set('ingestion', 'accession_and_load', 'nextflow_dir', 'accession', value=accession_nexflow_dir)
+        submission_cfg.set('ingestion', 'accession_and_load', 'nextflow_dir', 'accession', value=accession_nexflow_dir)
     if variant_load_nexflow_dir:
-        eload_cfg.set('ingestion', 'accession_and_load', 'nextflow_dir', 'variant_load', value=variant_load_nexflow_dir)
+        submission_cfg.set('ingestion', 'accession_and_load', 'nextflow_dir', 'variant_load', value=variant_load_nexflow_dir)
 
     # Set version once we've successfully upgraded
-    eload_cfg.set('version', value=__version__)
+    submission_cfg.set('version', value=__version__)
 
 
-def upgrade_version_0_1(eload_cfg, analysis_alias=None):
+def upgrade_version_0_1(submission_cfg, analysis_alias=None):
     """
     Upgrades a version 0.x config to version 1, using the provided analysis alias for all files.
     """
-    if 'submission' not in eload_cfg:
+    if 'submission' not in submission_cfg:
         logger.error('Need submission config section to upgrade')
         logger.error('Try running prepare_submission or prepare_backlog_study to build a config from scratch.')
         raise ValueError('Need submission config section to upgrade')
 
     # Note: if we're converting an old config, there's only one analysis
     if not analysis_alias:
-        analysis_alias = get_analysis_alias_from_metadata(eload_cfg)
+        analysis_alias = get_analysis_alias_from_metadata(submission_cfg)
     analysis_data = {
-        'assembly_accession': eload_cfg.pop('submission', 'assembly_accession'),
-        'assembly_fasta': eload_cfg.pop('submission', 'assembly_fasta'),
-        'assembly_report': eload_cfg.pop('submission', 'assembly_report'),
-        'vcf_files': eload_cfg.pop('submission', 'vcf_files')
+        'assembly_accession': submission_cfg.pop('submission', 'assembly_accession'),
+        'assembly_fasta': submission_cfg.pop('submission', 'assembly_fasta'),
+        'assembly_report': submission_cfg.pop('submission', 'assembly_report'),
+        'vcf_files': submission_cfg.pop('submission', 'vcf_files')
     }
     analysis_dict = {analysis_alias: analysis_data}
-    eload_cfg.set('submission', 'analyses', value=analysis_dict)
+    submission_cfg.set('submission', 'analyses', value=analysis_dict)
 
-    if 'validation' in eload_cfg:
-        eload_cfg.pop('validation', 'valid', 'vcf_files')
-        eload_cfg.set('validation', 'valid', 'analyses', value=analysis_dict)
+    if 'validation' in submission_cfg:
+        submission_cfg.pop('validation', 'valid', 'vcf_files')
+        submission_cfg.set('validation', 'valid', 'analyses', value=analysis_dict)
 
-    if 'brokering' in eload_cfg:
+    if 'brokering' in submission_cfg:
         brokering_vcfs = {
             vcf_file: index_dict
-            for vcf_file, index_dict in eload_cfg.pop('brokering', 'vcf_files').items()
+            for vcf_file, index_dict in submission_cfg.pop('brokering', 'vcf_files').items()
         }
         brokering_analyses = deepcopy(analysis_dict)
         brokering_analyses[analysis_alias]['vcf_files'] = brokering_vcfs
-        eload_cfg.set('brokering', 'analyses', value=brokering_analyses)
-        analysis_accession = eload_cfg.pop('brokering', 'ena', 'ANALYSIS')
-        eload_cfg.set('brokering', 'ena', 'ANALYSIS', analysis_alias, value=analysis_accession)
+        submission_cfg.set('brokering', 'analyses', value=brokering_analyses)
+        analysis_accession = submission_cfg.pop('brokering', 'ena', 'ANALYSIS')
+        submission_cfg.set('brokering', 'ena', 'ANALYSIS', analysis_alias, value=analysis_accession)
 
     # Set version once we've successfully upgraded
-    eload_cfg.set('version', value=__version__)
+    submission_cfg.set('version', value=__version__)
 
 
-def get_analysis_alias_from_metadata(eload_cfg):
+def get_analysis_alias_from_metadata(submission_cfg):
     """
     Returns analysis alias only if we find a metadata spreadsheet and it has exactly one analysis.
     Otherwise provides an error message and raise an error.
     """
-    metadata_spreadsheet = eload_cfg.query('submission', 'metadata_spreadsheet')
+    metadata_spreadsheet = submission_cfg.query('submission', 'metadata_spreadsheet')
     if metadata_spreadsheet:
         reader = EvaXlsxReader(metadata_spreadsheet)
         if len(reader.analysis) == 1:

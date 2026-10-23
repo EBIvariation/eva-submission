@@ -27,7 +27,7 @@ from eva_sub_cli.executables.xlsx2json import XlsxParser, WORKSHEETS_KEY_NAME, S
 from packaging.version import Version
 
 from eva_submission.biosample_submission.biosamples_submitters import SampleJSONSubmitter
-from eva_submission.eload_utils import convert_spreadsheet_to_json
+from eva_submission.submission_utils import convert_spreadsheet_to_json
 from eva_submission.submission_config import load_config
 
 logger = log_cfg.get_logger(__name__)

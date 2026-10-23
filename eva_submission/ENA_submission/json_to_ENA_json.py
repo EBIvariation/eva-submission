@@ -7,7 +7,7 @@ from functools import cached_property
 
 from ebi_eva_common_pyutils.logger import AppLogger
 
-from eva_submission.eload_utils import check_project_format, check_existing_project_in_ena, is_single_insdc_sequence, \
+from eva_submission.submission_utils import check_project_format, check_existing_project_in_ena, is_single_insdc_sequence, \
     is_vcf_file, get_scientific_name
 
 

@@ -1,7 +1,7 @@
 {
-  "submissionId": "abcdef_ghijkl_mnopqr_stuvwx",
+  "submissionId": "submission_1",
   "submission": {
-    "submissionId": "abcdef_ghijkl_mnopqr_stuvwx",
+    "submissionId": "submission_1",
     "status": "UPLOADED",
     "submissionAccount": {
       "id": "webin123_webin",
@@ -15,7 +15,7 @@
     "initiationTime": "2025-05-24T12:00:00.000",
     "uploadedTime": "2025-05-24T13:00:00.000",
     "completionTime": null,
-    "uploadUrl": "https://endpoint.data.globus.org/webin123_webin/abcdef_ghijkl_mnopqr_stuvwx"
+    "uploadUrl": "https://endpoint.data.globus.org/webin123_webin/submission_1"
   },
   "projectTitle": "Generic project",
   "projectDescription": "project description",

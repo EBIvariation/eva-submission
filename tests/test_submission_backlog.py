@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 import retry
 
-from eva_submission.eload_backlog import EloadBacklog
+from eva_submission.submission_backlog import SubmissionBacklog
 from eva_submission.submission_config import load_config
 from eva_submission import __version__
 
@@ -21,7 +21,7 @@ class TestEloadBacklog(TestCase):
         load_config(config_file)
         # Need to set the directory so that the relative path set in the config file works from the top directory
         os.chdir(self.top_dir)
-        self.eload = EloadBacklog(44)
+        self.eload = SubmissionBacklog('submission_44')
 
     def tearDown(self):
         for f in [
@@ -31,22 +31,22 @@ class TestEloadBacklog(TestCase):
             if os.path.exists(f):
                 os.remove(f)
         # necessary because test instances are retained during a run and content is a class variable
-        from eva_submission.submission_config import EloadConfig
-        EloadConfig.content = {}
-        config_file = self.eload.eload_cfg.config_file
+        from eva_submission.submission_config import SubmissionConfig
+        SubmissionConfig.content = {}
+        config_file = self.eload.submission_cfg.config_file
         # forces the eload config to be written and hence deleted
         del self.eload
         if os.path.exists(config_file):
             os.remove(config_file)
 
     def test_fill_in_config(self):
-        expected_vcf = os.path.join(self.resources_folder, 'eloads/ELOAD_44/10_submitted/vcf_files/file.vcf.gz')
-        expected_index = os.path.join(self.resources_folder, 'eloads/ELOAD_44/10_submitted/vcf_files/file.vcf.gz.tbi')
-        expected_metadata_json = os.path.join(self.resources_folder, 'eloads/ELOAD_44/10_submitted/metadata_file/backlog_metadata.json')
+        expected_vcf = os.path.join(self.resources_folder, 'eloads/submission_44/10_submitted/vcf_files/file.vcf.gz')
+        expected_index = os.path.join(self.resources_folder, 'eloads/submission_44/10_submitted/vcf_files/file.vcf.gz.tbi')
+        expected_metadata_json = os.path.join(self.resources_folder, 'eloads/submission_44/10_submitted/metadata_file/backlog_metadata.json')
         expected_config = {
             'submission': {
                 'metadata_json': expected_metadata_json,
-                'analyses': {'ELOAD_44_ERZ999999': {
+                'analyses': {'submission_44_ERZ999999': {
                     'vcf_files': [expected_vcf],
                     'assembly_fasta': 'assembly.fa',
                     'assembly_report': 'assembly.txt',
@@ -58,17 +58,17 @@ class TestEloadBacklog(TestCase):
             'brokering': {
                 'ena': {
                     'hold_date':  datetime(2021, 1, 1, 0, 0, tzinfo=timezone(timedelta(seconds=3600))),
-                    'ANALYSIS': {'ELOAD_44_ERZ999999': 'ERZ999999'},
+                    'ANALYSIS': {'submission_44_ERZ999999': 'ERZ999999'},
                     'PROJECT': 'PRJEB12345',
                 }
             },
             'version': __version__
         }
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
-                patch('eva_submission.eload_backlog.get_all_results_for_query') as m_get_results, \
-                patch('eva_submission.eload_backlog.get_reference_fasta_and_report') as m_get_genome, \
-                patch('eva_submission.eload_backlog.get_project_alias') as m_get_alias_results, \
-                patch('eva_submission.eload_utils.requests.post') as m_post:
+        with patch('eva_submission.submission.get_metadata_connection_handle', autospec=True), \
+                patch('eva_submission.submission_backlog.get_all_results_for_query') as m_get_results, \
+                patch('eva_submission.submission_backlog.get_reference_fasta_and_report') as m_get_genome, \
+                patch('eva_submission.submission_backlog.get_project_alias') as m_get_alias_results, \
+                patch('eva_submission.submission_utils.requests.post') as m_post:
             m_get_alias_results.return_value = 'alias'
             m_get_results.side_effect = [
                 [['PRJEB12345']],
@@ -88,20 +88,20 @@ class TestEloadBacklog(TestCase):
      <ACTIONS>RECEIPT</ACTIONS>
 </RECEIPT>'''
             self.eload.fill_in_config(True)
-            self.assertEqual(self.eload.eload_cfg.content, expected_config)
+            self.assertEqual(self.eload.submission_cfg.content, expected_config)
 
     def test_file_not_found(self):
         expected_config = {
             'brokering': {
                 'ena': {
-                    'ANALYSIS': {'ELOAD_44_ERZ999999': 'ERZ999999'},
+                    'ANALYSIS': {'submission_44_ERZ999999': 'ERZ999999'},
                     'PROJECT': 'PRJEB12345',
                 }
             },
             'version': __version__
         }
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
-                patch('eva_submission.eload_backlog.get_all_results_for_query') as m_get_results,\
+        with patch('eva_submission.submission.get_metadata_connection_handle', autospec=True), \
+                patch('eva_submission.submission_backlog.get_all_results_for_query') as m_get_results,\
                 patch.object(retry.api.time, 'sleep'):
             m_get_results.side_effect = cycle([
                 [['PRJEB12345']],    # self.project_accession
@@ -111,7 +111,7 @@ class TestEloadBacklog(TestCase):
             with self.assertRaises(FileNotFoundError):
                 self.eload.fill_in_config(True)
             # incomplete config should still exist, even though filling config failed
-            self.assertEqual(self.eload.eload_cfg.content, expected_config)
+            self.assertEqual(self.eload.submission_cfg.content, expected_config)
 
     @pytest.mark.skip('Unreliable ENA API call to download file')
     def test_find_file_on_ena(self):
@@ -122,9 +122,9 @@ class TestEloadBacklog(TestCase):
         self.eload.report()
 
     def test_set_project_fail(self):
-        eload = EloadBacklog(44, project_accession='PRJEB9999')
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
-                patch('eva_submission.eload_backlog.get_all_results_for_query') as m_get_results:
+        eload = SubmissionBacklog('submission_44', project_accession='PRJEB9999')
+        with patch('eva_submission.submission.get_metadata_connection_handle', autospec=True), \
+                patch('eva_submission.submission_backlog.get_all_results_for_query') as m_get_results:
             m_get_results.side_effect = [
                 []  # self.project_accession
             ]
@@ -133,9 +133,9 @@ class TestEloadBacklog(TestCase):
             assert str(context.exception) == 'No project found for PRJEB9999 in metadata DB.'
 
     def test_set_analysis_fail(self):
-        eload = EloadBacklog(44, project_accession='PRJEB9999', analysis_accessions=['ERZ9997', 'ERZ9998', 'ERZ9999'])
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
-                patch('eva_submission.eload_backlog.get_all_results_for_query') as m_get_results:
+        eload = SubmissionBacklog('submission_44', project_accession='PRJEB9999', analysis_accessions=['ERZ9997', 'ERZ9998', 'ERZ9999'])
+        with patch('eva_submission.submission.get_metadata_connection_handle', autospec=True), \
+                patch('eva_submission.submission_backlog.get_all_results_for_query') as m_get_results:
             m_get_results.side_effect = [
                 [('PRJEB9999',)],  # self.project_accession
                 [('ERZ9997',),  ('ERZ9998',)]   # self.analysis_accessions
@@ -146,9 +146,9 @@ class TestEloadBacklog(TestCase):
                                              'ERZ9997, ERZ9998, ERZ9999 in metadata DB.'
 
     def test_set_project_and_analysis(self):
-        eload = EloadBacklog(44, project_accession='PRJEB9999', analysis_accessions=['ERZ9997', 'ERZ9998', 'ERZ9999'])
-        with patch('eva_submission.eload_submission.get_metadata_connection_handle', autospec=True), \
-                patch('eva_submission.eload_backlog.get_all_results_for_query') as m_get_results:
+        eload = SubmissionBacklog('submission_44', project_accession='PRJEB9999', analysis_accessions=['ERZ9997', 'ERZ9998', 'ERZ9999'])
+        with patch('eva_submission.submission.get_metadata_connection_handle', autospec=True), \
+                patch('eva_submission.submission_backlog.get_all_results_for_query') as m_get_results:
             m_get_results.side_effect = [
                 [['PRJEB9999']],    # self.project_accession
                 [('ERZ9997',), ('ERZ9998',), ('ERZ9999',)]  # self.analysis_accessions

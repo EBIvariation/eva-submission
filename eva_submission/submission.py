@@ -16,8 +16,8 @@ from eva_submission import __version__
 from eva_submission.biosample_submission.sample_record import records_from_dicts
 from eva_submission.config_migration import upgrade_version_0_1, upgrade_version_1_14_to_1_15, \
     upgrade_version_1_15_to_1_16, needs_sample_records_upgrade, upgrade_samples_to_sample_records
-from eva_submission.eload_utils import get_hold_date_from_ena
-from eva_submission.submission_config import EloadConfig
+from eva_submission.submission_utils import get_hold_date_from_ena
+from eva_submission.submission_config import SubmissionConfig
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
 directory_structure = {
@@ -32,23 +32,22 @@ directory_structure = {
     'ena': '18_brokering/ena',
     'scratch': '20_scratch'
 }
-eload_logging_files = set()
+submission_logging_files = set()
 
 
-class Eload(AppLogger):
-    def __init__(self, eload_number: int, config_object: EloadConfig = None):
-        self.eload_num = eload_number
-        self.eload = f'ELOAD_{eload_number}'
-        self.eload_dir = os.path.abspath(os.path.join(cfg['eloads_dir'], self.eload))
-        self.nobackup_eload_dir = os.path.abspath(os.path.join(cfg['nobackup_eloads_dir'], self.eload))
-        self.config_path = os.path.join(self.eload_dir, '.' + self.eload + '_config.yml')
+class Submission(AppLogger):
+    def __init__(self, submission_id: str, config_object: SubmissionConfig = None):
+        self.submission_id = submission_id
+        self.submission_dir = os.path.abspath(os.path.join(cfg['submissions_dir'], self.submission_id))
+        self.nobackup_submission_dir = os.path.abspath(os.path.join(cfg['nobackup_submissions_dir'], self.submission_id))
+        self.config_path = os.path.join(self.submission_dir, '.' + self.submission_id + '_config.yml')
         if config_object:
-            self.eload_cfg = config_object
+            self.submission_cfg = config_object
         else:
-            self.eload_cfg = EloadConfig(self.config_path)
+            self.submission_cfg = SubmissionConfig(self.config_path)
 
-        os.makedirs(self.eload_dir, exist_ok=True)
-        os.makedirs(self.nobackup_eload_dir, exist_ok=True)
+        os.makedirs(self.submission_dir, exist_ok=True)
+        os.makedirs(self.nobackup_submission_dir, exist_ok=True)
         for k in directory_structure:
             os.makedirs(self._get_dir(k), exist_ok=True)
         self.create_log_file()
@@ -57,7 +56,7 @@ class Eload(AppLogger):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.eload_cfg.write()
+        self.submission_cfg.write()
 
     @property
     def metadata_connection_handle(self):
@@ -66,30 +65,26 @@ class Eload(AppLogger):
     def create_nextflow_temp_output_directory(self, base=None):
         random_string = ''.join(random.choice(string.ascii_letters) for i in range(6))
         if base is None:
-            base = self.nobackup_eload_dir
+            base = self.nobackup_submission_dir
         output_dir = os.path.join(base, 'nextflow_output_' + random_string)
         os.makedirs(output_dir)
         return output_dir
 
     def _get_dir(self, key):
-        return os.path.join(self.eload_dir, directory_structure[key])
+        return os.path.join(self.submission_dir, directory_structure[key])
 
     @cached_property
     def now(self):
         return datetime.now()
 
-    @cached_property
-    def submission_id(self):
-        return self.eload_cfg.query('submission', 'submission_id')
-
     def _unique_alias(self, alias):
-        if alias and not alias.startswith(self.eload):
-            return f'{self.eload}_{alias}'
+        if alias and not alias.startswith(self.submission_id):
+            return f'{self.submission_id}_{alias}'
         return alias
 
     def _undo_unique_alias(self, alias):
-        if alias.startswith(self.eload + '_'):
-            return alias[len(self.eload) + 1:]
+        if alias.startswith(self.submission_id + '_'):
+            return alias[len(self.submission_id) + 1:]
         return alias
 
     def sample_records(self):
@@ -97,7 +92,7 @@ class Eload(AppLogger):
         Returns the records of the samples brokered to BioSamples.
         Configs from before the records were introduced are converted by upgrade_sample_records_if_needed.
         """
-        return records_from_dicts(self.eload_cfg.query('brokering', 'Biosamples', 'sample_records', ret_default=[]))
+        return records_from_dicts(self.submission_cfg.query('brokering', 'Biosamples', 'sample_records', ret_default=[]))
 
     def sample_records_for_analysis(self, analysis_alias):
         """Records belonging to the analysis."""
@@ -144,10 +139,10 @@ class Eload(AppLogger):
         return sample_accession_to_name
 
     def create_log_file(self):
-        logfile_name = os.path.join(self.eload_dir, str(self.eload) + "_submission.log")
-        if logfile_name not in eload_logging_files:
+        logfile_name = os.path.join(self.submission_dir, str(self.submission_id) + "_submission.log")
+        if logfile_name not in submission_logging_files:
             log_cfg.add_file_handler(logfile_name)
-            eload_logging_files.add(logfile_name)
+            submission_logging_files.add(logfile_name)
 
     def upgrade_to_new_version_if_needed(self, analysis_alias=None):
         """
@@ -155,26 +150,26 @@ class Eload(AppLogger):
          - making a backup
          - using the provided analysis alias for all vcf files (pre version 1)
          - reformat nextflow directories in the config (pre version 1.15)
-         - link project subdirectories  to the eload directories and update the config (pre version 1.16)
+         - link project subdirectories to the submission directories and update the config (pre version 1.16)
          - replace the BioSamples sample name to accession dict with sample records (any version)
         """
-        if 'version' not in self.eload_cfg:
+        if 'version' not in self.submission_cfg:
             self.debug(f'No version found in config, upgrading to version {__version__}.')
-            self.eload_cfg.backup()
-            upgrade_version_0_1(self.eload_cfg, analysis_alias)
-            upgrade_version_1_14_to_1_15(self.eload_cfg)
-            upgrade_version_1_15_to_1_16(self.eload_cfg, self.eload_dir)
-            self.eload_cfg.write()
-        elif version.parse(self.eload_cfg.query('version')) < version.parse("1.15"):
+            self.submission_cfg.backup()
+            upgrade_version_0_1(self.submission_cfg, analysis_alias)
+            upgrade_version_1_14_to_1_15(self.submission_cfg)
+            upgrade_version_1_15_to_1_16(self.submission_cfg, self.submission_dir)
+            self.submission_cfg.write()
+        elif version.parse(self.submission_cfg.query('version')) < version.parse("1.15"):
             self.debug(f'Pre version 1.15, upgrading to version from {version} to {__version__}.')
-            self.eload_cfg.backup()
-            upgrade_version_1_14_to_1_15(self.eload_cfg)
-            upgrade_version_1_15_to_1_16(self.eload_cfg, self.eload_dir)
-            self.eload_cfg.write()
-        elif version.parse(self.eload_cfg.query('version')) < version.parse("1.16"):
-            upgrade_version_1_15_to_1_16(self.eload_cfg, self.eload_dir)
+            self.submission_cfg.backup()
+            upgrade_version_1_14_to_1_15(self.submission_cfg)
+            upgrade_version_1_15_to_1_16(self.submission_cfg, self.submission_dir)
+            self.submission_cfg.write()
+        elif version.parse(self.submission_cfg.query('version')) < version.parse("1.16"):
+            upgrade_version_1_15_to_1_16(self.submission_cfg, self.submission_dir)
         else:
-            self.debug(f"Config is version {self.eload_cfg.query('version')}, not upgrading.")
+            self.debug(f"Config is version {self.submission_cfg.query('version')}, not upgrading.")
         self.upgrade_sample_records_if_needed()
 
     def upgrade_sample_records_if_needed(self):
@@ -182,17 +177,17 @@ class Eload(AppLogger):
         Replaces the sample name to accession dict of configs brokered before the sample records were introduced.
         This does not depend on the config version because these configs can have any version.
         """
-        if needs_sample_records_upgrade(self.eload_cfg):
+        if needs_sample_records_upgrade(self.submission_cfg):
             # Imported here to avoid a circular import through the EVAPRO metadata loader
             from eva_submission.evapro.populate_evapro import EvaProjectLoader
             self.info('Convert the BioSamples sample name to accession dict to sample records')
-            self.eload_cfg.backup()
-            upgrade_samples_to_sample_records(self.eload_cfg, EvaProjectLoader().get_samples_in_analysis)
-            self.eload_cfg.write()
+            self.submission_cfg.backup()
+            upgrade_samples_to_sample_records(self.submission_cfg, EvaProjectLoader().get_samples_in_analysis)
+            self.submission_cfg.write()
 
     def update_config_with_hold_date(self, project_accession, project_alias=None):
         hold_date = get_hold_date_from_ena(project_accession, project_alias)
-        self.eload_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
+        self.submission_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
 
     def _accessioned_sample_objects(self, samples, sample_records):
         """The sample records are in the same order as the samples in the metadata: sample i gets record i."""
@@ -223,14 +218,14 @@ class Eload(AppLogger):
         sample_objects = self._accessioned_sample_objects(metadata_json.get('sample'), self.sample_records())
 
         file_objects = []
-        analyses = self.eload_cfg['brokering']['analyses']
+        analyses = self.submission_cfg['brokering']['analyses']
         for analysis in analyses:
             for vcf_file_name in analyses[analysis]['vcf_files']:
-                vcf_file_info = self.eload_cfg['brokering']['analyses'][analysis]['vcf_files'][vcf_file_name]
+                vcf_file_info = self.submission_cfg['brokering']['analyses'][analysis]['vcf_files'][vcf_file_name]
                 # Add the vcf file
                 file_objects.append({
                     'analysisAlias': self._unique_alias(analysis),
-                    'fileName': self.eload + '/' + os.path.basename(vcf_file_name),
+                    'fileName': self.submission_id + '/' + os.path.basename(vcf_file_name),
                     'fileType': 'vcf',
                     'md5': vcf_file_info['md5']
                 })
@@ -238,7 +233,7 @@ class Eload(AppLogger):
                 # Add the index file
                 file_objects.append({
                     'analysisAlias': self._unique_alias(analysis),
-                    'fileName': self.eload + '/' + os.path.basename(vcf_file_info['csi']),
+                    'fileName': self.submission_id + '/' + os.path.basename(vcf_file_info['csi']),
                     'fileType': 'csi',
                     'md5': vcf_file_info['csi_md5']
                 })
@@ -246,7 +241,7 @@ class Eload(AppLogger):
         analysis_objects = []
         for analysis_obj in metadata_json.get('analysis'):
             analysis_obj['analysisAlias'] = self._unique_alias(analysis_obj['analysisAlias'])
-            validation_assembly = self.eload_cfg.query(
+            validation_assembly = self.submission_cfg.query(
                 'brokering', 'analyses', analysis_obj['analysisAlias'], 'assembly_accession'
             )
             if validation_assembly and validation_assembly != analysis_obj['referenceGenome']:
@@ -285,14 +280,14 @@ class Eload(AppLogger):
                 sample_rows.append(sample_row)
 
         file_rows = []
-        analyses = self.eload_cfg['brokering']['analyses']
+        analyses = self.submission_cfg['brokering']['analyses']
         for analysis in analyses:
             for vcf_file_name in analyses[analysis]['vcf_files']:
-                vcf_file_info = self.eload_cfg['brokering']['analyses'][analysis]['vcf_files'][vcf_file_name]
+                vcf_file_info = self.submission_cfg['brokering']['analyses'][analysis]['vcf_files'][vcf_file_name]
                 # Add the vcf file
                 file_rows.append({
                     'Analysis Alias': self._unique_alias(analysis),
-                    'File Name': self.eload + '/' + os.path.basename(vcf_file_name),
+                    'File Name': self.submission_id + '/' + os.path.basename(vcf_file_name),
                     'File Type': 'vcf',
                     'MD5': vcf_file_info['md5']
                 })
@@ -300,7 +295,7 @@ class Eload(AppLogger):
                 # Add the index file
                 file_rows.append({
                     'Analysis Alias': self._unique_alias(analysis),
-                    'File Name': self.eload + '/' + os.path.basename(vcf_file_info['csi']),
+                    'File Name': self.submission_id + '/' + os.path.basename(vcf_file_info['csi']),
                     'File Type': 'csi',
                     'MD5': vcf_file_info['csi_md5']
                 })
@@ -308,16 +303,16 @@ class Eload(AppLogger):
         project_row = reader.project
         if existing_project:
             project_row['Project Alias'] = existing_project
-        elif self.eload not in project_row['Project Alias']:
-            # Add the eload id to ensure that the project alias is unique
+        elif self.submission_id not in project_row['Project Alias']:
+            # Add the submission id to ensure that the project alias is unique
             project_row['Project Alias'] = self._unique_alias(project_row['Project Alias'])
 
         analysis_rows = reader.analysis
         for analysis_row in analysis_rows:
-            # Add the eload id to ensure that the analysis alias is unique
+            # Add the submission id to ensure that the analysis alias is unique
             analysis_row['Analysis Alias'] = self._unique_alias(analysis_row['Analysis Alias'])
             # Ensure that the reference used in the brokering is the same as the one used during validation
-            analysis_row['Reference'] = self.eload_cfg.query(
+            analysis_row['Reference'] = self.submission_cfg.query(
                 'brokering', 'analyses', analysis_row['Analysis Alias'], 'assembly_accession'
             )
 
@@ -342,20 +337,17 @@ class Eload(AppLogger):
 
     def update_submission_status(self, submission_step, step_status):
         try:
-            if self.submission_id:
-                put_to_sub_ws(sub_ws_url_build('admin', 'submission-process', self.submission_id,
-                                               submission_step, step_status))
-            else:
-                self.warning(f'Could not update submission status ({submission_step} - {step_status}) as no submission id provided for Eload {self.eload}')
+            put_to_sub_ws(sub_ws_url_build('admin', 'submission-process', self.submission_id,
+                                           submission_step, step_status))
         except Exception as e:
             self.warning(f"Could not update status {step_status} for the submission step '{submission_step}'. Error {e}")
 
-    def check_eload_qc_is_successful(self):
-        from eva_submission.submission_qc_checks import EloadQC
-        qc_results = self.eload_cfg.query(EloadQC.config_section)
+    def check_submission_qc_is_successful(self):
+        from eva_submission.submission_qc_checks import SubmissionQC
+        qc_results = self.submission_cfg.query(SubmissionQC.config_section)
         if not qc_results:
             return False
         for check in qc_results:
-            if qc_results[check] not in EloadQC.SUCCESSFUL_RESULTS:
+            if qc_results[check] not in SubmissionQC.SUCCESSFUL_RESULTS:
                 return False
         return True

@@ -7,10 +7,10 @@ from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission import NEXTFLOW_DIR
-from eva_submission.eload_submission import Eload
+from eva_submission.submission import Submission
 
 
-class EloadMigration(Eload):
+class SubmissionMigration(Submission):
 
     def migrate(self, project_accession=None):
         self.run_nextflow_copy(project_accession)
@@ -18,18 +18,18 @@ class EloadMigration(Eload):
 
     def run_nextflow_copy(self, project_accession=None):
         migrate_params = {
-            'eload': self.eload,
-            'old_eloads_dir': cfg['noah']['eloads_new_mnt'],
-            'new_eloads_dir': cfg['eloads_dir'],
+            'submission_id': self.submission_id,
+            'old_submissions_dir': cfg['noah']['submissions_new_mnt'],
+            'new_submissions_dir': cfg['submissions_dir'],
             'old_projects_dir': cfg['noah']['projects_new_mnt'],
             'new_projects_dir': cfg['projects_dir'],
         }
         if project_accession:
             migrate_params['project_accession'] = project_accession
         work_dir = self.create_nextflow_temp_output_directory()
-        params_file = os.path.join(self.eload_dir, 'migrate_params.yaml')
+        params_file = os.path.join(self.submission_dir, 'migrate_params.yaml')
         # Use a specific log file so we don't overwrite when we sync
-        log_file = os.path.join(self.eload_dir, 'migrate_nextflow.log')
+        log_file = os.path.join(self.submission_dir, 'migrate_nextflow.log')
 
         with open(params_file, 'w') as open_file:
             yaml.safe_dump(migrate_params, open_file)
@@ -57,10 +57,10 @@ class EloadMigration(Eload):
             config_contents = config_file.read()
         config_contents = config_contents\
             .replace(cfg['noah']['genomes_dir'], cfg['genome_downloader']['output_directory'])\
-            .replace(cfg['noah']['eloads_dir'], cfg['eloads_dir'])\
+            .replace(cfg['noah']['submissions_dir'], cfg['submissions_dir'])\
             .replace(cfg['noah']['projects_dir'], cfg['projects_dir'])
 
         with open(self.config_path, 'w') as config_file:
             config_file.write(config_contents)
         # Re-load the copied and modified config
-        self.eload_cfg.load_config_file(self.config_path)
+        self.submission_cfg.load_config_file(self.config_path)

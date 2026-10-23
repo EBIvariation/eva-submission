@@ -14,17 +14,16 @@ from ebi_eva_internal_pyutils.mongo_utils import get_mongo_connection_handle
 from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query
 
 from eva_submission.retrieve_eload_and_project_from_lts import ELOADRetrieval
-from eva_submission.submission_config import EloadConfig
+from eva_submission.submission_config import SubmissionConfig
 
 
 # noinspection SqlDialectInspection,SqlNoDataSourceInspection
-class EloadStatus(AppLogger):
+class SubmissionStatus(AppLogger):
 
-    def __init__(self, eload_number: int):
-        self.eload_num = eload_number
-        self.eload = f'ELOAD_{eload_number}'
-        self.eload_dir = os.path.abspath(os.path.join(cfg['eloads_dir'], self.eload))
-        self.config_path = os.path.join(self.eload_dir, '.' + self.eload + '_config.yml')
+    def __init__(self, submission_id: str):
+        self.submission_id = submission_id
+        self.submission_dir = os.path.abspath(os.path.join(cfg['submissions_dir'], self.submission_id))
+        self.config_path = os.path.join(self.submission_dir, '.' + self.submission_id + '_config.yml')
 
     @cached_property
     def tmp_dir(self):
@@ -32,56 +31,57 @@ class EloadStatus(AppLogger):
         return tmp_dir.name
 
     @cached_property
-    def eload_config_file(self):
-        if not self.eload_dir_exists():
-            eload_config_file = self.eload + '/.' + self.eload + '_config.yml'
-            compressed_eload_config = eload_config_file + '.gz'
+    def submission_config_file(self):
+        if not self.submission_dir_exists():
+            submission_config_file = self.submission_id + '/.' + self.submission_id + '_config.yml'
+            compressed_submission_config = submission_config_file + '.gz'
             try:
+                # TODO: retrieve using eload_id
                 eload_retrieval = ELOADRetrieval()
                 eload_retrieval.retrieve_eloads_and_projects(
                     self.eload_num, retrieve_associated_project=False, update_path=False,
-                    eload_dirs_files=[compressed_eload_config], project=None, project_dirs_files=None,
+                    eload_dirs_files=[compressed_submission_config], project=None, project_dirs_files=None,
                     eload_lts_dir=None, project_lts_dir=None, eload_retrieval_dir=self.tmp_dir,
                     project_retrieval_dir=None
                 )
-                eload_cfg = EloadConfig(os.path.join(self.tmp_dir, eload_config_file))
+                submission_cfg = SubmissionConfig(os.path.join(self.tmp_dir, submission_config_file))
             except subprocess.CalledProcessError:
                 return
         else:
-            eload_cfg = EloadConfig(os.path.join(self.config_path))
-        return eload_cfg
+            submission_cfg = SubmissionConfig(os.path.join(self.config_path))
+        return submission_cfg
 
     @cached_property
     def project_from_config(self):
-        if self.eload_config_file:
-            return self.eload_config_file.query('brokering', 'ena', 'PROJECT')
+        if self.submission_config_file:
+            return self.submission_config_file.query('brokering', 'ena', 'PROJECT')
 
     @cached_property
     def analysis_from_config(self):
-        if self.eload_config_file:
-            return self.eload_config_file.query('brokering', 'ena', 'ANALYSIS')
+        if self.submission_config_file:
+            return self.submission_config_file.query('brokering', 'ena', 'ANALYSIS')
 
     @cached_property
     def taxonomy_from_config(self):
-        if self.eload_config_file:
-            return self.eload_config_file.query('submission', 'taxonomy_id')
+        if self.submission_config_file:
+            return self.submission_config_file.query('submission', 'taxonomy_id')
 
     def source_assembly_from_config(self, analysis):
-        if self.eload_config_file:
+        if self.submission_config_file:
             alias = [alias for alias, a in self.analysis_from_config.items() if analysis == a][0]
-            return self.eload_config_file.query('submission', 'analyses', alias, 'assembly_accession')
+            return self.submission_config_file.query('submission', 'analyses', alias, 'assembly_accession')
 
     def retrieve_project_from_metadata(self):
         with self.metadata_connection_handle as conn:
-            query = f"select project_accession from evapro.project_eva_submission where eload_id={self.eload_num};"
+            query = f"select project_accession from evapro.project_eva_submission where submission_id={self.submission_id};"
             rows = get_all_results_for_query(conn, query)
         if len(rows) != 1:
-            self.info(f'No project accession for {self.eload} found in metadata DB.')
+            self.info(f'No project accession for {self.submission_id} found in metadata DB.')
             return
         return rows[0][0]
 
-    def eload_dir_exists(self):
-        return os.path.exists(self.eload_dir)
+    def submission_dir_exists(self):
+        return os.path.exists(self.submission_dir)
 
     @cached_property
     def project(self):
@@ -98,7 +98,7 @@ class EloadStatus(AppLogger):
 
     def status(self):
         header = [
-            "eload", "project", "analysis", "taxonomy", "source_assembly", "target_assembly", "metadata_load_status",
+            "submission_id", "project", "analysis", "taxonomy", "source_assembly", "target_assembly", "metadata_load_status",
             "accessioning_status", "remapping_status", "clustering_status", "variant_load_status",
             "statistics_status", "annotation_status"
         ]
@@ -135,7 +135,7 @@ class EloadStatus(AppLogger):
                      remapping_status='Pending', clustering_status='Pending', variant_load_status='Pending',
                      statistics_status='Pending', annotation_status='Pending'):
         return {
-                "eload": self.eload,
+                "submission_id": self.submission_id,
                 "project": str(self.project),
                 "analysis": analysis,
                 "taxonomy": taxonomy,
@@ -304,7 +304,7 @@ class EloadStatus(AppLogger):
         Given a study, find the accessioning report path for that study on codon and the FTP.
         Look for files ending with accessioned.vcf.gz.
         """
-        local_files = glob.glob(os.path.join(self.eload_config_file.query('project_dir'), '60_eva_public', '*accessioned.vcf.gz'))
+        local_files = glob.glob(os.path.join(self.submission_config_file.query('project_dir'), '60_eva_public', '*accessioned.vcf.gz'))
         ftp_files = glob.glob(os.path.join(cfg['public_ftp_dir'], self.project, '*accessioned.vcf.gz'))
         local_file_base_names = [os.path.basename(f) for f in local_files]
         # remove duplicates based on file base names

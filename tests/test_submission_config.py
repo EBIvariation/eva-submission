@@ -2,7 +2,7 @@ import os
 from unittest import TestCase
 
 from eva_submission import ROOT_DIR
-from eva_submission.submission_config import EloadConfig
+from eva_submission.submission_config import SubmissionConfig
 
 
 def touch(f):
@@ -13,7 +13,7 @@ class TestEloadConfig(TestCase):
     resources_folder = os.path.join(ROOT_DIR, 'tests', 'resources')
 
     def setUp(self) -> None:
-        self.eload_cfg = EloadConfig()
+        self.eload_cfg = SubmissionConfig()
         self.eload_cfg.load_config_file(os.path.join(self.resources_folder, 'testconfig.yml'))
 
     def tearDown(self) -> None:

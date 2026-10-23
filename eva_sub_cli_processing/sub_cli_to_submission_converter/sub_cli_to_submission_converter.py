@@ -7,8 +7,8 @@ from functools import cached_property
 from ebi_eva_common_pyutils.config import cfg
 
 from eva_sub_cli_processing.sub_cli_utils import sub_ws_url_build, get_from_sub_ws, put_to_sub_ws
-from eva_submission.eload_preparation import EloadPreparation
-from eva_submission.submission_config import EloadConfig
+from eva_submission.submission_preparation import SubmissionPreparation
+from eva_submission.submission_config import SubmissionConfig
 
 
 def _md5(file_path):
@@ -21,11 +21,10 @@ def _md5(file_path):
     return md5.hexdigest()
 
 
-class SubCLIToEloadConverter(EloadPreparation):
+class SubCLIToSubmissionConverter(SubmissionPreparation):
 
-    def __init__(self, eload_number: int, submission_id:str, config_object: EloadConfig = None):
-        super().__init__(eload_number, config_object)
-        self.submission_id = submission_id
+    def __init__(self, submission_id:str, config_object: SubmissionConfig = None):
+        super().__init__(submission_id, config_object)
 
     @cached_property
     def _submission_obj(self):
@@ -122,19 +121,10 @@ class SubCLIToEloadConverter(EloadPreparation):
         metadata_json_file_path = os.path.join(metadata_dir, "metadata_json.json")
         # download metadata json
         self._download_metadata_json_file(metadata_json_file_path)
-        # Store path to metadata json in the eload config
-        self.eload_cfg.set('submission', 'metadata_json', value=metadata_json_file_path)
+        # Store path to metadata json in the submission config
+        self.submission_cfg.set('submission', 'metadata_json', value=metadata_json_file_path)
 
 
     def _download_metadata_json_file(self, metadata_json_file_path):
         with open(metadata_json_file_path, "w", encoding="utf-8") as open_file:
             json.dump(self.metadata_json, open_file, indent=4)
-
-    def add_submission_id_to_config(self, source="eva-sub-cli"):
-        json_data = {
-            "eload": self.eload_num,
-            "submissionId": self.submission_id,
-            "source": source
-        }
-        put_to_sub_ws(sub_ws_url_build("admin", "submission", "eload", "submissionId"), json_data=json_data)
-        self.eload_cfg.set('submission', 'submission_id', value=self.submission_id)
