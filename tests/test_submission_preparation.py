@@ -266,3 +266,12 @@ class TestEloadPreparation(TestCase):
             {'analysisAlias': 'analysis1', 'sampleInVCF': '2', 'bioSampleAccession':'SAME0000001'}
         ]}
         assert self.eload.find_taxonomy(json_example) is None
+
+
+    def test_find_project_title(self):
+        assert self.eload.find_project_title(None, None) is None
+
+        assert self.eload.find_project_title("Test Project Title", None) == "Test Project Title"
+
+        assert (self.eload.find_project_title(None, 'PRJEB105613') ==
+                "Genomic characterization of Uruguayan Creole cattle by medium density single nucleotide polymorphism panels")

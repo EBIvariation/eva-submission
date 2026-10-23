@@ -22,6 +22,7 @@ from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
 
 from eva_submission.biosample_submission.biosample_converter_utils import update_sample_to_post_4_13
+from eva_submission.biosample_submission.sample_record import SampleRecord, NO_ACTION
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 _now = datetime.now().isoformat()
@@ -36,6 +37,7 @@ SRA_ACCESSION_PROP = 'SRA accession'
 RELEASE_PROP = 'release'
 TAX_ID_PROP = 'taxId'
 LAST_UPDATED_BY_PROP = 'last_updated_by'
+ANALYSIS_ALIAS_PROP = 'analysisAlias'
 
 
 def get_biosample_characteristics(sample, property_name, data_type='text'):
@@ -342,47 +344,66 @@ class SampleSubmitter(AppLogger):
     def check_submit_done(self):
         raise NotImplementedError()
 
-    def already_submitted_sample_names_to_accessions(self):
+    def already_submitted_sample_records(self):
         raise NotImplementedError()
 
-    def all_sample_names(self):
+    def nb_input_samples(self):
+        """Number of samples present in the metadata, regardless of their submission status"""
         raise NotImplementedError()
 
     def _convert_metadata(self):
         """
-        Returns a tuple containing the biosample in json the unique sample name associated and the biosample accession.
-        If the biosample is None then the accession  needs to be present
+        Yields one tuple per input sample containing the biosample in json, the sample name in the VCF,
+        the biosample accession and the list of analysis aliases.
+        If the biosample is None then the accession needs to be present
         If both the biosample and the accession are present then the Biosample will be overwritten
         """
         raise NotImplementedError()
 
+    def _pre_registered_sample_record(self, sample_accession, sample_in_vcf, analysis_aliases):
+        """Retrieve a pre-registered sample from BioSamples to record its name alongside its accession."""
+        sample_json = self.submitter._get_existing_sample(sample_accession)
+        if not sample_json:
+            raise ValueError(f'Pre-registered sample {sample_accession} could not be retrieved from BioSamples')
+        return SampleRecord(sample_accession, analysis_aliases, sample_in_vcf=sample_in_vcf,
+                            name=sample_json.get('name'), action=NO_ACTION)
+
+    def check_sample_records(self, sample_records):
+        """All the input samples must have a record with an accession"""
+        return (
+            bool(sample_records)
+            and len(sample_records) == self.nb_input_samples()
+            and all(record.accession for record in sample_records)
+        )
+
     def submit_to_bioSamples(self):
-        sample_name_to_accession = {}
-        action_to_sample_name = defaultdict(list)
-        nb_sample_uploaded = 0
-        for source_sample_json, sample_name_from_metadata, sample_accession in self._convert_metadata():
+        """
+        Submit the samples to BioSamples according to the submit_type.
+        Returns one sample record per input sample, in the input order.
+        """
+        sample_records = []
+        action_to_samples = defaultdict(list)
+        for source_sample_json, sample_in_vcf, sample_accession, analysis_aliases in self._convert_metadata():
             if source_sample_json:
                 self.submitter.validate_in_bsd(source_sample_json)
                 sample_json, action_taken = self.submitter.submit_biosample_to_bsd(source_sample_json)
-                # When a name is provided in the metadata, we use it to keep track of which samples have been accessioned.
-                # When not provided, use the BioSample name
-                if sample_name_from_metadata:
-                    sample_name = sample_name_from_metadata
-                else:
-                    self.debug(f'Name from metadata is missing use {sample_json.get("name")} instead')
-                    sample_name = sample_json.get('name')
-                if sample_name not in sample_name_to_accession:
-                    sample_name_to_accession[sample_name] = sample_json.get(ACCESSION_PROP)
-                    action_to_sample_name[action_taken].append(sample_name)
-                else:
-                    self.error(f'Sample {sample_name} is not a unique name. Sample {sample_accession} will not be stored')
-                nb_sample_uploaded += 1
-            elif sample_accession and sample_name_from_metadata:
-                sample_name_to_accession[sample_name_from_metadata] = sample_accession
-                action_to_sample_name['None'].append(sample_name_from_metadata)
-        for action in action_to_sample_name:
-            self.info(f'Action: {action} -> {len(action_to_sample_name[action])} sample(s)')
-        return sample_name_to_accession
+                derived_from = None
+                if action_taken == 'derive':
+                    derived_from = source_sample_json.get(ACCESSION_PROP).split(',')
+                record = SampleRecord(
+                    sample_json.get(ACCESSION_PROP), analysis_aliases, sample_in_vcf=sample_in_vcf,
+                    name=sample_json.get('name'), action=action_taken, derived_from=derived_from
+                )
+            elif sample_accession:
+                record = self._pre_registered_sample_record(sample_accession, sample_in_vcf, analysis_aliases)
+            else:
+                self.error(f'Sample {sample_in_vcf} has neither a BioSample object nor an accession')
+                record = SampleRecord(None, analysis_aliases, sample_in_vcf=sample_in_vcf)
+            sample_records.append(record)
+            action_to_samples[record.action].append(record.accession)
+        for action in action_to_samples:
+            self.info(f'Action: {action} -> {len(action_to_samples[action])} sample(s)')
+        return sample_records
 
 
 class SampleJSONSubmitter(SampleSubmitter):
@@ -412,8 +433,16 @@ class SampleJSONSubmitter(SampleSubmitter):
         super().__init__(submit_type=submit_type)
         self.metadata_json = metadata_json
 
+    @staticmethod
+    def _analysis_aliases(sample):
+        analysis_aliases = sample.get(ANALYSIS_ALIAS_PROP) or []
+        if isinstance(analysis_aliases, str):
+            analysis_aliases = [analysis_aliases]
+        return analysis_aliases
+
     def _convert_metadata(self):
         for sample in self.metadata_json.get('sample'):
+            analysis_aliases = self._analysis_aliases(sample)
             # If Biosample object is present then we are creating or updating a sample.
             # If not then just return the name and accession, unless we are deriving
             if BIOSAMPLE_OBJECT_PROP not in sample:
@@ -421,10 +450,11 @@ class SampleJSONSubmitter(SampleSubmitter):
                     yield (
                         {CHARACTERISTICS_PROP: {}, ACCESSION_PROP: sample[BIOSAMPLE_ACCESSION_PROP]},
                         sample.get(SAMPLE_IN_VCF_PROP),
-                        sample.get(BIOSAMPLE_ACCESSION_PROP)
+                        sample.get(BIOSAMPLE_ACCESSION_PROP),
+                        analysis_aliases
                     )
                 else:
-                    yield None, sample.get(SAMPLE_IN_VCF_PROP), sample.get(BIOSAMPLE_ACCESSION_PROP)
+                    yield None, sample.get(SAMPLE_IN_VCF_PROP), sample.get(BIOSAMPLE_ACCESSION_PROP), analysis_aliases
                 continue
             # FIXME: handle BioSample JSON that uses old representation correctly
             if any(
@@ -483,7 +513,7 @@ class SampleJSONSubmitter(SampleSubmitter):
             bsd_sample_entry[RELEASE_PROP] = _now
             # Custom attributes added to all the BioSample we create/modify
             bsd_sample_entry[CHARACTERISTICS_PROP][LAST_UPDATED_BY_PROP] = [{'text': 'EVA'}]
-            yield bsd_sample_entry, sample.get(SAMPLE_IN_VCF_PROP), sample.get(ACCESSION_PROP)
+            yield bsd_sample_entry, sample.get(SAMPLE_IN_VCF_PROP), sample.get(BIOSAMPLE_ACCESSION_PROP), analysis_aliases
 
     def check_submit_done(self):
         return all([
@@ -491,17 +521,18 @@ class SampleJSONSubmitter(SampleSubmitter):
             for sample_json in self.metadata_json.get('sample')
         ])
 
-    def already_submitted_sample_names_to_accessions(self):
-        """Provide a dict of name to BioSamples accession for pre-submitted samples."""
-        return dict([
-            (sample_json.get(SAMPLE_IN_VCF_PROP), sample_json.get(BIOSAMPLE_ACCESSION_PROP))
+    def already_submitted_sample_records(self):
+        """Provide one sample record per pre-submitted sample, retrieving their name from BioSamples."""
+        return [
+            self._pre_registered_sample_record(
+                sample_json.get(BIOSAMPLE_ACCESSION_PROP), sample_json.get(SAMPLE_IN_VCF_PROP),
+                self._analysis_aliases(sample_json)
+            )
             for sample_json in self.metadata_json.get('sample')
-            if BIOSAMPLE_ACCESSION_PROP in sample_json
-        ])
+        ]
 
-    def all_sample_names(self):
-        """This provides all the sample names regardless of their submission status"""
-        return [sample_json.get(SAMPLE_IN_VCF_PROP) for sample_json in self.metadata_json.get('sample')]
+    def nb_input_samples(self):
+        return len(self.metadata_json.get('sample'))
 
 
 class SampleMetadataSubmitter(SampleSubmitter):
@@ -620,19 +651,37 @@ class SampleMetadataSubmitter(SampleSubmitter):
             bsd_sample_entry[RELEASE_PROP] = _now
             # Custom attributes added to all the BioSample we create/modify
             bsd_sample_entry[CHARACTERISTICS_PROP][LAST_UPDATED_BY_PROP] = [{'text': 'EVA'}]
-            yield bsd_sample_entry, bsd_sample_entry.get('name'), bsd_sample_entry.get(ACCESSION_PROP)
+            yield (bsd_sample_entry, self._sample_name_in_vcf(sample_row), bsd_sample_entry.get(ACCESSION_PROP),
+                   self._analysis_aliases(sample_row))
+
+    @staticmethod
+    def _sample_name_in_vcf(sample_row):
+        # Pre-registered samples are named in the VCF by their 'Sample ID', new samples by their 'Sample Name'
+        if sample_row.get('Sample Accession'):
+            return sample_row.get('Sample ID') or sample_row.get('Sample Name')
+        return sample_row.get('Sample Name') or sample_row.get('Sample ID')
+
+    @staticmethod
+    def _analysis_aliases(sample_row):
+        analysis_alias = sample_row.get('Analysis Alias')
+        if not analysis_alias:
+            return []
+        return [alias.strip() for alias in str(analysis_alias).split(',') if alias.strip()]
 
     def check_submit_done(self):
         return all(sample_row.get('Sample Accession') for sample_row in self.reader.samples)
 
-    def already_submitted_sample_names_to_accessions(self):
-        return dict([
-            (sample_row.get('Sample ID'), sample_row.get('Sample Accession')) for sample_row in self.reader.samples
-        ])
+    def already_submitted_sample_records(self):
+        return [
+            self._pre_registered_sample_record(
+                sample_row.get('Sample Accession'), self._sample_name_in_vcf(sample_row),
+                self._analysis_aliases(sample_row)
+            )
+            for sample_row in self.reader.samples
+        ]
 
-    def all_sample_names(self):
-        # We need to get back to the reader to get all the names that were present in the spreadsheet
-        return [sample_row.get('Sample Name') or sample_row.get('Sample ID') for sample_row in self.reader.samples]
+    def nb_input_samples(self):
+        return len(self.reader.samples)
 
 
 class SampleReferenceSubmitter(SampleSubmitter):
@@ -661,5 +710,8 @@ class SampleReferenceSubmitter(SampleSubmitter):
                     dict([(k, v) for k, v in external_ref.items() if v is not None])
                     for external_ref in sample_json['externalReferences']
                 ]
-            yield sample_json, sample_json.get('name'), sample_accession
+            yield sample_json, None, sample_accession, []
+
+    def nb_input_samples(self):
+        return len(self.biosample_accession_list)
 

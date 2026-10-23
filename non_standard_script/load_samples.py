@@ -79,6 +79,8 @@ def main():
 class HistoricalProjectSampleLoader(SubmissionBacklog):
     def __init__(self, submission_id, project_accession, mapping_file, possible_mapping_file):
         super().__init__(submission_id=submission_id, project_accession=project_accession)
+        # Sample maps are built from the sample records, which old submissions don't have yet
+        self.upgrade_sample_records_if_needed()
         self.mapping_file = mapping_file
         self.possible_mapping_file = possible_mapping_file
         self.ena_project_finder = OracleEnaProjectFinder()
@@ -224,11 +226,14 @@ class HistoricalProjectSampleLoader(SubmissionBacklog):
             # Add link between sample accession and sample name
             aggregation_type = self.analysis_accession_2_aggregation_type.get(analysis_accession)
             if aggregation_type == 'basic':
-                result &= self.eva_project_loader.load_samples_from_analysis(self.sample_name_2_accession, analysis_accession)
+                result &= self.eva_project_loader.load_samples_from_analysis(
+                    self.sample_accession_2_name_for_analysis(analysis_accession), analysis_accession
+                )
             else:
+                sample_name_2_accession = self.sample_name_2_accession_for_analysis(analysis_accession)
                 for vcf_file, vcf_file_md5 in self.analysis_accession_2_file_info.get(analysis_accession, []):
                     result &= self.eva_project_loader.load_samples_from_vcf_file(
-                        self.sample_name_2_accession, vcf_file, vcf_file_md5,
+                        sample_name_2_accession, vcf_file, vcf_file_md5,
                         analysis_accession=analysis_accession,
                         sample_mapping=self.sample_mapping)
         if not result:
@@ -278,13 +283,35 @@ class HistoricalProjectSampleLoader(SubmissionBacklog):
     @cached_property
     def sample_name_2_accession(self):
         """Retrieve the sample to biosample accession map from the config or from the ENA API"""
-        sample_name_2_accession = self.submission_cfg.query('brokering', 'Biosamples', 'Samples', ret_default={})
+        sample_name_2_accession = self.sample_name_to_accession()
         if not sample_name_2_accession:
                 sample_name_2_accession = {name: accession
                                            for analysis_accession in self.sample_name_2_accessions_per_analysis
                                            for name, accession in
                                            self.sample_name_2_accessions_per_analysis[analysis_accession].items()}
         return sample_name_2_accession
+
+    @cached_property
+    def analysis_accession_2_alias(self):
+        """Analysis aliases of this submission keyed by their accession. Empty when the submission config is not available."""
+        analysis_alias_2_accession = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS')
+        if not isinstance(analysis_alias_2_accession, dict):
+            return {}
+        return {accession: alias for alias, accession in analysis_alias_2_accession.items()}
+
+    def sample_name_2_accession_for_analysis(self, analysis_accession):
+        """Use the sample records of the analysis when they exist, otherwise the map for the whole project."""
+        analysis_alias = self.analysis_accession_2_alias.get(analysis_accession)
+        if analysis_alias and self.sample_records():
+            return self.sample_name_to_accession_for_analysis(analysis_alias)
+        return self.sample_name_2_accession
+
+    def sample_accession_2_name_for_analysis(self, analysis_accession):
+        """Use the sample records of the analysis when they exist, otherwise invert the map for the whole project."""
+        analysis_alias = self.analysis_accession_2_alias.get(analysis_accession)
+        if analysis_alias and self.sample_records():
+            return self.sample_accession_to_name_for_analysis(analysis_alias)
+        return {accession: name for name, accession in self.sample_name_2_accession.items()}
 
     @cached_property
     def analysis_accession_2_file_info(self):
