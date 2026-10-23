@@ -134,10 +134,13 @@ class TestEloadBrokering(TestCase):
 
     def test_upload_to_bioSamples_done(self):
         self.eload.submission_cfg.set('validation', 'valid', 'metadata_spreadsheet',
-                                      value=os.path.join(self.resources_folder, 'metadata.xlsx'))
-        self.eload.submission_cfg.set('brokering', 'Biosamples', 'Samples', value={'sample1': 'SAMPLE1'})
+                                 value=os.path.join(self.resources_folder, 'metadata.xlsx'))
+        self.eload.submission_cfg.set('brokering', 'Biosamples', 'sample_records',
+                                 value=[{'accession': 'SAMPLE1', 'analysisAlias': ['GAE'], 'sampleInVCF': 'sample1'}])
         self.eload.submission_cfg.set('brokering', 'Biosamples', 'pass', value=True)
-        self.eload.upload_to_bioSamples()
+        with patch.object(SampleMetadataSubmitter, 'submit_to_bioSamples') as mock_submit:
+            self.eload.upload_to_bioSamples()
+        mock_submit.assert_not_called()
 
     def test_broker_to_ena_xml(self):
         self.eload.submission_cfg.set('validation', 'valid', 'metadata_spreadsheet',
@@ -149,9 +152,20 @@ class TestEloadBrokering(TestCase):
               patch('eva_submission.submission_utils.get_scientific_name_from_evapro', return_value=None):
             self.eload.broker_to_ena()
 
+    def _set_brokered_sample_records(self, metadata_json):
+        """Records as brokering would store them for the samples of the metadata JSON."""
+        with open(metadata_json) as open_file:
+            samples = json.load(open_file)['sample']
+        self.eload.eload_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
+            {'accession': sample.get('bioSampleAccession') or f'SAME0000{i + 1}',
+             'analysisAlias': sample['analysisAlias'], 'sampleInVCF': sample['sampleInVCF']}
+            for i, sample in enumerate(samples)
+        ])
+
     def test_broker_to_ena_json(self):
         self.eload.submission_cfg.set('validation', 'valid', 'metadata_json',
-                                      value=os.path.join(self.resources_folder, 'brokering', 'eva_metadata_json.json'))
+                                 value=os.path.join(self.resources_folder, 'brokering', 'eva_metadata_json.json'))
+        self._set_brokered_sample_records(self.eload.eload_cfg.query('validation', 'valid', 'metadata_json'))
         self.eload.submission_cfg.set('brokering', 'analyses', value={'AA1':{'vcf_files':{}}})
         upload_response = Mock(text='{"submissionId": 123, "_links": {"poll": {"href": "http://mock-poll.com/123"}}}',
                                headers={'Content-Type': 'application/json'}, status_code=200)
@@ -164,7 +178,8 @@ class TestEloadBrokering(TestCase):
 
     def test_broker_to_ena_json_existing_project(self):
         self.eload.submission_cfg.set('validation', 'valid', 'metadata_json',
-                                      value=os.path.join(self.resources_folder, 'brokering', 'eva_metadata_existing_project.json'))
+                                 value=os.path.join(self.resources_folder, 'brokering', 'eva_metadata_existing_project.json'))
+        self._set_brokered_sample_records(self.eload.submission_cfg.query('validation', 'valid', 'metadata_json'))
         self.eload.submission_cfg.set('brokering', 'analyses', value={'AA1':{'vcf_files':{}}})
         response = Mock(text='', headers={'Content-Type': 'application/json'})
         with patch.object(ENAUploader, 'upload_vcf_files_to_ena_ftp'),\
@@ -291,8 +306,8 @@ ENA: PASS
 
 BioSamples brokering:
   * Biosamples: PASS
-    - Accessions: S1: SAMEA0000001
-S2: SAMEA0000002
+    - Accessions: S1: SAMEA0000001 (alias1)
+S2: SAMEA0000002 (alias1)
 
 ----------------------------------
 
@@ -432,6 +447,7 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
             }
         }
         self.eload.submission_cfg.set('brokering', 'analyses', value=analyses)
+        self._set_brokered_sample_records(input_metadata_json)
 
         self.eload.update_metadata_json(input_metadata_json, output_metadata_json)
         assert os.path.exists(output_metadata_json)

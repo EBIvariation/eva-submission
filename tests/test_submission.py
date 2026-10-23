@@ -1,14 +1,19 @@
+import glob
+import json
 import os
+import tempfile
 from copy import deepcopy
 from unittest import TestCase
 from unittest.mock import patch
 
 import yaml
 
-from eva_submission import ROOT_DIR, __version__, eload_submission
+from eva_submission import ROOT_DIR, __version__, submission
 from eva_submission.biosample_submission.sample_record import SampleRecord
-from eva_submission.eload_submission import Eload
-from eva_submission.submission_config import EloadConfig, load_config
+from eva_submission.config_migration import upgrade_samples_to_sample_records
+from eva_submission.submission import Submission
+from eva_submission.evapro.populate_evapro import EvaProjectLoader
+from eva_submission.submission_config import SubmissionConfig, load_config
 
 
 class TestEload(TestCase):
@@ -32,11 +37,16 @@ class TestEload(TestCase):
         self.updated_v1_15_config.set('version', value=__version__)
         # Get the log file name
         self.logfile_name = os.path.join(self.eload.submission_dir, str(self.eload.submission_id) + "_submission.log")
+        # The sample records upgrade looks in EVAPRO first: these analyses are not there
+        self.evapro_patcher = patch.object(EvaProjectLoader, 'get_samples_in_analysis', return_value=[])
+        self.evapro_patcher.start()
 
     def tearDown(self):
+        self.evapro_patcher.stop()
         self.updated_v1_config.content = self.original_updated_cfg
-        # remove the config its backup and the log file
-        for file_path in [self.eload.submission_cfg.config_file, f'{self.eload.submission_cfg.config_file}.1', self.logfile_name]:
+        # remove the config its backups and the log file
+        for file_path in [self.eload.submission_cfg.config_file, self.logfile_name] + \
+                glob.glob(f'{self.eload.submission_cfg.config_file}.*'):
             if os.path.exists(file_path):
                 os.remove(file_path)
         submission.submission_logging_files.clear()
@@ -146,13 +156,69 @@ class TestEloadSampleRecords(TestCase):
         with self.assertRaises(ValueError):
             self.eload.sample_name_to_accession_for_analysis('GT1')
 
-    def test_legacy_samples(self):
-        self.eload.eload_cfg.set('brokering', 'Biosamples', 'Samples', value={'S1': 'SAME000001', 'S2': 'SAME000002'})
+    def _set_legacy_samples(self, sample_name_to_accession):
+        self.eload.eload_cfg.set('brokering', 'Biosamples', 'Samples', value=sample_name_to_accession)
+        self.eload.eload_cfg.set('brokering', 'analyses', value={'ELOAD_55_GT1': {}, 'ELOAD_55_AF1': {}})
+        self.eload.eload_cfg.set('brokering', 'ena', 'ANALYSIS',
+                                 value={'ELOAD_55_GT1': 'ERZ000001', 'ELOAD_55_AF1': 'ERZ000002'})
+
+    def _write_metadata_json(self, samples, tmp_dir):
+        metadata_json = os.path.join(tmp_dir, 'metadata.json')
+        with open(metadata_json, 'w') as open_file:
+            json.dump({'sample': samples}, open_file)
+        self.eload.eload_cfg.set('validation', 'valid', 'metadata_json', value=metadata_json)
+
+    def test_upgrade_sample_records_from_evapro(self):
+        self._set_legacy_samples({'S1': 'SAME000001', 'P1': 'SAME000002'})
+        samples_in_evapro = {
+            'ERZ000001': [('SAME000001', 'S1')],
+            # The allele frequency sample without name was loaded with its accession as name
+            'ERZ000002': [('SAME000001', 'S1'), ('SAME000002', 'SAME000002')],
+        }
+        upgrade_samples_to_sample_records(self.eload.eload_cfg, samples_in_evapro.get)
         assert self.eload.sample_records() == [
-            SampleRecord('SAME000001', analysis_aliases=None, sample_in_vcf='S1'),
-            SampleRecord('SAME000002', analysis_aliases=None, sample_in_vcf='S2'),
+            SampleRecord('SAME000001', analysis_aliases=['ELOAD_55_GT1', 'ELOAD_55_AF1'], sample_in_vcf='S1'),
+            SampleRecord('SAME000002', analysis_aliases=['ELOAD_55_AF1']),
         ]
-        # Legacy records belong to every analysis
+        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'Samples') is None
+
+    def test_upgrade_sample_records_from_metadata(self):
+        self._set_legacy_samples({'S1': 'SAME000001'})
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            self._write_metadata_json([
+                {'analysisAlias': ['GT1'], 'sampleInVCF': 'S1', 'bioSampleObject': {'name': 'LH1'}},
+                {'analysisAlias': ['AF1'], 'bioSampleAccession': 'SAME000003'},
+            ], tmp_dir)
+            # The second analysis is not in EVAPRO
+            upgrade_samples_to_sample_records(self.eload.eload_cfg, {'ERZ000001': [('SAME000001', 'S1')]}.get)
+        assert self.eload.sample_records() == [
+            SampleRecord('SAME000001', analysis_aliases=['GT1'], sample_in_vcf='S1'),
+            SampleRecord('SAME000003', analysis_aliases=['AF1']),
+        ]
+
+    def test_upgrade_sample_records_from_sample_map(self):
+        self._set_legacy_samples({'S1': 'SAME000001', 'S2': 'SAME000002'})
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            # S3 has no accession: the metadata cannot be used
+            self._write_metadata_json([{'analysisAlias': ['GT1'], 'sampleInVCF': 'S3'}], tmp_dir)
+            with self.assertLogs('eva_submission.config_migration', level='WARNING'):
+                upgrade_samples_to_sample_records(self.eload.eload_cfg, samples_in_evapro_analysis=None)
+        # Each sample is assigned to all the analyses, as the legacy dict was
+        assert self.eload.sample_records() == [
+            SampleRecord('SAME000001', analysis_aliases=['ELOAD_55_GT1', 'ELOAD_55_AF1'], sample_in_vcf='S1'),
+            SampleRecord('SAME000002', analysis_aliases=['ELOAD_55_GT1', 'ELOAD_55_AF1'], sample_in_vcf='S2'),
+        ]
         assert self.eload.sample_name_to_accession_for_analysis('GT1') == {'S1': 'SAME000001', 'S2': 'SAME000002'}
         assert self.eload.sample_accession_to_name_for_analysis('AF1') == {'SAME000001': 'S1', 'SAME000002': 'S2'}
-        assert self.eload.sample_name_to_accession() == {'S1': 'SAME000001', 'S2': 'SAME000002'}
+
+    def test_upgrade_sample_records_if_needed(self):
+        self._set_legacy_samples({'S1': 'SAME000001'})
+        with patch.object(EvaProjectLoader, 'get_samples_in_analysis', side_effect=Exception('No EVAPRO')):
+            self.eload.upgrade_sample_records_if_needed()
+        assert self.eload.sample_records() == [
+            SampleRecord('SAME000001', analysis_aliases=['ELOAD_55_GT1', 'ELOAD_55_AF1'], sample_in_vcf='S1')
+        ]
+        # Configs that already have sample records are not changed
+        with patch.object(EvaProjectLoader, 'get_samples_in_analysis') as m_evapro:
+            self.eload.upgrade_sample_records_if_needed()
+        m_evapro.assert_not_called()

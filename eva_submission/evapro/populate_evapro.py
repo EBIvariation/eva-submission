@@ -670,6 +670,16 @@ class EvaProjectLoader(AppLogger):
         query = select(File).join(Analysis, File.analyses).where(Analysis.analysis_accession == analysis_accession)
         return [result.File for result in self.eva_session.execute(query).fetchall()]
 
+    def get_samples_in_analysis(self, analysis_accession):
+        """Distinct (BioSample accession, name in file) of the samples linked to the files of an analysis."""
+        query = (
+            select(Sample.biosample_accession, SampleInFile.name_in_file).distinct()
+            .join(SampleInFile, Sample.files).join(File, SampleInFile.file).join(Analysis, File.analyses)
+            .where(Analysis.analysis_accession == analysis_accession)
+            .order_by(Sample.biosample_accession, SampleInFile.name_in_file)
+        )
+        return [(accession, name_in_file) for accession, name_in_file in self.eva_session.execute(query).fetchall()]
+
     def get_file_for_analysis_and_name(self, analysis_accession, file_name):
         query = select(File).join(Analysis, File.analyses).where(Analysis.analysis_accession == analysis_accession, File.filename == file_name)
         file_objs = [result.File for result in self.eva_session.execute(query).fetchall()]

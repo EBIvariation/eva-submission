@@ -79,6 +79,8 @@ def main():
 class HistoricalProjectSampleLoader(SubmissionBacklog):
     def __init__(self, submission_id, project_accession, mapping_file, possible_mapping_file):
         super().__init__(submission_id=submission_id, project_accession=project_accession)
+        # Sample maps are built from the sample records, which old ELOADs don't have yet
+        self.upgrade_sample_records_if_needed()
         self.mapping_file = mapping_file
         self.possible_mapping_file = possible_mapping_file
         self.ena_project_finder = OracleEnaProjectFinder()
