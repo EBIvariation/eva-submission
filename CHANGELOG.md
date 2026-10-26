@@ -1,11 +1,10 @@
 Changelog for eva-submission
 ============================
 
-## 1.23.4 (unreleased)
+## 1.24.0
 ----------------------
 
-- Nothing changed yet.
-
+- Support split files uploaded by eva-sub-cli and add md5 checks
 
 ## 1.23.3 (2026-08-13)
 ----------------------
