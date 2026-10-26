@@ -193,7 +193,7 @@ class TestEloadIngestion(TestCase):
         with self._patch_metadata_handle(), \
                 self._patch_metadata_engine(), \
                 patch.object(EvaProjectLoader, 'refresh_study_browser'), \
-                patch('eva_submission.eload_ingestion.check_project_exists_in_evapro'), \
+                patch('eva_submission.submission_ingestion.check_project_exists_in_evapro'), \
                 patch.object(EvaProjectLoader, 'load_project_from_ena'), \
                 patch.object(EvaProjectLoader, 'load_samples_from_vcf_file', return_value=load_vcf_result) as m_vcf, \
                 patch.object(EvaProjectLoader, 'load_samples_from_analysis', return_value=load_analysis_result) as m_af, \
@@ -202,12 +202,12 @@ class TestEloadIngestion(TestCase):
         return m_vcf, m_af
 
     def _add_af_analysis(self):
-        self.eload.eload_cfg.set('validation', 'aggregation_check', 'analyses', 'AF analysis', value='basic')
-        self.eload.eload_cfg.set('brokering', 'ena', 'ANALYSIS', 'AF analysis', value='ERZ0000002')
+        self.eload.submission_cfg.set('validation', 'aggregation_check', 'analyses', 'AF analysis', value='basic')
+        self.eload.submission_cfg.set('brokering', 'ena', 'ANALYSIS', 'AF analysis', value='ERZ0000002')
 
     def test_load_from_ena_with_sample_records(self):
         self._add_af_analysis()
-        self.eload.eload_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
+        self.eload.submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
             {'accession': 'SAME000001', 'analysisAlias': ['Analysis alias test'], 'sampleInVCF': 'S1'},
             {'accession': 'SAME000002', 'analysisAlias': ['Other genotype analysis'], 'sampleInVCF': 'S1'},
             {'accession': 'SAME000003', 'analysisAlias': ['AF analysis'], 'name': 'bsd3'},
@@ -222,7 +222,7 @@ class TestEloadIngestion(TestCase):
     def test_load_from_ena_sample_load_fails(self):
         with self.assertRaises(ValueError):
             self._load_from_ena_with_mocked_loaders(load_vcf_result=False)
-        assert self.eload.eload_cfg.query('ingestion', 'ena_load') == 'failure'
+        assert self.eload.submission_cfg.query('ingestion', 'ena_load') == 'failure'
         self._add_af_analysis()
         with self.assertRaises(ValueError):
             self._load_from_ena_with_mocked_loaders(load_analysis_result=False)

@@ -105,8 +105,6 @@ class TestSubCliToSubmissionConverter(TestCase):
     def test_retrieve_vcf_files_from_sub_cli_ftp(self):
         assert os.listdir(os.path.join(self.cli_to_submission.submission_dir, '10_submitted', 'vcf_files')) == []
         assert os.listdir(os.path.join(self.cli_to_submission.submission_dir, '10_submitted', 'metadata_file')) == []
-        assert os.listdir(os.path.join(self.cli_to_eload.submission_dir, '10_submitted', 'vcf_files')) == []
-        assert os.listdir(os.path.join(self.cli_to_eload.submission_dir, '10_submitted', 'metadata_file')) == []
         with self.patch_submission_obj() as m_submission_obj:
             self.cli_to_submission.retrieve_vcf_files_from_sub_cli_ftp_dir()
         assert os.listdir(os.path.join(self.cli_to_submission.submission_dir, '10_submitted', 'vcf_files')) == ['data.vcf.gz']
@@ -158,18 +156,14 @@ class TestSubCliToSubmissionConverter(TestCase):
         upload_dir, parts = self._upload_dir_with_parts(content, part_size=300)
         with self.assertRaises(ValueError):
             self._assemble(upload_dir, self._submission_with_file_in_parts(content, parts, md5='0' * 32))
-            self.cli_to_eload.retrieve_vcf_files_from_sub_cli_ftp_dir()
-        assert os.listdir(os.path.join(self.cli_to_eload.submission_dir, '10_submitted', 'vcf_files')) == ['data.vcf.gz']
 
     def test_download_metadata_json_and_store(self):
         with self.patch_submission_obj():
             self.cli_to_submission.download_metadata_json_and_store()
 
         # Check if json file was written correctly and converted to xlsx without any error
-        metadata_json_file_path = os.path.join(self.cli_to_eload.submission_dir, '10_submitted', 'metadata_file',
         metadata_json_file_path = os.path.join(self.cli_to_submission.submission_dir, '10_submitted', 'metadata_file',
                                                'metadata_json.json')
-        metadata_xlsx_file_path = os.path.join(self.cli_to_eload.submission_dir, '10_submitted', 'metadata_file',
         metadata_xlsx_file_path = os.path.join(self.cli_to_submission.submission_dir, '10_submitted', 'metadata_file',
                                                'metadata_xlsx.xlsx')
         assert os.path.exists(metadata_json_file_path)

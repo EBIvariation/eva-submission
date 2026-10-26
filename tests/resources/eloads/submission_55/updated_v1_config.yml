@@ -1,7 +1,10 @@
 brokering:
   Biosamples:
-    Samples:
-      '107': SAMEA8868451
+    sample_records:
+    - accession: SAMEA8868451
+      analysisAlias:
+      - analysis alias
+      sampleInVCF: '107'
     date: &id001 2021-05-04 11:48:57.230908
     pass: true
   analyses:

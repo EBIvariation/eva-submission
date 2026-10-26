@@ -79,7 +79,7 @@ def main():
 class HistoricalProjectSampleLoader(SubmissionBacklog):
     def __init__(self, submission_id, project_accession, mapping_file, possible_mapping_file):
         super().__init__(submission_id=submission_id, project_accession=project_accession)
-        # Sample maps are built from the sample records, which old ELOADs don't have yet
+        # Sample maps are built from the sample records, which old submissions don't have yet
         self.upgrade_sample_records_if_needed()
         self.mapping_file = mapping_file
         self.possible_mapping_file = possible_mapping_file
@@ -293,8 +293,8 @@ class HistoricalProjectSampleLoader(SubmissionBacklog):
 
     @cached_property
     def analysis_accession_2_alias(self):
-        """Analysis aliases of this ELOAD keyed by their accession. Empty when the ELOAD config is not available."""
-        analysis_alias_2_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
+        """Analysis aliases of this submission keyed by their accession. Empty when the submission config is not available."""
+        analysis_alias_2_accession = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS')
         if not isinstance(analysis_alias_2_accession, dict):
             return {}
         return {accession: alias for alias, accession in analysis_alias_2_accession.items()}

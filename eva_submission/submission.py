@@ -92,7 +92,7 @@ class Submission(AppLogger):
         Returns the records of the samples brokered to BioSamples.
         Configs from before the records were introduced are converted by upgrade_sample_records_if_needed.
         """
-        return records_from_dicts(self.eload_cfg.query('brokering', 'Biosamples', 'sample_records', ret_default=[]))
+        return records_from_dicts(self.submission_cfg.query('brokering', 'Biosamples', 'sample_records', ret_default=[]))
 
     def sample_records_for_analysis(self, analysis_alias):
         """Records belonging to the analysis."""
@@ -150,7 +150,7 @@ class Submission(AppLogger):
          - making a backup
          - using the provided analysis alias for all vcf files (pre version 1)
          - reformat nextflow directories in the config (pre version 1.15)
-         - link project subdirectories  to the submission directories and update the config (pre version 1.16)
+         - link project subdirectories to the submission directories and update the config (pre version 1.16)
          - replace the BioSamples sample name to accession dict with sample records (any version)
         """
         if 'version' not in self.submission_cfg:
@@ -177,13 +177,13 @@ class Submission(AppLogger):
         Replaces the sample name to accession dict of configs brokered before the sample records were introduced.
         This does not depend on the config version because these configs can have any version.
         """
-        if needs_sample_records_upgrade(self.eload_cfg):
+        if needs_sample_records_upgrade(self.submission_cfg):
             # Imported here to avoid a circular import through the EVAPRO metadata loader
             from eva_submission.evapro.populate_evapro import EvaProjectLoader
             self.info('Convert the BioSamples sample name to accession dict to sample records')
-            self.eload_cfg.backup()
-            upgrade_samples_to_sample_records(self.eload_cfg, EvaProjectLoader().get_samples_in_analysis)
-            self.eload_cfg.write()
+            self.submission_cfg.backup()
+            upgrade_samples_to_sample_records(self.submission_cfg, EvaProjectLoader().get_samples_in_analysis)
+            self.submission_cfg.write()
 
     def update_config_with_hold_date(self, project_accession, project_alias=None):
         hold_date = get_hold_date_from_ena(project_accession, project_alias)
@@ -216,7 +216,6 @@ class Submission(AppLogger):
         with open(input_json_file) as open_file:
             metadata_json = json.load(open_file)
         sample_objects = self._accessioned_sample_objects(metadata_json.get('sample'), self.sample_records())
-
 
         file_objects = []
         analyses = self.submission_cfg['brokering']['analyses']

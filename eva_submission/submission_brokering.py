@@ -15,6 +15,7 @@ from eva_submission import NEXTFLOW_DIR
 from eva_submission.ENA_submission.upload_to_ENA import ENAUploader, ENAUploaderAsync
 from eva_submission.biosample_submission.biosamples_submitters import SampleMetadataSubmitter, SampleReferenceSubmitter, \
     SampleJSONSubmitter
+from eva_submission.biosample_submission.sample_record import records_to_dicts
 from eva_submission.submission import Submission
 from eva_submission.submission_utils import read_md5, get_nextflow_config_flag
 from eva_submission.submission_config import SubmissionConfig

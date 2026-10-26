@@ -12,10 +12,10 @@ from sqlalchemy import create_engine, select
 
 from eva_submission.ENA_submission.json_to_ENA_json import EnaJsonConverter
 from eva_submission.biosample_submission.biosamples_submitters import BioSamplesSubmitter
-from eva_submission.eload_brokering import EloadBrokering
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
 from eva_submission.evapro.table import metadata, SampleInFile
-from eva_submission.submission_config import load_config, EloadConfig
+from eva_submission.submission_brokering import SubmissionBrokering
+from eva_submission.submission_config import load_config, SubmissionConfig
 
 
 class TestAlleleFrequencySampleTracking(TestCase):
@@ -42,13 +42,13 @@ class TestAlleleFrequencySampleTracking(TestCase):
     def setUp(self) -> None:
         load_config(os.path.join(self.resources_folder, 'submission_config.yml'))
         os.chdir(self.top_dir)
-        self.eload = EloadBrokering(3)
-        self.eload.eload_cfg.pop('brokering', 'Biosamples')
+        self.eload = SubmissionBrokering('submission_3')
+        self.eload.submission_cfg.pop('brokering', 'Biosamples')
         self.loader = EvaProjectLoader()
 
     def tearDown(self) -> None:
-        EloadConfig.content = {}
-        for eload_dir in glob.glob(os.path.join(self.resources_folder, '*eloads', 'ELOAD_3')):
+        SubmissionConfig.content = {}
+        for eload_dir in glob.glob(os.path.join(self.resources_folder, '*eloads', 'submission_3')):
             shutil.rmtree(eload_dir)
 
     @staticmethod
@@ -70,26 +70,26 @@ class TestAlleleFrequencySampleTracking(TestCase):
         return sample
 
     def _broker(self, samples):
-        metadata_json_file = os.path.join(self.eload.eload_dir, 'metadata.json')
+        metadata_json_file = os.path.join(self.eload.submission_dir, 'metadata.json')
         with open(metadata_json_file, 'w') as open_file:
             json.dump({'project': {'title': 'Project'}, 'analysis': [self.analysis], 'sample': samples,
                        'files': []}, open_file)
-        self.eload.eload_cfg.set('validation', 'valid', 'metadata_json', value=metadata_json_file)
-        self.eload.eload_cfg.set('brokering', 'analyses', value={
-            'ELOAD_3_AF1': {'assembly_accession': 'GCA_000001405.1', 'vcf_files': {}}
+        self.eload.submission_cfg.set('validation', 'valid', 'metadata_json', value=metadata_json_file)
+        self.eload.submission_cfg.set('brokering', 'analyses', value={
+            'submission_3_AF1': {'assembly_accession': 'GCA_000001405.1', 'vcf_files': {}}
         })
         with patch.object(BioSamplesSubmitter, '_get_existing_sample', side_effect=self._get_fake_sample), \
                 patch.object(WebinHALCommunicator, 'follows_link', side_effect=self._fake_follows_link), \
                 patch.object(WebinHALCommunicator, 'communicator_attributes', new_callable=PropertyMock,
                              return_value={'webinSubmissionAccountId': 'Webin-1'}):
             self.eload.upload_to_bioSamples()
-        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'pass')
+        assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'pass')
 
-        ena_metadata_json_file = os.path.join(self.eload.eload_dir, 'metadata_for_ena.json')
+        ena_metadata_json_file = os.path.join(self.eload.submission_dir, 'metadata_for_ena.json')
         self.eload.update_metadata_json(metadata_json_file, ena_metadata_json_file)
         with open(ena_metadata_json_file) as open_file:
             ena_metadata = json.load(open_file)
-        converter = EnaJsonConverter('ELOAD_3', ena_metadata_json_file, self.eload.eload_dir, 'ELOAD_3')
+        converter = EnaJsonConverter('submission_3', ena_metadata_json_file, self.eload.submission_dir, 'submission_3')
         return converter._add_analysis(ena_metadata['analysis'][0], ena_metadata['sample'], [],
                                        ena_metadata['project'])['samples']
 
@@ -98,7 +98,7 @@ class TestAlleleFrequencySampleTracking(TestCase):
         with patch.object(self.loader, '_evapro_engine', side_effect=PropertyMock(return_value=engine)):
             metadata.create_all(engine)
             self.loader.begin_or_continue_transaction()
-            analysis_obj = self.loader.insert_analysis('ERZ000001', 'title', 'ELOAD_3_AF1', 'description', 'centre',
+            analysis_obj = self.loader.insert_analysis('ERZ000001', 'title', 'submission_3_AF1', 'description', 'centre',
                                                        datetime.datetime(2026, 10, 16), 1)
             analysis_obj.files.append(self.loader.insert_file('prj000001', 1, 1, 'af.vcf', 'md5', 'vcf', 10, 'ftp'))
             for ena_sample in ena_samples:

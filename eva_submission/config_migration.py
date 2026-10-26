@@ -14,36 +14,36 @@ from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 logger = log_cfg.get_logger(__name__)
 
 
-def needs_sample_records_upgrade(eload_cfg):
+def needs_sample_records_upgrade(submission_cfg):
     """Configs brokered before the sample records were introduced only have a sample name to accession dict."""
-    return bool(eload_cfg.query('brokering', 'Biosamples', 'Samples')) and \
-        eload_cfg.query('brokering', 'Biosamples', 'sample_records') is None
+    return bool(submission_cfg.query('brokering', 'Biosamples', 'Samples')) and \
+        submission_cfg.query('brokering', 'Biosamples', 'sample_records') is None
 
 
-def upgrade_samples_to_sample_records(eload_cfg, samples_in_evapro_analysis=None):
+def upgrade_samples_to_sample_records(submission_cfg, samples_in_evapro_analysis=None):
     """
     Replaces the legacy sample name to accession dict (brokering > Biosamples > Samples) with sample records.
     The records are rebuilt from, in order of preference:
-     - EVAPRO, when every analysis of the ELOAD has samples loaded,
+     - EVAPRO, when every analysis of the submission has samples loaded,
      - the metadata JSON or spreadsheet, when every sample in it can be given an accession,
-     - the legacy dict itself, assigning each sample to every analysis of the ELOAD.
+     - the legacy dict itself, assigning each sample to every analysis of the submission.
     samples_in_evapro_analysis is a function that returns the (BioSample accession, name in file) of the samples of
     an analysis accession.
     """
-    if not needs_sample_records_upgrade(eload_cfg):
+    if not needs_sample_records_upgrade(submission_cfg):
         return
-    sample_name_to_accession = eload_cfg.query('brokering', 'Biosamples', 'Samples')
+    sample_name_to_accession = submission_cfg.query('brokering', 'Biosamples', 'Samples')
     sample_records = (
-        _sample_records_from_evapro(eload_cfg, samples_in_evapro_analysis)
-        or _sample_records_from_metadata(eload_cfg, sample_name_to_accession)
-        or _sample_records_from_sample_map(eload_cfg, sample_name_to_accession)
+        _sample_records_from_evapro(submission_cfg, samples_in_evapro_analysis)
+        or _sample_records_from_metadata(submission_cfg, sample_name_to_accession)
+        or _sample_records_from_sample_map(submission_cfg, sample_name_to_accession)
     )
-    eload_cfg.set('brokering', 'Biosamples', 'sample_records', value=records_to_dicts(sample_records))
-    eload_cfg.pop('brokering', 'Biosamples', 'Samples')
+    submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=records_to_dicts(sample_records))
+    submission_cfg.pop('brokering', 'Biosamples', 'Samples')
 
 
-def _sample_records_from_evapro(eload_cfg, samples_in_evapro_analysis):
-    analysis_alias_to_accession = eload_cfg.query('brokering', 'ena', 'ANALYSIS')
+def _sample_records_from_evapro(submission_cfg, samples_in_evapro_analysis):
+    analysis_alias_to_accession = submission_cfg.query('brokering', 'ena', 'ANALYSIS')
     if not samples_in_evapro_analysis or not isinstance(analysis_alias_to_accession, dict):
         return None
     analysis_aliases_per_sample = defaultdict(list)
@@ -66,10 +66,10 @@ def _sample_records_from_evapro(eload_cfg, samples_in_evapro_analysis):
     ]
 
 
-def _sample_records_from_metadata(eload_cfg, sample_name_to_accession):
-    metadata_json = eload_cfg.query('validation', 'valid', 'metadata_json')
-    metadata_spreadsheet = eload_cfg.query('validation', 'valid', 'metadata_spreadsheet') or \
-        eload_cfg.query('submission', 'metadata_spreadsheet')
+def _sample_records_from_metadata(submission_cfg, sample_name_to_accession):
+    metadata_json = submission_cfg.query('validation', 'valid', 'metadata_json')
+    metadata_spreadsheet = submission_cfg.query('validation', 'valid', 'metadata_spreadsheet') or \
+        submission_cfg.query('submission', 'metadata_spreadsheet')
     if metadata_json and os.path.exists(metadata_json):
         with open(metadata_json) as open_file:
             samples = [
@@ -98,14 +98,15 @@ def _sample_records_from_metadata(eload_cfg, sample_name_to_accession):
     return sample_records
 
 
-def _sample_records_from_sample_map(eload_cfg, sample_name_to_accession):
-    analysis_aliases = list(eload_cfg.query('brokering', 'analyses', ret_default={}))
+def _sample_records_from_sample_map(submission_cfg, sample_name_to_accession):
+    analysis_aliases = list(submission_cfg.query('brokering', 'analyses', ret_default={}))
     logger.warning('Sample records could not be rebuilt from EVAPRO or the metadata: '
                    f'each sample is assigned to all the analyses {analysis_aliases}')
     return [
         SampleRecord(accession, analysis_aliases, sample_in_vcf=sample_name)
         for sample_name, accession in sample_name_to_accession.items()
     ]
+
 
 def upgrade_version_1_15_to_1_16(submission_cfg, submission_dir):
     """

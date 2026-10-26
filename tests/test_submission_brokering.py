@@ -96,7 +96,7 @@ class TestEloadBrokering(TestCase):
         assert mock_submit.call_count == 1
         assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'pass')
         # The records are stored as plain dicts in the config and read back as SampleRecord
-        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'sample_records')[0] == {
+        assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'sample_records')[0] == {
             'accession': 'SAME1', 'analysisAlias': ['GAE'], 'sampleInVCF': 'S1', 'action': 'create'
         }
         assert self.eload.sample_records() == samples
@@ -134,9 +134,9 @@ class TestEloadBrokering(TestCase):
 
     def test_upload_to_bioSamples_done(self):
         self.eload.submission_cfg.set('validation', 'valid', 'metadata_spreadsheet',
-                                 value=os.path.join(self.resources_folder, 'metadata.xlsx'))
+                                      value=os.path.join(self.resources_folder, 'metadata.xlsx'))
         self.eload.submission_cfg.set('brokering', 'Biosamples', 'sample_records',
-                                 value=[{'accession': 'SAMPLE1', 'analysisAlias': ['GAE'], 'sampleInVCF': 'sample1'}])
+                                      value=[{'accession': 'SAMPLE1', 'analysisAlias': ['GAE'], 'sampleInVCF': 'sample1'}])
         self.eload.submission_cfg.set('brokering', 'Biosamples', 'pass', value=True)
         with patch.object(SampleMetadataSubmitter, 'submit_to_bioSamples') as mock_submit:
             self.eload.upload_to_bioSamples()
@@ -156,7 +156,7 @@ class TestEloadBrokering(TestCase):
         """Records as brokering would store them for the samples of the metadata JSON."""
         with open(metadata_json) as open_file:
             samples = json.load(open_file)['sample']
-        self.eload.eload_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
+        self.eload.submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
             {'accession': sample.get('bioSampleAccession') or f'SAME0000{i + 1}',
              'analysisAlias': sample['analysisAlias'], 'sampleInVCF': sample['sampleInVCF']}
             for i, sample in enumerate(samples)
@@ -164,8 +164,8 @@ class TestEloadBrokering(TestCase):
 
     def test_broker_to_ena_json(self):
         self.eload.submission_cfg.set('validation', 'valid', 'metadata_json',
-                                 value=os.path.join(self.resources_folder, 'brokering', 'eva_metadata_json.json'))
-        self._set_brokered_sample_records(self.eload.eload_cfg.query('validation', 'valid', 'metadata_json'))
+                                      value=os.path.join(self.resources_folder, 'brokering', 'eva_metadata_json.json'))
+        self._set_brokered_sample_records(self.eload.submission_cfg.query('validation', 'valid', 'metadata_json'))
         self.eload.submission_cfg.set('brokering', 'analyses', value={'AA1':{'vcf_files':{}}})
         upload_response = Mock(text='{"submissionId": 123, "_links": {"poll": {"href": "http://mock-poll.com/123"}}}',
                                headers={'Content-Type': 'application/json'}, status_code=200)
@@ -178,7 +178,7 @@ class TestEloadBrokering(TestCase):
 
     def test_broker_to_ena_json_existing_project(self):
         self.eload.submission_cfg.set('validation', 'valid', 'metadata_json',
-                                 value=os.path.join(self.resources_folder, 'brokering', 'eva_metadata_existing_project.json'))
+                                      value=os.path.join(self.resources_folder, 'brokering', 'eva_metadata_existing_project.json'))
         self._set_brokered_sample_records(self.eload.submission_cfg.query('validation', 'valid', 'metadata_json'))
         self.eload.submission_cfg.set('brokering', 'analyses', value={'AA1':{'vcf_files':{}}})
         response = Mock(text='', headers={'Content-Type': 'application/json'})
@@ -471,16 +471,16 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
                                  'submission_3/example2.vcf.gz.csi', 'submission_3/example3.vcf.gz', 'submission_3/example3.vcf.gz.csi']
 
     def _update_af_metadata_json(self, samples, sample_records):
-        input_metadata_json = os.path.join(self.eload.eload_dir, 'af_metadata.json')
-        output_metadata_json = os.path.join(self.eload.eload_dir, 'af_metadata_updated.json')
-        os.makedirs(self.eload.eload_dir, exist_ok=True)
+        input_metadata_json = os.path.join(self.eload.submission_dir, 'af_metadata.json')
+        output_metadata_json = os.path.join(self.eload.submission_dir, 'af_metadata_updated.json')
+        os.makedirs(self.eload.submission_dir, exist_ok=True)
         with open(input_metadata_json, 'w') as open_file:
             json.dump({'analysis': [{'analysisAlias': 'AF1', 'referenceGenome': 'GCA_000001405.1'}],
                        'sample': samples, 'files': []}, open_file)
-        self.eload.eload_cfg.set('brokering', 'analyses', value={
-            'ELOAD_3_AF1': {'assembly_accession': 'GCA_000001405.1', 'vcf_files': {}}
+        self.eload.submission_cfg.set('brokering', 'analyses', value={
+            'submission_3_AF1': {'assembly_accession': 'GCA_000001405.1', 'vcf_files': {}}
         })
-        self.eload.eload_cfg.set('brokering', 'Biosamples', 'sample_records', value=sample_records)
+        self.eload.submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=sample_records)
         self.eload.update_metadata_json(input_metadata_json, output_metadata_json)
         with open(output_metadata_json) as open_file:
             return json.load(open_file)
@@ -499,9 +499,9 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
         ]
         updated_metadata = self._update_af_metadata_json(samples, sample_records)
         assert updated_metadata['sample'] == [
-            {'analysisAlias': ['ELOAD_3_AF1'], 'bioSampleAccession': 'SAME000001'},
-            {'analysisAlias': ['ELOAD_3_AF1'], 'bioSampleAccession': 'SAME000002'},
-            {'analysisAlias': ['ELOAD_3_AF1'], 'bioSampleAccession': 'SAME000003', 'sampleInVCF': 'S3'},
+            {'analysisAlias': ['submission_3_AF1'], 'bioSampleAccession': 'SAME000001'},
+            {'analysisAlias': ['submission_3_AF1'], 'bioSampleAccession': 'SAME000002'},
+            {'analysisAlias': ['submission_3_AF1'], 'bioSampleAccession': 'SAME000003', 'sampleInVCF': 'S3'},
         ]
 
     def test_update_metadata_json_with_mismatching_sample_records(self):
@@ -515,23 +515,23 @@ Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva A
         updated_metadata = self._update_af_metadata_json(
             samples, [{'accession': 'SAME000002', 'analysisAlias': ['AF1'], 'derivedFrom': ['SAME000001']}]
         )
-        assert updated_metadata['sample'] == [{'analysisAlias': ['ELOAD_3_AF1'], 'bioSampleAccession': 'SAME000002'}]
+        assert updated_metadata['sample'] == [{'analysisAlias': ['submission_3_AF1'], 'bioSampleAccession': 'SAME000002'}]
 
     def test_update_biosamples_with_study_deduplicates_accessions(self):
-        self.eload.eload_cfg.set('brokering', 'ena', 'PROJECT', value='PRJEB00001')
-        self.eload.eload_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
+        self.eload.submission_cfg.set('brokering', 'ena', 'PROJECT', value='PRJEB00001')
+        self.eload.submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
             {'accession': 'SAME000001', 'analysisAlias': ['GT1'], 'sampleInVCF': 'S1'},
             {'accession': 'SAME000001', 'analysisAlias': ['GT2'], 'sampleInVCF': 'S1_bis'},
             {'accession': 'SAME000002', 'analysisAlias': ['AF1']},
         ])
-        with patch('eva_submission.eload_brokering.SampleReferenceSubmitter') as m_submitter:
+        with patch('eva_submission.submission_brokering.SampleReferenceSubmitter') as m_submitter:
             self.eload.update_biosamples_with_study()
         m_submitter.assert_called_once_with(['SAME000001', 'SAME000002'], 'PRJEB00001')
-        assert self.eload.eload_cfg.query('brokering', 'Biosamples', 'backlinks') == 'PRJEB00001'
+        assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'backlinks') == 'PRJEB00001'
 
     def test_biosamples_report_with_sample_records(self):
-        self.eload.eload_cfg.set('brokering', 'Biosamples', 'pass', value=True)
-        self.eload.eload_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
+        self.eload.submission_cfg.set('brokering', 'Biosamples', 'pass', value=True)
+        self.eload.submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
             {'accession': 'SAME000001', 'analysisAlias': ['GT1', 'GT2'], 'sampleInVCF': 'S1'},
             {'accession': 'SAME000002', 'analysisAlias': ['AF1'], 'name': 'bsd2'},
             {'accession': 'SAME000003', 'analysisAlias': ['AF1']},
