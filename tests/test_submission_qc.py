@@ -1,4 +1,5 @@
 import os
+import tempfile
 from unittest import TestCase, mock
 from unittest.mock import patch
 
@@ -128,6 +129,60 @@ class TestSubmissionQC(TestCase):
         result, report = self.eload.check_if_variant_load_completed_successfully()
         assert result == 'PASS'
         assert report == 'Success: PASS'
+
+    def test_rs_report_exists(self):
+        self.eload = EloadQC(103)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            self.eload.path_to_logs_dir = tmp_dir
+            self.assertFalse(self.eload._rs_report_exists('GCA_000003205.6'))
+
+            with open(os.path.join(tmp_dir, 'GCA_000003205.6_rs_report.txt'), 'w') as f:
+                f.write('rs report content\n')
+            self.assertTrue(self.eload._rs_report_exists('GCA_000003205.6'))
+
+    def test_clustering_qc_log_absent_and_no_rs_report(self):
+        self.eload = EloadQC(103)
+        qc_missing = (False, 'clustering_qc error : No clustering_qc log file found for GCA_000003205.6')
+        with patch.object(EloadQC, '_find_log_and_check_job', side_effect=[(True, ''), qc_missing]), \
+                patch.object(EloadQC, '_log_exists', return_value=False), \
+                patch.object(EloadQC, '_rs_report_exists', return_value=False):
+            result, report = self.eload.clustering_check_report()
+        self.assertEqual(EloadQC.PASS, result)
+        self.assertIn('Clustering Job: PASS - No error', report)
+        self.assertIn('Clustering QC Job: SKIP - No RS report file found (no new RS created)', report)
+
+    def test_clustering_qc_log_absent_but_rs_report_present(self):
+        # the RS report exists so clustering QC should have run: a missing log is a real failure
+        self.eload = EloadQC(103)
+        qc_missing = (False, 'clustering_qc error : No clustering_qc log file found for GCA_000003205.6')
+        with patch.object(EloadQC, '_find_log_and_check_job', side_effect=[(True, ''), qc_missing]), \
+                patch.object(EloadQC, '_log_exists', return_value=False), \
+                patch.object(EloadQC, '_rs_report_exists', return_value=True):
+            result, report = self.eload.clustering_check_report()
+        self.assertEqual(EloadQC.FAIL, result)
+        self.assertIn('Clustering QC Job: FAIL - clustering_qc error', report)
+
+    def test_clustering_qc_log_present_but_failed(self):
+        # a QC log that exists and shows failure must still fail even if there is no RS report
+        self.eload = EloadQC(103)
+        qc_failed = (False, 'clustering_qc failed job/step : some-step')
+        with patch.object(EloadQC, '_find_log_and_check_job', side_effect=[(True, ''), qc_failed]), \
+                patch.object(EloadQC, '_log_exists', return_value=True), \
+                patch.object(EloadQC, '_rs_report_exists', return_value=False):
+            result, report = self.eload.clustering_check_report()
+        self.assertEqual(EloadQC.FAIL, result)
+        self.assertIn('Clustering QC Job: FAIL - clustering_qc failed job/step : some-step', report)
+
+    def test_clustering_failed_still_fails_when_qc_skipped(self):
+        self.eload = EloadQC(103)
+        failed = (False, 'clustering failed job/step : some-step')
+        qc_missing = (False, 'clustering_qc error : No clustering_qc log file found for GCA_000003205.6')
+        with patch.object(EloadQC, '_find_log_and_check_job', side_effect=[failed, qc_missing]), \
+                patch.object(EloadQC, '_log_exists', return_value=False), \
+                patch.object(EloadQC, '_rs_report_exists', return_value=False):
+            result, report = self.eload.clustering_check_report()
+        self.assertEqual(EloadQC.FAIL, result)
+        self.assertIn('Clustering Job: FAIL - clustering failed job/step : some-step', report)
 
     def expected_report_of_eload_101(self):
         return """
@@ -449,7 +504,7 @@ class TestSubmissionQC(TestCase):
         ----------------------------------
         Clustering check:
             Clustering Job: FAIL - clustering error : No clustering log file found for GCA_000247795.2
-            Clustering QC Job: FAIL - clustering_qc error : No clustering_qc log file found for GCA_000247795.2
+            Clustering QC Job: SKIP - No RS report file found (no new RS created) so clustering QC was not run
         ----------------------------------
         Backpropagation check:
             Backpropagation result to GCA_000003205.6: FAIL - backpropagation error : No backpropagation log file found for GCA_000003205.6
