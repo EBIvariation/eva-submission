@@ -168,10 +168,6 @@ class EloadQC(Eload):
     def _log_exists(self, log_file_pattern):
         return bool(glob.glob(os.path.join(self.path_to_logs_dir, log_file_pattern)))
 
-    @property
-    def rs_report_dir(self):
-        return os.path.join(self.eload_dir, self.RS_REPORT_DIR_NAME)
-
     def _rs_report_exists(self, target_assembly):
         """The RS report file is only created when new RS were created."""
         return self._log_exists(f'{target_assembly}_rs_report.txt')
@@ -455,8 +451,7 @@ class EloadQC(Eload):
         # created and the absence of the clustering QC log is expected. Failures to create the report are
         # reported by the clustering job check.
         clustering_qc_skipped = (
-                not clustering_qc_check_pass
-                and not self._log_exists(clustering_qc_log_pattern)
+                not self._log_exists(clustering_qc_log_pattern)
                 and not self._rs_report_exists(target_assembly)
         )
 
