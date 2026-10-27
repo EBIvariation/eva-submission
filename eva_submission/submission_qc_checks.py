@@ -165,6 +165,13 @@ class EloadQC(Eload):
             job_passed = False
         return job_passed, report_text
 
+    def _log_exists(self, log_file_pattern):
+        return bool(glob.glob(os.path.join(self.path_to_logs_dir, log_file_pattern)))
+
+    def _rs_report_exists(self, target_assembly):
+        """The RS report file is only created when new RS were created."""
+        return self._log_exists(f'{target_assembly}_rs_report.txt')
+
     ###
     # Reporting methods
     ###
@@ -431,20 +438,36 @@ class EloadQC(Eload):
         target_assembly = self.eload_cfg.query('ingestion', 'remap_and_cluster', 'target_assembly')
         if not target_assembly:
             return self._report_did_not_run()
+        clustering_log_pattern = f'{target_assembly}_clustering.log'
+        clustering_qc_log_pattern = f'{target_assembly}_clustering_qc.log'
         clustering_check_pass, clustering_error = self._find_log_and_check_job(
-            target_assembly, f'{target_assembly}_clustering.log', 'clustering'
+            target_assembly, clustering_log_pattern, 'clustering'
         )
         clustering_qc_check_pass, clustering_qc_error = self._find_log_and_check_job(
-            target_assembly, f'{target_assembly}_clustering_qc.log', 'clustering_qc'
+            target_assembly, clustering_qc_log_pattern, 'clustering_qc'
         )
 
-        if clustering_check_pass and clustering_qc_check_pass:
+        # Clustering QC only runs when an RS report file is created. If there is no RS report, no new RS were
+        # created and the absence of the clustering QC log is expected. Failures to create the report are
+        # reported by the clustering job check.
+        clustering_qc_skipped = (
+                not self._log_exists(clustering_qc_log_pattern)
+                and not self._rs_report_exists(target_assembly)
+        )
+
+        if clustering_check_pass and (clustering_qc_check_pass or clustering_qc_skipped):
             result = EloadQC.PASS
         else:
             result = EloadQC.FAIL
 
+        if clustering_qc_skipped:
+            clustering_qc_report = f'{EloadQC.SKIP} - No RS report file found (no new RS created) so clustering QC was not run'
+        else:
+            clustering_qc_report = f'{EloadQC.PASS if clustering_qc_check_pass else EloadQC.FAIL} - ' \
+                                   f'{clustering_qc_error if not clustering_qc_check_pass else "No error"}'
+
         report = f"""Clustering Job: {EloadQC.PASS if clustering_check_pass else EloadQC.FAIL} - {clustering_error if not clustering_check_pass else "No error"}
-            Clustering QC Job: {EloadQC.PASS if clustering_qc_check_pass else EloadQC.FAIL} - {clustering_qc_error if not clustering_qc_check_pass else "No error"}"""
+            Clustering QC Job: {clustering_qc_report}"""
         return result, report
 
     def remapping_check_report(self):
