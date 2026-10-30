@@ -41,14 +41,14 @@ class SampleRecord:
     accession: Optional[str]
     analysis_aliases: Optional[List[str]] = None
     sample_in_vcf: Optional[str] = None
-    name: Optional[str] = None
+    biosample_name: Optional[str] = None
     derived_from: Optional[List[str]] = None
     action: Optional[str] = None
 
     def __post_init__(self):
         self.analysis_aliases = list(self.analysis_aliases or [])
         self.sample_in_vcf = normalise_sample_in_vcf(self.sample_in_vcf)
-        self.name = self.name or None
+        self.biosample_name = self.biosample_name or None
         self.derived_from = list(self.derived_from) if self.derived_from else None
         self.action = self.action or None
 
@@ -58,7 +58,7 @@ class SampleRecord:
             record_dict.get(ACCESSION_KEY),
             analysis_aliases=record_dict.get(ANALYSIS_ALIAS_KEY),
             sample_in_vcf=record_dict.get(SAMPLE_IN_VCF_KEY),
-            name=record_dict.get(NAME_KEY),
+            biosample_name=record_dict.get(NAME_KEY),
             derived_from=record_dict.get(DERIVED_FROM_KEY),
             action=record_dict.get(ACTION_KEY)
         )
@@ -68,8 +68,8 @@ class SampleRecord:
         record_dict = {ACCESSION_KEY: self.accession, ANALYSIS_ALIAS_KEY: self.analysis_aliases}
         if self.sample_in_vcf:
             record_dict[SAMPLE_IN_VCF_KEY] = self.sample_in_vcf
-        if self.name:
-            record_dict[NAME_KEY] = self.name
+        if self.biosample_name:
+            record_dict[NAME_KEY] = self.biosample_name
         if self.derived_from:
             record_dict[DERIVED_FROM_KEY] = list(self.derived_from)
         if self.action:
@@ -79,7 +79,7 @@ class SampleRecord:
     @property
     def label(self):
         """Name used for this sample when no name in VCF is required: name in VCF, else BioSample name, else accession."""
-        return self.sample_in_vcf or self.name or self.accession
+        return self.sample_in_vcf or self.biosample_name or self.accession
 
     @property
     def is_derived(self):

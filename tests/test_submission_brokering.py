@@ -122,7 +122,7 @@ class TestEloadBrokering(TestCase):
         self.eload.submission_cfg.set('validation', 'valid', 'metadata_spreadsheet',
                                       value=os.path.join(self.resources_folder, 'metadata.xlsx'))
 
-        samples = [SampleRecord(f'SAME{i}', analysis_aliases=['GAE'], sample_in_vcf=f'S{i}', name=f'bsd{i}',
+        samples = [SampleRecord(f'SAME{i}', analysis_aliases=['GAE'], sample_in_vcf=f'S{i}', biosample_name=f'bsd{i}',
                                 action='None')
                    for i in range(1, 101)]
         with patch.object(SampleMetadataSubmitter, 'check_submit_done', return_value=True) as check_submit_done, \

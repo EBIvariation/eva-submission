@@ -27,21 +27,24 @@ from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader
 
 _now = datetime.now().isoformat()
 
-SAMPLE_IN_VCF_PROP = 'sampleInVCF'
-BIOSAMPLE_ACCESSION_PROP = 'bioSampleAccession'
-BIOSAMPLE_OBJECT_PROP = 'bioSampleObject'
-CHARACTERISTICS_PROP = 'characteristics'
-RELATIONSHIPS_PROP = 'relationships'
-ACCESSION_PROP = 'accession'
-SRA_ACCESSION_PROP = 'SRA accession'
-RELEASE_PROP = 'release'
-TAX_ID_PROP = 'taxId'
-LAST_UPDATED_BY_PROP = 'last_updated_by'
-ANALYSIS_ALIAS_PROP = 'analysisAlias'
+# Properties of the samples in the EVA metadata JSON
+EVA_SAMPLE_IN_VCF_PROP = 'sampleInVCF'
+EVA_BIOSAMPLE_ACCESSION_PROP = 'bioSampleAccession'
+EVA_BIOSAMPLE_OBJECT_PROP = 'bioSampleObject'
+EVA_ANALYSIS_ALIAS_PROP = 'analysisAlias'
+
+# Properties of the BioSamples JSON
+BSD_CHARACTERISTICS_PROP = 'characteristics'
+BSD_RELATIONSHIPS_PROP = 'relationships'
+BSD_ACCESSION_PROP = 'accession'
+BSD_SRA_ACCESSION_PROP = 'SRA accession'
+BSD_RELEASE_PROP = 'release'
+BSD_TAX_ID_PROP = 'taxId'
+BSD_LAST_UPDATED_BY_PROP = 'last_updated_by'
 
 
 def get_biosample_characteristics(sample, property_name, data_type='text'):
-    prop = sample.get(BIOSAMPLE_OBJECT_PROP, {}).get(CHARACTERISTICS_PROP,{}).get(property_name)
+    prop = sample.get(EVA_BIOSAMPLE_OBJECT_PROP, {}).get(BSD_CHARACTERISTICS_PROP,{}).get(property_name)
     if prop:
         if len(prop) == 1:
             return prop[0].get(data_type)
@@ -54,7 +57,7 @@ class BioSamplesSubmitter(AppLogger):
 
     valid_actions = ('create', 'overwrite', 'override', 'curate', 'derive')
     characteristics_allowed_to_override = ('collection_date', 'geographic location (country and/or sea)',
-                                           LAST_UPDATED_BY_PROP)
+                                           BSD_LAST_UPDATED_BY_PROP)
 
     def __init__(self, communicators, submit_type=('create',), allow_removal=False):
         assert len(communicators) > 0, 'Specify at least one communicator object to BioSamplesSubmitter'
@@ -73,27 +76,27 @@ class BioSamplesSubmitter(AppLogger):
         return self.default_communicator.follows_link('samples', method='GET', join_url=append_to_url)
 
     def can_create(self, sample):
-        return 'create' in self.submit_type and ACCESSION_PROP not in sample
+        return 'create' in self.submit_type and BSD_ACCESSION_PROP not in sample
 
     def can_overwrite(self, sample):
         """ We should overwrite a sample when it is owned by a domain supported by the current uploader
         or when we use a superuser to override the original sample"""
-        return ACCESSION_PROP in sample and (
+        return BSD_ACCESSION_PROP in sample and (
             'overwrite' in self.submit_type and self._get_communicator_for_sample(sample) or
             'override' in self.submit_type and self._allowed_to_override(sample)
         )
 
     def can_curate(self, sample):
         """ We can curate a samples if it has an existing accession"""
-        return 'curate' in self.submit_type and ACCESSION_PROP in sample
+        return 'curate' in self.submit_type and BSD_ACCESSION_PROP in sample
 
     def can_derive(self, sample):
-        return 'derive' in self.submit_type and ACCESSION_PROP in sample
+        return 'derive' in self.submit_type and BSD_ACCESSION_PROP in sample
 
     def _get_communicator_for_sample(self, sample):
         if 'override' in self.submit_type:
             return self.communicators[0]
-        sample_data = self._get_existing_sample(sample.get(ACCESSION_PROP))
+        sample_data = self._get_existing_sample(sample.get(BSD_ACCESSION_PROP))
         # This check If one of the account own the BioSample by checking if the 'domain' or 'webinSubmissionAccountId'
         # are the same as the one who submitted the sample
         for communicator in self.communicators:
@@ -102,10 +105,10 @@ class BioSamplesSubmitter(AppLogger):
         return None
 
     def _allowed_to_override(self, sample):
-        if sample.get(ACCESSION_PROP, '').startswith('SAMN'):
+        if sample.get(BSD_ACCESSION_PROP, '').startswith('SAMN'):
             return True
         else:
-            self.warning(f'Sample {sample.get(ACCESSION_PROP)} cannot be overridden because it is not an NCBI sample ')
+            self.warning(f'Sample {sample.get(BSD_ACCESSION_PROP)} cannot be overridden because it is not an NCBI sample ')
 
     def validate_in_bsd(self, sample_data):
         sample = deepcopy(sample_data)
@@ -120,7 +123,7 @@ class BioSamplesSubmitter(AppLogger):
 
     def convert_sample_data_to_curation_object(self, future_sample):
         """Curation object can only change 3 attributes characteristics, externalReferences and relationships"""
-        current_sample = self._get_existing_sample(future_sample.get(ACCESSION_PROP), include_curation=True)
+        current_sample = self._get_existing_sample(future_sample.get(BSD_ACCESSION_PROP), include_curation=True)
         #FIXME: Remove this hack when this is fixed on BioSample's side
         # remove null values in externalReferences that causes crash when POSTing the curation object
         if 'externalReferences' in current_sample:
@@ -132,11 +135,11 @@ class BioSamplesSubmitter(AppLogger):
         attributes_pre = []
         attributes_post = []
         # To add or modify attributes
-        attributes = set(future_sample[CHARACTERISTICS_PROP]).union(set(current_sample[CHARACTERISTICS_PROP]))
+        attributes = set(future_sample[BSD_CHARACTERISTICS_PROP]).union(set(current_sample[BSD_CHARACTERISTICS_PROP]))
         for attribute in attributes:
             # Addition
-            if attribute in future_sample[CHARACTERISTICS_PROP] and attribute not in current_sample[CHARACTERISTICS_PROP]:
-                post_attribute = future_sample[CHARACTERISTICS_PROP].get(attribute)[0]
+            if attribute in future_sample[BSD_CHARACTERISTICS_PROP] and attribute not in current_sample[BSD_CHARACTERISTICS_PROP]:
+                post_attribute = future_sample[BSD_CHARACTERISTICS_PROP].get(attribute)[0]
                 attributes_post.append({
                     'type': attribute,
                     'value': post_attribute.get('text'),
@@ -144,24 +147,24 @@ class BioSamplesSubmitter(AppLogger):
                 })
             # Removal
             elif self.allow_removal and \
-                    attribute in current_sample[CHARACTERISTICS_PROP] and \
-                    attribute not in future_sample[CHARACTERISTICS_PROP]:
-                pre_attribute = current_sample[CHARACTERISTICS_PROP].get(attribute)[0]
+                    attribute in current_sample[BSD_CHARACTERISTICS_PROP] and \
+                    attribute not in future_sample[BSD_CHARACTERISTICS_PROP]:
+                pre_attribute = current_sample[BSD_CHARACTERISTICS_PROP].get(attribute)[0]
                 attributes_pre.append({
                     'type': attribute,
                     'value': pre_attribute.get('text'),
                     **({'tag': pre_attribute['tag']} if 'tag' in pre_attribute else {})
                 })
             # Replacement
-            elif attribute in future_sample[CHARACTERISTICS_PROP] and attribute in current_sample[CHARACTERISTICS_PROP] and \
-                    future_sample[CHARACTERISTICS_PROP][attribute] != current_sample[CHARACTERISTICS_PROP][attribute]:
-                pre_attribute = current_sample[CHARACTERISTICS_PROP].get(attribute)[0]
+            elif attribute in future_sample[BSD_CHARACTERISTICS_PROP] and attribute in current_sample[BSD_CHARACTERISTICS_PROP] and \
+                    future_sample[BSD_CHARACTERISTICS_PROP][attribute] != current_sample[BSD_CHARACTERISTICS_PROP][attribute]:
+                pre_attribute = current_sample[BSD_CHARACTERISTICS_PROP].get(attribute)[0]
                 attributes_pre.append({
                     'type': attribute,
                     'value': pre_attribute.get('text'),
                     **({'tag': pre_attribute['tag']} if 'tag' in pre_attribute else {})
                 })
-                post_attribute = future_sample[CHARACTERISTICS_PROP].get(attribute)[0]
+                post_attribute = future_sample[BSD_CHARACTERISTICS_PROP].get(attribute)[0]
                 attributes_post.append({
                     'type': attribute,
                     'value': post_attribute.get('text'),
@@ -172,10 +175,10 @@ class BioSamplesSubmitter(AppLogger):
         # for externalReferences and relationships we're assuming you want to replace them all
         curation_object['externalReferencesPre'] = current_sample.get('externalReferences', [])
         curation_object['externalReferencesPost'] = future_sample.get('externalReferences', [])
-        curation_object['relationshipsPre'] = current_sample.get(RELATIONSHIPS_PROP, [])
-        curation_object['relationshipsPost'] = future_sample.get(RELATIONSHIPS_PROP, [])
+        curation_object['relationshipsPre'] = current_sample.get(BSD_RELATIONSHIPS_PROP, [])
+        curation_object['relationshipsPost'] = future_sample.get(BSD_RELATIONSHIPS_PROP, [])
 
-        return dict(curation=curation_object, sample=future_sample.get(ACCESSION_PROP))
+        return dict(curation=curation_object, sample=future_sample.get(BSD_ACCESSION_PROP))
 
     @staticmethod
     def _update_from_array(key, sample_source, sample_dest, allow_overwrite=False):
@@ -191,19 +194,19 @@ class BioSamplesSubmitter(AppLogger):
         """Update a BioSample object with the value of another"""
         if 'override' in self.submit_type:
             # Ensure that override only change geographic location and collection date
-            tmp_sample_source = {CHARACTERISTICS_PROP: {}}
+            tmp_sample_source = {BSD_CHARACTERISTICS_PROP: {}}
             for attribute in self.characteristics_allowed_to_override:
-                if attribute in sample_source[CHARACTERISTICS_PROP]:
-                    tmp_sample_source[CHARACTERISTICS_PROP][attribute] = sample_source[CHARACTERISTICS_PROP][attribute]
+                if attribute in sample_source[BSD_CHARACTERISTICS_PROP]:
+                    tmp_sample_source[BSD_CHARACTERISTICS_PROP][attribute] = sample_source[BSD_CHARACTERISTICS_PROP][attribute]
             sample_source = tmp_sample_source
-        for attribute in sample_source[CHARACTERISTICS_PROP]:
-            if attribute not in sample_dest[CHARACTERISTICS_PROP] or allow_overwrite:
-                sample_dest[CHARACTERISTICS_PROP][attribute] = sample_source[CHARACTERISTICS_PROP][attribute]
+        for attribute in sample_source[BSD_CHARACTERISTICS_PROP]:
+            if attribute not in sample_dest[BSD_CHARACTERISTICS_PROP] or allow_overwrite:
+                sample_dest[BSD_CHARACTERISTICS_PROP][attribute] = sample_source[BSD_CHARACTERISTICS_PROP][attribute]
         self._update_from_array('externalReferences', sample_source, sample_dest, allow_overwrite)
-        self._update_from_array(RELATIONSHIPS_PROP, sample_source, sample_dest, allow_overwrite)
+        self._update_from_array(BSD_RELATIONSHIPS_PROP, sample_source, sample_dest, allow_overwrite)
         self._update_from_array('contact', sample_source, sample_dest, allow_overwrite)
         self._update_from_array('organization', sample_source, sample_dest, allow_overwrite)
-        for key in [TAX_ID_PROP, ACCESSION_PROP, 'name', RELEASE_PROP]:
+        for key in [BSD_TAX_ID_PROP, BSD_ACCESSION_PROP, 'name', BSD_RELEASE_PROP]:
             if key in sample_source and key not in sample_dest:
                 sample_dest[key] = sample_source[key]
 
@@ -213,24 +216,24 @@ class BioSamplesSubmitter(AppLogger):
         destination_sample = None
         if self.can_overwrite(sample) and not self.allow_removal:
             # retrieve the sample without any curation and add the new data on top
-            destination_sample = self._get_existing_sample(sample.get(ACCESSION_PROP))
+            destination_sample = self._get_existing_sample(sample.get(BSD_ACCESSION_PROP))
             self._update_samples_with(sample, destination_sample, allow_overwrite=True)
         return destination_sample
 
     def create_derived_sample(self, sample):
-        skipped_attributes = [SRA_ACCESSION_PROP]
+        skipped_attributes = [BSD_SRA_ACCESSION_PROP]
         if self.can_derive(sample):
             derived_sample = deepcopy(sample)
             # There can be multiple source samples
-            source_accessions = derived_sample.get(ACCESSION_PROP).split(',')
+            source_accessions = derived_sample.get(BSD_ACCESSION_PROP).split(',')
             for current_sample in [self._get_existing_sample(sa) for sa in source_accessions]:
                 self._update_samples_with(current_sample, derived_sample)
                 # Remove the accession of previous samples
-                derived_sample.pop(ACCESSION_PROP)
+                derived_sample.pop(BSD_ACCESSION_PROP)
                 # Remove the SRA accession if it is there
-                if SRA_ACCESSION_PROP in derived_sample[CHARACTERISTICS_PROP]:
-                    derived_sample[CHARACTERISTICS_PROP].pop(SRA_ACCESSION_PROP)
-            derived_sample[RELEASE_PROP] = _now
+                if BSD_SRA_ACCESSION_PROP in derived_sample[BSD_CHARACTERISTICS_PROP]:
+                    derived_sample[BSD_CHARACTERISTICS_PROP].pop(BSD_SRA_ACCESSION_PROP)
+            derived_sample[BSD_RELEASE_PROP] = _now
             return derived_sample, source_accessions
 
     def submit_biosample_to_bsd(self, biosample_json):
@@ -247,21 +250,21 @@ class BioSamplesSubmitter(AppLogger):
             action_taken = 'create'
             sample.update(self.default_communicator.communicator_attributes)
             sample_json = self.default_communicator.follows_link('samples', method='POST', json=sample)
-            self.debug('Accession sample ' + sample.get('name', '') + ' as ' + sample_json.get(ACCESSION_PROP))
+            self.debug('Accession sample ' + sample.get('name', '') + ' as ' + sample_json.get(BSD_ACCESSION_PROP))
         elif self.can_overwrite(sample):
             action_taken = 'overwrite'
             sample_to_overwrite = self.create_sample_to_overwrite(sample)
-            self.debug('Overwrite sample ' + sample_to_overwrite.get('name', '') + ' with accession ' + sample_to_overwrite.get(ACCESSION_PROP))
+            self.debug('Overwrite sample ' + sample_to_overwrite.get('name', '') + ' with accession ' + sample_to_overwrite.get(BSD_ACCESSION_PROP))
             # Use the communicator that can own the sample to overwrite it.
             communicator = self._get_communicator_for_sample(sample)
-            sample_json = communicator.follows_link('samples', method='PUT', join_url=sample.get(ACCESSION_PROP),
+            sample_json = communicator.follows_link('samples', method='PUT', join_url=sample.get(BSD_ACCESSION_PROP),
                                                     json=sample_to_overwrite)
         elif self.can_curate(sample):
             action_taken = 'curate'
-            self.debug('Update sample ' + sample.get('name', '') + ' with accession ' + sample.get(ACCESSION_PROP))
+            self.debug('Update sample ' + sample.get('name', '') + ' with accession ' + sample.get(BSD_ACCESSION_PROP))
             curation_object = self.convert_sample_data_to_curation_object(sample)
             curation_json = self.default_communicator.follows_link(
-                'samples', method='POST', join_url=sample.get(ACCESSION_PROP) + '/curationlinks', json=curation_object
+                'samples', method='POST', join_url=sample.get(BSD_ACCESSION_PROP) + '/curationlinks', json=curation_object
             )
             sample_json = sample
         elif self.can_derive(sample):
@@ -269,20 +272,20 @@ class BioSamplesSubmitter(AppLogger):
             sample.update(self.default_communicator.communicator_attributes)
             derived_sample, original_accessions = self.create_derived_sample(sample)
             sample_json = self.default_communicator.follows_link('samples', method='POST', json=derived_sample)
-            if RELATIONSHIPS_PROP not in sample_json:
-                sample_json[RELATIONSHIPS_PROP] = []
+            if BSD_RELATIONSHIPS_PROP not in sample_json:
+                sample_json[BSD_RELATIONSHIPS_PROP] = []
             for original_accession in original_accessions:
-                sample_json[RELATIONSHIPS_PROP].append(
-                    {'type': "derived from", 'target': original_accession, 'source': sample_json[ACCESSION_PROP]}
+                sample_json[BSD_RELATIONSHIPS_PROP].append(
+                    {'type': "derived from", 'target': original_accession, 'source': sample_json[BSD_ACCESSION_PROP]}
                 )
             sample_json = self.default_communicator.follows_link('samples', method='PUT',
-                                                                 join_url=sample_json.get(ACCESSION_PROP), json=sample_json)
-            self.debug(f'Accession sample {sample.get("name")} as {sample_json.get(ACCESSION_PROP)} derived from'
+                                                                 join_url=sample_json.get(BSD_ACCESSION_PROP), json=sample_json)
+            self.debug(f'Accession sample {sample.get("name")} as {sample_json.get(BSD_ACCESSION_PROP)} derived from'
                        f' {original_accessions}')
         # Otherwise Keep the sample as is and retrieve the name so that list of sample to accession is complete
         else:
             action_taken = 'None'
-            sample_json = self._get_existing_sample(sample.get(ACCESSION_PROP))
+            sample_json = self._get_existing_sample(sample.get(BSD_ACCESSION_PROP))
         return sample_json, action_taken
 
 
@@ -329,7 +332,7 @@ class SampleSubmitter(AppLogger):
                 # If we are provided a list then apply to all elements of the list
                 for element in map_key:
                     SampleSubmitter.apply_mapping(bsd_data, element, value)
-            elif map_key.startswith(f'{CHARACTERISTICS_PROP}.'):
+            elif map_key.startswith(f'{BSD_CHARACTERISTICS_PROP}.'):
                 keys = map_key.split('.')
                 _bsd_data = bsd_data
                 for k in keys[:-1]:
@@ -366,7 +369,7 @@ class SampleSubmitter(AppLogger):
         if not sample_json:
             raise ValueError(f'Pre-registered sample {sample_accession} could not be retrieved from BioSamples')
         return SampleRecord(sample_accession, analysis_aliases, sample_in_vcf=sample_in_vcf,
-                            name=sample_json.get('name'), action=NO_ACTION)
+                            biosample_name=sample_json.get('name'), action=NO_ACTION)
 
     def check_sample_records(self, sample_records):
         """All the input samples must have a record with an accession"""
@@ -389,10 +392,10 @@ class SampleSubmitter(AppLogger):
                 sample_json, action_taken = self.submitter.submit_biosample_to_bsd(source_sample_json)
                 derived_from = None
                 if action_taken == 'derive':
-                    derived_from = source_sample_json.get(ACCESSION_PROP).split(',')
+                    derived_from = source_sample_json.get(BSD_ACCESSION_PROP).split(',')
                 record = SampleRecord(
-                    sample_json.get(ACCESSION_PROP), analysis_aliases, sample_in_vcf=sample_in_vcf,
-                    name=sample_json.get('name'), action=action_taken, derived_from=derived_from
+                    sample_json.get(BSD_ACCESSION_PROP), analysis_aliases, sample_in_vcf=sample_in_vcf,
+                    biosample_name=sample_json.get('name'), action=action_taken, derived_from=derived_from
                 )
             elif sample_accession:
                 record = self._pre_registered_sample_record(sample_accession, sample_in_vcf, analysis_aliases)
@@ -435,7 +438,7 @@ class SampleJSONSubmitter(SampleSubmitter):
 
     @staticmethod
     def _analysis_aliases(sample):
-        analysis_aliases = sample.get(ANALYSIS_ALIAS_PROP) or []
+        analysis_aliases = sample.get(EVA_ANALYSIS_ALIAS_PROP) or []
         if isinstance(analysis_aliases, str):
             analysis_aliases = [analysis_aliases]
         return analysis_aliases
@@ -445,52 +448,52 @@ class SampleJSONSubmitter(SampleSubmitter):
             analysis_aliases = self._analysis_aliases(sample)
             # If Biosample object is present then we are creating or updating a sample.
             # If not then just return the name and accession, unless we are deriving
-            if BIOSAMPLE_OBJECT_PROP not in sample:
-                if 'derive' in self.submitter.submit_type and BIOSAMPLE_ACCESSION_PROP in sample:
+            if EVA_BIOSAMPLE_OBJECT_PROP not in sample:
+                if 'derive' in self.submitter.submit_type and EVA_BIOSAMPLE_ACCESSION_PROP in sample:
                     yield (
-                        {CHARACTERISTICS_PROP: {}, ACCESSION_PROP: sample[BIOSAMPLE_ACCESSION_PROP]},
-                        sample.get(SAMPLE_IN_VCF_PROP),
-                        sample.get(BIOSAMPLE_ACCESSION_PROP),
+                        {BSD_CHARACTERISTICS_PROP: {}, BSD_ACCESSION_PROP: sample[EVA_BIOSAMPLE_ACCESSION_PROP]},
+                        sample.get(EVA_SAMPLE_IN_VCF_PROP),
+                        sample.get(EVA_BIOSAMPLE_ACCESSION_PROP),
                         analysis_aliases
                     )
                 else:
-                    yield None, sample.get(SAMPLE_IN_VCF_PROP), sample.get(BIOSAMPLE_ACCESSION_PROP), analysis_aliases
+                    yield None, sample.get(EVA_SAMPLE_IN_VCF_PROP), sample.get(EVA_BIOSAMPLE_ACCESSION_PROP), analysis_aliases
                 continue
             # FIXME: handle BioSample JSON that uses old representation correctly
             if any(
-                    old_attribute in sample[BIOSAMPLE_OBJECT_PROP][CHARACTERISTICS_PROP] and
-                    new_attribute not in sample[BIOSAMPLE_OBJECT_PROP][CHARACTERISTICS_PROP]
+                    old_attribute in sample[EVA_BIOSAMPLE_OBJECT_PROP][BSD_CHARACTERISTICS_PROP] and
+                    new_attribute not in sample[EVA_BIOSAMPLE_OBJECT_PROP][BSD_CHARACTERISTICS_PROP]
                     for old_attribute, new_attribute in [
                         ('geographicLocationCountrySea', 'geographic location (country and/or sea)'),
                         ('scientificName', 'scientific name'), ('collectionDate', 'collection date')
                 ]):
                 sample = update_sample_to_post_4_13(sample)
-            bsd_sample_entry = {CHARACTERISTICS_PROP: {}}
+            bsd_sample_entry = {BSD_CHARACTERISTICS_PROP: {}}
             # TODO: Name should be set correctly by eva-sub-cli post v0.4.14. Remove this Hack when we don't want to support earlier version
-            if 'name' not in sample[BIOSAMPLE_OBJECT_PROP]:
+            if 'name' not in sample[EVA_BIOSAMPLE_OBJECT_PROP]:
                 sample_name = None
-                if 'bioSampleName' in sample[BIOSAMPLE_OBJECT_PROP]:
-                    sample_name = sample[BIOSAMPLE_OBJECT_PROP]['bioSampleName']
-                    del sample[BIOSAMPLE_OBJECT_PROP]['bioSampleName']
-                if 'bioSampleName' in sample[BIOSAMPLE_OBJECT_PROP][CHARACTERISTICS_PROP]:
-                    sample_name = sample[BIOSAMPLE_OBJECT_PROP][CHARACTERISTICS_PROP]['bioSampleName'][0].get('text')
-                    del sample[BIOSAMPLE_OBJECT_PROP][CHARACTERISTICS_PROP]['bioSampleName']
+                if 'bioSampleName' in sample[EVA_BIOSAMPLE_OBJECT_PROP]:
+                    sample_name = sample[EVA_BIOSAMPLE_OBJECT_PROP]['bioSampleName']
+                    del sample[EVA_BIOSAMPLE_OBJECT_PROP]['bioSampleName']
+                if 'bioSampleName' in sample[EVA_BIOSAMPLE_OBJECT_PROP][BSD_CHARACTERISTICS_PROP]:
+                    sample_name = sample[EVA_BIOSAMPLE_OBJECT_PROP][BSD_CHARACTERISTICS_PROP]['bioSampleName'][0].get('text')
+                    del sample[EVA_BIOSAMPLE_OBJECT_PROP][BSD_CHARACTERISTICS_PROP]['bioSampleName']
                 if sample_name:
-                    sample[BIOSAMPLE_OBJECT_PROP]['name'] = sample_name
+                    sample[EVA_BIOSAMPLE_OBJECT_PROP]['name'] = sample_name
             # We are editing, curating, or deriving from a sample if the accession is present in the BioSample object
-            if BIOSAMPLE_ACCESSION_PROP in sample[BIOSAMPLE_OBJECT_PROP][CHARACTERISTICS_PROP]:
-                bsd_sample_entry[ACCESSION_PROP] = sample[BIOSAMPLE_OBJECT_PROP][CHARACTERISTICS_PROP][BIOSAMPLE_ACCESSION_PROP][0]['text']
-                del sample[BIOSAMPLE_OBJECT_PROP][CHARACTERISTICS_PROP][BIOSAMPLE_ACCESSION_PROP]
-            bsd_sample_entry.update(sample[BIOSAMPLE_OBJECT_PROP])
+            if EVA_BIOSAMPLE_ACCESSION_PROP in sample[EVA_BIOSAMPLE_OBJECT_PROP][BSD_CHARACTERISTICS_PROP]:
+                bsd_sample_entry[BSD_ACCESSION_PROP] = sample[EVA_BIOSAMPLE_OBJECT_PROP][BSD_CHARACTERISTICS_PROP][EVA_BIOSAMPLE_ACCESSION_PROP][0]['text']
+                del sample[EVA_BIOSAMPLE_OBJECT_PROP][BSD_CHARACTERISTICS_PROP][EVA_BIOSAMPLE_ACCESSION_PROP]
+            bsd_sample_entry.update(sample[EVA_BIOSAMPLE_OBJECT_PROP])
             # Taxonomy ID should be present at top level as well
-            if TAX_ID_PROP in sample[BIOSAMPLE_OBJECT_PROP][CHARACTERISTICS_PROP]:
-                bsd_sample_entry[TAX_ID_PROP] = sample[BIOSAMPLE_OBJECT_PROP][CHARACTERISTICS_PROP][TAX_ID_PROP][0]['text']
+            if BSD_TAX_ID_PROP in sample[EVA_BIOSAMPLE_OBJECT_PROP][BSD_CHARACTERISTICS_PROP]:
+                bsd_sample_entry[BSD_TAX_ID_PROP] = sample[EVA_BIOSAMPLE_OBJECT_PROP][BSD_CHARACTERISTICS_PROP][BSD_TAX_ID_PROP][0]['text']
 
             # Apply defaults if the key doesn't already exist
             for key in self.characteristic_defaults:
-                if key not in bsd_sample_entry[CHARACTERISTICS_PROP]:
+                if key not in bsd_sample_entry[BSD_CHARACTERISTICS_PROP]:
                     self.apply_mapping(
-                        bsd_sample_entry[CHARACTERISTICS_PROP],
+                        bsd_sample_entry[BSD_CHARACTERISTICS_PROP],
                         key,
                         [{'text': self.characteristic_defaults[key]}]
                         )
@@ -510,14 +513,14 @@ class SampleJSONSubmitter(SampleSubmitter):
                         organisations.append(organisation)
                 self.apply_mapping(bsd_sample_entry, 'contact', contacts)
                 self.apply_mapping(bsd_sample_entry, 'organization', organisations)
-            bsd_sample_entry[RELEASE_PROP] = _now
+            bsd_sample_entry[BSD_RELEASE_PROP] = _now
             # Custom attributes added to all the BioSample we create/modify
-            bsd_sample_entry[CHARACTERISTICS_PROP][LAST_UPDATED_BY_PROP] = [{'text': 'EVA'}]
-            yield bsd_sample_entry, sample.get(SAMPLE_IN_VCF_PROP), sample.get(BIOSAMPLE_ACCESSION_PROP), analysis_aliases
+            bsd_sample_entry[BSD_CHARACTERISTICS_PROP][BSD_LAST_UPDATED_BY_PROP] = [{'text': 'EVA'}]
+            yield bsd_sample_entry, sample.get(EVA_SAMPLE_IN_VCF_PROP), sample.get(EVA_BIOSAMPLE_ACCESSION_PROP), analysis_aliases
 
     def check_submit_done(self):
         return all([
-            sample_json.get(BIOSAMPLE_ACCESSION_PROP)
+            sample_json.get(EVA_BIOSAMPLE_ACCESSION_PROP)
             for sample_json in self.metadata_json.get('sample')
         ])
 
@@ -525,7 +528,7 @@ class SampleJSONSubmitter(SampleSubmitter):
         """Provide one sample record per pre-submitted sample, retrieving their name from BioSamples."""
         return [
             self._pre_registered_sample_record(
-                sample_json.get(BIOSAMPLE_ACCESSION_PROP), sample_json.get(SAMPLE_IN_VCF_PROP),
+                sample_json.get(EVA_BIOSAMPLE_ACCESSION_PROP), sample_json.get(EVA_SAMPLE_IN_VCF_PROP),
                 self._analysis_aliases(sample_json)
             )
             for sample_json in self.metadata_json.get('sample')
@@ -539,12 +542,12 @@ class SampleMetadataSubmitter(SampleSubmitter):
     """Class that maps old version (before version 2) of the spreadsheet to Biosample json that can be submitted"""
     sample_mapping = {
         'Sample Name': 'name',
-        'Sample Accession': ACCESSION_PROP,
-        'Sex': f'{CHARACTERISTICS_PROP}.sex',
-        'bio_material': f'{CHARACTERISTICS_PROP}.material',
-        'Tax Id': TAX_ID_PROP,
-        'Scientific Name': [f'{CHARACTERISTICS_PROP}.scientific name', f'{CHARACTERISTICS_PROP}.Organism'],
-        'collection_date': f'{CHARACTERISTICS_PROP}.collection date'
+        'Sample Accession': BSD_ACCESSION_PROP,
+        'Sex': f'{BSD_CHARACTERISTICS_PROP}.sex',
+        'bio_material': f'{BSD_CHARACTERISTICS_PROP}.material',
+        'Tax Id': BSD_TAX_ID_PROP,
+        'Scientific Name': [f'{BSD_CHARACTERISTICS_PROP}.scientific name', f'{BSD_CHARACTERISTICS_PROP}.Organism'],
+        'collection_date': f'{BSD_CHARACTERISTICS_PROP}.collection date'
     }
     accepted_characteristics = ['Unique Name Prefix', 'Subject', 'Derived From', 'Scientific Name', 'Common Name',
                                 'mating_type', 'sex', 'population', 'cell_type', 'dev_stage', 'germline', 'tissue_lib',
@@ -585,14 +588,14 @@ class SampleMetadataSubmitter(SampleSubmitter):
 
     def _convert_metadata(self):
         for sample_row in self.reader.samples:
-            bsd_sample_entry = {CHARACTERISTICS_PROP: {}}
+            bsd_sample_entry = {BSD_CHARACTERISTICS_PROP: {}}
             description_list = []
             if sample_row.get('Title'):
                 description_list.append(sample_row.get('Title'))
             if sample_row.get('Description'):
                 description_list.append(sample_row.get('Description'))
             if description_list:
-                self.apply_mapping(bsd_sample_entry[CHARACTERISTICS_PROP], 'description', [{'text': ' - '.join(description_list)}])
+                self.apply_mapping(bsd_sample_entry[BSD_CHARACTERISTICS_PROP], 'description', [{'text': ' - '.join(description_list)}])
             for key in sample_row:
                 if sample_row[key]:
                     if key in self.sample_mapping:
@@ -600,7 +603,7 @@ class SampleMetadataSubmitter(SampleSubmitter):
                     elif key in self.accepted_characteristics:
                         # other field maps to characteristics
                         self.apply_mapping(
-                            bsd_sample_entry[CHARACTERISTICS_PROP],
+                            bsd_sample_entry[BSD_CHARACTERISTICS_PROP],
                             self.map_sample_key(key.lower()),
                             [{'text': self.serialize(sample_row[key])}]
                         )
@@ -612,22 +615,22 @@ class SampleMetadataSubmitter(SampleSubmitter):
                     if ":" in novel_attribute:
                         attribute, value = novel_attribute.strip().split(':')
                         self.apply_mapping(
-                            bsd_sample_entry[CHARACTERISTICS_PROP],
+                            bsd_sample_entry[BSD_CHARACTERISTICS_PROP],
                             self.map_sample_key(attribute.lower()),
                             [{'text': self.serialize(value)}]
                         )
             # Apply defaults if the key doesn't already exist
             for key in self.characteristic_defaults:
-                if key not in bsd_sample_entry[CHARACTERISTICS_PROP]:
+                if key not in bsd_sample_entry[BSD_CHARACTERISTICS_PROP]:
                     self.apply_mapping(
-                        bsd_sample_entry[CHARACTERISTICS_PROP],
+                        bsd_sample_entry[BSD_CHARACTERISTICS_PROP],
                         self.map_sample_key(key.lower()),
                         [{'text': self.serialize(self.characteristic_defaults[key])}]
                     )
             project_row = self.reader.project
             for key in self.reader.project:
                 if key in self.project_mapping:
-                    self.apply_mapping(bsd_sample_entry[CHARACTERISTICS_PROP], self.map_project_key(key),
+                    self.apply_mapping(bsd_sample_entry[BSD_CHARACTERISTICS_PROP], self.map_project_key(key),
                                        [{'text': self.serialize(project_row[key])}])
                 else:
                     # Ignore the other values
@@ -648,10 +651,10 @@ class SampleMetadataSubmitter(SampleSubmitter):
             self.apply_mapping(bsd_sample_entry, 'contact', contacts)
             self.apply_mapping(bsd_sample_entry, 'organization', organisations)
 
-            bsd_sample_entry[RELEASE_PROP] = _now
+            bsd_sample_entry[BSD_RELEASE_PROP] = _now
             # Custom attributes added to all the BioSample we create/modify
-            bsd_sample_entry[CHARACTERISTICS_PROP][LAST_UPDATED_BY_PROP] = [{'text': 'EVA'}]
-            yield (bsd_sample_entry, self._sample_name_in_vcf(sample_row), bsd_sample_entry.get(ACCESSION_PROP),
+            bsd_sample_entry[BSD_CHARACTERISTICS_PROP][BSD_LAST_UPDATED_BY_PROP] = [{'text': 'EVA'}]
+            yield (bsd_sample_entry, self._sample_name_in_vcf(sample_row), bsd_sample_entry.get(BSD_ACCESSION_PROP),
                    self._analysis_aliases(sample_row))
 
     @staticmethod

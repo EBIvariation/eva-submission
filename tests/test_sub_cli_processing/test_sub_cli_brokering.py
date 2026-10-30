@@ -24,18 +24,18 @@ class TestSubCliProcessBrokering(TestCase):
 
     def test_upload_to_bioSamples(self):
         self._upload_to_biosamples([
-            SampleRecord('SAME000001', analysis_aliases=['AF1'], name='bsd1'),
-            SampleRecord('SAME000002', analysis_aliases=['AF1'], name='bsd2'),
+            SampleRecord('SAME000001', analysis_aliases=['AF1'], biosample_name='bsd1'),
+            SampleRecord('SAME000002', analysis_aliases=['AF1'], biosample_name='bsd2'),
         ])
 
     def test_upload_to_bioSamples_incomplete(self):
         with self.assertRaises(ValueError):
-            self._upload_to_biosamples([SampleRecord('SAME000001', analysis_aliases=['AF1'], name='bsd1')])
+            self._upload_to_biosamples([SampleRecord('SAME000001', analysis_aliases=['AF1'], biosample_name='bsd1')])
 
     def test_upload_to_bioSamples_sample_without_accession(self):
         with self.assertRaises(ValueError) as context:
             self._upload_to_biosamples([
-                SampleRecord('SAME000001', analysis_aliases=['AF1'], name='bsd1'),
+                SampleRecord('SAME000001', analysis_aliases=['AF1'], biosample_name='bsd1'),
                 SampleRecord(None, analysis_aliases=['AF1'], sample_in_vcf='S2'),
             ])
         assert "['S2']" in str(context.exception)

@@ -115,7 +115,7 @@ class TestEloadSampleRecords(TestCase):
             if os.path.exists(file_path):
                 os.remove(file_path)
 
-    def test_sample_records_per_analysis(self):
+    def test_sample_maps_for_analysis(self):
         self.eload.submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
             # Same sampleInVCF in two genotype analyses
             {'accession': 'SAME000001', 'analysisAlias': ['GT1'], 'sampleInVCF': 'S1'},
@@ -142,7 +142,7 @@ class TestEloadSampleRecords(TestCase):
         # Aliases match whether or not they are prefixed with the ELOAD
         assert self.eload.sample_records_for_analysis('AF1') == [
             SampleRecord('SAME000001', analysis_aliases=['GT1', 'AF1'], sample_in_vcf='S1'),
-            SampleRecord('SAME000002', analysis_aliases=['submission_55_AF1'], name='bsd2'),
+            SampleRecord('SAME000002', analysis_aliases=['submission_55_AF1'], biosample_name='bsd2'),
         ]
         assert [r.accession for r in self.eload.sample_records_for_analysis('submission_55_GT1')] == [
             'SAME000001', 'SAME000003'
