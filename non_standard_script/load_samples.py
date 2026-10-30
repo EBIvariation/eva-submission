@@ -155,7 +155,7 @@ class HistoricalProjectSampleLoader(SubmissionBacklog):
             unmatched_name_in_VCF = []
             unmatched_sample_accession = []
             for vcf_file, md5 in self.analysis_accession_2_file_info.get(analysis_accession, []):
-                sample_name_2_accession = copy(self.sample_name_2_accessions_per_analysis.get(analysis_accession))
+                sample_name_2_accession = copy(self.ena_sample_alias_to_accession_per_analysis.get(analysis_accession))
                 sample_names = self.get_samples_from_vcf(vcf_file)
 
                 for sample_name in sample_names:
@@ -227,10 +227,10 @@ class HistoricalProjectSampleLoader(SubmissionBacklog):
             aggregation_type = self.analysis_accession_2_aggregation_type.get(analysis_accession)
             if aggregation_type == 'basic':
                 result &= self.eva_project_loader.load_samples_from_analysis(
-                    self.sample_accession_2_name_for_analysis(analysis_accession), analysis_accession
+                    self.sample_accession_to_name_for_analysis_accession(analysis_accession), analysis_accession
                 )
             else:
-                sample_name_2_accession = self.sample_name_2_accession_for_analysis(analysis_accession)
+                sample_name_2_accession = self.sample_name_to_accession_for_analysis_accession(analysis_accession)
                 for vcf_file, vcf_file_md5 in self.analysis_accession_2_file_info.get(analysis_accession, []):
                     result &= self.eva_project_loader.load_samples_from_vcf_file(
                         sample_name_2_accession, vcf_file, vcf_file_md5,
@@ -259,9 +259,9 @@ class HistoricalProjectSampleLoader(SubmissionBacklog):
             return super().analysis_accessions
 
     @cached_property
-    def sample_name_2_accessions_per_analysis(self):
+    def ena_sample_alias_to_accession_per_analysis(self):
         """Retrieve the sample to biosample accession map from the ENA API"""
-        sample_name_2_accessions_per_analysis = {}
+        ena_sample_alias_to_accession_per_analysis = {}
         sample_accessions_per_analysis = {}
         # Check the XML first
         if self.analysis_accessions:
@@ -275,20 +275,20 @@ class HistoricalProjectSampleLoader(SubmissionBacklog):
                 sample_accessions_per_analysis = self.api_ena_finder.find_samples_from_analysis(self.project_accession)
         # reverse the dictionary where sample name become the key and sample accession the value
         for analysis_accession in sample_accessions_per_analysis:
-            sample_name_2_accessions_per_analysis[analysis_accession] = {
+            ena_sample_alias_to_accession_per_analysis[analysis_accession] = {
                 alias: accession for accession, alias in sample_accessions_per_analysis[analysis_accession]
             }
-        return sample_name_2_accessions_per_analysis
+        return ena_sample_alias_to_accession_per_analysis
 
     @cached_property
-    def sample_name_2_accession(self):
+    def project_sample_name_to_accession(self):
         """Retrieve the sample to biosample accession map from the config or from the ENA API"""
         sample_name_2_accession = self.sample_name_to_accession()
         if not sample_name_2_accession:
                 sample_name_2_accession = {name: accession
-                                           for analysis_accession in self.sample_name_2_accessions_per_analysis
+                                           for analysis_accession in self.ena_sample_alias_to_accession_per_analysis
                                            for name, accession in
-                                           self.sample_name_2_accessions_per_analysis[analysis_accession].items()}
+                                           self.ena_sample_alias_to_accession_per_analysis[analysis_accession].items()}
         return sample_name_2_accession
 
     @cached_property
@@ -299,19 +299,19 @@ class HistoricalProjectSampleLoader(SubmissionBacklog):
             return {}
         return {accession: alias for alias, accession in analysis_alias_2_accession.items()}
 
-    def sample_name_2_accession_for_analysis(self, analysis_accession):
+    def sample_name_to_accession_for_analysis_accession(self, analysis_accession):
         """Use the sample records of the analysis when they exist, otherwise the map for the whole project."""
         analysis_alias = self.analysis_accession_2_alias.get(analysis_accession)
         if analysis_alias and self.sample_records():
             return self.sample_name_to_accession_for_analysis(analysis_alias)
-        return self.sample_name_2_accession
+        return self.project_sample_name_to_accession
 
-    def sample_accession_2_name_for_analysis(self, analysis_accession):
+    def sample_accession_to_name_for_analysis_accession(self, analysis_accession):
         """Use the sample records of the analysis when they exist, otherwise invert the map for the whole project."""
         analysis_alias = self.analysis_accession_2_alias.get(analysis_accession)
         if analysis_alias and self.sample_records():
             return self.sample_accession_to_name_for_analysis(analysis_alias)
-        return {accession: name for name, accession in self.sample_name_2_accession.items()}
+        return {accession: name for name, accession in self.project_sample_name_to_accession.items()}
 
     @cached_property
     def analysis_accession_2_file_info(self):
@@ -440,7 +440,7 @@ class HistoricalProjectSampleLoader(SubmissionBacklog):
             potential_matches_for_name = []
             for name_in_ENA in unmatched_names_in_ENA:
                 # search the biosample accession associated with the sample in ENA
-                biosample_accession = self.sample_name_2_accession.get(name_in_ENA)
+                biosample_accession = self.project_sample_name_to_accession.get(name_in_ENA)
                 if biosample_accession:
                     attribute, match_type = self.search_mapping_in_biosample(biosample_accession, name_in_vcf)
                     if attribute and match_type == 'full':
