@@ -6,7 +6,7 @@ from unittest.mock import patch
 from requests import HTTPError
 
 from eva_submission.submission_config import load_config
-from eva_submission.submission_qc_checks import EloadQC
+from eva_submission.submission_qc_checks import SubmissionQC
 
 
 class TestSubmissionQC(TestCase):
@@ -35,7 +35,7 @@ class TestSubmissionQC(TestCase):
         return mock_resp
 
     def test_submission_qc_checks_failed_1(self):
-        self.eload = EloadQC(101)
+        self.eload = SubmissionQC('submission_101')
 
         with self._patch_metadata_handle(), \
                 patch('eva_submission.submission_qc_checks.FTP.login'), \
@@ -52,10 +52,10 @@ class TestSubmissionQC(TestCase):
                                  self._mock_response(status=500, raise_for_status=HTTPError("service is down"))]
             m_ftp_nlst.return_value = []
             self.assertEqual(self.expected_report_of_eload_101(), self.eload.run_qc_checks_for_submission())
-            self.assertIn(EloadQC.config_section, self.eload.eload_cfg)
+            self.assertIn(SubmissionQC.config_section, self.eload.submission_cfg)
 
     def test_submission_qc_checks_failed_2(self):
-        self.eload = EloadQC(102)
+        self.eload = SubmissionQC('submission_102')
 
         with self._patch_metadata_handle(), \
                 patch('eva_submission.submission_qc_checks.FTP.login'), \
@@ -71,10 +71,10 @@ class TestSubmissionQC(TestCase):
             m_ftp_nlst.return_value = ['test1.vcf.gz.csi', 'test1.vcf.csi', 'test1.accessioned.vcf.gz.csi',
                                        'test1.accessioned.vcf.csi']
             self.assertEqual(self.expected_report_of_eload_102(), self.eload.run_qc_checks_for_submission())
-            self.assertIn(EloadQC.config_section, self.eload.eload_cfg)
+            self.assertIn(SubmissionQC.config_section, self.eload.submission_cfg)
 
     def test_submission_qc_checks_passed(self):
-        self.eload = EloadQC(103)
+        self.eload = SubmissionQC('submission_103')
 
         with self._patch_metadata_handle(), \
                 patch('eva_submission.submission_qc_checks.FTP.login'), \
@@ -99,10 +99,10 @@ class TestSubmissionQC(TestCase):
                                        'test2.vcf.gz.csi', 'test2.vcf.csi', 'test2.accessioned.vcf.gz',
                                        'test2.accessioned.vcf.gz.csi', 'test2.accessioned.vcf.csi']
             self.assertEqual(self.expected_report_of_eload_103(), self.eload.run_qc_checks_for_submission())
-            self.assertIn(EloadQC.config_section, self.eload.eload_cfg)
+            self.assertIn(SubmissionQC.config_section, self.eload.submission_cfg)
 
     def test_submission_qc_checks_missing_files(self):
-        self.eload = EloadQC(104)
+        self.eload = SubmissionQC('submission_104')
 
         with self._patch_metadata_handle(), \
                 patch('eva_submission.submission_qc_checks.FTP.login'), \
@@ -122,16 +122,16 @@ class TestSubmissionQC(TestCase):
             m_ftp_nlst.return_value = ['test1.vcf.gz', 'test1.vcf.gz.csi', 'test1.vcf.csi', 'test1.accessioned.vcf.gz',
                                        'test1.accessioned.vcf.gz.csi', 'test1.accessioned.vcf.csi']
             self.assertEqual(self.expected_report_of_eload_104(), self.eload.run_qc_checks_for_submission())
-            self.assertIn(EloadQC.config_section, self.eload.eload_cfg)
+            self.assertIn(SubmissionQC.config_section, self.eload.submission_cfg)
 
     def test_check_if_variant_load_completed_successfully(self):
-        self.eload = EloadQC(103)
+        self.eload = SubmissionQC('submission_103')
         result, report = self.eload.check_if_variant_load_completed_successfully()
         assert result == 'PASS'
         assert report == 'Success: PASS'
 
     def test_rs_report_exists(self):
-        self.eload = EloadQC(103)
+        self.eload = SubmissionQC(103)
         with tempfile.TemporaryDirectory() as tmp_dir:
             self.eload.path_to_logs_dir = tmp_dir
             self.assertFalse(self.eload._rs_report_exists('GCA_000003205.6'))
@@ -141,47 +141,47 @@ class TestSubmissionQC(TestCase):
             self.assertTrue(self.eload._rs_report_exists('GCA_000003205.6'))
 
     def test_clustering_qc_log_absent_and_no_rs_report(self):
-        self.eload = EloadQC(103)
+        self.eload = SubmissionQC(103)
         qc_missing = (False, 'clustering_qc error : No clustering_qc log file found for GCA_000003205.6')
-        with patch.object(EloadQC, '_find_log_and_check_job', side_effect=[(True, ''), qc_missing]), \
-                patch.object(EloadQC, '_log_exists', return_value=False), \
-                patch.object(EloadQC, '_rs_report_exists', return_value=False):
+        with patch.object(SubmissionQC, '_find_log_and_check_job', side_effect=[(True, ''), qc_missing]), \
+                patch.object(SubmissionQC, '_log_exists', return_value=False), \
+                patch.object(SubmissionQC, '_rs_report_exists', return_value=False):
             result, report = self.eload.clustering_check_report()
-        self.assertEqual(EloadQC.PASS, result)
+        self.assertEqual(SubmissionQC.PASS, result)
         self.assertIn('Clustering Job: PASS - No error', report)
         self.assertIn('Clustering QC Job: SKIP - No RS report file found (no new RS created)', report)
 
     def test_clustering_qc_log_absent_but_rs_report_present(self):
         # the RS report exists so clustering QC should have run: a missing log is a real failure
-        self.eload = EloadQC(103)
+        self.eload = SubmissionQC(103)
         qc_missing = (False, 'clustering_qc error : No clustering_qc log file found for GCA_000003205.6')
-        with patch.object(EloadQC, '_find_log_and_check_job', side_effect=[(True, ''), qc_missing]), \
-                patch.object(EloadQC, '_log_exists', return_value=False), \
-                patch.object(EloadQC, '_rs_report_exists', return_value=True):
+        with patch.object(SubmissionQC, '_find_log_and_check_job', side_effect=[(True, ''), qc_missing]), \
+                patch.object(SubmissionQC, '_log_exists', return_value=False), \
+                patch.object(SubmissionQC, '_rs_report_exists', return_value=True):
             result, report = self.eload.clustering_check_report()
-        self.assertEqual(EloadQC.FAIL, result)
+        self.assertEqual(SubmissionQC.FAIL, result)
         self.assertIn('Clustering QC Job: FAIL - clustering_qc error', report)
 
     def test_clustering_qc_log_present_but_failed(self):
         # a QC log that exists and shows failure must still fail even if there is no RS report
-        self.eload = EloadQC(103)
+        self.eload = SubmissionQC(103)
         qc_failed = (False, 'clustering_qc failed job/step : some-step')
-        with patch.object(EloadQC, '_find_log_and_check_job', side_effect=[(True, ''), qc_failed]), \
-                patch.object(EloadQC, '_log_exists', return_value=True), \
-                patch.object(EloadQC, '_rs_report_exists', return_value=False):
+        with patch.object(SubmissionQC, '_find_log_and_check_job', side_effect=[(True, ''), qc_failed]), \
+                patch.object(SubmissionQC, '_log_exists', return_value=True), \
+                patch.object(SubmissionQC, '_rs_report_exists', return_value=False):
             result, report = self.eload.clustering_check_report()
-        self.assertEqual(EloadQC.FAIL, result)
+        self.assertEqual(SubmissionQC.FAIL, result)
         self.assertIn('Clustering QC Job: FAIL - clustering_qc failed job/step : some-step', report)
 
     def test_clustering_failed_still_fails_when_qc_skipped(self):
-        self.eload = EloadQC(103)
+        self.eload = SubmissionQC(103)
         failed = (False, 'clustering failed job/step : some-step')
         qc_missing = (False, 'clustering_qc error : No clustering_qc log file found for GCA_000003205.6')
-        with patch.object(EloadQC, '_find_log_and_check_job', side_effect=[failed, qc_missing]), \
-                patch.object(EloadQC, '_log_exists', return_value=False), \
-                patch.object(EloadQC, '_rs_report_exists', return_value=False):
+        with patch.object(SubmissionQC, '_find_log_and_check_job', side_effect=[failed, qc_missing]), \
+                patch.object(SubmissionQC, '_log_exists', return_value=False), \
+                patch.object(SubmissionQC, '_rs_report_exists', return_value=False):
             result, report = self.eload.clustering_check_report()
-        self.assertEqual(EloadQC.FAIL, result)
+        self.assertEqual(SubmissionQC.FAIL, result)
         self.assertIn('Clustering Job: FAIL - clustering failed job/step : some-step', report)
 
     def expected_report_of_eload_101(self):

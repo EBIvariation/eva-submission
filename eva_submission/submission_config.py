@@ -7,7 +7,7 @@ from ebi_eva_common_pyutils.config import Configuration, cfg
 from eva_submission import __version__
 
 
-class EloadConfig(Configuration):
+class SubmissionConfig(Configuration):
     """Configuration object that allows write to the config file"""
 
     def load_config_file(self, *search_path):

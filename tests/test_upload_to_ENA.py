@@ -7,14 +7,14 @@ from ebi_eva_common_pyutils.config import cfg
 
 from eva_submission import ROOT_DIR
 from eva_submission.ENA_submission.upload_to_ENA import ENAUploader, ENAUploaderAsync, HackFTP_TLS
-from eva_submission.eload_utils import get_file_content
+from eva_submission.submission_utils import get_file_content
 from eva_submission.submission_config import load_config
 
 
 class TestENAUploader(TestCase):
     receipt_xml = '''<?xml version="1.0" encoding="UTF-8"?>
     <?xml-stylesheet type="text/xsl" href="receipt.xsl"?>
-    <RECEIPT receiptDate="2020-12-21T16:23:42.950Z" submissionFile="ELOAD_733.Submission.xml" success="true">
+    <RECEIPT receiptDate="2020-12-21T16:23:42.950Z" submissionFile="submission_733.Submission.xml" success="true">
          <ANALYSIS accession="ERZ1695006" alias="FGV analysis b" status="PRIVATE"/>
          <PROJECT accession="PRJEB42220" alias="ICFADS2b" status="PRIVATE" holdUntilDate="2022-12-21Z">
               <EXT_ID accession="ERP126058" type="study"/>
@@ -63,12 +63,12 @@ class TestENAUploader(TestCase):
         load_config(config_file)
         metadata_file = os.path.join(self.brokering_folder, 'metadata_sheet.xlsx')
         metadata_json = os.path.join(self.brokering_folder, 'eva_metadata_json.json')
-        self.uploader_xls = ENAUploader('ELOAD_1', metadata_file, self.brokering_folder)
-        self.uploader_async_xls = ENAUploaderAsync('ELOAD_1', metadata_file, self.brokering_folder)
-        self.uploader_json = ENAUploader('ELOAD_1', metadata_json, self.brokering_folder)
-        self.uploader_async_json = ENAUploaderAsync('ELOAD_1', metadata_json, self.brokering_folder)
+        self.uploader_xls = ENAUploader('submission_1', metadata_file, self.brokering_folder)
+        self.uploader_async_xls = ENAUploaderAsync('submission_1', metadata_file, self.brokering_folder)
+        self.uploader_json = ENAUploader('submission_1', metadata_json, self.brokering_folder)
+        self.uploader_async_json = ENAUploaderAsync('submission_1', metadata_json, self.brokering_folder)
 
-        evapro_patcher = patch('eva_submission.eload_utils.get_scientific_name_from_evapro', return_value=None)
+        evapro_patcher = patch('eva_submission.submission_utils.get_scientific_name_from_evapro', return_value=None)
         evapro_patcher.start()
         self.addCleanup(evapro_patcher.stop)
 
@@ -88,7 +88,7 @@ class TestENAUploader(TestCase):
         }
         receipt = '''<?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="receipt.xsl"?>
-<RECEIPT receiptDate="2020-10-29T10:48:02.303Z" submissionFile="ELOAD_697.Submission.xml" success="false">
+<RECEIPT receiptDate="2020-10-29T10:48:02.303Z" submissionFile="submission_697.Submission.xml" success="false">
      <SUBMISSION alias="Sorghum GBS SNPs"/>
      <MESSAGES>
           <ERROR>In submission, alias:"Sorghum GBS SNPs", accession:"". The object being added already exists in the submission account with accession: "ERA3030993".</ERROR>
@@ -110,7 +110,7 @@ class TestENAUploader(TestCase):
     def test_parse_ena_xml_receipt_multiple_analyses(self):
         receipt = '''<?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="receipt.xsl"?>
-<RECEIPT receiptDate="2020-12-21T16:23:42.950Z" submissionFile="ELOAD_733.Submission.xml" success="true">
+<RECEIPT receiptDate="2020-12-21T16:23:42.950Z" submissionFile="submission_733.Submission.xml" success="true">
      <ANALYSIS accession="ERZ1695005" alias="FGV analysis a" status="PRIVATE"/>
      <ANALYSIS accession="ERZ1695006" alias="FGV analysis b" status="PRIVATE"/>
      <PROJECT accession="PRJEB42220" alias="ICFADS2b" status="PRIVATE" holdUntilDate="2022-12-21Z">
@@ -143,7 +143,7 @@ class TestENAUploader(TestCase):
             mock_post.assert_called_with(
                 'https://wwwdev.ebi.ac.uk/ena/submit/webin-v2/submit/queue',
                 {'file': (
-                    'ELOAD_1.SingleSubmission.xml',
+                    'submission_1.SingleSubmission.xml',
                     get_file_content(self.uploader_async_xls.converter.single_submission_file),
                     'application/xml'
                 )}
@@ -169,7 +169,7 @@ class TestENAUploader(TestCase):
             self.assertTrue(os.path.isfile(self.uploader_async_xls.converter.single_submission_file))
             mock_info.assert_any_call('Would have uploaded the following metadata files to ENA asynchronous submission '
                                       'endpoint:')
-            mock_info.assert_any_call('file: ELOAD_1.SingleSubmission.xml')
+            mock_info.assert_any_call('file: submission_1.SingleSubmission.xml')
             mock_post.assert_not_called()
             mock_get.assert_not_called()
 
