@@ -13,8 +13,9 @@ from packaging import version
 
 from eva_sub_cli_processing.sub_cli_utils import put_to_sub_ws, sub_ws_url_build
 from eva_submission import __version__
+from eva_submission.biosample_submission.sample_record import records_from_dicts
 from eva_submission.config_migration import upgrade_version_0_1, upgrade_version_1_14_to_1_15, \
-    upgrade_version_1_15_to_1_16
+    upgrade_version_1_15_to_1_16, needs_sample_records_upgrade, upgrade_samples_to_sample_records
 from eva_submission.submission_utils import get_hold_date_from_ena
 from eva_submission.submission_config import SubmissionConfig
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
@@ -86,6 +87,57 @@ class Submission(AppLogger):
             return alias[len(self.submission_id) + 1:]
         return alias
 
+    def sample_records(self):
+        """
+        Returns the records of the samples brokered to BioSamples.
+        Configs from before the records were introduced are converted by upgrade_sample_records_if_needed.
+        """
+        return records_from_dicts(self.submission_cfg.query('brokering', 'Biosamples', 'sample_records', ret_default=[]))
+
+    def sample_records_for_analysis(self, analysis_alias):
+        """Records belonging to the analysis."""
+        return [
+            record for record in self.sample_records()
+            if record.in_analysis(analysis_alias, normalise_alias=self._unique_alias)
+        ]
+
+    def sample_name_to_accession(self):
+        """Map of sample name in VCF to accession across all analyses. Only used by the legacy spreadsheet path."""
+        sample_name_to_accession = {}
+        for record in self.sample_records():
+            if record.sample_in_vcf and record.sample_in_vcf not in sample_name_to_accession:
+                sample_name_to_accession[record.sample_in_vcf] = record.accession
+        return sample_name_to_accession
+
+    def sample_name_to_accession_for_analysis(self, analysis_alias):
+        """Map of sample name in VCF to accession for one analysis. Used to load genotype analyses."""
+        sample_name_to_accession = {}
+        for record in self.sample_records_for_analysis(analysis_alias):
+            sample_name = record.sample_in_vcf
+            if not sample_name:
+                continue
+            if sample_name in sample_name_to_accession and sample_name_to_accession[sample_name] != record.accession:
+                raise ValueError(f'Sample {sample_name} in analysis {analysis_alias} is associated with multiple '
+                                 f'accessions: {sample_name_to_accession[sample_name]}, {record.accession}')
+            sample_name_to_accession[sample_name] = record.accession
+        return sample_name_to_accession
+
+    def sample_accession_to_name_for_analysis(self, analysis_alias):
+        """
+        Map of accession to sample name for one analysis. Used to load allele frequency analyses.
+        The name is the record's label: sample name in VCF if provided, else the BioSample name, else the accession.
+        """
+        sample_accession_to_name = {}
+        for record in self.sample_records_for_analysis(analysis_alias):
+            if record.accession in sample_accession_to_name:
+                if sample_accession_to_name[record.accession] != record.label:
+                    self.warning(f'Sample {record.accession} in analysis {analysis_alias} has multiple names: '
+                                 f'{sample_accession_to_name[record.accession]} and {record.label}. '
+                                 f'Keep the first one.')
+                continue
+            sample_accession_to_name[record.accession] = record.label
+        return sample_accession_to_name
+
     def create_log_file(self):
         logfile_name = os.path.join(self.submission_dir, str(self.submission_id) + "_submission.log")
         if logfile_name not in submission_logging_files:
@@ -99,6 +151,7 @@ class Submission(AppLogger):
          - using the provided analysis alias for all vcf files (pre version 1)
          - reformat nextflow directories in the config (pre version 1.15)
          - link project subdirectories to the submission directories and update the config (pre version 1.16)
+         - replace the BioSamples sample name to accession dict with sample records (any version)
         """
         if 'version' not in self.submission_cfg:
             self.debug(f'No version found in config, upgrading to version {__version__}.')
@@ -117,25 +170,52 @@ class Submission(AppLogger):
             upgrade_version_1_15_to_1_16(self.submission_cfg, self.submission_dir)
         else:
             self.debug(f"Config is version {self.submission_cfg.query('version')}, not upgrading.")
+        self.upgrade_sample_records_if_needed()
+
+    def upgrade_sample_records_if_needed(self):
+        """
+        Replaces the sample name to accession dict of configs brokered before the sample records were introduced.
+        This does not depend on the config version because these configs can have any version.
+        """
+        if needs_sample_records_upgrade(self.submission_cfg):
+            # Imported here to avoid a circular import through the EVAPRO metadata loader
+            from eva_submission.evapro.populate_evapro import EvaProjectLoader
+            self.info('Convert the BioSamples sample name to accession dict to sample records')
+            self.submission_cfg.backup()
+            upgrade_samples_to_sample_records(self.submission_cfg, EvaProjectLoader().get_samples_in_analysis)
+            self.submission_cfg.write()
 
     def update_config_with_hold_date(self, project_accession, project_alias=None):
         hold_date = get_hold_date_from_ena(project_accession, project_alias)
         self.submission_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
 
+    def _accessioned_sample_objects(self, samples, sample_records):
+        """The sample records are in the same order as the samples in the metadata: sample i gets record i."""
+        if len(samples) != len(sample_records):
+            raise ValueError(f'The metadata contains {len(samples)} samples but {len(sample_records)} were brokered '
+                             f'to BioSamples')
+        sample_objects = []
+        for sample_obj, record in zip(samples, sample_records):
+            accession_in_metadata = sample_obj.get('bioSampleAccession')
+            if accession_in_metadata and not record.is_derived and accession_in_metadata != record.accession:
+                raise ValueError(f'Sample {accession_in_metadata} in the metadata does not match the brokered sample '
+                                 f'{record.accession}: the metadata was modified after brokering')
+            analysis_aliases = sample_obj.get('analysisAlias') or []
+            if isinstance(analysis_aliases, str):
+                analysis_aliases = [analysis_aliases]
+            sample_object = {
+                'analysisAlias': [self._unique_alias(a) for a in analysis_aliases],
+                'bioSampleAccession': record.accession
+            }
+            if record.sample_in_vcf:
+                sample_object['sampleInVCF'] = record.sample_in_vcf
+            sample_objects.append(sample_object)
+        return sample_objects
+
     def update_metadata_json(self, input_json_file, output_json_file, existing_project=None):
         with open(input_json_file) as open_file:
             metadata_json = json.load(open_file)
-        sample_objects = []
-        for sample_obj in metadata_json.get('sample'):
-            if self.submission_cfg.query('brokering', 'Biosamples', 'Samples', sample_obj.get('sampleInVCF')):
-                sample_objects.append({
-                    'analysisAlias': [self._unique_alias(a) for a in sample_obj.get('analysisAlias')],
-                    'sampleInVCF': sample_obj.get('sampleInVCF'),
-                    'bioSampleAccession': self.submission_cfg['brokering']['Biosamples']['Samples'][sample_obj.get('sampleInVCF')]
-                })
-            else:
-                sample_obj['analysisAlias'] = [self._unique_alias(a) for a in sample_obj.get('analysisAlias')]
-                sample_objects.append(sample_obj)
+        sample_objects = self._accessioned_sample_objects(metadata_json.get('sample'), self.sample_records())
 
         file_objects = []
         analyses = self.submission_cfg['brokering']['analyses']
@@ -185,14 +265,15 @@ class Submission(AppLogger):
         if len(reader.analysis) == 1:
             single_analysis_alias = self._unique_alias(reader.analysis[0].get('Analysis Alias'))
 
+        sample_name_to_accession = self.sample_name_to_accession()
         sample_rows = []
         for sample_row in reader.samples:
-            if self.submission_cfg.query('brokering', 'Biosamples', 'Samples', sample_row.get('Sample Name')):
+            if sample_name_to_accession.get(sample_row.get('Sample Name')):
                 sample_rows.append({
                     'row_num': sample_row.get('row_num'),
                     'Analysis Alias': self._unique_alias(sample_row.get('Analysis Alias')) or single_analysis_alias,
                     'Sample ID': sample_row.get('Sample Name'),
-                    'Sample Accession': self.submission_cfg['brokering']['Biosamples']['Samples'][sample_row.get('Sample Name')]
+                    'Sample Accession': sample_name_to_accession[sample_row.get('Sample Name')]
                 })
             else:
                 sample_row['Analysis Alias'] = self._unique_alias(sample_row['Analysis Alias'])

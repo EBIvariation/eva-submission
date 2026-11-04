@@ -132,6 +132,17 @@ class TestEVAJsonToENAJsonConverter(TestCase):
         ena_analysis_json_obj = self.converter._add_analysis(self.analysis, self.samples, self.files, self.project)
         self.assert_json_equal(expected_analysis_json_obj, ena_analysis_json_obj)
 
+    def test_add_analysis_samples_without_sample_in_vcf(self):
+        samples = [
+            {'analysisAlias': ['GRM'], 'bioSampleAccession': 'SAMEA7851610'},
+            {'analysisAlias': ['GRM'], 'bioSampleAccession': 'SAMEA7851611', 'sampleInVCF': 'S2'},
+        ]
+        ena_analysis_json_obj = self.converter._add_analysis(self.analysis, samples, self.files, self.project)
+        assert ena_analysis_json_obj['samples'] == [
+            {'accession': 'SAMEA7851610'},
+            {'accession': 'SAMEA7851611', 'alias': 'S2'}
+        ]
+
     def test_add_analysis_to_existing_project(self):
         # Override the cached property
         self.converter.existing_project = 'PRJEB00001'

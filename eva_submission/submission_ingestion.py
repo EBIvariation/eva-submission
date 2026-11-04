@@ -265,7 +265,6 @@ class SubmissionIngestion(Submission):
         """
         Loads Project and Analysis metadata from ENA into EVAPRO to the project associated with this Submission.
         """
-        sample_name_2_accession = self.submission_cfg.query('brokering', 'Biosamples', 'Samples', ret_default={})
         try:
             # Load entire project, or only analyses associated with this submission
             if check_project_exists_in_evapro(self.project_accession):
@@ -285,16 +284,19 @@ class SubmissionIngestion(Submission):
             # or by analysis
             for analysis_alias in self.submission_cfg.query('validation', 'aggregation_check', 'analyses'):
                 aggregation_type = self.submission_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
+                analysis_accession = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
                 if aggregation_type == 'basic':
-                    analysis_accession = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
-                    self.loader.load_samples_from_analysis(sample_name_2_accession, analysis_accession)
+                    sample_accession_2_name = self.sample_accession_to_name_for_analysis(analysis_alias)
+                    if not self.loader.load_samples_from_analysis(sample_accession_2_name, analysis_accession):
+                        raise ValueError(f'Samples from analysis {analysis_alias} could not be loaded in EVAPRO')
                 else:
+                    sample_name_2_accession = self.sample_name_to_accession_for_analysis(analysis_alias)
                     analysis_info = self.submission_cfg.query('brokering', 'analyses', analysis_alias)
-                    analysis_accession = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
                     for vcf_file in analysis_info['vcf_files']:
                         vcf_file_md5 = analysis_info['vcf_files'][vcf_file]['md5']
-                        self.loader.load_samples_from_vcf_file(sample_name_2_accession, vcf_file, vcf_file_md5,
-                                                               analysis_accession=analysis_accession)
+                        if not self.loader.load_samples_from_vcf_file(sample_name_2_accession, vcf_file, vcf_file_md5,
+                                                                      analysis_accession=analysis_accession):
+                            raise ValueError(f'Samples from {vcf_file} could not be loaded in EVAPRO')
             self.loader.update_project_samples_temp1(self.project_accession)
 
             self.loader.refresh_study_browser()
