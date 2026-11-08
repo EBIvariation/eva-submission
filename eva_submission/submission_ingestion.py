@@ -52,8 +52,8 @@ class SubmissionIngestion(Submission):
 
     def __init__(self, submission_id, config_object: SubmissionConfig = None, nextflow_config=None):
         super().__init__(submission_id, config_object)
-        self.project_accession = self.submission_cfg.query('brokering', 'ena', 'PROJECT')
-        self.taxonomy = self.submission_cfg.query('submission', 'taxonomy_id')
+        self.project_accession = self.get_state('projectAccession', 'brokering', 'ena', 'PROJECT')
+        self.taxonomy = self.get_taxonomy_id()
         self.private_settings_file = cfg['maven']['settings_file']
         self.maven_profile = cfg['maven']['environment']
         self.mongo_uri = get_mongo_uri_for_eva_profile(self.maven_profile, self.private_settings_file)
@@ -135,7 +135,7 @@ class SubmissionIngestion(Submission):
 
     def _update_metadata_post_ingestion(self):
         self.loader.insert_browsable_files_for_project(self.project_accession)
-        release_date = self.submission_cfg.query('brokering', 'ena', 'hold_date')
+        release_date = self.get_state('releaseDate', 'brokering', 'ena', 'hold_date')
         self.loader.mark_release_browsable_files_for_project(self.project_accession, release_date)
         self.loader.update_loaded_assembly_in_browsable_files_for_project(self.project_accession)
         self.loader.update_files_with_ftp_path_for_project(self.project_accession)
@@ -189,8 +189,8 @@ class SubmissionIngestion(Submission):
 
     def check_aggregation_done(self):
         errors = []
-        for analysis_alias, analysis_acc in self.submission_cfg.query('brokering', 'ena', 'ANALYSIS').items():
-            aggregation = self.submission_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
+        for analysis_alias, analysis_acc in self.get_analysis_accessions().items():
+            aggregation = self.get_analysis_aggregation(analysis_alias)
             if aggregation is None:
                 error = f'Aggregation type was not determined during validation for {analysis_alias}'
                 self.error(error)
@@ -268,7 +268,7 @@ class SubmissionIngestion(Submission):
         try:
             # Load entire project, or only analyses associated with this submission
             if check_project_exists_in_evapro(self.project_accession):
-                analyses = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS')
+                analyses = self.get_analysis_accessions()
                 for analysis_accession in analyses.values():
                     self.loader.load_project_from_ena(self.project_accession,
                                                       self.submission_id, analysis_accession,
@@ -282,9 +282,8 @@ class SubmissionIngestion(Submission):
 
             # Check aggregation type for each analysis in this submission to determine if we should load samples by file
             # or by analysis
-            for analysis_alias in self.submission_cfg.query('validation', 'aggregation_check', 'analyses'):
-                aggregation_type = self.submission_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
-                analysis_accession = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
+            for analysis_alias, aggregation_type in self.get_analysis_aggregations().items():
+                analysis_accession = self.get_analysis_accessions().get(analysis_alias)
                 if aggregation_type == 'basic':
                     sample_accession_2_name = self.sample_accession_to_name_for_analysis(analysis_alias)
                     if not self.loader.load_samples_from_analysis(sample_accession_2_name, analysis_accession):
@@ -354,7 +353,7 @@ class SubmissionIngestion(Submission):
                 assembly_accession = analysis_data['assembly_accession']
                 fasta = analysis_data['assembly_fasta']
                 report = analysis_data['assembly_report']
-                analysis_accession = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
+                analysis_accession = self.get_analysis_accessions().get(analysis_alias)
                 db_name = self.submission_cfg.query(self.config_section, 'database', assembly_accession, 'db_name')
                 vep_version = self.submission_cfg.query(self.config_section, 'vep', assembly_accession, 'version')
                 vep_cache_version = self.submission_cfg.query(self.config_section, 'vep', assembly_accession,
@@ -597,7 +596,7 @@ class SubmissionIngestion(Submission):
             for analysis_alias, analysis_data in analyses.items():
                 assembly_accession = analysis_data['assembly_accession']
                 assembly_set_id = get_assembly_set_from_metadata(conn, self.taxonomy, assembly_accession)
-                analysis_accession = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
+                analysis_accession = self.get_analysis_accessions().get(analysis_alias)
                 # Check if the update is needed
                 check_query = (f"select assembly_set_id from evapro.analysis "
                                f"where analysis_accession = '{analysis_accession}';")

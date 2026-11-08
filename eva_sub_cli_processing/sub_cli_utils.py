@@ -88,16 +88,19 @@ def get_or_generate_submission_id_for_eload(eload_id, source='email'):
     return response.get('submissionId')
 
 def update_tracking_details(submission_id, release_date=None, project_accession=None, analysis_accessions=None,
-                            rt_link=None):
-    body = {}
-    if release_date:
-        body['releaseDate'] = release_date
-    if project_accession:
-        body['projectAccession'] = project_accession
-    if analysis_accessions:
-        body['analysisAccessions'] = analysis_accessions
-    if rt_link:
-        body['rtLink'] = rt_link
+                            rt_link=None, metadata_json_file=None, project_title=None, project_taxonomies=None,
+                            analyses=None):
+    candidates = {
+        'releaseDate': release_date,
+        'projectAccession': project_accession,
+        'analysisAccessions': analysis_accessions,
+        'rtLink': rt_link,
+        'metadataJsonFile': metadata_json_file,
+        'projectTitle': project_title,
+        'projectTaxonomies': project_taxonomies,
+        'analyses': analyses
+    }
+    body = {key: value for key, value in candidates.items() if value}
 
     if body:
         try:
@@ -105,4 +108,17 @@ def update_tracking_details(submission_id, release_date=None, project_accession=
         except Exception as e:
             logger.warning(f'Could not update submission tracking details for {submission_id}. Error {e}')
     else:
-        logger.info('No submission tracking details to update for {submission_id}')
+        logger.info(f'No submission tracking details to update for {submission_id}')
+
+
+def get_tracking_details(submission_id):
+    try:
+        url = sub_ws_url_build('admin', 'submission', str(submission_id), 'trackingDetails')
+        response = requests.get(url, auth=sub_ws_auth(), timeout=60)
+        response.raise_for_status()
+        if not response.text:
+            return None
+        return response.json()
+    except Exception as e:
+        logger.warning(f'Could not retrieve submission tracking details for {submission_id}. Error {e}')
+        return None

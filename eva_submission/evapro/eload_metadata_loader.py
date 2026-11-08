@@ -17,7 +17,7 @@ class SubmissionMetadataJsonLoader(Submission):
             self.metadata_json = {}
 
     def get_experiment_types(self, analysis_accession):
-        analysis_alias_dict = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS')
+        analysis_alias_dict = self.get_analysis_accessions()
         analysis_aliases = [a_alias for a_alias, a_accession in analysis_alias_dict.items() if a_accession == analysis_accession]
         if len(analysis_aliases) != 1:
             self.error(f'No experiment types can be found for {analysis_accession} accession')
