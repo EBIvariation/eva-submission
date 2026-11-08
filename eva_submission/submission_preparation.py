@@ -88,6 +88,7 @@ class SubmissionPreparation(Submission):
         self.find_genome()
         self.update_metadata_json_if_required()
         self.add_submission_id_to_config()
+        self.store_preparation_state()
 
     def detect_submitted_metadata(self):
         metadata_dir = os.path.join(self.submission_dir, directory_structure['metadata'])
@@ -378,6 +379,22 @@ class SubmissionPreparation(Submission):
         metadata_xlsx = os.path.join(metadata_cli_dir, metadata_xlsx_name)
         convert_spreadsheet_to_json(metadata_xlsx, metadata_json_file_path)
         self.submission_cfg.set('submission', 'metadata_json', value=metadata_json_file_path)
+
+    def store_preparation_state(self):
+        analyses = []
+        for analysis_alias, analysis_info in self.submission_cfg.query('submission', 'analyses', ret_default={}).items():
+            analyses.append({
+                'analysisAlias': analysis_alias,
+                'assemblyAccession': analysis_info.get('assembly_accession'),
+                'vcfs': [{'submittedFile': vcf_file} for vcf_file in analysis_info.get('vcf_files', [])]
+            })
+        taxonomy_id = self.submission_cfg.query('submission', 'taxonomy_id')
+        self.store_state(
+            metadata_json_file=self.submission_cfg.query('submission', 'metadata_json'),
+            project_title=self.submission_cfg.query('submission', 'project_title'),
+            project_taxonomies=str(taxonomy_id) if taxonomy_id else None,
+            analyses=analyses
+        )
 
     def add_submission_id_to_config(self):
         self.submission_cfg.set('submission', 'submission_id', value=self.submission_id)

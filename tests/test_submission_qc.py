@@ -131,7 +131,7 @@ class TestSubmissionQC(TestCase):
         assert report == 'Success: PASS'
 
     def test_rs_report_exists(self):
-        self.eload = SubmissionQC(103)
+        self.eload = SubmissionQC('submission_103')
         with tempfile.TemporaryDirectory() as tmp_dir:
             self.eload.path_to_logs_dir = tmp_dir
             self.assertFalse(self.eload._rs_report_exists('GCA_000003205.6'))
@@ -141,7 +141,7 @@ class TestSubmissionQC(TestCase):
             self.assertTrue(self.eload._rs_report_exists('GCA_000003205.6'))
 
     def test_clustering_qc_log_absent_and_no_rs_report(self):
-        self.eload = SubmissionQC(103)
+        self.eload = SubmissionQC('submission_103')
         qc_missing = (False, 'clustering_qc error : No clustering_qc log file found for GCA_000003205.6')
         with patch.object(SubmissionQC, '_find_log_and_check_job', side_effect=[(True, ''), qc_missing]), \
                 patch.object(SubmissionQC, '_log_exists', return_value=False), \
@@ -153,7 +153,7 @@ class TestSubmissionQC(TestCase):
 
     def test_clustering_qc_log_absent_but_rs_report_present(self):
         # the RS report exists so clustering QC should have run: a missing log is a real failure
-        self.eload = SubmissionQC(103)
+        self.eload = SubmissionQC('submission_103')
         qc_missing = (False, 'clustering_qc error : No clustering_qc log file found for GCA_000003205.6')
         with patch.object(SubmissionQC, '_find_log_and_check_job', side_effect=[(True, ''), qc_missing]), \
                 patch.object(SubmissionQC, '_log_exists', return_value=False), \
@@ -164,7 +164,7 @@ class TestSubmissionQC(TestCase):
 
     def test_clustering_qc_log_present_but_failed(self):
         # a QC log that exists and shows failure must still fail even if there is no RS report
-        self.eload = SubmissionQC(103)
+        self.eload = SubmissionQC('submission_103')
         qc_failed = (False, 'clustering_qc failed job/step : some-step')
         with patch.object(SubmissionQC, '_find_log_and_check_job', side_effect=[(True, ''), qc_failed]), \
                 patch.object(SubmissionQC, '_log_exists', return_value=True), \
@@ -174,7 +174,7 @@ class TestSubmissionQC(TestCase):
         self.assertIn('Clustering QC Job: FAIL - clustering_qc failed job/step : some-step', report)
 
     def test_clustering_failed_still_fails_when_qc_skipped(self):
-        self.eload = SubmissionQC(103)
+        self.eload = SubmissionQC('submission_103')
         failed = (False, 'clustering failed job/step : some-step')
         qc_missing = (False, 'clustering_qc error : No clustering_qc log file found for GCA_000003205.6')
         with patch.object(SubmissionQC, '_find_log_and_check_job', side_effect=[failed, qc_missing]), \

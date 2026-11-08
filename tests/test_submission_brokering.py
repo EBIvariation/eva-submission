@@ -148,9 +148,23 @@ class TestEloadBrokering(TestCase):
         self.eload.submission_cfg.set('brokering', 'analyses', value={'AA1':{'vcf_files':{}}})
         response = Mock(text=self.ena_receipt_xml, headers={'Content-Type': 'application/xml'})
         with patch.object(ENAUploader, 'upload_vcf_files_to_ena_ftp'),\
-              patch.object(ENAUploader, '_post_metadata_file_to_ena', return_value=response),\
-              patch('eva_submission.submission_utils.get_scientific_name_from_evapro', return_value=None):
+              patch.object(ENAUploader, '_post_metadata_file_to_ena', return_value=response), \
+                patch('eva_submission.submission.update_tracking_details') as m_update, \
+                patch('eva_submission.submission_utils.get_scientific_name_from_evapro', return_value=None):
+
             self.eload.broker_to_ena()
+
+            project_accession = self.eload.submission_cfg.query('brokering', 'ena', 'PROJECT')
+            analysis_accessions = self.eload.submission_cfg.query('brokering', 'ena', 'ANALYSIS')
+            assert project_accession
+            m_update.assert_called_once()
+            assert m_update.call_args[0][0] == 'submission_3'
+            assert m_update.call_args[1]['project_accession'] == project_accession
+            assert sorted(m_update.call_args[1]['analysis_accessions']) == sorted(analysis_accessions.values())
+            assert m_update.call_args[1]['analyses'] == [
+                {'analysisAlias': alias, 'analysisAccession': accession} for alias, accession in
+                analysis_accessions.items()
+            ]
 
     def _set_brokered_sample_records(self, metadata_json):
         """Records as brokering would store them for the samples of the metadata JSON."""

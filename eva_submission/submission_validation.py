@@ -11,8 +11,8 @@ from ebi_eva_common_pyutils.config import cfg
 from eva_sub_cli_processing import sub_cli_utils
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.submission import Submission
-from eva_submission.submission_utils import resolve_single_file_path, get_nextflow_config_flag, get_nextflow_config
 from eva_submission.submission_config import SubmissionConfig
+from eva_submission.submission_utils import resolve_single_file_path, get_nextflow_config_flag, get_nextflow_config
 
 
 class SubmissionValidation(Submission):
@@ -48,7 +48,19 @@ class SubmissionValidation(Submission):
         shutil.rmtree(self._tmp_output_dir())
 
         self.mark_valid_files_and_metadata()
+        self.store_validation_state()
         self.update_submission_validation_status()
+
+    def store_validation_state(self):
+        aggregation_types = self.submission_cfg.query('validation', 'aggregation_check', 'analyses', ret_default={})
+        analyses = [
+            {'analysisAlias': analysis_alias, 'aggregationType': aggregation_type}
+            for analysis_alias, aggregation_type in aggregation_types.items() if aggregation_type
+        ]
+        self.store_state(
+            metadata_json_file=self.submission_cfg.query('validation', 'valid', 'metadata_json'),
+            analyses=analyses
+        )
 
     def set_validation_task_result_valid(self, validation_tasks):
         for validation_task in validation_tasks:
@@ -85,6 +97,7 @@ class SubmissionValidation(Submission):
             elif self.submission_cfg.query('submission', 'metadata_spreadsheet'):
                 self.submission_cfg.set('validation', 'valid', 'metadata_spreadsheet',
                                         value=self.submission_cfg.query('submission', 'metadata_spreadsheet'))
+        self.store_validation_state()
 
     def update_submission_validation_status(self):
         if self._validation_complete():
@@ -133,9 +146,11 @@ class SubmissionValidation(Submission):
         return vcf_files_mapping_csv
 
     def _run_validation_workflow(self, eva_sub_cli_validation_dir, validation_tasks, shallow_validation=False):
-        assert self.submission_cfg.query('submission', 'metadata_json'), 'Metadata json is not set in the config file, Cannot proceed with validation'
+        assert self.submission_cfg.query('submission',
+                                         'metadata_json'), 'Metadata json is not set in the config file, Cannot proceed with validation'
         metadata_json = self.submission_cfg.query('submission', 'metadata_json')
-        assert os.path.isfile(metadata_json), f'Metadata json {metadata_json} does not exist. Cannot proceed with validation'
+        assert os.path.isfile(
+            metadata_json), f'Metadata json {metadata_json} does not exist. Cannot proceed with validation'
         work_dir = self.create_nextflow_temp_output_directory()
         vcf_files_mapping_csv = self._generate_csv_mappings()
         cfg['executable']['python']['script_path'] = os.path.dirname(os.path.dirname(__file__))
@@ -197,7 +212,7 @@ class SubmissionValidation(Submission):
             vcf_name, ext = os.path.splitext(os.path.basename(vcf_file))
 
             tmp_sv_check_log = resolve_single_file_path(
-                os.path.join(output_dir, 'sv_check',  vcf_name + '_sv_check.log')
+                os.path.join(output_dir, 'sv_check', vcf_name + '_sv_check.log')
             )
             tmp_sv_check_sv_vcf = resolve_single_file_path(
                 os.path.join(output_dir, 'sv_check', vcf_name + '_sv_list.vcf.gz')
@@ -223,7 +238,7 @@ class SubmissionValidation(Submission):
         for vcf_file in vcf_files:
             vcf_name, ext = os.path.splitext(os.path.basename(vcf_file))
             tmp_nc_check_yml = resolve_single_file_path(
-                os.path.join(output_dir, 'naming_convention_check',  vcf_name + '_naming_convention.yml')
+                os.path.join(output_dir, 'naming_convention_check', vcf_name + '_naming_convention.yml')
             )
             # move the output files
             nc_check_yml = self._move_file(
@@ -260,7 +275,8 @@ class SubmissionValidation(Submission):
                 aggregation_check_dict = {}
                 for alias, evidence in evidence_check_dict.items():
                     if alias not in ['pass', 'report_path', 'run_status']:
-                        aggregation_check_dict[self._unique_alias(alias)] = self._evidence_type_to_aggregation(evidence['evidence_type'])
+                        aggregation_check_dict[self._unique_alias(alias)] = self._evidence_type_to_aggregation(
+                            evidence['evidence_type'])
                 self.submission_cfg.set('validation', 'aggregation_check', 'analyses', value=aggregation_check_dict)
 
     def _evidence_type_to_aggregation(self, s):
@@ -296,7 +312,8 @@ class SubmissionValidation(Submission):
         return '\n'.join(reports)
 
     def _eva_sub_cli_report(self):
-        report_path = os.path.join(self._get_dir('eva_sub_cli'), 'validation_submission_dir', 'validation_output', 'report.txt')
+        report_path = os.path.join(self._get_dir('eva_sub_cli'), 'validation_submission_dir', 'validation_output',
+                                   'report.txt')
         if os.path.exists(report_path):
             with open(report_path) as open_report:
                 return open_report.read()
@@ -313,9 +330,9 @@ class SubmissionValidation(Submission):
             'metadata_check': self._check_pass_or_fail(self.submission_cfg.query('validation', 'metadata_check')),
             'sample_check': self._check_pass_or_fail(self.submission_cfg.query('validation', 'sample_check')),
             'structural_variant_check': self._check_pass_or_fail(self.submission_cfg.query('validation',
-                                                                                      'structural_variant_check')),
+                                                                                           'structural_variant_check')),
             'naming_convention_check': self._check_pass_or_fail(self.submission_cfg.query('validation',
-                                                                                      'naming_convention_check')),
+                                                                                          'naming_convention_check')),
             'structural_variant_check_report': self._structural_variant_check_report(),
             'naming_convention_check_report': self._naming_convention_check_report(),
             'eva_sub_cli_report': self._eva_sub_cli_report()

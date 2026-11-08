@@ -60,6 +60,8 @@ class SubmissionIngestion(Submission):
         self.properties_generator = SpringPropertiesGenerator(self.maven_profile, self.private_settings_file)
         self.loader = EvaProjectLoader(self.submission_id)
         self.nextflow_config = nextflow_config
+        self.project_accession = self.get_state('projectAccession', 'brokering', 'ena', 'PROJECT')
+        self.taxonomy = self.get_taxonomy_id()
 
     def run_ingestion_and_qc_result(self, tasks=None, vep_cache_assembly_name=None, resume=False):
         self.ingest(tasks, vep_cache_assembly_name, resume)
@@ -135,7 +137,7 @@ class SubmissionIngestion(Submission):
 
     def _update_metadata_post_ingestion(self):
         self.loader.insert_browsable_files_for_project(self.project_accession)
-        release_date = self.submission_cfg.query('brokering', 'ena', 'hold_date')
+        release_date = self.get_state('releaseDate', 'brokering', 'ena', 'hold_date')
         self.loader.mark_release_browsable_files_for_project(self.project_accession, release_date)
         self.loader.update_loaded_assembly_in_browsable_files_for_project(self.project_accession)
         self.loader.update_files_with_ftp_path_for_project(self.project_accession)
@@ -189,8 +191,8 @@ class SubmissionIngestion(Submission):
 
     def check_aggregation_done(self):
         errors = []
-        for analysis_alias, analysis_acc in self.submission_cfg.query('brokering', 'ena', 'ANALYSIS').items():
-            aggregation = self.submission_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
+        for analysis_alias, analysis_acc in self.get_analysis_accessions().items():
+            aggregation = self.get_analysis_aggregation(analysis_alias)
             if aggregation is None:
                 error = f'Aggregation type was not determined during validation for {analysis_alias}'
                 self.error(error)
@@ -268,7 +270,7 @@ class SubmissionIngestion(Submission):
         try:
             # Load entire project, or only analyses associated with this submission
             if check_project_exists_in_evapro(self.project_accession):
-                analyses = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS')
+                analyses = self.get_analysis_accessions()
                 for analysis_accession in analyses.values():
                     self.loader.load_project_from_ena(self.project_accession,
                                                       self.submission_id, analysis_accession,
@@ -282,9 +284,9 @@ class SubmissionIngestion(Submission):
 
             # Check aggregation type for each analysis in this submission to determine if we should load samples by file
             # or by analysis
-            for analysis_alias in self.submission_cfg.query('validation', 'aggregation_check', 'analyses'):
+            for analysis_alias, aggregation_type in self.get_analysis_aggregations().items():
+                analysis_accession = self.get_analysis_accessions().get(analysis_alias)
                 aggregation_type = self.submission_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
-                analysis_accession = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
                 if aggregation_type == 'basic':
                     sample_accession_2_name = self.sample_accession_to_name_for_analysis(analysis_alias)
                     if not self.loader.load_samples_from_analysis(sample_accession_2_name, analysis_accession):
