@@ -11,13 +11,14 @@ from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from ebi_eva_internal_pyutils.metadata_utils import get_metadata_connection_handle
 from packaging import version
 
-from eva_sub_cli_processing.sub_cli_utils import put_to_sub_ws, sub_ws_url_build
+from eva_sub_cli_processing.sub_cli_utils import put_to_sub_ws, sub_ws_url_build, get_tracking_details, \
+    update_tracking_details
 from eva_submission import __version__
 from eva_submission.biosample_submission.sample_record import records_from_dicts
 from eva_submission.config_migration import upgrade_version_0_1, upgrade_version_1_14_to_1_15, \
     upgrade_version_1_15_to_1_16, needs_sample_records_upgrade, upgrade_samples_to_sample_records
-from eva_submission.submission_utils import get_hold_date_from_ena
 from eva_submission.submission_config import SubmissionConfig
+from eva_submission.submission_utils import get_hold_date_from_ena
 from eva_submission.xlsx.xlsx_parser_eva import EvaXlsxReader, EvaXlsxWriter
 
 directory_structure = {
@@ -39,7 +40,8 @@ class Submission(AppLogger):
     def __init__(self, submission_id: str, config_object: SubmissionConfig = None):
         self.submission_id = submission_id
         self.submission_dir = os.path.abspath(os.path.join(cfg['submissions_dir'], self.submission_id))
-        self.nobackup_submission_dir = os.path.abspath(os.path.join(cfg['nobackup_submissions_dir'], self.submission_id))
+        self.nobackup_submission_dir = os.path.abspath(
+            os.path.join(cfg['nobackup_submissions_dir'], self.submission_id))
         self.config_path = os.path.join(self.submission_dir, '.' + self.submission_id + '_config.yml')
         if config_object:
             self.submission_cfg = config_object
@@ -77,6 +79,64 @@ class Submission(AppLogger):
     def now(self):
         return datetime.now()
 
+    @cached_property
+    def db_state(self):
+        return get_tracking_details(self.submission_id) or {}
+
+    def refresh_db_state(self):
+        self.__dict__.pop('db_state', None)
+
+    def store_state(self, **tracking_fields):
+        update_tracking_details(self.submission_id, **tracking_fields)
+        self.refresh_db_state()
+
+    def get_state(self, db_key, *config_path, default=None):
+        value = self.db_state.get(db_key)
+        if value:
+            return value
+        return self.submission_cfg.query(*config_path, ret_default=default)
+
+    def db_analyses(self):
+        return {
+            analysis['analysisAlias']: analysis
+            for analysis in self.db_state.get('analyses') or []
+            if analysis.get('analysisAlias') and analysis['analysisAlias'] != analysis.get('analysisAccession')
+        }
+
+    def db_taxonomy_id(self):
+        taxonomies = self.db_state.get('projectTaxonomies')
+        if isinstance(taxonomies, (int, str)):
+            taxonomies = str(taxonomies).split(',')
+        taxonomy_ids = {str(t).strip() for t in taxonomies or [] if str(t).strip().isdigit()}
+        if len(taxonomy_ids) == 1:
+            return int(taxonomy_ids.pop())
+        return None
+
+    def get_taxonomy_id(self):
+        return self.db_taxonomy_id() or self.submission_cfg.query('submission', 'taxonomy_id')
+
+    def get_analysis_accessions(self):
+        accessions = dict(self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={}) or {})
+        accessions.update({
+            alias: analysis['analysisAccession']
+            for alias, analysis in self.db_analyses().items()
+            if analysis.get('analysisAccession')
+        })
+        return accessions
+
+    def get_analysis_aggregations(self):
+        aggregations = dict(self.submission_cfg.query('validation', 'aggregation_check', 'analyses',
+                                                      ret_default={}) or {})
+        aggregations.update({
+            alias: analysis['aggregationType']
+            for alias, analysis in self.db_analyses().items()
+            if analysis.get('aggregationType')
+        })
+        return aggregations
+
+    def get_analysis_aggregation(self, analysis_alias):
+        return self.get_analysis_aggregations().get(analysis_alias)
+
     def _unique_alias(self, alias):
         if alias and not alias.startswith(self.submission_id):
             return f'{self.submission_id}_{alias}'
@@ -92,7 +152,8 @@ class Submission(AppLogger):
         Returns the records of the samples brokered to BioSamples.
         Configs from before the records were introduced are converted by upgrade_sample_records_if_needed.
         """
-        return records_from_dicts(self.submission_cfg.query('brokering', 'Biosamples', 'sample_records', ret_default=[]))
+        return records_from_dicts(
+            self.submission_cfg.query('brokering', 'Biosamples', 'sample_records', ret_default=[]))
 
     def sample_records_for_analysis(self, analysis_alias):
         """Records belonging to the analysis."""
@@ -111,7 +172,13 @@ class Submission(AppLogger):
 
     def sample_name_to_accession_for_analysis(self, analysis_alias):
         """Map of sample name in VCF to accession for one analysis. Used to load genotype analyses."""
-        sample_name_to_accession = {}
+        sample_name_to_accession = {
+            sample['sampleName']: sample['sampleAccession']
+            for sample in self.db_analyses().get(analysis_alias, {}).get('samples') or []
+            if sample.get('sampleName') and sample.get('sampleAccession')
+        }
+        if sample_name_to_accession:
+            return sample_name_to_accession
         for record in self.sample_records_for_analysis(analysis_alias):
             sample_name = record.sample_in_vcf
             if not sample_name:
@@ -254,7 +321,7 @@ class Submission(AppLogger):
 
         if existing_project:
             self.warning('Information about the project will be overwritten ' + str(metadata_json.get('project')))
-            metadata_json['project'] = {'projectAccession' : existing_project}
+            metadata_json['project'] = {'projectAccession': existing_project}
 
         with open(output_json_file, 'w') as open_file:
             json.dump(metadata_json, open_file, indent=4)
@@ -340,7 +407,8 @@ class Submission(AppLogger):
             put_to_sub_ws(sub_ws_url_build('admin', 'submission-process', self.submission_id,
                                            submission_step, step_status))
         except Exception as e:
-            self.warning(f"Could not update status {step_status} for the submission step '{submission_step}'. Error {e}")
+            self.warning(
+                f"Could not update status {step_status} for the submission step '{submission_step}'. Error {e}")
 
     def check_submission_qc_is_successful(self):
         from eva_submission.submission_qc_checks import SubmissionQC

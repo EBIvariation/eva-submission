@@ -1,28 +1,26 @@
 import csv
+import datetime
 import json
 import os
 import shutil
 import subprocess
-import datetime
 
 import yaml
 from ebi_eva_common_pyutils import command_utils
 from ebi_eva_common_pyutils.config import cfg
 
 from eva_sub_cli_processing import sub_cli_utils
-from eva_sub_cli_processing.sub_cli_utils import update_tracking_details
 from eva_submission import NEXTFLOW_DIR
 from eva_submission.ENA_submission.upload_to_ENA import ENAUploader, ENAUploaderAsync
 from eva_submission.biosample_submission.biosamples_submitters import SampleMetadataSubmitter, SampleReferenceSubmitter, \
     SampleJSONSubmitter
 from eva_submission.biosample_submission.sample_record import records_to_dicts
 from eva_submission.submission import Submission
-from eva_submission.submission_utils import read_md5, get_nextflow_config_flag
 from eva_submission.submission_config import SubmissionConfig
+from eva_submission.submission_utils import read_md5, get_nextflow_config_flag
 
 
 class SubmissionBrokering(Submission):
-
     all_brokering_tasks = ['preparation', 'biosamples', 'ena', 'update_biosamples']
     config_section = 'brokering'
     nextflow_complete_value = '<complete>'
@@ -60,7 +58,8 @@ class SubmissionBrokering(Submission):
         else:
             self.info('Preparation has already been run, Skip!')
 
-    def broker_to_ena(self, force=False, existing_project=None, async_upload=False, dry_ena_upload=False, output_format='json'):
+    def broker_to_ena(self, force=False, existing_project=None, async_upload=False, dry_ena_upload=False,
+                      output_format='json'):
         if not self.submission_cfg.query('brokering', 'ena', 'pass') or force:
             ena_spreadsheet = os.path.join(self._get_dir('ena'), 'metadata_spreadsheet.xlsx')
             brokering_json = os.path.join(self._get_dir('ena'), 'metadata_json.json')
@@ -73,7 +72,8 @@ class SubmissionBrokering(Submission):
                                                  ena_spreadsheet, existing_project)
                 metadata_for_ena = ena_spreadsheet
             if async_upload:
-                ena_uploader = ENAUploaderAsync(self.submission_id, metadata_for_ena, self._get_dir('ena'), output_format)
+                ena_uploader = ENAUploaderAsync(self.submission_id, metadata_for_ena, self._get_dir('ena'),
+                                                output_format)
             else:
                 ena_uploader = ENAUploader(self.submission_id, metadata_for_ena, self._get_dir('ena'), output_format)
 
@@ -109,10 +109,13 @@ class SubmissionBrokering(Submission):
 
                 # Set release date, project accession, and analysis accessions in submission-ws
                 if self.submission_id:
-                    update_tracking_details(self.submission_id,
-                                            release_date=ena_uploader.converter.hold_date,
-                                            project_accession=ena_uploader.results['PROJECT'],
-                                            analysis_accessions=list(ena_uploader.results.get('ANALYSIS', {}).values()))
+                    self.store_state(
+                        release_date=ena_uploader.converter.hold_date,
+                        project_accession=ena_uploader.results['PROJECT'],
+                        analysis_accessions=list(ena_uploader.results.get('ANALYSIS', {}).values()),
+                        analyses=[{'analysisAlias': alias, 'analysisAccession': accession}
+                                  for alias, accession in ena_uploader.results.get('ANALYSIS', {}).items()]
+                    )
                 else:
                     self.warning(
                         f'Could not update tracking details as no submission id provided for Submission {self.submission_id}')
@@ -138,7 +141,8 @@ class SubmissionBrokering(Submission):
             sample_records = sample_submitter.already_submitted_sample_records()
             self.submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=records_to_dicts(sample_records))
             self.submission_cfg.set('brokering', 'Biosamples', 'pass',
-                               value=sample_submitter.check_sample_records(sample_records))
+                                    value=sample_submitter.check_sample_records(sample_records))
+            self.store_samples_state(sample_records)
         elif self.sample_records() and self.submission_cfg.query('brokering', 'Biosamples', 'pass'):
             self.info('BioSamples brokering is already done, Skip!')
         else:
@@ -148,12 +152,31 @@ class SubmissionBrokering(Submission):
             self.submission_cfg.set('brokering', 'Biosamples', 'date', value=self.now)
             self.submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=records_to_dicts(sample_records))
             self.submission_cfg.set('brokering', 'Biosamples', 'pass', value=passed)
+            self.store_samples_state(sample_records)
             # Make sure we crash if we haven't brokered everything
             if not passed:
                 raise ValueError(f'Not all samples were successfully brokered to BioSamples! '
                                  f'Found {len(sample_records)} and expected {sample_submitter.nb_input_samples()}. '
                                  f'Samples without accession are '
                                  f'{[r.sample_in_vcf for r in sample_records if not r.accession]}')
+
+    def store_samples_state(self, sample_records):
+        """Store in the database (via the submission-ws) the map of sample name to BioSamples accession for each
+        analysis."""
+        samples_per_analysis = {}
+        for record in sample_records:
+            if not (record.accession and record.sample_in_vcf):
+                continue
+            for analysis_alias in record.analysis_aliases:
+                samples_per_analysis.setdefault(self._unique_alias(analysis_alias), {})[record.sample_in_vcf] = \
+                    record.accession
+        self.store_state(analyses=[
+            {
+                'analysisAlias': analysis_alias,
+                'samples': [{'sampleName': name, 'sampleAccession': accession} for name, accession in samples.items()]
+            }
+            for analysis_alias, samples in samples_per_analysis.items()
+        ])
 
     def update_biosamples_with_study(self, force=False):
         if not self.submission_cfg.query('brokering', 'Biosamples', 'backlinks') or force:
@@ -196,7 +219,8 @@ class SubmissionBrokering(Submission):
     def _run_brokering_prep_workflow(self, resume=False):
         work_dir = None
         if resume:
-            prev_work_dir = self.submission_cfg.query(self.config_section, 'prepare_brokering', 'nextflow_dir', 'preparation')
+            prev_work_dir = self.submission_cfg.query(self.config_section, 'prepare_brokering', 'nextflow_dir',
+                                                      'preparation')
             if prev_work_dir and prev_work_dir != self.nextflow_complete_value and os.path.exists(prev_work_dir):
                 work_dir = prev_work_dir
             else:
@@ -250,12 +274,14 @@ class SubmissionBrokering(Submission):
     def _collect_brokering_prep_results(self, output_dir):
         # Collect information from the output and summarise in the config
         valid_analyses = self.submission_cfg.query('validation', 'valid', 'analyses')
+        analyses_state = []
         for analysis in valid_analyses:
             analysis_config = {'assembly_accession': valid_analyses[analysis]['assembly_accession'],
                                'assembly_fasta': valid_analyses[analysis]['assembly_fasta'],
                                'assembly_report': valid_analyses[analysis]['assembly_report']}
             self.submission_cfg.set('brokering', 'analyses', analysis, value=analysis_config)
             vcf_files = valid_analyses[analysis]['vcf_files']
+            vcfs_state = []
             for vcf_file in vcf_files:
                 vcf_file_name = os.path.basename(vcf_file)
                 if not vcf_file_name.endswith('.gz'):
@@ -289,6 +315,20 @@ class SubmissionBrokering(Submission):
                     'csi_md5': read_md5(output_csi_file + '.md5'),
                     'normalisation': normalisation_stat
                 })
+            vcfs_state.append({
+                'submittedFile': vcf_file,
+                'brokeredFile': output_vcf_file,
+                'csiFile': output_csi_file,
+                'brokeredFileMd5': self.submission_cfg.query('brokering', 'analyses', analysis,
+                                                             'vcf_files', output_vcf_file, 'md5'),
+                'csiFileMd5': self.submission_cfg.query('brokering', 'analyses', analysis, 'vcf_files',
+                                                        output_vcf_file, 'csi_md5')
+                })
+            analyses_state.append({'analysisAlias': analysis, 'vcfs': vcfs_state})
+
+        self.store_state(analyses=analyses_state)
+
+
 
     def _normalisation_check_report(self):
         reports = []
@@ -344,7 +384,7 @@ class SubmissionBrokering(Submission):
     - receipt: {receipt}
 """.format(**report_data))
         return '\n'.join(reports)
-    
+
     def _archival_confirmation_text(self):
         if not self._brokering_complete():
             return 'NA'
@@ -352,7 +392,8 @@ class SubmissionBrokering(Submission):
         hold_date = self.submission_cfg.query('brokering', 'ena', 'hold_date')
         brokering_date_from_config = self.submission_cfg.query('brokering', 'brokering_date')
         try:
-            brokering_date = datetime.datetime.strptime(brokering_date_from_config.split(" ")[0].strip(), "%Y-%m-%d").date()
+            brokering_date = datetime.datetime.strptime(brokering_date_from_config.split(" ")[0].strip(),
+                                                        "%Y-%m-%d").date()
         except:
             brokering_date = datetime.date.today()
         brokering_date_plus_3 = brokering_date + datetime.timedelta(days=3)
@@ -365,7 +406,7 @@ class SubmissionBrokering(Submission):
         analysis_accession = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={})
 
         taxonomy_id = self.submission_cfg.query('submission', 'taxonomy_id')
-        non_human_study_text = 'Please allow at least 48 hours from the initial release date provided for the data to be made available through this link. Each variant will be issued a unique SS# ID which will be made available to download via the "browsable files" link on the EVA study page.' if taxonomy_id!=9606 else ""
+        non_human_study_text = 'Please allow at least 48 hours from the initial release date provided for the data to be made available through this link. Each variant will be issued a unique SS# ID which will be made available to download via the "browsable files" link on the EVA study page.' if taxonomy_id != 9606 else ""
 
         archival_text_data = {
             'study_title': study_title,
@@ -377,7 +418,7 @@ class SubmissionBrokering(Submission):
             ]),
             'non_human_study': non_human_study_text
         }
-        
+
         archival_text = """
 Your EVA submission "{study_title}" has now been archived and will be made available to the public on {available_date}. The accessions associated with your submission are:
 Project: {project_accession}
@@ -388,7 +429,7 @@ You can also notify us when your paper has been assigned a PMID. We will add thi
 The EVA can be cited directly using the associated literature:
 Cezard T, Cunningham F, Hunt SE, Koylass B, Kumar N, Saunders G, Shen A, Silva AF, Tsukanov K, Venkataraman S, Flicek P, Parkinson H, Keane TM. The European Variation Archive: a FAIR resource of genomic variation for all species. Nucleic Acids Res. 2021 Oct 28:gkab960. doi: 10.1093/nar/gkab960. PMID: 34718739.
 """
-        
+
         return archival_text.format(**archival_text_data)
 
     def report(self):
