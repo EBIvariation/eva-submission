@@ -133,18 +133,18 @@ class TestEloadSampleRecords(TestCase):
             'SAME000003': 'P1', 'SAME000004': 'bsd4', 'SAME000005': 'SAME000005'
         }
 
-    def test_sample_records_for_analysis(self):
+    def test_sample_records_for_analysis_from_cfg(self):
         self.eload.submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
             {'accession': 'SAME000001', 'analysisAlias': ['GT1', 'AF1'], 'sampleInVCF': 'S1'},
             {'accession': 'SAME000002', 'analysisAlias': ['submission_55_AF1'], 'name': 'bsd2'},
             {'accession': 'SAME000003', 'analysisAlias': ['GT1']},
         ])
         # Aliases match whether or not they are prefixed with the ELOAD
-        assert self.eload.sample_records_for_analysis('AF1') == [
+        assert self.eload.sample_records_for_analysis_from_cfg('AF1') == [
             SampleRecord('SAME000001', analysis_aliases=['GT1', 'AF1'], sample_in_vcf='S1'),
             SampleRecord('SAME000002', analysis_aliases=['submission_55_AF1'], biosample_name='bsd2'),
         ]
-        assert [r.accession for r in self.eload.sample_records_for_analysis('submission_55_GT1')] == [
+        assert [r.accession for r in self.eload.sample_records_for_analysis_from_cfg('submission_55_GT1')] == [
             'SAME000001', 'SAME000003'
         ]
 
@@ -176,7 +176,7 @@ class TestEloadSampleRecords(TestCase):
             'ERZ000002': [('SAME000001', 'S1'), ('SAME000002', 'SAME000002')],
         }
         upgrade_samples_to_sample_records(self.eload.submission_cfg, samples_in_evapro.get)
-        assert self.eload.sample_records() == [
+        assert self.eload.sample_records_from_cfg() == [
             SampleRecord('SAME000001', analysis_aliases=['submission_55_GT1', 'submission_55_AF1'], sample_in_vcf='S1'),
             SampleRecord('SAME000002', analysis_aliases=['submission_55_AF1']),
         ]
@@ -191,7 +191,7 @@ class TestEloadSampleRecords(TestCase):
             ], tmp_dir)
             # The second analysis is not in EVAPRO
             upgrade_samples_to_sample_records(self.eload.submission_cfg, {'ERZ000001': [('SAME000001', 'S1')]}.get)
-        assert self.eload.sample_records() == [
+        assert self.eload.sample_records_from_cfg() == [
             SampleRecord('SAME000001', analysis_aliases=['GT1'], sample_in_vcf='S1'),
             SampleRecord('SAME000003', analysis_aliases=['AF1']),
         ]
@@ -204,7 +204,7 @@ class TestEloadSampleRecords(TestCase):
             with self.assertLogs('eva_submission.config_migration', level='WARNING'):
                 upgrade_samples_to_sample_records(self.eload.submission_cfg, samples_in_evapro_analysis=None)
         # Each sample is assigned to all the analyses, as the legacy dict was
-        assert self.eload.sample_records() == [
+        assert self.eload.sample_records_from_cfg() == [
             SampleRecord('SAME000001', analysis_aliases=['submission_55_GT1', 'submission_55_AF1'], sample_in_vcf='S1'),
             SampleRecord('SAME000002', analysis_aliases=['submission_55_GT1', 'submission_55_AF1'], sample_in_vcf='S2'),
         ]
@@ -215,7 +215,7 @@ class TestEloadSampleRecords(TestCase):
         self._set_legacy_samples({'S1': 'SAME000001'})
         with patch.object(EvaProjectLoader, 'get_samples_in_analysis', side_effect=Exception('No EVAPRO')):
             self.eload.upgrade_sample_records_if_needed()
-        assert self.eload.sample_records() == [
+        assert self.eload.sample_records_from_cfg() == [
             SampleRecord('SAME000001', analysis_aliases=['submission_55_GT1', 'submission_55_AF1'], sample_in_vcf='S1')
         ]
         # Configs that already have sample records are not changed

@@ -87,13 +87,12 @@ def get_or_generate_submission_id_for_eload(eload_id, source='email'):
         return None
     return response.get('submissionId')
 
-def update_tracking_details(submission_id, release_date=None, project_accession=None, analysis_accessions=None,
+def update_tracking_details(submission_id, release_date=None, project_accession=None,
                             rt_link=None, metadata_json_file=None, project_title=None, project_taxonomies=None,
                             analyses=None):
     candidates = {
         'releaseDate': release_date,
         'projectAccession': project_accession,
-        'analysisAccessions': analysis_accessions,
         'rtLink': rt_link,
         'metadataJsonFile': metadata_json_file,
         'projectTitle': project_title,
@@ -109,6 +108,21 @@ def update_tracking_details(submission_id, release_date=None, project_accession=
             logger.warning(f'Could not update submission tracking details for {submission_id}. Error {e}')
     else:
         logger.info(f'No submission tracking details to update for {submission_id}')
+
+
+def get_processing_state(submission_id):
+    try:
+        url = sub_ws_url_build('admin', 'submission-process', submission_id)
+        response = requests.get(url, auth=sub_ws_auth(), timeout=60)
+        if response.status_code == 404:
+            logger.warning(f'No processing state available for {submission_id}: {response.text}')
+            return None, None
+        response.raise_for_status()
+        state = response.json() if response.text else {}
+        return state.get('step'), state.get('status')
+    except Exception as e:
+        logger.warning(f'Could not retrieve the processing state for {submission_id}. Error {e}')
+    return None, None
 
 
 def get_tracking_details(submission_id):

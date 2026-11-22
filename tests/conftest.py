@@ -10,5 +10,7 @@ def no_submission_ws_tracking_details():
     falls back on the config) and updates are no-ops. Tests that care patch these names themselves.
     """
     with patch('eva_submission.submission.get_tracking_details', return_value=None), \
-            patch('eva_submission.submission.update_tracking_details'):
+            patch('eva_submission.submission.update_tracking_details'), \
+            patch('eva_submission.submission_status.get_tracking_details', return_value=None), \
+            patch('eva_submission.submission.get_processing_state', return_value=(None, None)):
         yield

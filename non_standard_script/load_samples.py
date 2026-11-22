@@ -244,7 +244,7 @@ class HistoricalProjectSampleLoader(SubmissionBacklog):
 
     @cached_property
     def project_accession(self):
-        project_accession = self.submission_cfg.query('brokering', 'ena', 'PROJECT')
+        project_accession = self.get_project_accession()
         if project_accession is not None:
             return project_accession
         else:
@@ -252,8 +252,8 @@ class HistoricalProjectSampleLoader(SubmissionBacklog):
 
     @cached_property
     def analysis_accessions(self):
-        analysis_accession_dict = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS')
-        if analysis_accession_dict is not None and isinstance(analysis_accession_dict, dict):
+        analysis_accession_dict = self.get_analysis_accessions()
+        if analysis_accession_dict:
             return analysis_accession_dict.values()
         else:
             return super().analysis_accessions
@@ -283,7 +283,7 @@ class HistoricalProjectSampleLoader(SubmissionBacklog):
     @cached_property
     def project_sample_name_to_accession(self):
         """Retrieve the sample to biosample accession map from the config or from the ENA API"""
-        sample_name_2_accession = self.sample_name_to_accession()
+        sample_name_2_accession = self.sample_name_to_accession_from_cfg()
         if not sample_name_2_accession:
                 sample_name_2_accession = {name: accession
                                            for analysis_accession in self.ena_sample_alias_to_accession_per_analysis
@@ -294,22 +294,22 @@ class HistoricalProjectSampleLoader(SubmissionBacklog):
     @cached_property
     def analysis_accession_2_alias(self):
         """Analysis aliases of this submission keyed by their accession. Empty when the submission config is not available."""
-        analysis_alias_2_accession = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS')
-        if not isinstance(analysis_alias_2_accession, dict):
+        analysis_alias_2_accession = self.get_analysis_accessions()
+        if not analysis_alias_2_accession:
             return {}
         return {accession: alias for alias, accession in analysis_alias_2_accession.items()}
 
     def sample_name_to_accession_for_analysis_accession(self, analysis_accession):
         """Use the sample records of the analysis when they exist, otherwise the map for the whole project."""
         analysis_alias = self.analysis_accession_2_alias.get(analysis_accession)
-        if analysis_alias and self.sample_records():
+        if analysis_alias and self.sample_records_from_cfg():
             return self.sample_name_to_accession_for_analysis(analysis_alias)
         return self.project_sample_name_to_accession
 
     def sample_accession_to_name_for_analysis_accession(self, analysis_accession):
         """Use the sample records of the analysis when they exist, otherwise invert the map for the whole project."""
         analysis_alias = self.analysis_accession_2_alias.get(analysis_accession)
-        if analysis_alias and self.sample_records():
+        if analysis_alias and self.sample_records_from_cfg():
             return self.sample_accession_to_name_for_analysis(analysis_alias)
         return {accession: name for name, accession in self.project_sample_name_to_accession.items()}
 
@@ -318,11 +318,12 @@ class HistoricalProjectSampleLoader(SubmissionBacklog):
         """Find the files associated with all the analysis accessions"""
         analysis_accession_2_files = defaultdict(list)
         try:
-            if self.submission_cfg.query('brokering', 'analyses'):
-                # Assume that all the information in contained in the config and the files exist
-                for analysis_alias in self.submission_cfg.query('brokering', 'analyses'):
-                    vcf_file_dict = self.submission_cfg.query('brokering', 'analyses', analysis_alias, 'vcf_files')
-                    analysis_accession = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
+            brokered_analyses = self.get_brokered_analyses()
+            if brokered_analyses:
+                # Assume that all the information in contained in the submission-ws or the config and the files exist
+                for analysis_alias, brokered_analysis in brokered_analyses.items():
+                    vcf_file_dict = brokered_analysis['vcf_files']
+                    analysis_accession = self.get_analysis_accessions().get(analysis_alias)
                     vcf_info_list = []
                     for vcf_file, vcf_info in vcf_file_dict.items():
                         if os.path.exists(vcf_file):
@@ -375,10 +376,10 @@ class HistoricalProjectSampleLoader(SubmissionBacklog):
             analysis_accession_2_aggregation_type = self.submission_cfg.query('ingestion', 'aggregation')
         if not analysis_accession_2_aggregation_type or not isinstance(analysis_accession_2_aggregation_type, dict):
             analysis_accession_2_aggregation_type = {}
-            analysis_info = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS')
-            if analysis_info and isinstance(analysis_info, dict):
+            analysis_info = self.get_analysis_accessions()
+            if analysis_info:
                 for analysis_alias, accession in analysis_info.items():
-                    analysis_accession_2_aggregation_type[accession] = self.submission_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
+                    analysis_accession_2_aggregation_type[accession] = self.get_analysis_aggregation(analysis_alias)
         if not analysis_accession_2_aggregation_type or not isinstance(analysis_accession_2_aggregation_type, dict):
             analysis_accession_2_aggregation_type = {}
             for analysis_accession in self.analysis_accessions:

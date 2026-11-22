@@ -52,3 +52,25 @@ class TestTrackingDetails(TestCase):
     def test_update_tracking_details_swallows_errors(self):
         with patch.object(sub_cli_utils, 'put_to_sub_ws', side_effect=Exception('boom')):
             update_tracking_details('sub1', project_accession='PRJEB1')  # must not raise
+
+    def test_update_tracking_details_does_not_send_analysis_accessions(self):
+        with patch.object(sub_cli_utils, 'put_to_sub_ws') as m_put:
+            update_tracking_details('sub1', project_accession='PRJEB1',
+                                    analyses=[{'analysisAlias': 'a1', 'analysisAccession': 'ERZ1'}])
+        assert 'analysisAccessions' not in m_put.call_args[0][1]
+
+    def test_get_processing_state(self):
+        response = Mock(text='x', status_code=200)
+        response.json.return_value = {'step': 'BROKERING', 'status': 'RUNNING'}
+        with patch.object(sub_cli_utils.requests, 'get', return_value=response):
+            assert sub_cli_utils.get_processing_state('sub1') == ('BROKERING', 'RUNNING')
+
+    def test_get_processing_state_not_found(self):
+        response = Mock(text='not found', status_code=404)
+        with patch.object(sub_cli_utils.requests, 'get', return_value=response):
+            assert sub_cli_utils.get_processing_state('sub1') == (None, None)
+        response.raise_for_status.assert_not_called()
+
+    def test_get_processing_state_unavailable(self):
+        with patch.object(sub_cli_utils.requests, 'get', side_effect=Exception('boom')):
+            assert sub_cli_utils.get_processing_state('sub1') == (None, None)

@@ -53,11 +53,11 @@ class HistoricalProjectFileLoader(SubmissionBacklog):
 
 
     def load_files_from_config(self):
-        taxonomy_id = self.submission_cfg.query('submission', 'taxonomy_id')
-        for analysis_alias in self.submission_cfg.query('validation', 'aggregation_check', 'analyses'):
-            analysis_accession = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
+        taxonomy_id = self.get_taxonomy_id()
+        for analysis_alias in self.get_analysis_aggregations():
+            analysis_accession = self.get_analysis_accessions().get(analysis_alias)
             assert analysis_accession in self.analysis_accessions, f'Analysis {analysis_accession} is not in EVAPRO'
-            analysis_info = self.submission_cfg.query('brokering', 'analyses', analysis_alias)
+            analysis_info = self.get_brokered_analyses().get(analysis_alias, {})
             for vcf_file in analysis_info.get('vcf_files'):
                 if 'md5' not in analysis_info.get('vcf_files'):
                     # create the md5 of the vcf

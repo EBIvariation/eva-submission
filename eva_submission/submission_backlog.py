@@ -227,8 +227,8 @@ class SubmissionBacklog(Submission):
     def report(self):
         """Collect information from the config and write the report."""
         report_data = {
-            'project': self.submission_cfg.query('brokering', 'ena', 'PROJECT', ret_default=''),
-            'analyses': ', '.join(self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default=[])),
+            'project': self.get_project_accession() or '',
+            'analyses': ', '.join(self.get_analysis_accessions()),
             'analyses_report': self._analysis_report(self.submission_cfg.query('brokering', 'analyses', ret_default=[]))
         }
 

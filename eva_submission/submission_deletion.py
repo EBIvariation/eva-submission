@@ -14,7 +14,7 @@ from eva_submission.submission_in_ftp import deposit_box
 class SubmissionDeletion(Submission):
     def __init__(self, submission_id):
         super().__init__(submission_id)
-        self.project_accession = self.submission_cfg.query('brokering', 'ena', 'PROJECT')
+        self.project_accession = self.get_project_accession()
         self.project_dir = None
         if self.project_accession:
             self.project_dir = os.path.join(cfg['projects_dir'], self.project_accession)

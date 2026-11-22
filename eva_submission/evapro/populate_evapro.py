@@ -364,6 +364,8 @@ class EvaProjectLoader(AppLogger):
             self.eva_session.commit()
 
     def mark_release_browsable_files_for_project(self, project_accession, release_date):
+        if isinstance(release_date, str):
+            release_date = datetime.datetime.strptime(release_date[:10], '%Y-%m-%d')
         self.begin_or_continue_transaction()
         update_browsable_files = (update(BrowsableFile)
                                  .where(BrowsableFile.project_accession == project_accession)

@@ -262,3 +262,81 @@ class TestBrokeringState(SubmissionStateTestCase):
         # the conflict is reported once
         m_warning.assert_called_once()
         assert 'S1' in m_warning.call_args[0][0] and 'SAME1, SAME2' in m_warning.call_args[0][0]
+
+
+class TestSubmissionStateReadsFromDb(SubmissionStateTestCase):
+
+    BROKERED_DB_STATE = {
+        'analyses': [{
+            'analysisAlias': 'sub_state_a1', 'assemblyAccession': 'GCA_000001405.15',
+            'vcfs': [{'submittedFile': '/in/a.vcf', 'brokeredFile': '/out/a.vcf.gz', 'csiFile': '/out/a.csi',
+                      'brokeredFileMd5': 'md5db', 'csiFileMd5': 'csimd5db'}],
+            'samples': [{'sampleName': 'S1', 'sampleAccession': 'SAME1'}]
+        }]
+    }
+
+    def test_get_brokered_analyses_db_first_completed_from_config(self):
+        self.sub.submission_cfg.set('brokering', 'analyses', 'sub_state_a1', value={
+            'assembly_accession': 'GCA_OLD', 'assembly_fasta': '/fasta', 'assembly_report': '/report',
+            'vcf_files': {'/out/a.vcf.gz': {'md5': 'md5cfg', 'csi': '/cfg.csi', 'normalisation': {'nb_variant': 3}}}
+        })
+        with self.with_db_state(self.BROKERED_DB_STATE):
+            analyses = self.sub.get_brokered_analyses()
+        assert analyses['sub_state_a1']['assembly_accession'] == 'GCA_000001405.15'
+        assert analyses['sub_state_a1']['assembly_fasta'] == '/fasta'
+        vcf_info = analyses['sub_state_a1']['vcf_files']['/out/a.vcf.gz']
+        assert vcf_info['md5'] == 'md5db'
+        assert vcf_info['csi'] == '/out/a.csi'
+        assert vcf_info['csi_md5'] == 'csimd5db'
+        assert vcf_info['normalisation'] == {'nb_variant': 3}
+
+    def test_get_brokered_analyses_config_only(self):
+        self.sub.submission_cfg.set('brokering', 'analyses', 'sub_state_a1', value={
+            'assembly_accession': 'GCA_OLD', 'vcf_files': {'/out/a.vcf.gz': {'md5': 'md5cfg'}}
+        })
+        with self.with_db_state(None):
+            assert self.sub.get_brokered_analyses() == {
+                'sub_state_a1': {'assembly_accession': 'GCA_OLD', 'vcf_files': {'/out/a.vcf.gz': {'md5': 'md5cfg'}}}
+            }
+
+    def test_get_brokered_analyses_ignores_analyses_not_brokered(self):
+        with self.with_db_state({'analyses': [{'analysisAlias': 'sub_state_a1', 'assemblyAccession': 'GCA_1',
+                                               'vcfs': [{'submittedFile': '/in/a.vcf'}]}]}):
+            assert self.sub.get_brokered_analyses() == {}
+
+    def test_get_submitted_vcf_files(self):
+        self.sub.submission_cfg.set('validation', 'valid', 'analyses', 'sub_state_a2', value={'vcf_files': ['/b.vcf']})
+        with self.with_db_state(self.BROKERED_DB_STATE):
+            assert self.sub.get_submitted_vcf_files() == {'sub_state_a1': ['/in/a.vcf'], 'sub_state_a2': ['/b.vcf']}
+
+    def test_get_valid_metadata_json_file(self):
+        self.sub.submission_cfg.set('validation', 'valid', 'metadata_json', value='/cfg.json')
+        with self.with_db_state({'metadataJsonFile': '/db.json'}):
+            assert self.sub.get_valid_metadata_json_file() == '/db.json'
+        self.sub.refresh_db_state()
+        with self.with_db_state(None):
+            assert self.sub.get_valid_metadata_json_file() == '/cfg.json'
+
+    def test_sample_accession_to_name_for_analysis_db_first(self):
+        self.sub.submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
+            SampleRecord('SAMECFG', analysis_aliases=['sub_state_a1'], sample_in_vcf='CFG').to_dict()])
+        with self.with_db_state(self.BROKERED_DB_STATE):
+            assert self.sub.sample_accession_to_name_for_analysis('sub_state_a1') == {'SAME1': 'S1'}
+
+    def test_sample_accession_to_name_for_analysis_falls_back_on_config(self):
+        self.sub.submission_cfg.set('brokering', 'Biosamples', 'sample_records', value=[
+            SampleRecord('SAMECFG', analysis_aliases=['sub_state_a1'], sample_in_vcf='CFG').to_dict()])
+        with self.with_db_state(None):
+            assert self.sub.sample_accession_to_name_for_analysis('sub_state_a1') == {'SAMECFG': 'CFG'}
+
+    def test_is_validation_successful(self):
+        for state, expected in [(('VALIDATION', 'SUCCESS'), True), (('VALIDATION', 'FAILURE'), False),
+                                (('BROKERING', 'RUNNING'), True), (('INGESTION', 'FAILURE'), True)]:
+            with patch('eva_submission.submission.get_processing_state', return_value=state):
+                assert self.sub.is_validation_successful() is expected
+
+    def test_is_validation_successful_falls_back_on_config(self):
+        with patch('eva_submission.submission.get_processing_state', return_value=(None, None)):
+            assert not self.sub.is_validation_successful()
+            self.sub.submission_cfg.set('validation', 'valid', 'analyses', 'a', value={'vcf_files': ['/a.vcf']})
+            assert self.sub.is_validation_successful()

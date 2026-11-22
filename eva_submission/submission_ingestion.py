@@ -52,7 +52,7 @@ class SubmissionIngestion(Submission):
 
     def __init__(self, submission_id, config_object: SubmissionConfig = None, nextflow_config=None):
         super().__init__(submission_id, config_object)
-        self.project_accession = self.get_state('projectAccession', 'brokering', 'ena', 'PROJECT')
+        self.project_accession = self.get_project_accession()
         self.taxonomy = self.get_taxonomy_id()
         self.private_settings_file = cfg['maven']['settings_file']
         self.maven_profile = cfg['maven']['environment']
@@ -135,7 +135,7 @@ class SubmissionIngestion(Submission):
 
     def _update_metadata_post_ingestion(self):
         self.loader.insert_browsable_files_for_project(self.project_accession)
-        release_date = self.get_state('releaseDate', 'brokering', 'ena', 'hold_date')
+        release_date = self.get_hold_date()
         self.loader.mark_release_browsable_files_for_project(self.project_accession, release_date)
         self.loader.update_loaded_assembly_in_browsable_files_for_project(self.project_accession)
         self.loader.update_files_with_ftp_path_for_project(self.project_accession)
@@ -146,9 +146,9 @@ class SubmissionIngestion(Submission):
         self.loader.load_clustering_record(self.taxonomy, target_assembly, clustering_source)
 
     def fill_vep_versions(self, vep_cache_assembly_name=None):
-        analyses = self.submission_cfg.query('brokering', 'analyses')
-        for analysis_alias, analysis_data in analyses.items():
-            assembly_accession = analysis_data['assembly_accession']
+        brokered_assemblies = {analysis_data['assembly_accession']
+                               for analysis_data in self.get_brokered_analyses().values()}
+        for assembly_accession in sorted(brokered_assemblies):
             if ('vep' in self.submission_cfg.query(self.config_section)
                     and assembly_accession in self.submission_cfg.query(self.config_section, 'vep')):
                 continue
@@ -165,11 +165,8 @@ class SubmissionIngestion(Submission):
 
     def _get_vcf_files_from_brokering(self):
         vcf_files = []
-        analyses = self.submission_cfg.query('brokering', 'analyses')
-        if analyses:
-            for analysis_alias, analysis_data in analyses.items():
-                files = analysis_data['vcf_files']
-                vcf_files.extend(files) if files else None
+        for analysis_data in self.get_brokered_analyses().values():
+            vcf_files.extend(analysis_data['vcf_files'])
         return vcf_files
 
     def check_brokering_done(self):
@@ -216,9 +213,7 @@ class SubmissionIngestion(Submission):
     @cached_property
     def assembly_accessions(self):
         assembly_accessions = set()
-        analyses = self.submission_cfg.query('submission', 'analyses')
-        for analysis_alias, analysis_data in analyses.items():
-            assembly_accessions.add(analysis_data['assembly_accession'])
+        assembly_accessions.update(self.get_analysis_assemblies().values())
         return assembly_accessions
 
     def check_variant_db(self):
@@ -290,7 +285,7 @@ class SubmissionIngestion(Submission):
                         raise ValueError(f'Samples from analysis {analysis_alias} could not be loaded in EVAPRO')
                 else:
                     sample_name_2_accession = self.sample_name_to_accession_for_analysis(analysis_alias)
-                    analysis_info = self.submission_cfg.query('brokering', 'analyses', analysis_alias)
+                    analysis_info = self.get_brokered_analyses()[analysis_alias]
                     for vcf_file in analysis_info['vcf_files']:
                         vcf_file_md5 = analysis_info['vcf_files'][vcf_file]['md5']
                         if not self.loader.load_samples_from_vcf_file(sample_name_2_accession, vcf_file, vcf_file_md5,
@@ -322,8 +317,7 @@ class SubmissionIngestion(Submission):
         # Link valid vcfs + index to 'valid' folder and 'public' folder
         valid_dir = project_dir.joinpath(project_dirs['valid'])
         public_dir = project_dir.joinpath(project_dirs['public'])
-        analyses = self.submission_cfg.query('brokering', 'analyses')
-        for analysis_alias, analysis_data in analyses.items():
+        for analysis_alias, analysis_data in self.get_brokered_analyses().items():
             for vcf_file, vcf_file_info in analysis_data['vcf_files'].items():
                 vcf_path = Path(vcf_file)
                 self._hardlink_file(vcf_path, valid_dir)
@@ -348,9 +342,9 @@ class SubmissionIngestion(Submission):
             writer = csv.writer(file)
             writer.writerow(['vcf_file', 'csi_file', 'assembly_accession', 'fasta', 'report', 'analysis_accession',
                              'db_name', 'vep_version', 'vep_cache_version', 'vep_species', 'aggregation'])
-            analyses = self.submission_cfg.query('brokering', 'analyses')
-            for analysis_alias, analysis_data in analyses.items():
+            for analysis_alias, analysis_data in self.get_brokered_analyses().items():
                 assembly_accession = analysis_data['assembly_accession']
+                # The assembly fasta and report are only stored in the config
                 fasta = analysis_data['assembly_fasta']
                 report = analysis_data['assembly_report']
                 analysis_accession = self.get_analysis_accessions().get(analysis_alias)
@@ -591,10 +585,8 @@ class SubmissionIngestion(Submission):
                                f'assembly_set_id {assembly_set_id} from browsable_file')
 
     def update_assembly_set_in_analysis(self):
-        analyses = self.submission_cfg.query('submission', 'analyses')
         with self.metadata_connection_handle as conn:
-            for analysis_alias, analysis_data in analyses.items():
-                assembly_accession = analysis_data['assembly_accession']
+            for analysis_alias, assembly_accession in self.get_analysis_assemblies().items():
                 assembly_set_id = get_assembly_set_from_metadata(conn, self.taxonomy, assembly_accession)
                 analysis_accession = self.get_analysis_accessions().get(analysis_alias)
                 # Check if the update is needed

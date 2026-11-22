@@ -99,7 +99,7 @@ class TestEloadBrokering(TestCase):
         assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'sample_records')[0] == {
             'accession': 'SAME1', 'analysisAlias': ['GAE'], 'sampleInVCF': 'S1', 'action': 'create'
         }
-        assert self.eload.sample_records() == samples
+        assert self.eload.sample_records_from_cfg() == samples
         assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'Samples') is None
         assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'date') == 'a_date'
 
@@ -115,7 +115,7 @@ class TestEloadBrokering(TestCase):
 
         assert mock_submit.call_count == 1
         assert not self.eload.submission_cfg.query('brokering', 'Biosamples', 'pass')
-        assert self.eload.sample_records() == incomplete
+        assert self.eload.sample_records_from_cfg() == incomplete
         assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'date') == 'a_date'
 
     def test_upload_to_bioSamples_not_required(self):
@@ -130,7 +130,7 @@ class TestEloadBrokering(TestCase):
             self.eload.upload_to_bioSamples()
         assert check_submit_done.call_count == 1
         assert self.eload.submission_cfg.query('brokering', 'Biosamples', 'pass')
-        assert self.eload.sample_records() == samples
+        assert self.eload.sample_records_from_cfg() == samples
 
     def test_upload_to_bioSamples_done(self):
         self.eload.submission_cfg.set('validation', 'valid', 'metadata_spreadsheet',
@@ -160,7 +160,7 @@ class TestEloadBrokering(TestCase):
             m_update.assert_called_once()
             assert m_update.call_args[0][0] == 'submission_3'
             assert m_update.call_args[1]['project_accession'] == project_accession
-            assert sorted(m_update.call_args[1]['analysis_accessions']) == sorted(analysis_accessions.values())
+            assert 'analysis_accessions' not in m_update.call_args[1]
             assert m_update.call_args[1]['analyses'] == [
                 {'analysisAlias': alias, 'analysisAccession': accession} for alias, accession in
                 analysis_accessions.items()
