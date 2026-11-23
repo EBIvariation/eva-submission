@@ -45,7 +45,8 @@ class EloadValidation(Eload):
         output_dir = self._run_validation_workflow(eva_sub_cli_validation_dir, validation_tasks, shallow_validation)
         self._collect_validation_workflow_results(self._tmp_output_dir(), eva_sub_cli_validation_dir, validation_tasks)
         shutil.rmtree(output_dir)
-        shutil.rmtree(self._tmp_output_dir())
+        if os.path.exists(self._tmp_output_dir()):
+            shutil.rmtree(self._tmp_output_dir())
 
         self.mark_valid_files_and_metadata()
         self.update_submission_validation_status()
