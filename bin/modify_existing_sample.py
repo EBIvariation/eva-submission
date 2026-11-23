@@ -27,7 +27,7 @@ from eva_sub_cli.executables.xlsx2json import XlsxParser, WORKSHEETS_KEY_NAME, S
 from packaging.version import Version
 
 from eva_submission.biosample_submission.biosamples_submitters import SampleJSONSubmitter
-from eva_submission.eload_utils import convert_spreadsheet_to_json
+from eva_submission.submission_utils import convert_spreadsheet_to_json
 from eva_submission.submission_config import load_config
 
 logger = log_cfg.get_logger(__name__)
@@ -93,9 +93,13 @@ def main():
     with open(metadata_json_file_path, 'r') as f:
         metadata_json = json.load(f)
         sample_submitter = SampleJSONSubmitter(metadata_json, submit_type=(args.action,))
-        sample_name_to_accession = sample_submitter.submit_to_bioSamples()
-        for sample_name, accession in sample_name_to_accession.items():
-            print(f'{sample_name}: {accession}')
+        sample_records = sample_submitter.submit_to_bioSamples()
+        for record in sample_records:
+            action = record.action if record.modified else 'not modified'
+            line = f'{record.label}: {record.accession} ({action})'
+            if record.is_derived:
+                line += f' derived from {", ".join(record.derived_from)}'
+            print(line)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,5 @@
+2023-04-24 10:47:07.917  INFO 384460 --- [           main] uk.ac.ebi.eva.pipeline.Application       : Started Application in 5.971 seconds (JVM running for 7.569)
+2023-04-24 10:51:39.462  INFO 384460 --- [           main] .EvaPipelineJobLauncherCommandLineRunner : Running job 'accession-import-job' with parameters:
+2023-04-24 10:51:39.777  INFO 384460 --- [           main] o.s.b.c.l.support.SimpleJobLauncher      : Job: [SimpleJob: [name=accession-import-job]] launched launched with the following parameters: []
+2023-04-24 10:51:39.883  INFO 384460 --- [           main] o.s.batch.core.job.SimpleStepHandler     : Executing step: [accession-import-step]
+2023-04-24 10:52:01.350  INFO 384460 --- [           main] o.s.b.c.l.support.SimpleJobLauncher      : Job: [SimpleJob: [name=accession-import-job]] completed completed with the following parameters: [] and the following status: [COMPLETED]

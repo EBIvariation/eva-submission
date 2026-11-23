@@ -1,0 +1,45 @@
+brokering:
+  Biosamples:
+    Samples:
+      '107': SAMEA8868451
+    date: &id001 2021-05-04 11:48:57.230908
+    pass: true
+  brokering_date: *id001
+  ena:
+    ANALYSIS: ERZ1234567
+    PROJECT: PRJEB12345
+    SUBMISSION: ERA1234567
+    date: *id001
+    errors: []
+    hold_date: 2021-05-07 11:49:36.195993
+    pass: true
+    receipt: RECEIPT
+  vcf_files:
+    file.vcf.gz:
+      index: file.vcf.gz.tbi
+      index_md5: 64abaee2a1d7784debc84bcfc7c5acfd
+      md5: 962659d41fce3e30470f16689799b26c
+      original_vcf: file.vcf
+submission:
+  assembly_accession: GCA_000002315.5
+  assembly_fasta: assembly.fa
+  assembly_report: assembly_report.txt
+  metadata_spreadsheet: metadata.xlsx
+  scientific_name: Gallus gallus
+  taxonomy_id: 9031
+  vcf_files:
+  - file.vcf
+validation:
+  assembly_check:
+    pass: true
+  metadata_check:
+    pass: true
+  sample_check:
+    pass: true
+  valid:
+    metadata_spreadsheet: metadata.xlsx
+    vcf_files:
+    - file.vcf
+  validation_date: 2021-05-04 11:47:33.512809
+  vcf_check:
+    pass: true

@@ -7,7 +7,7 @@ from functools import cached_property
 
 from ebi_eva_common_pyutils.logger import AppLogger
 
-from eva_submission.eload_utils import check_project_format, check_existing_project_in_ena, is_single_insdc_sequence, \
+from eva_submission.submission_utils import check_project_format, check_existing_project_in_ena, is_single_insdc_sequence, \
     is_vcf_file, get_scientific_name
 
 
@@ -176,9 +176,10 @@ class EnaJsonConverter(AppLogger):
             return {}
 
         def get_samples(samples):
+            # alias is left out when the sample has no name in the VCF (e.g. allele frequency analyses)
             return [{
-                "accession": sample.get('bioSampleAccession') or sample.get('accession') ,
-                "alias": sample.get('sampleInVCF')
+                "accession": sample.get('bioSampleAccession') or sample.get('accession'),
+                **({"alias": sample.get('sampleInVCF')} if sample.get('sampleInVCF') else {})
             } for sample in samples]
 
         def get_runs(analysis):

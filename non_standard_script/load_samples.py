@@ -30,8 +30,8 @@ from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query
 
-from eva_submission.eload_backlog import EloadBacklog, list_to_sql_in_list
-from eva_submission.eload_utils import detect_vcf_aggregation, download_file
+from eva_submission.submission_backlog import SubmissionBacklog, list_to_sql_in_list
+from eva_submission.submission_utils import detect_vcf_aggregation, download_file
 from eva_submission.evapro.find_from_ena import OracleEnaProjectFinder, ApiEnaProjectFinder
 from eva_submission.evapro.populate_evapro import EvaProjectLoader
 from eva_submission.sample_utils import get_samples_from_vcf
@@ -40,12 +40,12 @@ from eva_submission.submission_config import load_config
 
 
 def main():
-    argparse = ArgumentParser(description='Retrieve information about sample from an ELOAD or Project and load it to EVAPRO')
-    argparse.add_argument('--eload', type=int, help='The ELOAD number of the submission for which the samples should be loaded')
+    argparse = ArgumentParser(description='Retrieve information about sample from a Submission or Project and load it to EVAPRO')
+    argparse.add_argument('--submission_id', type=str, help='The Submission Id of the submission')
     argparse.add_argument('--project_accession', type=str,
                           help='The project accession of the submission for which the samples should be loaded.')
     argparse.add_argument('--clean_up', action='store_true', default=False,
-                          help='Remove any downloaded files from the ELOAD directory')
+                          help='Remove any downloaded files from the Submission directory')
     argparse.add_argument('--print', action='store_true', default=False,
                           help='Print and compare the files and samples from the ENA and EVAPRO')
     argparse.add_argument('--debug', action='store_true', default=False,
@@ -67,7 +67,7 @@ def main():
     # Load the config_file from default location
     load_config()
     exit_code = 0
-    sample_loader = HistoricalProjectSampleLoader(args.eload, args.project_accession, args.mapping_file, args.possible_mapping_file)
+    sample_loader = HistoricalProjectSampleLoader(args.submission_id, args.project_accession, args.mapping_file, args.possible_mapping_file)
     if args.print:
         sample_loader.print_sample_matches()
     else:
@@ -76,15 +76,17 @@ def main():
         sample_loader.clean_up()
     return exit_code
 
-class HistoricalProjectSampleLoader(EloadBacklog):
-    def __init__(self, eload, project_accession, mapping_file, possible_mapping_file):
-        super().__init__(eload_number=eload, project_accession=project_accession)
+class HistoricalProjectSampleLoader(SubmissionBacklog):
+    def __init__(self, submission_id, project_accession, mapping_file, possible_mapping_file):
+        super().__init__(submission_id=submission_id, project_accession=project_accession)
+        # Sample maps are built from the sample records, which old submissions don't have yet
+        self.upgrade_sample_records_if_needed()
         self.mapping_file = mapping_file
         self.possible_mapping_file = possible_mapping_file
         self.ena_project_finder = OracleEnaProjectFinder()
         self.api_ena_finder = ApiEnaProjectFinder()
         self.eva_project_loader = EvaProjectLoader()
-        self.downloaded_files_path = os.path.join(self.eload_dir, '.load_samples_downloaded_files')
+        self.downloaded_files_path = os.path.join(self.submission_dir, '.load_samples_downloaded_files')
 
     @cached_property
     def sample_mapping(self):
@@ -153,7 +155,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             unmatched_name_in_VCF = []
             unmatched_sample_accession = []
             for vcf_file, md5 in self.analysis_accession_2_file_info.get(analysis_accession, []):
-                sample_name_2_accession = copy(self.sample_name_2_accessions_per_analysis.get(analysis_accession))
+                sample_name_2_accession = copy(self.ena_sample_alias_to_accession_per_analysis.get(analysis_accession))
                 sample_names = self.get_samples_from_vcf(vcf_file)
 
                 for sample_name in sample_names:
@@ -224,11 +226,14 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             # Add link between sample accession and sample name
             aggregation_type = self.analysis_accession_2_aggregation_type.get(analysis_accession)
             if aggregation_type == 'basic':
-                result &= self.eva_project_loader.load_samples_from_analysis(self.sample_name_2_accession, analysis_accession)
+                result &= self.eva_project_loader.load_samples_from_analysis(
+                    self.sample_accession_to_name_for_analysis_accession(analysis_accession), analysis_accession
+                )
             else:
+                sample_name_2_accession = self.sample_name_to_accession_for_analysis_accession(analysis_accession)
                 for vcf_file, vcf_file_md5 in self.analysis_accession_2_file_info.get(analysis_accession, []):
                     result &= self.eva_project_loader.load_samples_from_vcf_file(
-                        self.sample_name_2_accession, vcf_file, vcf_file_md5,
+                        sample_name_2_accession, vcf_file, vcf_file_md5,
                         analysis_accession=analysis_accession,
                         sample_mapping=self.sample_mapping)
         if not result:
@@ -239,7 +244,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
 
     @cached_property
     def project_accession(self):
-        project_accession = self.eload_cfg.query('brokering', 'ena', 'PROJECT')
+        project_accession = self.submission_cfg.query('brokering', 'ena', 'PROJECT')
         if project_accession is not None:
             return project_accession
         else:
@@ -247,16 +252,16 @@ class HistoricalProjectSampleLoader(EloadBacklog):
 
     @cached_property
     def analysis_accessions(self):
-        analysis_accession_dict = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
+        analysis_accession_dict = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS')
         if analysis_accession_dict is not None and isinstance(analysis_accession_dict, dict):
             return analysis_accession_dict.values()
         else:
             return super().analysis_accessions
 
     @cached_property
-    def sample_name_2_accessions_per_analysis(self):
+    def ena_sample_alias_to_accession_per_analysis(self):
         """Retrieve the sample to biosample accession map from the ENA API"""
-        sample_name_2_accessions_per_analysis = {}
+        ena_sample_alias_to_accession_per_analysis = {}
         sample_accessions_per_analysis = {}
         # Check the XML first
         if self.analysis_accessions:
@@ -270,32 +275,54 @@ class HistoricalProjectSampleLoader(EloadBacklog):
                 sample_accessions_per_analysis = self.api_ena_finder.find_samples_from_analysis(self.project_accession)
         # reverse the dictionary where sample name become the key and sample accession the value
         for analysis_accession in sample_accessions_per_analysis:
-            sample_name_2_accessions_per_analysis[analysis_accession] = {
+            ena_sample_alias_to_accession_per_analysis[analysis_accession] = {
                 alias: accession for accession, alias in sample_accessions_per_analysis[analysis_accession]
             }
-        return sample_name_2_accessions_per_analysis
+        return ena_sample_alias_to_accession_per_analysis
 
     @cached_property
-    def sample_name_2_accession(self):
+    def project_sample_name_to_accession(self):
         """Retrieve the sample to biosample accession map from the config or from the ENA API"""
-        sample_name_2_accession = self.eload_cfg.query('brokering', 'Biosamples', 'Samples', ret_default={})
+        sample_name_2_accession = self.sample_name_to_accession()
         if not sample_name_2_accession:
                 sample_name_2_accession = {name: accession
-                                           for analysis_accession in self.sample_name_2_accessions_per_analysis
+                                           for analysis_accession in self.ena_sample_alias_to_accession_per_analysis
                                            for name, accession in
-                                           self.sample_name_2_accessions_per_analysis[analysis_accession].items()}
+                                           self.ena_sample_alias_to_accession_per_analysis[analysis_accession].items()}
         return sample_name_2_accession
+
+    @cached_property
+    def analysis_accession_2_alias(self):
+        """Analysis aliases of this submission keyed by their accession. Empty when the submission config is not available."""
+        analysis_alias_2_accession = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS')
+        if not isinstance(analysis_alias_2_accession, dict):
+            return {}
+        return {accession: alias for alias, accession in analysis_alias_2_accession.items()}
+
+    def sample_name_to_accession_for_analysis_accession(self, analysis_accession):
+        """Use the sample records of the analysis when they exist, otherwise the map for the whole project."""
+        analysis_alias = self.analysis_accession_2_alias.get(analysis_accession)
+        if analysis_alias and self.sample_records():
+            return self.sample_name_to_accession_for_analysis(analysis_alias)
+        return self.project_sample_name_to_accession
+
+    def sample_accession_to_name_for_analysis_accession(self, analysis_accession):
+        """Use the sample records of the analysis when they exist, otherwise invert the map for the whole project."""
+        analysis_alias = self.analysis_accession_2_alias.get(analysis_accession)
+        if analysis_alias and self.sample_records():
+            return self.sample_accession_to_name_for_analysis(analysis_alias)
+        return {accession: name for name, accession in self.project_sample_name_to_accession.items()}
 
     @cached_property
     def analysis_accession_2_file_info(self):
         """Find the files associated with all the analysis accessions"""
         analysis_accession_2_files = defaultdict(list)
         try:
-            if self.eload_cfg.query('brokering', 'analyses'):
+            if self.submission_cfg.query('brokering', 'analyses'):
                 # Assume that all the information in contained in the config and the files exist
-                for analysis_alias in self.eload_cfg.query('brokering', 'analyses'):
-                    vcf_file_dict = self.eload_cfg.query('brokering', 'analyses', analysis_alias, 'vcf_files')
-                    analysis_accession = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
+                for analysis_alias in self.submission_cfg.query('brokering', 'analyses'):
+                    vcf_file_dict = self.submission_cfg.query('brokering', 'analyses', analysis_alias, 'vcf_files')
+                    analysis_accession = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', analysis_alias)
                     vcf_info_list = []
                     for vcf_file, vcf_info in vcf_file_dict.items():
                         if os.path.exists(vcf_file):
@@ -344,14 +371,14 @@ class HistoricalProjectSampleLoader(EloadBacklog):
     def analysis_accession_2_aggregation_type(self):
         """Resolve aggregation types for each analysis. Either use the config or the database information"""
         analysis_accession_2_aggregation_type = {}
-        if self.eload_cfg.query('ingestion', 'aggregation'):
-            analysis_accession_2_aggregation_type = self.eload_cfg.query('ingestion', 'aggregation')
+        if self.submission_cfg.query('ingestion', 'aggregation'):
+            analysis_accession_2_aggregation_type = self.submission_cfg.query('ingestion', 'aggregation')
         if not analysis_accession_2_aggregation_type or not isinstance(analysis_accession_2_aggregation_type, dict):
             analysis_accession_2_aggregation_type = {}
-            analysis_info = self.eload_cfg.query('brokering', 'ena', 'ANALYSIS')
+            analysis_info = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS')
             if analysis_info and isinstance(analysis_info, dict):
                 for analysis_alias, accession in analysis_info.items():
-                    analysis_accession_2_aggregation_type[accession] = self.eload_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
+                    analysis_accession_2_aggregation_type[accession] = self.submission_cfg.query('validation', 'aggregation_check', 'analyses', analysis_alias)
         if not analysis_accession_2_aggregation_type or not isinstance(analysis_accession_2_aggregation_type, dict):
             analysis_accession_2_aggregation_type = {}
             for analysis_accession in self.analysis_accessions:
@@ -413,7 +440,7 @@ class HistoricalProjectSampleLoader(EloadBacklog):
             potential_matches_for_name = []
             for name_in_ENA in unmatched_names_in_ENA:
                 # search the biosample accession associated with the sample in ENA
-                biosample_accession = self.sample_name_2_accession.get(name_in_ENA)
+                biosample_accession = self.project_sample_name_to_accession.get(name_in_ENA)
                 if biosample_accession:
                     attribute, match_type = self.search_mapping_in_biosample(biosample_accession, name_in_vcf)
                     if attribute and match_type == 'full':

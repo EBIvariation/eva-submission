@@ -1,0 +1,11 @@
+2023-04-24 07:45:36.316  INFO 1094758 --- [           main] o.s.b.c.l.support.SimpleJobLauncher      : Job: [SimpleJob: [name=BACK_PROPAGATE_NEW_RS_JOB]] launched with the following parameters: [{}]
+2023-04-24 07:45:36.355  INFO 1094758 --- [           main] o.s.batch.core.job.SimpleStepHandler     : Executing step: [BACK_PROPAGATE_NEW_RS_STEP]
+2023-04-24 07:45:46.655  INFO 1094758 --- [           main] u.a.e.e.a.c.b.l.GenericProgressListener  : BACK_PROPAGATE_NEW_RS_STEP: Items read = 100, items written = 100
+2023-04-24 07:45:47.578  INFO 1094758 --- [           main] u.a.e.e.a.c.b.l.GenericProgressListener  : BACK_PROPAGATE_NEW_RS_STEP: Items read = 200, items written = 200
+2023-04-24 07:46:58.119  INFO 1094758 --- [           main] u.a.e.e.a.c.b.l.GenericProgressListener  : BACK_PROPAGATE_NEW_RS_STEP: Items read = 28800, items written = 28800
+2023-04-24 07:46:58.229  INFO 1094758 --- [           main] u.a.e.e.a.c.b.l.GenericProgressListener  : BACK_PROPAGATE_NEW_RS_STEP: Items read = 28811, items written = 28811
+2023-04-24 07:46:58.235  INFO 1094758 --- [           main] u.a.e.eva.metrics.metric.MetricCompute   : Count{id=null, process='clustering', identifier='{"assembly":"GCA_000247795.2","projects":["PRJEB55361"]}', metric='submitted_variants_ss_split', count=0}
+2023-04-24 07:46:58.236  INFO 1094758 --- [           main] u.a.e.eva.metrics.metric.MetricCompute   : Count{id=null, process='clustering', identifier='{"assembly":"GCA_000247795.2","projects":["PRJEB55361"]}', metric='submitted_variants_deprecated', count=0}
+2023-04-24 07:46:58.745  INFO 1094758 --- [           main] u.a.e.eva.metrics.metric.MetricCompute   : Metric Count successfully saved In DB
+023-04-26 10:45:35.204 ERROR 2166396 --- [cTaskExecutor-1] o.s.batch.core.step.AbstractStep         : Encountered an error executing step BACK_PROPAGATE_NEW_RS_STEP in job BACK_PROPAGATE_NEW_RS_JOB
+2023-04-24 07:46:58.753  INFO 1094758 --- [           main] o.s.b.c.l.support.SimpleJobLauncher      : Job: [SimpleJob: [name=BACK_PROPAGATE_NEW_RS_JOB]] completed with the following parameters: [] and the following status: [FAILED]

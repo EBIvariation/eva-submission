@@ -4,7 +4,7 @@ from unittest import TestCase
 
 from bin.modify_existing_sample import XlsxExistingSampleParser
 from eva_submission.biosample_submission.biosamples_submitters import SampleJSONSubmitter
-from eva_submission.eload_utils import convert_spreadsheet_to_json
+from eva_submission.submission_utils import convert_spreadsheet_to_json
 
 
 class TestModifyExistingSample(TestCase):
@@ -53,6 +53,7 @@ class TestModifyExistingSample(TestCase):
         with open(self.metadata_json_file_path) as open_file:
             metadata_json = json.load(open_file)
             sample_submitter = SampleJSONSubmitter(metadata_json, submit_type=('derive',))
-            source_sample_json, sample_name_from_metadata, sample_accession = next(sample_submitter._convert_metadata())
+            source_sample_json, sample_name_from_metadata, sample_accession, analysis_aliases = next(sample_submitter._convert_metadata())
             assert source_sample_json['accession'] == 'SAMEA000000000'
-            assert sample_accession is None
+            assert sample_accession == 'SAMEA000000000'
+            assert analysis_aliases == ['HGV analysis']

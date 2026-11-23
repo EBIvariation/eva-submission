@@ -28,7 +28,7 @@ from eva_submission.submission_config import load_config
 
 logger = log_cfg.get_logger(__name__)
 
-DISPLAY_FIELDS = ['submissionId', 'submissionAccount', 'eloadId', 'uploadedTime', 'processingStep', 'processingStatus',
+DISPLAY_FIELDS = ['submissionId', 'submissionAccount', 'uploadedTime', 'processingStep', 'processingStatus',
                   'projectTitle', 'releaseDate', 'rt_link']
 SUBMISSION_SOURCES = ['email', 'eva-sub-cli']
 
@@ -37,7 +37,6 @@ MAX_PROJECT_TITLE_WIDTH = 40
 # Maps CLI underscore arg names to API camelCase query parameter names
 PARAM_MAP = {
     'submission_id': 'submissionId',
-    'eload_id': 'eloadId',
     'uploaded_after': 'uploadedAfter',
     'submission_account': 'submissionAccount',
     'source': 'source',
@@ -97,8 +96,6 @@ def main():
     argparse = ArgumentParser(description='List submissions from the submission webservice')
     argparse.add_argument('--submission_id', required=False, type=str,
                           help='Filter by submission ID')
-    argparse.add_argument('--eload_id', required=False, type=int,
-                          help='Filter by eload ID')
     argparse.add_argument('--uploaded_after', required=False, type=iso_date, metavar='DATE',
                           help='Filter submissions uploaded on or after this date (ISO-8601, e.g. 2024-01-15)')
     argparse.add_argument('--submission_account', required=False, type=str,
