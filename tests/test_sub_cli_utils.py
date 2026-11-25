@@ -66,10 +66,9 @@ class TestTrackingDetails(TestCase):
             assert sub_cli_utils.get_processing_state('sub1') == ('BROKERING', 'RUNNING')
 
     def test_get_processing_state_not_found(self):
-        response = Mock(text='not found', status_code=404)
+        response = Mock(text='not found', status_code=204)
         with patch.object(sub_cli_utils.requests, 'get', return_value=response):
             assert sub_cli_utils.get_processing_state('sub1') == (None, None)
-        response.raise_for_status.assert_not_called()
 
     def test_get_processing_state_unavailable(self):
         with patch.object(sub_cli_utils.requests, 'get', side_effect=Exception('boom')):

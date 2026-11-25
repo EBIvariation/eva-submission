@@ -34,6 +34,9 @@ class SubmissionBrokering(Submission):
     def broker(self, brokering_tasks_to_force=None, existing_project=None, async_upload=False, dry_ena_upload=False,
                output_format='json', resume=False):
         """Run the brokering process"""
+        if not self.is_validation_successful():
+            raise ValueError(f'Validation has not completed successfully for submission {self.submission_id}: '
+                             f'cannot prepare the brokering.')
         self.update_submission_status(sub_cli_utils.BROKERING, sub_cli_utils.RUNNING)
         self.submission_cfg.set('brokering', 'brokering_date', value=self.now)
         self.prepare_brokering(force=('preparation' in brokering_tasks_to_force), resume=resume)
@@ -44,9 +47,6 @@ class SubmissionBrokering(Submission):
         self.update_submission_brokering_status()
 
     def prepare_brokering(self, force=False, resume=False):
-        if not self.is_validation_successful():
-            raise ValueError(f'Validation has not completed successfully for submission {self.submission_id}: '
-                             f'cannot prepare the brokering.')
         valid_analyses = self.get_submitted_vcf_files()
         brokered_analyses = self.get_brokered_analyses()
         if not all([

@@ -114,14 +114,14 @@ def get_processing_state(submission_id):
     try:
         url = sub_ws_url_build('admin', 'submission-process', submission_id)
         response = requests.get(url, auth=sub_ws_auth(), timeout=60)
-        if response.status_code == 404:
+        response.raise_for_status()
+        if response.status_code == 204:
             logger.warning(f'No processing state available for {submission_id}: {response.text}')
             return None, None
-        response.raise_for_status()
         state = response.json() if response.text else {}
         return state.get('step'), state.get('status')
     except Exception as e:
-        logger.warning(f'Could not retrieve the processing state for {submission_id}. Error {e}')
+        logger.error(f'Could not retrieve the processing state for {submission_id}. Error {e}')
     return None, None
 
 
@@ -135,4 +135,17 @@ def get_tracking_details(submission_id):
         return response.json()
     except Exception as e:
         logger.warning(f'Could not retrieve submission tracking details for {submission_id}. Error {e}')
+        return None
+
+
+def delete_tracking_details(submission_id):
+    try:
+        url = sub_ws_url_build('admin', 'submission', str(submission_id), 'trackingDetails')
+        response = requests.delete(url, auth=sub_ws_auth(), timeout=60)
+        if response.status_code == 404:
+            logger.warning(f'No tracking details exists for submission {submission_id}')
+            return None
+        response.raise_for_status()
+    except Exception as e:
+        logger.warning(f'Could not delete submission tracking details for {submission_id}. Error {e}')
         return None

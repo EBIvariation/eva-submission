@@ -4,6 +4,7 @@ import random
 import string
 from datetime import datetime
 
+import yaml
 from cached_property import cached_property
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
@@ -41,6 +42,7 @@ class Submission(AppLogger):
     def __init__(self, submission_id: str, config_object: SubmissionConfig = None):
         self.submission_id = submission_id
         self.submission_dir = os.path.abspath(os.path.join(cfg['submissions_dir'], self.submission_id))
+        self.tracking_details_backup_file = os.path.join(self.submission_dir, 'tracking_details_backup')
         self.nobackup_submission_dir = os.path.abspath(
             os.path.join(cfg['nobackup_submissions_dir'], self.submission_id))
         self.config_path = os.path.join(self.submission_dir, '.' + self.submission_id + '_config.yml')
@@ -96,6 +98,15 @@ class Submission(AppLogger):
         if value:
             return value
         return self.submission_cfg.query(*config_path, ret_default=default)
+
+    def delete_db_state(self):
+        sub_cli_utils.delete_tracking_details(self.submission_id)
+
+    def backup_db_state(self):
+        tracking_details = get_tracking_details(self.submission_id)
+        if tracking_details:
+            with open(self.tracking_details_backup_file, 'w') as db_backup:
+                yaml.safe_dump(tracking_details, db_backup)
 
     def db_analyses(self):
         return {
@@ -347,6 +358,7 @@ class Submission(AppLogger):
     def update_config_with_hold_date(self, project_accession, project_alias=None):
         hold_date = get_hold_date_from_ena(project_accession, project_alias)
         self.submission_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
+        update_tracking_details(self.submission_id, release_date=hold_date)
 
     def _accessioned_sample_objects(self, samples, sample_records):
         """The sample records are in the same order as the samples in the metadata: sample i gets record i."""
