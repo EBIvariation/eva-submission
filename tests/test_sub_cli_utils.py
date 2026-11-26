@@ -73,3 +73,27 @@ class TestTrackingDetails(TestCase):
     def test_get_processing_state_unavailable(self):
         with patch.object(sub_cli_utils.requests, 'get', side_effect=Exception('boom')):
             assert sub_cli_utils.get_processing_state('sub1') == (None, None)
+
+    def test_get_processing_state_http_error(self):
+        response = Mock(text='boom', status_code=500)
+        response.raise_for_status.side_effect = Exception('500 Server Error')
+        with patch.object(sub_cli_utils.requests, 'get', return_value=response):
+            assert sub_cli_utils.get_processing_state('sub1') == (None, None)
+
+    def test_delete_tracking_details(self):
+        response = Mock(text='', status_code=200)
+        with patch.object(sub_cli_utils.requests, 'delete', return_value=response) as m_delete:
+            sub_cli_utils.delete_tracking_details('sub1')
+        assert m_delete.call_args[0][0].endswith('/admin/submission/sub1/trackingDetails')
+        response.raise_for_status.assert_called_once()
+
+    def test_delete_tracking_details_not_found(self):
+        response = Mock(text='not found', status_code=404)
+        with patch.object(sub_cli_utils.requests, 'delete', return_value=response):
+            assert sub_cli_utils.delete_tracking_details('sub1') is None
+        response.raise_for_status.assert_not_called()
+
+    def test_delete_tracking_details_does_not_raise(self):
+        with patch.object(sub_cli_utils.requests, 'delete', side_effect=Exception('boom')):
+            assert sub_cli_utils.delete_tracking_details('sub1') is None
+

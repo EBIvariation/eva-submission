@@ -1,7 +1,8 @@
 import os
 import shutil
+import yaml
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import patch, Mock, DEFAULT
 
 from eva_submission import ROOT_DIR
 from eva_submission.biosample_submission.sample_record import SampleRecord
@@ -340,3 +341,60 @@ class TestSubmissionStateReadsFromDb(SubmissionStateTestCase):
             assert not self.sub.is_validation_successful()
             self.sub.submission_cfg.set('validation', 'valid', 'analyses', 'a', value={'vcf_files': ['/a.vcf']})
             assert self.sub.is_validation_successful()
+
+
+class TestSubmissionStateBackupAndDelete(SubmissionStateTestCase):
+
+    def test_backup_db_state_writes_tracking_details(self):
+        os.makedirs(self.sub.submission_dir, exist_ok=True)
+        with patch('eva_submission.submission.get_tracking_details', return_value=DB_STATE):
+            self.sub.backup_db_state()
+        with open(self.sub.tracking_details_backup_file) as open_file:
+            assert yaml.safe_load(open_file) == DB_STATE
+
+    def test_backup_db_state_nothing_to_backup(self):
+        os.makedirs(self.sub.submission_dir, exist_ok=True)
+        with patch('eva_submission.submission.get_tracking_details', return_value=None):
+            self.sub.backup_db_state()
+        assert not os.path.exists(self.sub.tracking_details_backup_file)
+
+    def test_delete_db_state(self):
+        with patch('eva_submission.submission.sub_cli_utils.delete_tracking_details') as m_delete:
+            self.sub.delete_db_state()
+        m_delete.assert_called_once_with(self.submission_id)
+
+    def test_update_config_with_hold_date_stores_release_date(self):
+        with patch('eva_submission.submission.get_hold_date_from_ena', return_value='2030-05-01') as m_hold, \
+                patch('eva_submission.submission.update_tracking_details') as m_update:
+            self.sub.update_config_with_hold_date('PRJEB1', 'alias')
+        m_hold.assert_called_once_with('PRJEB1', 'alias')
+        assert self.sub.submission_cfg.query('brokering', 'ena', 'hold_date') == '2030-05-01'
+        m_update.assert_called_once_with(self.submission_id, release_date='2030-05-01')
+
+
+class TestPreparationResetsState(SubmissionStateTestCase):
+    submission_class = SubmissionPreparation
+
+    def _detect_all(self):
+        steps = ['detect_submitted_metadata', 'check_submitted_filenames', 'detect_metadata_attributes',
+                 'find_genome', 'update_metadata_json_if_required', 'add_submission_id_to_config',
+                 'store_preparation_state', 'backup_db_state', 'delete_db_state']
+        with patch.multiple(SubmissionPreparation, **{step: DEFAULT for step in steps}) as mocks:
+            self.sub.detect_all()
+        return mocks
+
+    def test_detect_all_backs_up_and_deletes_db_state_when_resetting(self):
+        self.sub.submission_cfg.set('submission', 'project_title', value='title')
+        with patch.object(SubmissionConfig, 'backup'):
+            mocks = self._detect_all()
+        assert self.sub.submission_cfg.query('submission', 'project_title') is None
+        mocks['backup_db_state'].assert_called_once()
+        mocks['delete_db_state'].assert_called_once()
+        mocks['store_preparation_state'].assert_called_once()
+
+    def test_detect_all_leaves_db_state_alone_on_first_detection(self):
+        mocks = self._detect_all()
+        mocks['backup_db_state'].assert_not_called()
+        mocks['delete_db_state'].assert_not_called()
+        mocks['store_preparation_state'].assert_called_once()
+
