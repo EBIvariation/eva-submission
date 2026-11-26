@@ -4,6 +4,7 @@ import random
 import string
 from datetime import datetime
 
+import yaml
 from cached_property import cached_property
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import AppLogger
@@ -11,8 +12,9 @@ from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from ebi_eva_internal_pyutils.metadata_utils import get_metadata_connection_handle
 from packaging import version
 
+from eva_sub_cli_processing import sub_cli_utils
 from eva_sub_cli_processing.sub_cli_utils import put_to_sub_ws, sub_ws_url_build, get_tracking_details, \
-    update_tracking_details
+    update_tracking_details, get_processing_state
 from eva_submission import __version__
 from eva_submission.biosample_submission.sample_record import records_from_dicts
 from eva_submission.config_migration import upgrade_version_0_1, upgrade_version_1_14_to_1_15, \
@@ -40,6 +42,7 @@ class Submission(AppLogger):
     def __init__(self, submission_id: str, config_object: SubmissionConfig = None):
         self.submission_id = submission_id
         self.submission_dir = os.path.abspath(os.path.join(cfg['submissions_dir'], self.submission_id))
+        self.tracking_details_backup_file = os.path.join(self.submission_dir, 'tracking_details_backup')
         self.nobackup_submission_dir = os.path.abspath(
             os.path.join(cfg['nobackup_submissions_dir'], self.submission_id))
         self.config_path = os.path.join(self.submission_dir, '.' + self.submission_id + '_config.yml')
@@ -96,6 +99,15 @@ class Submission(AppLogger):
             return value
         return self.submission_cfg.query(*config_path, ret_default=default)
 
+    def delete_db_state(self):
+        sub_cli_utils.delete_tracking_details(self.submission_id)
+
+    def backup_db_state(self):
+        tracking_details = get_tracking_details(self.submission_id)
+        if tracking_details:
+            with open(self.tracking_details_backup_file, 'w') as db_backup:
+                yaml.safe_dump(tracking_details, db_backup)
+
     def db_analyses(self):
         return {
             analysis['analysisAlias']: analysis
@@ -114,6 +126,79 @@ class Submission(AppLogger):
 
     def get_taxonomy_id(self):
         return self.db_taxonomy_id() or self.submission_cfg.query('submission', 'taxonomy_id')
+
+    def get_project_accession(self):
+        return self.get_state('projectAccession', 'brokering', 'ena', 'PROJECT')
+
+    def get_hold_date(self):
+        return self.get_state('releaseDate', 'brokering', 'ena', 'hold_date')
+
+    def get_project_title(self):
+        return self.get_state('projectTitle', 'submission', 'project_title')
+
+    def get_analysis_assemblies(self):
+        """Assembly accession per analysis alias: from the database first, completed from the config."""
+        assemblies = {
+            alias: analysis_info.get('assembly_accession')
+            for alias, analysis_info in (self.submission_cfg.query('submission', 'analyses', ret_default={})
+                                         or {}).items()
+            if analysis_info.get('assembly_accession')
+        }
+        assemblies.update({
+            alias: analysis['assemblyAccession']
+            for alias, analysis in self.db_analyses().items()
+            if analysis.get('assemblyAccession')
+        })
+        return assemblies
+
+    def get_analysis_assembly(self, analysis_alias):
+        return self.get_analysis_assemblies().get(analysis_alias)
+
+    def is_validation_successful(self):
+        step, status = get_processing_state(self.submission_id)
+        if step in (sub_cli_utils.BROKERING, sub_cli_utils.INGESTION):
+            return True
+        if step == sub_cli_utils.VALIDATION:
+            return status == sub_cli_utils.SUCCESS
+        return bool(self.submission_cfg.query('validation', 'valid', 'analyses'))
+
+    def get_valid_metadata_json_file(self):
+        return self.get_state('metadataJsonFile', 'validation', 'valid', 'metadata_json')
+
+    def get_submitted_vcf_files(self):
+        vcf_files = {}
+        for alias, analysis_info in (self.submission_cfg.query('validation', 'valid', 'analyses', ret_default={})
+                                     or {}).items():
+            if analysis_info.get('vcf_files'):
+                vcf_files[alias] = list(analysis_info['vcf_files'])
+        for alias, analysis in self.db_analyses().items():
+            files = [vcf['submittedFile'] for vcf in analysis.get('vcfs') or [] if vcf.get('submittedFile')]
+            if files:
+                vcf_files[alias] = files
+        return vcf_files
+
+    def get_brokered_analyses(self):
+        brokered = {}
+        for alias, analysis_info in (self.submission_cfg.query('brokering', 'analyses', ret_default={}) or {}).items():
+            brokered[alias] = dict(analysis_info)
+            brokered[alias]['vcf_files'] = {f: dict(info) for f, info in (analysis_info.get('vcf_files') or {}).items()}
+        assemblies = self.get_analysis_assemblies()
+        for alias, analysis in self.db_analyses().items():
+            db_files = {
+                vcf['brokeredFile']: {
+                    'original_vcf': vcf.get('submittedFile'), 'output_vcf_file': vcf['brokeredFile'],
+                    'md5': vcf.get('brokeredFileMd5'), 'csi': vcf.get('csiFile'), 'csi_md5': vcf.get('csiFileMd5')
+                }
+                for vcf in analysis.get('vcfs') or [] if vcf.get('brokeredFile')
+            }
+            if not db_files:
+                continue
+            entry = brokered.setdefault(alias, {'vcf_files': {}})
+            for vcf_file, db_info in db_files.items():
+                entry['vcf_files'].setdefault(vcf_file, {}).update({k: v for k, v in db_info.items() if v})
+            if assemblies.get(alias):
+                entry['assembly_accession'] = assemblies[alias]
+        return brokered
 
     def get_analysis_accessions(self):
         accessions = dict(self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={}) or {})
@@ -147,7 +232,7 @@ class Submission(AppLogger):
             return alias[len(self.submission_id) + 1:]
         return alias
 
-    def sample_records(self):
+    def sample_records_from_cfg(self):
         """
         Returns the records of the samples brokered to BioSamples.
         Configs from before the records were introduced are converted by upgrade_sample_records_if_needed.
@@ -155,17 +240,17 @@ class Submission(AppLogger):
         return records_from_dicts(
             self.submission_cfg.query('brokering', 'Biosamples', 'sample_records', ret_default=[]))
 
-    def sample_records_for_analysis(self, analysis_alias):
+    def sample_records_for_analysis_from_cfg(self, analysis_alias):
         """Records belonging to the analysis."""
         return [
-            record for record in self.sample_records()
+            record for record in self.sample_records_from_cfg()
             if record.in_analysis(analysis_alias, normalise_alias=self._unique_alias)
         ]
 
-    def sample_name_to_accession(self):
+    def sample_name_to_accession_from_cfg(self):
         """Map of sample name in VCF to accession across all analyses. Only used by the legacy spreadsheet path."""
         sample_name_to_accession = {}
-        for record in self.sample_records():
+        for record in self.sample_records_from_cfg():
             if record.sample_in_vcf and record.sample_in_vcf not in sample_name_to_accession:
                 sample_name_to_accession[record.sample_in_vcf] = record.accession
         return sample_name_to_accession
@@ -184,7 +269,7 @@ class Submission(AppLogger):
         if sample_name_to_accession:
             return sample_name_to_accession
         # Nothing in the database: fall back on the sample records in the config
-        for record in self.sample_records_for_analysis(analysis_alias):
+        for record in self.sample_records_for_analysis_from_cfg(analysis_alias):
             sample_name = record.sample_in_vcf
             if not sample_name:
                 continue
@@ -200,7 +285,20 @@ class Submission(AppLogger):
         The name is the record's label: sample name in VCF if provided, else the BioSample name, else the accession.
         """
         sample_accession_to_name = {}
-        for record in self.sample_records_for_analysis(analysis_alias):
+        for sample in self.db_analyses().get(analysis_alias, {}).get('samples') or []:
+            sample_name, sample_accession = sample.get('sampleName'), sample.get('sampleAccession')
+            if not (sample_name and sample_accession):
+                continue
+            if sample_accession in sample_accession_to_name:
+                if sample_accession_to_name[sample_accession] != sample_name:
+                    self.warning(f'Sample {sample_accession} in analysis {analysis_alias} has multiple names: '
+                                 f'{sample_accession_to_name[sample_accession]} and {sample_name}. Keep the first one.')
+                continue
+            sample_accession_to_name[sample_accession] = sample_name
+        if sample_accession_to_name:
+            return sample_accession_to_name
+        # Nothing in the database: fall back on the sample records in the config
+        for record in self.sample_records_for_analysis_from_cfg(analysis_alias):
             if record.accession in sample_accession_to_name:
                 if sample_accession_to_name[record.accession] != record.label:
                     self.warning(f'Sample {record.accession} in analysis {analysis_alias} has multiple names: '
@@ -260,6 +358,7 @@ class Submission(AppLogger):
     def update_config_with_hold_date(self, project_accession, project_alias=None):
         hold_date = get_hold_date_from_ena(project_accession, project_alias)
         self.submission_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
+        self.store_state(release_date=hold_date)
 
     def _accessioned_sample_objects(self, samples, sample_records):
         """The sample records are in the same order as the samples in the metadata: sample i gets record i."""
@@ -287,7 +386,7 @@ class Submission(AppLogger):
     def update_metadata_json(self, input_json_file, output_json_file, existing_project=None):
         with open(input_json_file) as open_file:
             metadata_json = json.load(open_file)
-        sample_objects = self._accessioned_sample_objects(metadata_json.get('sample'), self.sample_records())
+        sample_objects = self._accessioned_sample_objects(metadata_json.get('sample'), self.sample_records_from_cfg())
 
         file_objects = []
         analyses = self.submission_cfg['brokering']['analyses']
@@ -337,7 +436,7 @@ class Submission(AppLogger):
         if len(reader.analysis) == 1:
             single_analysis_alias = self._unique_alias(reader.analysis[0].get('Analysis Alias'))
 
-        sample_name_to_accession = self.sample_name_to_accession()
+        sample_name_to_accession = self.sample_name_to_accession_from_cfg()
         sample_rows = []
         for sample_row in reader.samples:
             if sample_name_to_accession.get(sample_row.get('Sample Name')):

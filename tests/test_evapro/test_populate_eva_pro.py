@@ -473,6 +473,18 @@ class TestEvaProjectLoader(TestCase):
                 assert browsable_file.loaded == True
                 assert browsable_file.eva_release == '20240101'
 
+    def test_mark_release_browsable_files_for_project_with_string_release_date(self):
+        # The release date is a yyyy-mm-dd string when read from the submission-ws
+        engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+        with self.patch_evapro_engine(engine):
+            metadata.create_all(engine)
+            project_accession, _, _, _, _ = self._load_project_analysis_files_samples(add_browsable=True)
+            self.loader.mark_release_browsable_files_for_project(project_accession, '2024-01-01')
+
+            for browsable_file in self.loader.eva_session.execute(select(BrowsableFile)).scalars():
+                assert browsable_file.loaded == True
+                assert browsable_file.eva_release == '20240101'
+
     def test_update_files_with_ftp_path_for_project(self):
         engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
         with self.patch_evapro_engine(engine):

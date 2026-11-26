@@ -44,9 +44,10 @@ class SubmissionBrokering(Submission):
         self.update_submission_brokering_status()
 
     def prepare_brokering(self, force=False, resume=False):
-        valid_analyses = self.submission_cfg.query('validation', 'valid', 'analyses', ret_default=[])
+        valid_analyses = self.get_submitted_vcf_files()
+        brokered_analyses = self.get_brokered_analyses()
         if not all([
-            self.submission_cfg.query('brokering', 'analyses', analysis, 'vcf_files')
+            brokered_analyses.get(analysis, {}).get('vcf_files')
             for analysis in valid_analyses
         ]) or force:
             output_dir = self._run_brokering_prep_workflow(resume=resume)
@@ -63,7 +64,7 @@ class SubmissionBrokering(Submission):
         if not self.submission_cfg.query('brokering', 'ena', 'pass') or force:
             ena_spreadsheet = os.path.join(self._get_dir('ena'), 'metadata_spreadsheet.xlsx')
             brokering_json = os.path.join(self._get_dir('ena'), 'metadata_json.json')
-            metadata_json_file = self.submission_cfg.query('validation', 'valid', 'metadata_json')
+            metadata_json_file = self.get_valid_metadata_json_file()
             if metadata_json_file and os.path.exists(metadata_json_file):
                 self.update_metadata_json(metadata_json_file, brokering_json, existing_project)
                 metadata_for_ena = brokering_json
@@ -99,7 +100,7 @@ class SubmissionBrokering(Submission):
             if not dry_ena_upload:
                 # Update the project accession in case we're working with existing project
                 # We should not be uploading additional analysis in th same Submission so no need to update
-                pre_existing_project = self.submission_cfg.query('brokering', 'ena', 'PROJECT')
+                pre_existing_project = self.get_project_accession()
                 if pre_existing_project and 'PROJECT' not in ena_uploader.results:
                     ena_uploader.results['PROJECT'] = pre_existing_project
                 self.submission_cfg.set('brokering', 'ena', value=ena_uploader.results)
@@ -112,7 +113,6 @@ class SubmissionBrokering(Submission):
                     self.store_state(
                         release_date=ena_uploader.converter.hold_date,
                         project_accession=ena_uploader.results['PROJECT'],
-                        analysis_accessions=list(ena_uploader.results.get('ANALYSIS', {}).values()),
                         analyses=[{'analysisAlias': alias, 'analysisAccession': accession}
                                   for alias, accession in ena_uploader.results.get('ANALYSIS', {}).items()]
                     )
@@ -124,7 +124,7 @@ class SubmissionBrokering(Submission):
 
     def upload_to_bioSamples(self, force=False):
         metadata_spreadsheet = self.submission_cfg.query('validation', 'valid', 'metadata_spreadsheet')
-        metadata_json_file = self.submission_cfg.query('validation', 'valid', 'metadata_json')
+        metadata_json_file = self.get_valid_metadata_json_file()
         if metadata_json_file and os.path.exists(metadata_json_file):
             with open(metadata_json_file, 'r') as open_file:
                 metadata_json = json.load(open_file)
@@ -143,7 +143,7 @@ class SubmissionBrokering(Submission):
             self.submission_cfg.set('brokering', 'Biosamples', 'pass',
                                     value=sample_submitter.check_sample_records(sample_records))
             self.store_samples_state(sample_records)
-        elif self.sample_records() and self.submission_cfg.query('brokering', 'Biosamples', 'pass'):
+        elif self.sample_records_from_cfg() and self.submission_cfg.query('brokering', 'Biosamples', 'pass'):
             self.info('BioSamples brokering is already done, Skip!')
         else:
             sample_records = sample_submitter.submit_to_bioSamples()
@@ -186,9 +186,9 @@ class SubmissionBrokering(Submission):
         if not self.submission_cfg.query('brokering', 'Biosamples', 'backlinks') or force:
             # The same sample can be referenced by several records: only add the backlink once
             biosample_accession_list = list(dict.fromkeys(
-                record.accession for record in self.sample_records() if record.accession
+                record.accession for record in self.sample_records_from_cfg() if record.accession
             ))
-            project_accession = self.submission_cfg.query('brokering', 'ena', 'PROJECT')
+            project_accession = self.get_project_accession()
             if project_accession:
                 self.info(f'Add external reference to {len(biosample_accession_list)} BioSamples.')
                 sample_reference_submitter = SampleReferenceSubmitter(biosample_accession_list, project_accession)
@@ -199,10 +199,8 @@ class SubmissionBrokering(Submission):
 
     def _get_valid_vcf_files(self):
         valid_vcf_files = []
-        analyses = self.submission_cfg.query('validation', 'valid', 'analyses')
-        for analysis_alias in analyses:
-            files = analyses[analysis_alias]['vcf_files']
-            valid_vcf_files.extend(files) if files else None
+        for files in self.get_submitted_vcf_files().values():
+            valid_vcf_files.extend(files)
         return valid_vcf_files
 
     def _generate_csv_mappings(self):
@@ -210,13 +208,14 @@ class SubmissionBrokering(Submission):
         with open(vcf_files_mapping_csv, 'w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(['vcf', 'fasta', 'report', 'assembly_accession'])
+            # The assembly fasta and report are only stored in the config
             sub_analyses = self.submission_cfg.query('submission', 'analyses')
-            valid_analyses = self.submission_cfg.query('validation', 'valid', 'analyses')
-            for analysis_alias in valid_analyses:
+            for analysis_alias, vcf_files in self.get_submitted_vcf_files().items():
                 fasta = sub_analyses[analysis_alias]['assembly_fasta']
                 report = sub_analyses[analysis_alias]['assembly_report']
-                assembly_accession = sub_analyses[analysis_alias]['assembly_accession']
-                for vcf_file in valid_analyses[analysis_alias]['vcf_files']:
+                assembly_accession = self.get_analysis_assembly(analysis_alias) \
+                    or sub_analyses[analysis_alias]['assembly_accession']
+                for vcf_file in vcf_files:
                     writer.writerow([vcf_file, fasta, report, assembly_accession])
         return vcf_files_mapping_csv
 
@@ -357,7 +356,7 @@ class SubmissionBrokering(Submission):
         reports = []
         results = self.submission_cfg.query('brokering', 'Biosamples', ret_default={})
         sample_lines = []
-        for record in self.sample_records():
+        for record in self.sample_records_from_cfg():
             line = f'{record.label}: {record.accession}'
             if record.analysis_aliases:
                 line += f' ({", ".join(record.analysis_aliases)})'
@@ -393,8 +392,8 @@ class SubmissionBrokering(Submission):
     def _archival_confirmation_text(self):
         if not self._brokering_complete():
             return 'NA'
-        study_title = self.submission_cfg.query('submission', 'project_title')
-        hold_date = self.submission_cfg.query('brokering', 'ena', 'hold_date')
+        study_title = self.get_project_title()
+        hold_date = self.get_hold_date()
         brokering_date_from_config = self.submission_cfg.query('brokering', 'brokering_date')
         try:
             brokering_date = datetime.datetime.strptime(brokering_date_from_config.split(" ")[0].strip(),
@@ -407,10 +406,10 @@ class SubmissionBrokering(Submission):
             available_date_str = available_date.strftime("%Y-%m-%d")
         else:
             available_date_str = available_date.split(" ")[0]
-        project_accession = self.submission_cfg.query('brokering', 'ena', 'PROJECT')
-        analysis_accession = self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={})
+        project_accession = self.get_project_accession()
+        analysis_accession = self.get_analysis_accessions()
 
-        taxonomy_id = self.submission_cfg.query('submission', 'taxonomy_id')
+        taxonomy_id = self.get_taxonomy_id()
         non_human_study_text = 'Please allow at least 48 hours from the initial release date provided for the data to be made available through this link. Each variant will be issued a unique SS# ID which will be made available to download via the "browsable files" link on the EVA study page.' if taxonomy_id != 9606 else ""
 
         archival_text_data = {

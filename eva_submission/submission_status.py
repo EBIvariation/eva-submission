@@ -13,6 +13,7 @@ from ebi_eva_internal_pyutils.metadata_utils import resolve_variant_warehouse_db
 from ebi_eva_internal_pyutils.mongo_utils import get_mongo_connection_handle
 from ebi_eva_internal_pyutils.pg_utils import get_all_results_for_query
 
+from eva_sub_cli_processing.sub_cli_utils import get_tracking_details
 from eva_submission.retrieve_eload_and_project_from_lts import ELOADRetrieval
 from eva_submission.submission_config import SubmissionConfig
 
@@ -52,24 +53,54 @@ class SubmissionStatus(AppLogger):
         return submission_cfg
 
     @cached_property
+    def db_state(self):
+        return get_tracking_details(self.submission_id) or {}
+
+    def _db_analyses(self):
+        return {
+            analysis['analysisAlias']: analysis
+            for analysis in self.db_state.get('analyses') or []
+            if analysis.get('analysisAlias') and analysis['analysisAlias'] != analysis.get('analysisAccession')
+        }
+
+    @cached_property
     def project_from_config(self):
-        if self.submission_config_file:
-            return self.submission_config_file.query('brokering', 'ena', 'PROJECT')
+        project = self.db_state.get('projectAccession')
+        if not project and self.submission_config_file:
+            project = self.submission_config_file.query('brokering', 'ena', 'PROJECT')
+        return project
 
     @cached_property
     def analysis_from_config(self):
+        analyses = {}
         if self.submission_config_file:
-            return self.submission_config_file.query('brokering', 'ena', 'ANALYSIS')
+            analyses.update(self.submission_config_file.query('brokering', 'ena', 'ANALYSIS', ret_default={}) or {})
+        analyses.update({
+            alias: analysis['analysisAccession']
+            for alias, analysis in self._db_analyses().items()
+            if analysis.get('analysisAccession')
+        })
+        return analyses or None
 
     @cached_property
     def taxonomy_from_config(self):
+        taxonomies = self.db_state.get('projectTaxonomies')
+        if isinstance(taxonomies, (int, str)):
+            taxonomies = str(taxonomies).split(',')
+        taxonomy_ids = {str(t).strip() for t in taxonomies or [] if str(t).strip().isdigit()}
+        if len(taxonomy_ids) == 1:
+            return int(taxonomy_ids.pop())
         if self.submission_config_file:
             return self.submission_config_file.query('submission', 'taxonomy_id')
 
     def source_assembly_from_config(self, analysis):
-        if self.submission_config_file:
-            alias = [alias for alias, a in self.analysis_from_config.items() if analysis == a][0]
-            return self.submission_config_file.query('submission', 'analyses', alias, 'assembly_accession')
+        alias = [alias for alias, a in (self.analysis_from_config or {}).items() if analysis == a]
+        if not alias:
+            return None
+        assembly = self._db_analyses().get(alias[0], {}).get('assemblyAccession')
+        if not assembly and self.submission_config_file:
+            assembly = self.submission_config_file.query('submission', 'analyses', alias[0], 'assembly_accession')
+        return assembly
 
     def retrieve_project_from_metadata(self):
         with self.metadata_connection_handle as conn:

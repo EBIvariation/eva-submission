@@ -77,6 +77,9 @@ def main():
         sys.exit(1)
 
     with SubmissionBrokering(args.submission_id, nextflow_config=args.nextflow_config) as brokering:
+        if not brokering.is_validation_successful():
+            raise ValueError(f'Validation has not completed successfully for submission {brokering.submission_id}: '
+                             f'cannot prepare the brokering.')
         brokering.upgrade_to_new_version_if_needed()
         if not args.report:
             try:

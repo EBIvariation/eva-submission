@@ -78,6 +78,8 @@ class SubmissionPreparation(Submission):
             self.debug('Config will be reset')
             self.submission_cfg.backup()
             self.submission_cfg.clear()
+            self.backup_db_state()
+            self.delete_db_state()
         self.detect_submitted_metadata()
         if self.submission_cfg.query('submission', 'metadata_spreadsheet'):
             self.convert_new_spreadsheet_to_json()

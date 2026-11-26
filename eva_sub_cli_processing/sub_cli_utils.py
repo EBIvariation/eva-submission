@@ -1,3 +1,5 @@
+from datetime import datetime, date
+
 import requests
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
@@ -87,13 +89,17 @@ def get_or_generate_submission_id_for_eload(eload_id, source='email'):
         return None
     return response.get('submissionId')
 
-def update_tracking_details(submission_id, release_date=None, project_accession=None, analysis_accessions=None,
+def update_tracking_details(submission_id, release_date=None, project_accession=None,
                             rt_link=None, metadata_json_file=None, project_title=None, project_taxonomies=None,
                             analyses=None):
+    if isinstance(release_date, datetime):
+        release_date = release_date.date().isoformat()
+    elif isinstance(release_date, date):
+        release_date = release_date.isoformat()
+
     candidates = {
         'releaseDate': release_date,
         'projectAccession': project_accession,
-        'analysisAccessions': analysis_accessions,
         'rtLink': rt_link,
         'metadataJsonFile': metadata_json_file,
         'projectTitle': project_title,
@@ -111,6 +117,21 @@ def update_tracking_details(submission_id, release_date=None, project_accession=
         logger.info(f'No submission tracking details to update for {submission_id}')
 
 
+def get_processing_state(submission_id):
+    try:
+        url = sub_ws_url_build('admin', 'submission-process', submission_id)
+        response = requests.get(url, auth=sub_ws_auth(), timeout=60)
+        response.raise_for_status()
+        if response.status_code == 204:
+            logger.warning(f'No processing state available for {submission_id}: {response.text}')
+            return None, None
+        state = response.json() if response.text else {}
+        return state.get('step'), state.get('status')
+    except Exception as e:
+        logger.error(f'Could not retrieve the processing state for {submission_id}. Error {e}')
+    return None, None
+
+
 def get_tracking_details(submission_id):
     try:
         url = sub_ws_url_build('admin', 'submission', str(submission_id), 'trackingDetails')
@@ -121,4 +142,17 @@ def get_tracking_details(submission_id):
         return response.json()
     except Exception as e:
         logger.warning(f'Could not retrieve submission tracking details for {submission_id}. Error {e}')
+        return None
+
+
+def delete_tracking_details(submission_id):
+    try:
+        url = sub_ws_url_build('admin', 'submission', str(submission_id), 'trackingDetails')
+        response = requests.delete(url, auth=sub_ws_auth(), timeout=60)
+        if response.status_code == 404:
+            logger.warning(f'No tracking details exists for submission {submission_id}')
+            return None
+        response.raise_for_status()
+    except Exception as e:
+        logger.warning(f'Could not delete submission tracking details for {submission_id}. Error {e}')
         return None

@@ -38,15 +38,15 @@ class SubmissionQC(Submission):
         super().__init__(submission_id, config_object)
         self.profile = cfg['maven']['environment']
         self.private_config_xml_file = cfg['maven']['settings_file']
-        self.project_accession = self.submission_cfg.query('brokering', 'ena', 'PROJECT')
+        self.project_accession = self.get_project_accession()
         self.path_to_logs_dir = os.path.join(self.submission_dir, '00_logs')
         if not os.path.isdir(self.path_to_logs_dir) and 'projects_dir' in cfg and self.project_accession:
             path_to_data_dir = Path(cfg['projects_dir'], self.project_accession)
             self.path_to_logs_dir = os.path.join(path_to_data_dir, '00_logs')
         if not os.path.isdir(self.path_to_logs_dir):
             raise ValueError(f'Cannot locate the log directory for Submission {self.submission_id}')
-        self.taxonomy = self.submission_cfg.query('submission', 'taxonomy_id')
-        self.analyses = self.submission_cfg.query('brokering', 'analyses', ret_default={})
+        self.taxonomy = self.get_taxonomy_id()
+        self.analyses = self.get_brokered_analyses()
 
     @cached_property
     def vcf_files(self):
@@ -59,7 +59,7 @@ class SubmissionQC(Submission):
     @cached_property
     def analysis_to_file_names(self):
         analysis_to_file_names = {}
-        for analysis_alias, analysis_accession in self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={}).items():
+        for analysis_alias, analysis_accession in self.get_analysis_accessions().items():
             # Find the files associated with this analysis
             analysis_to_file_names[analysis_accession] = [
                 os.path.basename(f) for f in self.analyses.get(analysis_alias).get('vcf_files')
@@ -326,9 +326,9 @@ class SubmissionQC(Submission):
     def check_if_vep_completed_successfully(self):
         failed_analysis = {}
         any_vep_run = False
-        for analysis_alias, analysis_accession in self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={}).items():
+        for analysis_alias, analysis_accession in self.get_analysis_accessions().items():
             # annotation only happens if a VEP cache can be found
-            assembly_accession = self.submission_cfg.query('brokering', 'analyses', analysis_alias, 'assembly_accession')
+            assembly_accession = self.analyses.get(analysis_alias, {}).get('assembly_accession')
             if self.submission_cfg.query('ingestion', 'vep', assembly_accession, 'cache_version') is not None:
                 any_vep_run = True
                 logs_to_check = []
@@ -349,7 +349,7 @@ class SubmissionQC(Submission):
     def check_if_variant_statistic_completed_successfully(self):
         failed_analysis = {}
         any_stats_run = False
-        for analysis_alias, analysis_accession in self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={}).items():
+        for analysis_alias, analysis_accession in self.get_analysis_accessions().items():
             if self.submission_cfg.query('ingestion', 'aggregation', analysis_accession) == 'none':
                 any_stats_run = True
                 logs_to_check = []
@@ -373,7 +373,7 @@ class SubmissionQC(Submission):
     def check_if_study_statistic_completed_successfully(self):
         failed_analysis = {}
         any_stats_run = False
-        for analysis_alias, analysis_accession in self.submission_cfg.query('brokering', 'ena', 'ANALYSIS', ret_default={}).items():
+        for analysis_alias, analysis_accession in self.get_analysis_accessions().items():
             if self.submission_cfg.query('ingestion', 'aggregation', analysis_accession) == 'none':
                 any_stats_run = True
                 logs_to_check = []
