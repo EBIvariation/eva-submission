@@ -358,7 +358,7 @@ class Submission(AppLogger):
     def update_config_with_hold_date(self, project_accession, project_alias=None):
         hold_date = get_hold_date_from_ena(project_accession, project_alias)
         self.submission_cfg.set('brokering', 'ena', 'hold_date', value=hold_date)
-        update_tracking_details(self.submission_id, release_date=hold_date)
+        self.store_state(release_date=hold_date)
 
     def _accessioned_sample_objects(self, samples, sample_records):
         """The sample records are in the same order as the samples in the metadata: sample i gets record i."""

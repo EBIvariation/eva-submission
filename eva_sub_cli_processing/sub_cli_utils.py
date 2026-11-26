@@ -1,3 +1,5 @@
+from datetime import datetime, date
+
 import requests
 from ebi_eva_common_pyutils.config import cfg
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
@@ -90,6 +92,11 @@ def get_or_generate_submission_id_for_eload(eload_id, source='email'):
 def update_tracking_details(submission_id, release_date=None, project_accession=None,
                             rt_link=None, metadata_json_file=None, project_title=None, project_taxonomies=None,
                             analyses=None):
+    if isinstance(release_date, datetime):
+        release_date = release_date.date().isoformat()
+    elif isinstance(release_date, date):
+        release_date = release_date.isoformat()
+
     candidates = {
         'releaseDate': release_date,
         'projectAccession': project_accession,
